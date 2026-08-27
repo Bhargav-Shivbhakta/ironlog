@@ -1,0 +1,1451 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Bhargav + Anusha — Grocery Tracker</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<style>
+  :root{
+    --ink:#1F3B32;
+    --ink-soft:#3E5C52;
+    --cream:#F1F3EA;
+    --paper:#FFFFFF;
+    --mustard:#E8A93B;
+    --mustard-deep:#C6851B;
+    --berry:#C4477A;
+    --mint:#4FAE8B;
+    --mint-deep:#2F8367;
+    --line:#DDE3D6;
+    --shadow: 0 2px 0 rgba(31,59,50,0.08), 0 8px 20px -12px rgba(31,59,50,0.25);
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    font-family:'Inter',sans-serif;
+    background:
+      linear-gradient(rgba(255,255,255,0.6), rgba(255,255,255,0.6)),
+      repeating-linear-gradient(45deg, #E9EDDF 0 2px, transparent 2px 26px),
+      repeating-linear-gradient(-45deg, #E9EDDF 0 2px, transparent 2px 26px),
+      var(--cream);
+    color:var(--ink);
+    min-height:100vh;
+    padding:20px 14px 60px;
+  }
+  .wrap{max-width:1080px;margin:0 auto;}
+
+  header{text-align:center;margin-bottom:18px;}
+  header h1{
+    font-family:'Fredoka',sans-serif;
+    font-size:clamp(24px,4vw,34px);
+    margin:0 0 4px;
+    color:var(--ink);
+    letter-spacing:0.2px;
+  }
+  header p{margin:0;color:var(--ink-soft);font-size:14px;}
+
+  .who-bar{
+    max-width:520px;margin:0 auto 10px;display:flex;align-items:center;justify-content:center;gap:8px;
+    font-size:12px;color:var(--ink-soft);flex-wrap:wrap;
+  }
+  .who-bar input{
+    font-family:'Inter',sans-serif;font-size:12px;padding:5px 9px;border-radius:8px;
+    border:1px solid var(--line);background:var(--paper);width:120px;
+  }
+  .who-bar button{
+    font-family:'Inter',sans-serif;font-weight:600;font-size:12px;background:var(--ink);color:#fff;
+    border:none;border-radius:8px;padding:5px 10px;cursor:pointer;
+  }
+  .who-bar .shared-pill{
+    background:#E7F5EF;color:var(--mint-deep);font-weight:700;border-radius:20px;padding:3px 10px;font-size:11px;
+  }
+
+  .month-progress{
+    max-width:520px;margin:0 auto 10px;
+    background:var(--paper);border:1px solid var(--line);border-radius:14px;
+    padding:10px 14px;box-shadow:var(--shadow);
+  }
+  .month-progress .label{
+    display:flex;justify-content:space-between;font-size:12px;font-weight:600;
+    color:var(--ink-soft);margin-bottom:6px;
+  }
+  .bar-track{height:10px;border-radius:20px;background:var(--cream);overflow:hidden;border:1px solid var(--line);}
+  .bar-fill{height:100%;border-radius:20px;background:linear-gradient(90deg,var(--mint),var(--mint-deep));transition:width .4s ease;}
+  .tally{margin-top:8px;font-size:11.5px;color:var(--ink-soft);display:flex;gap:8px;flex-wrap:wrap;}
+  .tally span{background:var(--cream);border-radius:20px;padding:3px 9px;border:1px solid var(--line);}
+
+  .archive-bar{
+    max-width:520px;margin:0 auto 22px;display:flex;gap:6px;flex-wrap:wrap;justify-content:center;
+  }
+  .archive-bar input{
+    font-family:'Inter',sans-serif;font-size:12px;padding:7px 10px;border-radius:9px;
+    border:1px solid var(--line);background:var(--paper);flex:1;min-width:140px;
+  }
+  .archive-bar button{
+    font-family:'Fredoka',sans-serif;font-weight:600;font-size:12.5px;background:var(--mustard-deep);color:#fff;
+    border:none;border-radius:9px;padding:8px 14px;cursor:pointer;white-space:nowrap;
+  }
+  .archive-bar button:hover{background:var(--berry);}
+
+  .item-note.by-line{color:var(--mint-deep);font-weight:600;}
+
+  .history-entry{
+    border:1px solid var(--line);border-radius:12px;padding:10px 12px;margin-top:10px;background:var(--cream);
+  }
+  .history-entry .hhead{display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;}
+  .history-entry .hlabel{font-family:'Fredoka',sans-serif;font-weight:600;font-size:14px;}
+  .history-entry .hdate{font-size:11.5px;color:var(--ink-soft);}
+  .history-entry .hstats{font-size:12px;margin-top:6px;color:var(--ink-soft);}
+  .history-entry .hdel{background:none;border:none;color:#C4477A;cursor:pointer;font-size:13px;}
+  .empty-history{font-size:13px;color:var(--ink-soft);font-style:italic;margin-top:8px;}
+
+  .week-tabs{
+    display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin-bottom:16px;
+  }
+  .week-tab{
+    font-family:'Fredoka',sans-serif;
+    font-weight:600;font-size:14px;
+    border:2px solid var(--ink);
+    background:var(--paper);
+    color:var(--ink);
+    padding:9px 18px;
+    border-radius:999px;
+    cursor:pointer;
+    transition:transform .15s ease, background .15s ease, color .15s ease;
+  }
+  .week-tab:hover{transform:translateY(-1px);}
+  .week-tab.active{background:var(--ink);color:#fff;}
+  .week-tab .tag{
+    display:inline-block;margin-left:6px;font-size:10px;font-weight:700;
+    background:var(--mustard);color:#3a2500;border-radius:20px;padding:1px 6px;
+  }
+  .week-tab.active .tag{background:var(--mint);color:#0d2f24;}
+
+  .banner{
+    background:var(--paper);border:1px solid var(--line);border-radius:16px;
+    padding:14px 18px;margin-bottom:16px;box-shadow:var(--shadow);
+    display:flex;gap:12px;align-items:flex-start;
+  }
+  .banner .emoji{font-size:24px;line-height:1;}
+  .banner h2{font-family:'Fredoka',sans-serif;font-size:18px;margin:0 0 2px;}
+  .banner p{margin:0;font-size:13.5px;color:var(--ink-soft);}
+
+  .zones{
+    display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:18px;
+  }
+  .zone{
+    background:var(--paper);border:1px solid var(--line);border-radius:16px;
+    padding:12px;min-height:110px;box-shadow:var(--shadow);
+    display:flex;flex-direction:column;
+  }
+  .zone .zhead{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;}
+  .zone .zhead .zname{font-family:'Fredoka',sans-serif;font-weight:600;font-size:13px;display:flex;align-items:center;gap:6px;}
+  .zone .zhead .zcount{font-size:11px;font-weight:700;color:var(--mint-deep);background:#E7F5EF;border-radius:20px;padding:2px 8px;}
+  .zone .chips{display:flex;flex-wrap:wrap;gap:6px;align-content:flex-start;flex:1;}
+  .zone .placeholder{font-size:11.5px;color:#9AA79E;font-style:italic;align-self:center;margin:auto;}
+  .chip{
+    background:#FBF3E1;border:1px solid #EFD9A8;color:#5A4419;
+    font-size:11.5px;font-weight:600;padding:4px 9px;border-radius:20px;
+    animation:pop .28s cubic-bezier(.34,1.56,.64,1);white-space:nowrap;
+  }
+  @keyframes pop{from{transform:scale(.4);opacity:0;}to{transform:scale(1);opacity:1;}}
+
+  .columns{display:grid;grid-template-columns:1fr 1fr;gap:16px;}
+  .panel{
+    background:var(--paper);border:1px solid var(--line);border-radius:18px;
+    padding:16px;box-shadow:var(--shadow);
+  }
+  .panel .phead{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;}
+  .panel .phead h3{font-family:'Fredoka',sans-serif;font-size:16px;margin:0;display:flex;align-items:center;gap:6px;}
+  .panel.costco .phead h3{color:var(--mustard-deep);}
+  .panel.tj .phead h3{color:var(--berry);}
+  .panel .phead .pct{font-size:12px;font-weight:700;color:var(--ink-soft);}
+
+  .group-title{
+    font-size:11px;text-transform:uppercase;letter-spacing:0.06em;font-weight:700;
+    color:#8B9A8F;margin:14px 0 6px;
+  }
+  .group-title:first-of-type{margin-top:2px;}
+
+  .item-row{
+    display:flex;flex-wrap:wrap;align-items:flex-start;gap:10px;padding:8px 6px;border-radius:10px;
+    transition:background .25s ease;
+  }
+  .item-row:hover{background:#F7F8F2;}
+  .item-row.done{background:#EEF7F2;}
+  .item-row input[type=checkbox]{
+    margin-top:3px;width:18px;height:18px;accent-color:var(--mint-deep);cursor:pointer;flex:none;
+  }
+  .item-row label{cursor:pointer;flex:1;}
+  .item-name{font-size:14px;font-weight:600;color:var(--ink);}
+  .item-row.done .item-name{text-decoration:line-through;color:#8B9A8F;}
+  .item-qty{font-size:12px;color:var(--ink-soft);margin-top:1px;}
+  .item-note{font-size:11.5px;color:var(--mustard-deep);margin-top:2px;font-weight:600;}
+  .item-row .del-custom{
+    background:none;border:none;color:#C4477A;font-size:16px;cursor:pointer;line-height:1;padding:2px 4px;
+  }
+
+  .add-item{
+    margin-top:12px;padding-top:10px;border-top:1px dashed var(--line);
+  }
+  .add-item form{display:flex;gap:6px;flex-wrap:wrap;}
+  .add-item input[type=text]{
+    flex:1;min-width:90px;font-family:'Inter',sans-serif;font-size:13px;
+    padding:8px 10px;border-radius:10px;border:1px solid var(--line);background:var(--cream);
+  }
+  .add-item select{
+    font-family:'Inter',sans-serif;font-size:12px;padding:8px 6px;border-radius:10px;border:1px solid var(--line);background:var(--cream);
+  }
+  .add-item button{
+    font-family:'Fredoka',sans-serif;font-weight:600;font-size:13px;
+    background:var(--ink);color:#fff;border:none;border-radius:10px;padding:8px 14px;cursor:pointer;
+  }
+  .add-item button:hover{background:var(--mint-deep);}
+
+  .skip-note{
+    margin-top:12px;font-size:12px;color:#8B7146;background:#FBF3E1;border:1px solid #EFD9A8;
+    border-radius:10px;padding:8px 10px;
+  }
+
+  .week-footer{display:flex;justify-content:center;margin:18px 0 26px;}
+  .reset-btn{
+    font-family:'Fredoka',sans-serif;font-weight:600;font-size:13px;
+    background:var(--paper);border:1.5px solid var(--berry);color:var(--berry);
+    border-radius:999px;padding:8px 18px;cursor:pointer;
+  }
+  .reset-btn:hover{background:var(--berry);color:#fff;}
+
+  details.reference{
+    background:var(--paper);border:1px solid var(--line);border-radius:16px;
+    padding:14px 18px;margin-top:10px;box-shadow:var(--shadow);
+  }
+  details.reference summary{
+    cursor:pointer;font-family:'Fredoka',sans-serif;font-weight:600;font-size:15px;color:var(--ink);
+  }
+  .ref-tables{display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-top:14px;}
+  table{width:100%;border-collapse:collapse;font-size:12.5px;}
+  th,td{text-align:left;padding:5px 6px;border-bottom:1px solid var(--line);}
+  th{color:var(--ink-soft);font-weight:700;}
+
+  @media (max-width:800px){
+    .columns{grid-template-columns:1fr;}
+    .zones{grid-template-columns:repeat(2,1fr);}
+    .ref-tables{grid-template-columns:1fr;}
+  }
+  :focus-visible{outline:2px solid var(--mint-deep);outline-offset:2px;}
+
+  .view-toggle{max-width:520px;margin:0 auto 16px;display:flex;gap:6px;justify-content:center;}
+  .view-toggle button{
+    font-family:'Fredoka',sans-serif;font-weight:600;font-size:13px;
+    border:1.5px solid var(--ink);background:var(--paper);color:var(--ink);
+    border-radius:999px;padding:7px 16px;cursor:pointer;
+  }
+  .view-toggle button.active{background:var(--ink);color:#fff;}
+
+  .board{display:grid;grid-template-columns:1fr 1fr 230px;gap:14px;}
+  @media(max-width:900px){.board{grid-template-columns:1fr 1fr;}}
+  @media(max-width:760px){.board{grid-template-columns:1fr;}}
+
+  .tray-panel{background:var(--paper);border:1px solid var(--line);border-radius:18px;padding:14px;box-shadow:var(--shadow);height:fit-content;}
+  .tray-panel h3{font-family:'Fredoka',sans-serif;font-size:15px;margin:0 0 4px;}
+  .tray-hint{font-size:11px;color:var(--ink-soft);margin:0 0 10px;line-height:1.4;}
+  .tray-add form{display:flex;gap:5px;margin-bottom:10px;}
+  .tray-add input[type=text]{flex:1;min-width:0;font-size:12px;padding:6px 8px;border-radius:8px;border:1px solid var(--line);}
+  .tray-add button{background:var(--ink);color:#fff;border:none;border-radius:8px;padding:6px 10px;font-size:12px;cursor:pointer;}
+
+  .drag-chip{
+    background:#FBF3E1;border:1px solid #EFD9A8;border-radius:10px;padding:8px 9px;margin-bottom:8px;cursor:grab;
+  }
+  .drag-chip.dragging{opacity:0.4;}
+  .drag-chip .dc-name{font-size:13px;font-weight:600;color:#5A4419;}
+  .drag-chip .dc-qty{border:none;background:transparent;font-size:11px;color:#8B7146;width:100%;padding:0;margin-top:2px;}
+
+  .drop-zone{border-radius:12px;transition:outline .15s ease, background .15s ease;}
+  .drop-zone.drag-over{outline:2px dashed var(--mint-deep);outline-offset:4px;background:#F0FAF5;}
+
+  .item-row.movable{cursor:grab;}
+  .move-row{display:flex;align-items:center;gap:6px;margin-top:4px;}
+  .move-select{font-size:10.5px;border-radius:6px;border:1px solid var(--line);padding:2px 4px;background:var(--paper);color:var(--ink-soft);}
+
+  .qty-edit{
+    border:none;background:transparent;font-size:12px;color:var(--ink-soft);padding:0;width:100%;
+    border-bottom:1px dashed transparent;
+  }
+  .qty-edit:hover, .qty-edit:focus{border-bottom-color:var(--line);}
+
+  .price-toggle{
+    background:none;border:1px solid var(--line);border-radius:7px;color:var(--mint-deep);
+    font-size:11px;font-weight:700;padding:2px 7px;cursor:pointer;flex:none;
+  }
+  .price-toggle.has-price{background:#E7F5EF;border-color:#B9E2D0;}
+  .price-form{
+    margin-top:8px;padding-top:8px;border-top:1px dashed var(--line);
+    display:flex;gap:6px;flex-wrap:wrap;align-items:center;width:100%;
+  }
+  .price-form input[type=number]{width:64px;font-size:12px;padding:5px 6px;border-radius:7px;border:1px solid var(--line);}
+  .price-form input[type=text]{flex:1;min-width:80px;font-size:12px;padding:5px 6px;border-radius:7px;border:1px solid var(--line);}
+  .price-form select{font-size:11px;padding:5px 4px;border-radius:7px;border:1px solid var(--line);}
+  .price-form label{font-size:10.5px;color:var(--ink-soft);display:flex;align-items:center;gap:3px;white-space:nowrap;}
+  .price-hint{font-size:10px;color:#8B9A8F;width:100%;margin-top:2px;}
+
+  .prices-page{max-width:900px;margin:0 auto;}
+  .settings-card{
+    background:var(--paper);border:1px solid var(--line);border-radius:16px;padding:14px 18px;
+    margin-bottom:16px;box-shadow:var(--shadow);display:flex;gap:16px;flex-wrap:wrap;align-items:center;
+  }
+  .settings-card .sfield{display:flex;flex-direction:column;gap:3px;}
+  .settings-card label{font-size:10.5px;color:var(--ink-soft);font-weight:700;text-transform:uppercase;letter-spacing:0.04em;}
+  .settings-card input{font-size:13px;padding:6px 9px;border-radius:8px;border:1px solid var(--line);width:120px;}
+
+  .split-cards{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:16px;}
+  @media(max-width:700px){.split-cards{grid-template-columns:1fr;}}
+  .split-card{background:var(--paper);border:1px solid var(--line);border-radius:14px;padding:12px 16px;box-shadow:var(--shadow);}
+  .split-card .sc-label{font-size:11px;color:var(--ink-soft);font-weight:700;text-transform:uppercase;letter-spacing:0.04em;}
+  .split-card .sc-value{font-family:'Fredoka',sans-serif;font-size:22px;color:var(--ink);margin-top:2px;}
+
+  .total-card{
+    background:linear-gradient(135deg,#FBF3E1,#F1F3EA);border:1px solid #EFD9A8;border-radius:16px;
+    padding:16px 20px;margin-bottom:20px;box-shadow:var(--shadow);
+  }
+  .total-card table{font-size:13.5px;}
+  .total-card td{border:none;padding:4px 0;}
+  .total-card tr.grand td{font-family:'Fredoka',sans-serif;font-size:16px;font-weight:600;border-top:1px solid #EFD9A8;padding-top:8px;}
+  .price-log-table td{vertical-align:middle;}
+  .taxable-pill{font-size:10px;background:#FBF3E1;color:#8B7146;border-radius:20px;padding:1px 7px;}
+  .link-icon{color:var(--mint-deep);text-decoration:none;font-size:12px;}
+</style>
+</head>
+<body>
+
+<div id="loading-gate" style="position:fixed;inset:0;z-index:200;background:#F1F3EA;display:flex;align-items:center;justify-content:center;font-family:'Inter',sans-serif;color:#1F3B32;">
+  Loading…
+</div>
+
+<div class="wrap" id="app-wrap" style="display:none;">
+  <div style="max-width:520px;margin:0 auto 6px;">
+    <a href="../index.html" style="font-size:12px;color:#3E5C52;text-decoration:underline;">← All apps</a>
+  </div>
+  <header>
+    <h1>🧺 Bhargav + Anusha's Grocery Tracker</h1>
+    <p>Four-week cycle · one Costco run + one Trader Joe's run per week · tick items as you shop and watch the kitchen fill up</p>
+  </header>
+
+  <div class="who-bar">
+    <span class="shared-pill">🔗 Shared list</span>
+    <span>You're:</span>
+    <input type="text" id="your-name" placeholder="your name">
+    <button id="save-name">Save</button>
+  </div>
+
+  <div class="month-progress">
+    <div class="label"><span>Cycle progress</span><span id="month-pct">0%</span></div>
+    <div class="bar-track"><div class="bar-fill" id="month-bar" style="width:0%"></div></div>
+    <div class="tally" id="tally"></div>
+  </div>
+
+  <div class="archive-bar">
+    <input type="text" id="cycle-label" placeholder="Label this cycle, e.g. Aug 2026">
+    <button id="archive-btn">📦 Archive cycle &amp; start fresh</button>
+  </div>
+
+  <div class="view-toggle">
+    <button id="view-week-btn" class="active">📅 Shopping list</button>
+    <button id="view-prices-btn">🧾 Prices</button>
+  </div>
+
+  <div id="week-view">
+    <nav class="week-tabs" id="week-tabs"></nav>
+    <div id="week-content"></div>
+  </div>
+
+  <div id="prices-view" class="prices-page" style="display:none;"></div>
+
+  <details class="reference">
+    <summary>🗂 Past cycles — monthly history</summary>
+    <div id="history-list"><div class="empty-history">No archived cycles yet. Finish a cycle and hit "Archive cycle" above to save a record.</div></div>
+  </details>
+
+  <details class="reference">
+    <summary>📋 Month reference — fixed 4-week plan totals</summary>
+    <div class="ref-tables">
+      <div>
+        <table>
+          <thead><tr><th colspan="2">Total food consumed in 4 weeks</th></tr></thead>
+          <tbody id="ref-consumption"></tbody>
+        </table>
+      </div>
+      <div>
+        <table>
+          <thead><tr><th colspan="3">Costco packages purchased (4 weeks)</th></tr></thead>
+          <tbody id="ref-packages"></tbody>
+        </table>
+        <table style="margin-top:14px;">
+          <thead><tr><th colspan="2">Trader Joe's, 4-week total</th></tr></thead>
+          <tbody id="ref-tj"></tbody>
+        </table>
+      </div>
+    </div>
+  </details>
+</div>
+
+<script>
+/* ---------------- DATA ---------------- */
+const ZONES = {
+  fridge:  {label:'Fridge', icon:'❄️'},
+  freezer: {label:'Freezer', icon:'🧊'},
+  pantry:  {label:'Pantry Shelf', icon:'🥫'},
+  counter: {label:'Counter Basket', icon:'🧺'},
+};
+
+const WEEKS = {
+  1:{
+    emoji:'🛒',
+    title:'Week 1 — the big stock-up',
+    blurb:"Largest trip of the month: this is when every bulk item gets bought. Everything here should carry you well past this week.",
+    costco:[
+      {id:'eggs', group:'Bulk & staples', name:'Kirkland eggs', qty:'two 60-count boxes', zone:'fridge'},
+      {id:'whey', group:'Bulk & staples', name:'ON whey', qty:'one 80-serving container', zone:'pantry'},
+      {id:'paneer', group:'Bulk & staples', name:'Paneer', qty:'two 32-oz packages', zone:'fridge'},
+      {id:'milk', group:'Bulk & staples', name:'Kirkland 2% milk', qty:'one two-gallon package', zone:'fridge'},
+      {id:'yogurt', group:'Bulk & staples', name:'Nonfat Greek yogurt', qty:'two 48-oz tubs', zone:'fridge'},
+      {id:'oats', group:'Bulk & staples', name:'Quaker oats', qty:'one 10-lb package', zone:'pantry'},
+      {id:'rice', group:'Bulk & staples', name:'Basmati rice', qty:'one 20-lb bag', zone:'pantry'},
+      {id:'flaxseed', group:'Bulk & staples', name:'Ground flaxseed', qty:'one 4-lb package', zone:'pantry'},
+      {id:'dal', group:'Bulk & staples', name:'Dry dal / plain lentils', qty:'~4-lb bag', zone:'pantry'},
+      {id:'dolecups', group:'Bulk & staples', name:'Dole mandarin cups', qty:'one 16-count box', zone:'pantry'},
+      {id:'bananas', group:'Bulk & staples', name:'Costco bananas', qty:'one bunch (7+)', zone:'counter'},
+      {id:'frozenveg', group:'Bulk & staples', name:'Frozen mixed vegetables', qty:'one 5-lb bag', zone:'freezer'},
+      {id:'ghee', group:'Bulk & staples', name:'Ghee', qty:'~1 kg container', zone:'pantry'},
+      {id:'water', group:'Bulk & staples', name:'Kirkland water', qty:'three 40-bottle cases', zone:'pantry'},
+      {id:'salt', group:'Spices — buy only if unavailable', name:'Salt', qty:'', zone:'pantry'},
+      {id:'chilli', group:'Spices — buy only if unavailable', name:'Red chilli powder', qty:'', zone:'pantry'},
+      {id:'turmeric', group:'Spices — buy only if unavailable', name:'Turmeric', qty:'', zone:'pantry'},
+      {id:'cumin', group:'Spices — buy only if unavailable', name:'Cumin powder', qty:'', zone:'pantry'},
+      {id:'coriander', group:'Spices — buy only if unavailable', name:'Coriander powder', qty:'', zone:'pantry'},
+      {id:'garam', group:'Spices — buy only if unavailable', name:'Garam masala', qty:'', zone:'pantry'},
+      {id:'pepper', group:'Spices — buy only if unavailable', name:'Black pepper', qty:'', zone:'pantry'},
+      {id:'garlicpowder', group:'Spices — buy only if unavailable', name:'Garlic powder', qty:'', zone:'pantry'},
+    ],
+    tj:[
+      {id:'cucumbers', name:'Persian cucumbers', qty:'~700 g', zone:'fridge'},
+      {id:'tomatoes', name:'Cherry tomatoes', qty:'~700 g', zone:'counter'},
+      {id:'carrots', name:'Baby carrots', qty:'~700 g', zone:'fridge'},
+      {id:'fruit', name:'Whole fruit', qty:'7 pieces', zone:'counter'},
+      {id:'lemons', name:'Lemons', qty:'6–8', zone:'counter'},
+    ],
+    skip:null,
+    note:"Expected leftover after this week: ~57 eggs, ~694 g paneer, ~4.98 L milk, ~270 g yogurt, ~56 scoops whey, 9 Dole cups, ~29 bottles water."
+  },
+  2:{
+    emoji:'🔁',
+    title:'Week 2 — light restock',
+    blurb:"Most bulk staples from Week 1 carry over untouched. Only perishables and water get topped up.",
+    costco:[
+      {id:'eggs', name:'Kirkland eggs', qty:'one 60-count box', zone:'fridge'},
+      {id:'paneer', name:'Paneer', qty:'one 32-oz package', zone:'fridge'},
+      {id:'yogurt', name:'Nonfat Greek yogurt', qty:'two 48-oz tubs', zone:'fridge'},
+      {id:'bananas', name:'Costco bananas', qty:'one bunch', zone:'counter'},
+      {id:'frozenveg', name:'Frozen mixed vegetables', qty:'one 5-lb bag', zone:'freezer'},
+      {id:'water', name:'Kirkland water', qty:'two 40-bottle cases', zone:'pantry'},
+    ],
+    tj:[
+      {id:'cucumbers', name:'Persian cucumbers', qty:'~700 g', zone:'fridge'},
+      {id:'tomatoes', name:'Cherry tomatoes', qty:'~700 g', zone:'counter'},
+      {id:'carrots', name:'Baby carrots', qty:'~700 g', zone:'fridge'},
+      {id:'fruit', name:'Whole fruit', qty:'7 pieces', zone:'counter'},
+      {id:'lemons', name:'Lemons', qty:'6–8', zone:'counter'},
+    ],
+    skip:"Whey, milk, oats, rice, flaxseed, dal, Dole cups, ghee, spices — unless something's unexpectedly low.",
+    note:null
+  },
+  3:{
+    emoji:'🥛',
+    title:'Week 3 — milk, dal & Dole cups return',
+    blurb:"Milk, dal, and Dole mandarin cups get replenished this week, alongside the usual weekly perishables.",
+    costco:[
+      {id:'eggs', name:'Kirkland eggs', qty:'one 60-count box', zone:'fridge'},
+      {id:'paneer', name:'Paneer', qty:'one 32-oz package', zone:'fridge'},
+      {id:'milk', name:'Kirkland 2% milk', qty:'one two-gallon package', zone:'fridge'},
+      {id:'yogurt', name:'Nonfat Greek yogurt', qty:'two 48-oz tubs', zone:'fridge'},
+      {id:'dal', name:'Dry dal / plain lentils', qty:'~4-lb bag', zone:'pantry'},
+      {id:'dolecups', name:'Dole mandarin cups', qty:'one 16-count box', zone:'pantry'},
+      {id:'bananas', name:'Costco bananas', qty:'one bunch', zone:'counter'},
+      {id:'frozenveg', name:'Frozen mixed vegetables', qty:'one 5-lb bag', zone:'freezer'},
+      {id:'water', name:'Kirkland water', qty:'two 40-bottle cases', zone:'pantry'},
+    ],
+    tj:[
+      {id:'cucumbers', name:'Persian cucumbers', qty:'~700 g', zone:'fridge'},
+      {id:'tomatoes', name:'Cherry tomatoes', qty:'~700 g', zone:'counter'},
+      {id:'carrots', name:'Baby carrots', qty:'~700 g', zone:'fridge'},
+      {id:'fruit', name:'Whole fruit', qty:'7 pieces', zone:'counter'},
+      {id:'lemons', name:'Lemons', qty:'6–8', zone:'counter'},
+    ],
+    skip:"Whey, oats, rice, flaxseed, ghee.",
+    note:null
+  },
+  4:{
+    emoji:'💪',
+    title:'Week 4 — whey runs out, restock before empty',
+    blurb:"The whey container finishes during this week — buy the replacement before it's gone. Also a good week to check spice levels.",
+    costco:[
+      {id:'eggs', name:'Kirkland eggs', qty:'one 60-count box', zone:'fridge'},
+      {id:'whey', name:'ON whey', qty:'one 80-serving container', zone:'pantry'},
+      {id:'paneer', name:'Paneer', qty:'one 32-oz package', zone:'fridge'},
+      {id:'yogurt', name:'Nonfat Greek yogurt', qty:'two 48-oz tubs', zone:'fridge'},
+      {id:'bananas', name:'Costco bananas', qty:'one bunch', zone:'counter'},
+      {id:'frozenveg', name:'Frozen mixed vegetables', qty:'one 5-lb bag', zone:'freezer'},
+      {id:'water', name:'Kirkland water', qty:'three 40-bottle cases', zone:'pantry', note:'Buy only two cases if at least 12 reserve bottles remain'},
+      {id:'checkspices', name:'Check spices & salt', qty:'top up anything low', zone:'pantry'},
+    ],
+    tj:[
+      {id:'cucumbers', name:'Persian cucumbers', qty:'~700 g', zone:'fridge'},
+      {id:'tomatoes', name:'Cherry tomatoes', qty:'~700 g', zone:'counter'},
+      {id:'carrots', name:'Baby carrots', qty:'~700 g', zone:'fridge'},
+      {id:'fruit', name:'Whole fruit', qty:'7 pieces', zone:'counter'},
+      {id:'lemons', name:'Lemons', qty:'6–8', zone:'counter'},
+    ],
+    skip:"Milk, oats, rice, flaxseed, dal, Dole cups, ghee.",
+    note:null
+  }
+};
+
+const CONSUMPTION = [
+  ['Shell eggs','252 eggs'],['Whey','~94 scoops'],['Paneer','4.48 kg'],['2% milk','10.36 L'],
+  ['Nonfat Greek yogurt','9.8 kg'],['Oats','2.1 kg'],['Ground flaxseed','560 g'],['Dry rice','~4.68 kg'],
+  ['Dry dal/lentils','~2.6 kg'],['Dole mandarin cups','28 cups'],['Costco bananas','28 bananas'],
+  ['Frozen mixed vegetables','8.4 kg'],['Ghee','420 g'],['Kirkland water','308–364 bottles'],
+  ['Persian cucumbers','2.8 kg'],['Cherry tomatoes','2.8 kg'],['Baby carrots','2.8 kg'],
+  ['Whole fruit','28 fruits'],['Lemons','24–32 lemons'],
+];
+const PACKAGES = [
+  ['Eggs — 60 count','5 boxes','~48 eggs left'],['Whey — 80 servings','2 containers','~66 scoops left'],
+  ['Paneer — 32 oz','5 packages','~55 g left'],['Milk — two gallons','2 packages','~4.78 L left'],
+  ['Greek yogurt — 48 oz','8 tubs','~1.08 kg left'],['Oats — 10 lb','1 package','~2.44 kg left'],
+  ['Rice — 20 lb','1 bag','~4.39 kg left'],['Ground flaxseed — 4 lb','1 package','~1.25 kg left'],
+  ['Dry dal — 4 lb','2 bags','~1.03 kg left'],['Dole cups — 16 count','2 boxes','4 cups left'],
+  ['Bananas','4 bunches','varies'],['Frozen vegetables — 5 lb','4 bags','~670 g left'],
+  ['Ghee — 1 kg','1 container','~580 g left'],['Water — 40 count','9–10 cases','varies'],
+];
+const TJ_TOTALS = [
+  ['Persian cucumbers','2.8 kg'],['Cherry tomatoes','2.8 kg'],['Baby carrots','2.8 kg'],
+  ['Whole fruit','28 pieces'],['Lemons','24–32'],
+];
+
+/* ---------------- PRICE TRACKING ---------------- */
+// Most CA groceries are sales-tax exempt; dietary supplements, household/paper
+// goods, and prepared food are taxable. These are just sensible starting
+// defaults per item — every one is editable per purchase.
+const TAXABLE_HINTS = {
+  whey:true, towel:true, dryersheets:true, tidedetergent:true, scentbooster:true
+};
+
+// A few extra items from your last two Costco orders — mostly household
+// restocks that don't fit the weekly food cycle, so they're grouped
+// separately and marked "as needed" rather than every-week musts.
+WEEKS[1].costco.push(
+  {id:'towel', group:'Household & extras — as needed', name:'Bath towel', qty:'1 each', zone:'counter'},
+  {id:'bread', group:'Household & extras — as needed', name:'Sliced white bread', qty:'2 x 2-count', zone:'pantry'},
+  {id:'pickles', group:'Household & extras — as needed', name:'Dill pickles', qty:'32 fl oz jar', zone:'fridge'},
+  {id:'dryersheets', group:'Household & extras — as needed', name:'Dryer sheets', qty:'400-count box', zone:'pantry'},
+  {id:'tidedetergent', group:'Household & extras — as needed', name:'Tide liquid detergent', qty:'1 gal (100 loads)', zone:'pantry'},
+  {id:'scentbooster', group:'Household & extras — as needed', name:'Scent booster beads', qty:'24.5 oz', zone:'pantry'},
+  {id:'oliveoil', group:'Household & extras — as needed', name:'Extra virgin olive oil', qty:'34 fl oz', zone:'pantry'},
+  {id:'romatomatoes', group:'Household & extras — as needed', name:'Roma tomatoes', qty:'two 3-lb boxes', zone:'counter'},
+  {id:'limes', group:'Household & extras — as needed', name:'Limes', qty:'3 lbs', zone:'counter'},
+  {id:'redonions', group:'Household & extras — as needed', name:'Red onions', qty:'5 lbs', zone:'pantry'}
+);
+
+// Seeded from your last two Costco Same-Day orders, so the Prices tab starts
+// with real numbers instead of empty. Every value here is editable — this
+// just saves you from re-typing prices you already paid.
+const SEED_PRICE_LOG = {
+  '1-costco-eggs':      {price:18.36, taxable:false, paidBy:'Shared', link:'', note:'Costco order'},
+  '1-costco-whey':      {price:85.11, taxable:true,  paidBy:'Shared', link:'', note:'Costco order'},
+  '1-costco-paneer':    {price:26.08, taxable:false, paidBy:'Shared', link:'', note:'Costco order'},
+  '1-costco-milk':      {price:8.35,  taxable:false, paidBy:'Shared', link:'', note:'Costco order'},
+  '1-costco-yogurt':    {price:17.00, taxable:false, paidBy:'Shared', link:'', note:'Costco order (2x $8.50)'},
+  '1-costco-oats':      {price:8.96,  taxable:false, paidBy:'Shared', link:'', note:'Costco order'},
+  '1-costco-rice':      {price:23.48, taxable:false, paidBy:'Shared', link:'', note:'Costco order (per bag, 2 bags $46.96)'},
+  '1-costco-dolecups':  {price:13.50, taxable:false, paidBy:'Shared', link:'', note:'Costco order'},
+  '1-costco-ghee':      {price:49.92, taxable:false, paidBy:'Shared', link:'', note:'Costco order (2x 27oz)'},
+  '1-costco-water':     {price:9.06,  taxable:false, paidBy:'Shared', link:'', note:'Costco order'},
+  '1-costco-salt':      {price:3.96,  taxable:false, paidBy:'Shared', link:'', note:'Costco order'},
+  '1-costco-towel':         {price:7.93,  taxable:true,  paidBy:'Shared', link:'', note:'Costco order'},
+  '1-costco-bread':         {price:6.00,  taxable:false, paidBy:'Shared', link:'', note:'Costco order'},
+  '1-costco-pickles':       {price:6.80,  taxable:false, paidBy:'Shared', link:'', note:'Costco order'},
+  '1-costco-dryersheets':   {price:13.15, taxable:true,  paidBy:'Shared', link:'', note:'Costco order'},
+  '1-costco-tidedetergent': {price:35.16, taxable:true,  paidBy:'Shared', link:'', note:'Costco order'},
+  '1-costco-scentbooster':  {price:12.47, taxable:true,  paidBy:'Shared', link:'', note:'Costco order'},
+  '1-costco-oliveoil':      {price:14.74, taxable:false, paidBy:'Shared', link:'', note:'Costco order'},
+  '1-costco-romatomatoes':  {price:15.42, taxable:false, paidBy:'Shared', link:'', note:'Costco order (2x 3lb)'},
+  '1-costco-limes':         {price:5.32,  taxable:false, paidBy:'Shared', link:'', note:'Costco order'},
+  '1-costco-redonions':     {price:4.87,  taxable:false, paidBy:'Shared', link:'', note:'Costco order'}
+};
+
+/* ---------------- FIREBASE ---------------- */
+// Reuses the same project as the Gym app — both people share one login,
+// so this Firestore doc is naturally shared between Bhargav and Anusha too.
+const FIREBASE_CONFIG = {
+  apiKey: "AIzaSyBe01eR2RZwSbU_aoJMeh_2MMJ5mqkVuKk",
+  authDomain: "iron-log-bfc55.firebaseapp.com",
+  projectId: "iron-log-bfc55",
+  storageBucket: "iron-log-bfc55.firebasestorage.app",
+  messagingSenderId: "106586808946",
+  appId: "1:106586808946:web:f4736554ba9fc82c6fd8eb"
+};
+firebase.initializeApp(FIREBASE_CONFIG);
+const auth = firebase.auth();
+const db = firebase.firestore();
+db.enablePersistence({synchronizeTabs:true}).catch(()=>{});
+let currentUser = null;
+
+function groceryDoc(key){
+  return db.collection('users').doc(currentUser.uid).collection('apps').doc('grocery').collection('data').doc(key);
+}
+
+auth.onAuthStateChanged(async (user)=>{
+  if(!user){ window.location.href = '../index.html'; return; }
+  currentUser = user;
+  document.getElementById('loading-gate').style.display = 'none';
+  document.getElementById('app-wrap').style.display = 'block';
+  fillReference();
+  initControls();
+  loadName();
+  await loadHistory();
+  await loadPriceLog();
+  await loadPriceSettings();
+  await loadState();
+});
+
+/* ---------------- STATE ---------------- */
+// checked/custom are shared — since both people sign into the same account,
+// this Firestore doc is naturally the same shared list for both of you.
+// "your name" (who checked what) is kept per-device in localStorage.
+let state = { checked:{}, customItems:{}, qtyOverride:{}, sectionOverride:{} };
+let history = [];
+let myName = '';
+let activeWeek = 1;
+let lastSavedJSON = '';
+const NAME_KEY = 'grocery-tracker-your-name';
+
+function itemKey(week, section, id){ return week+'-'+section+'-'+id; }
+function customKey(week, section){ return week+'-'+section; }
+
+function loadName(){
+  try{ myName = localStorage.getItem(NAME_KEY) || ''; }catch(e){ myName = ''; }
+  const input = document.getElementById('your-name');
+  if(input) input.value = myName;
+}
+function saveName(){
+  const input = document.getElementById('your-name');
+  myName = (input.value||'').trim();
+  try{ localStorage.setItem(NAME_KEY, myName); }catch(e){ console.error(e); }
+}
+
+function migrateState(s){
+  // Old shape: state.custom['<week>-<section>'] = [{id,name,qty,zone,note}, ...]
+  // New shape: state.customItems['<week>'] = [{id,name,qty,zone,note}, ...] (zone drives which list it's in)
+  if(s.custom && !s.customItems){
+    const customItems = {};
+    Object.entries(s.custom).forEach(([key, arr])=>{
+      const week = key.split('-')[0];
+      if(!customItems[week]) customItems[week] = [];
+      (arr||[]).forEach(item=> customItems[week].push(Object.assign({}, item)));
+    });
+    s.customItems = customItems;
+    delete s.custom;
+  }
+  if(!s.customItems) s.customItems = {};
+  if(!s.qtyOverride) s.qtyOverride = {};
+  if(!s.sectionOverride) s.sectionOverride = {};
+  return s;
+}
+
+async function loadState({silent}={}){
+  let changed = false;
+  try{
+    const doc = await groceryDoc('state').get();
+    if(doc.exists && doc.data().json && doc.data().json !== lastSavedJSON){
+      lastSavedJSON = doc.data().json;
+      state = migrateState(Object.assign({checked:{},customItems:{},qtyOverride:{},sectionOverride:{}}, JSON.parse(lastSavedJSON)));
+      changed = true;
+    }
+  }catch(e){ /* no saved state yet */ }
+  if(!silent){ render(); }
+  else if(changed){ renderTabs(); renderWeek(); }
+}
+let saveTimer=null;
+function saveState(){
+  clearTimeout(saveTimer);
+  saveTimer = setTimeout(async ()=>{
+    try{
+      const json = JSON.stringify(state);
+      lastSavedJSON = json;
+      await groceryDoc('state').set({json});
+    }
+    catch(e){ console.error('save failed', e); }
+  }, 150);
+}
+
+async function loadHistory(){
+  try{
+    const doc = await groceryDoc('history').get();
+    if(doc.exists && doc.data().json) history = JSON.parse(doc.data().json) || [];
+  }catch(e){ history = []; }
+  renderHistory();
+}
+async function saveHistory(){
+  try{ await groceryDoc('history').set({json: JSON.stringify(history)}); }
+  catch(e){ console.error('history save failed', e); }
+}
+
+/* ---------------- PRICE LOG + SETTINGS (persistent, survives archive) ---------------- */
+let priceLog = {};
+let priceSettings = { tipPct: 5, taxPct: 7.75, city: 'San Diego, CA' };
+
+async function loadPriceLog(){
+  try{
+    const doc = await groceryDoc('priceLog').get();
+    if(doc.exists && doc.data().json){
+      priceLog = JSON.parse(doc.data().json) || {};
+    } else {
+      // First time opening this app — seed with your real receipt data.
+      priceLog = Object.assign({}, SEED_PRICE_LOG);
+      await savePriceLog();
+    }
+  }catch(e){ priceLog = Object.assign({}, SEED_PRICE_LOG); }
+}
+async function savePriceLog(){
+  try{ await groceryDoc('priceLog').set({json: JSON.stringify(priceLog)}); }
+  catch(e){ console.error('price log save failed', e); }
+}
+
+async function loadPriceSettings(){
+  try{
+    const doc = await groceryDoc('priceSettings').get();
+    if(doc.exists && doc.data().json){
+      priceSettings = Object.assign({tipPct:5,taxPct:7.75,city:'San Diego, CA'}, JSON.parse(doc.data().json));
+    }
+  }catch(e){ /* use defaults */ }
+}
+async function savePriceSettings(){
+  try{ await groceryDoc('priceSettings').set({json: JSON.stringify(priceSettings)}); }
+  catch(e){ console.error('price settings save failed', e); }
+}
+
+function isFormFocused(){
+  const el = document.activeElement;
+  if(!el) return false;
+  const tag = el.tagName;
+  return tag==='INPUT' || tag==='SELECT' || tag==='TEXTAREA';
+}
+// Poll shared storage so a roommate's changes on another device show up here too.
+setInterval(()=>{ if(!isFormFocused()) loadState({silent:true}); }, 6000);
+
+/* ---------------- RENDER ---------------- */
+// Every item — built-in or custom — can now be dragged between Costco, TJ,
+// and the tray. Built-in items keep a stable "home section" (where they live
+// in the WEEKS data); sectionOverride tracks if you've moved one elsewhere.
+// Quantity/price data for built-in items is always keyed by their home
+// section, so it survives a move.
+function builtInItemsForWeek(week){
+  const list = [];
+  (WEEKS[week].costco||[]).forEach(i=> list.push(Object.assign({custom:false, homeSection:'costco'}, i)));
+  (WEEKS[week].tj||[]).forEach(i=> list.push(Object.assign({custom:false, homeSection:'tj'}, i)));
+  return list;
+}
+function builtInStableKey(week, item){
+  return week+'-'+item.homeSection+'-'+item.id;
+}
+function effectiveSection(week, item){
+  if(item.custom) return item.zone;
+  const override = state.sectionOverride[builtInStableKey(week, item)];
+  return override || item.homeSection;
+}
+function allItems(week, section){
+  const built = builtInItemsForWeek(week).filter(i=> effectiveSection(week,i)===section);
+  const custom = (state.customItems[week] || []).filter(c=>c.zone===section).map(c=>Object.assign({custom:true}, c));
+  return built.concat(custom);
+}
+function trayItems(week){
+  const built = builtInItemsForWeek(week).filter(i=> effectiveSection(week,i)==='tray');
+  const custom = (state.customItems[week] || []).filter(c=>c.zone==='tray').map(c=>Object.assign({custom:true}, c));
+  return built.concat(custom);
+}
+function moveItem(id, isCustom, oldSection, newSection){
+  if(oldSection === newSection) return;
+  if(isCustom){
+    const arr = state.customItems[activeWeek] || [];
+    const item = arr.find(c=>c.id===id);
+    if(!item) return;
+    if(oldSection !== 'tray'){
+      delete state.checked[itemKey(activeWeek, oldSection, id)];
+    }
+    item.zone = newSection;
+  } else {
+    const homeItem = builtInItemsForWeek(activeWeek).find(i=>i.id===id);
+    if(!homeItem) return;
+    const sk = builtInStableKey(activeWeek, homeItem);
+    if(newSection === homeItem.homeSection){
+      delete state.sectionOverride[sk];
+    } else {
+      state.sectionOverride[sk] = newSection;
+    }
+    if(oldSection !== 'tray'){
+      delete state.checked[itemKey(activeWeek, oldSection, id)];
+    }
+  }
+  saveState();
+  renderTabs();
+  renderWeek();
+}
+function displayQty(week, section, item){
+  if(item.custom) return item.qty || '';
+  const key = builtInStableKey(week, item);
+  const override = state.qtyOverride[key];
+  return (override !== undefined) ? override : (item.qty || '');
+}
+
+function computeZoneChips(week){
+  const zoneMap = {fridge:[],freezer:[],pantry:[],counter:[]};
+  ['costco','tj'].forEach(section=>{
+    allItems(week, section).forEach(item=>{
+      const key = itemKey(week, section, item.id);
+      const c = state.checked[key];
+      if(c){
+        zoneMap[item.zone].push({name:item.name, by:(c.by||'')});
+      }
+    });
+  });
+  return zoneMap;
+}
+
+function computeTally(week){
+  const counts = {};
+  ['costco','tj'].forEach(section=>{
+    allItems(week, section).forEach(item=>{
+      const c = state.checked[itemKey(week, section, item.id)];
+      if(c && c.by){ counts[c.by] = (counts[c.by]||0)+1; }
+    });
+  });
+  return counts;
+}
+
+function renderTabs(){
+  const nav = document.getElementById('week-tabs');
+  nav.innerHTML = '';
+  Object.keys(WEEKS).forEach(w=>{
+    const {checked,total} = weekProgress(w);
+    const btn = document.createElement('button');
+    btn.className = 'week-tab' + (String(activeWeek)===w ? ' active':'');
+    btn.innerHTML = 'Week '+w+' <span class="tag">'+checked+'/'+total+'</span>';
+    btn.onclick = ()=>{ activeWeek = Number(w); renderTabs(); renderWeek(); };
+    nav.appendChild(btn);
+  });
+}
+
+function weekProgress(week){
+  let checked=0, total=0;
+  ['costco','tj'].forEach(section=>{
+    allItems(week, section).forEach(item=>{
+      total++;
+      if(state.checked[itemKey(week,section,item.id)]) checked++;
+    });
+  });
+  return {checked, total};
+}
+
+function monthProgress(){
+  let checked=0, total=0;
+  Object.keys(WEEKS).forEach(w=>{
+    const p = weekProgress(w);
+    checked += p.checked; total += p.total;
+  });
+  return {checked, total};
+}
+
+function renderZones(week){
+  const chips = computeZoneChips(week);
+  const wrap = document.createElement('div');
+  wrap.className = 'zones';
+  Object.entries(ZONES).forEach(([key,meta])=>{
+    const z = document.createElement('div');
+    z.className = 'zone';
+    const items = chips[key];
+    z.innerHTML = `
+      <div class="zhead">
+        <span class="zname">${meta.icon} ${meta.label}</span>
+        <span class="zcount">${items.length}</span>
+      </div>
+      <div class="chips">
+        ${items.length ? items.map(it=>`<span class="chip" title="${it.by?('Picked up by '+escapeHtml(it.by)):''}">${escapeHtml(it.name)}</span>`).join('') : '<span class="placeholder">Nothing here yet</span>'}
+      </div>`;
+    wrap.appendChild(z);
+  });
+  return wrap;
+}
+
+function escapeHtml(s){
+  return String(s).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+function priceButtonHtml(key){
+  const entry = priceLog[key];
+  const label = entry ? '$'+Number(entry.price).toFixed(2) : '$ price';
+  return `<button type="button" class="price-toggle ${entry?'has-price':''}" data-pricekey="${key}">${label}</button>`;
+}
+function priceFormHtml(key, itemId){
+  const entry = priceLog[key] || {};
+  const defaultTaxable = entry.taxable !== undefined ? entry.taxable : !!TAXABLE_HINTS[itemId];
+  const paidBy = entry.paidBy || 'Shared';
+  return `
+    <div class="price-form" id="price-form-${key.replace(/[^a-zA-Z0-9]/g,'')}" style="display:none;" data-pricekey="${key}">
+      <input type="number" step="0.01" min="0" class="pf-price" placeholder="Price" value="${entry.price!==undefined?entry.price:''}">
+      <label><input type="checkbox" class="pf-taxable" ${defaultTaxable?'checked':''}> Taxable</label>
+      <select class="pf-paidby">
+        <option ${paidBy==='Shared'?'selected':''}>Shared</option>
+        <option ${paidBy==='Bhargav'?'selected':''}>Bhargav</option>
+        <option ${paidBy==='Anusha'?'selected':''}>Anusha</option>
+      </select>
+      <input type="text" class="pf-link" placeholder="Link (optional)" value="${escapeHtml(entry.link||'')}">
+      <button type="button" class="btn-save-price" data-pricekey="${key}">Save</button>
+      ${TAXABLE_HINTS[itemId] ? `<div class="price-hint">Typically taxable in CA (supplement / household item) — pre-checked, override anytime.</div>` : ''}
+    </div>`;
+}
+
+function renderPanel(week, section, label, emoji){
+  const wdata = WEEKS[week];
+  const items = allItems(week, section);
+  const checkedCount = items.filter(i=>state.checked[itemKey(week,section,i.id)]).length;
+  const pct = items.length ? Math.round(100*checkedCount/items.length) : 0;
+
+  const panel = document.createElement('div');
+  panel.className = 'panel ' + (section==='costco' ? 'costco':'tj');
+
+  let groupsHtml = '';
+  let lastGroup = undefined;
+  items.forEach(item=>{
+    if(item.group !== lastGroup){
+      groupsHtml += `<div class="group-title">${escapeHtml(item.group||'')}</div>`;
+      lastGroup = item.group;
+    } else if(item.group===undefined && lastGroup!==undefined){
+      lastGroup = undefined;
+    }
+    const key = itemKey(week, section, item.id);
+    const checkedInfo = state.checked[key];
+    const done = !!checkedInfo;
+    const rowId = 'row-'+key.replace(/[^a-zA-Z0-9]/g,'');
+    const qtyVal = displayQty(week, section, item);
+    const qtyAttrs = item.custom
+      ? `data-custom="1" data-id="${item.id}"`
+      : `data-custom="0" data-id="${item.id}" data-stablekey="${builtInStableKey(week,item)}"`;
+    groupsHtml += `
+      <div class="item-row ${done?'done':''} movable" data-key="${key}" draggable="true" data-dragid="${item.id}" data-dragsection="${section}" data-dragcustom="${item.custom?1:0}">
+        <input type="checkbox" id="${rowId}" ${done?'checked':''} data-key="${key}">
+        <label for="${rowId}" style="flex:1;">
+          <div class="item-name">${escapeHtml(item.name)}</div>
+          ${item.note ? `<div class="item-note">⚠ ${escapeHtml(item.note)}</div>` : ''}
+          ${done && checkedInfo.by ? `<div class="item-note by-line">✓ picked up by ${escapeHtml(checkedInfo.by)}</div>` : ''}
+        </label>
+        <div style="display:flex;flex-direction:column;gap:4px;align-items:flex-end;">
+          ${priceButtonHtml(key)}
+          ${item.custom ? `<button class="del-custom" data-delkey="${customKey(week,section)}" data-delid="${item.id}" title="Remove item">✕</button>` : ''}
+        </div>
+        <div style="flex-basis:100%;padding-left:28px;">
+          <input type="text" class="qty-edit" value="${escapeHtml(qtyVal)}" ${qtyAttrs} placeholder="qty">
+          <div class="move-row">
+            <select class="move-select" data-id="${item.id}" data-section="${section}" data-custom="${item.custom?1:0}">
+              <option value="costco" ${section==='costco'?'selected':''}>Costco</option>
+              <option value="tj" ${section==='tj'?'selected':''}>TJ's</option>
+              <option value="tray" ${section==='tray'?'selected':''}>Tray</option>
+            </select>
+          </div>
+          ${priceFormHtml(key, item.id)}
+        </div>
+      </div>`;
+  });
+
+  panel.innerHTML = `
+    <div class="phead">
+      <h3>${emoji} ${label}</h3>
+      <span class="pct">${checkedCount}/${items.length} · ${pct}%</span>
+    </div>
+    <div class="bar-track"><div class="bar-fill" style="width:${pct}%"></div></div>
+    <div class="drop-zone" data-zone="${section}" style="margin-top:6px;">${groupsHtml}</div>
+    <div class="add-item">
+      <form data-section="${section}">
+        <input type="text" name="name" placeholder="Add an item…" required>
+        <input type="text" name="qty" placeholder="qty (optional)">
+        <select name="zone">
+          <option value="fridge">❄️ Fridge</option>
+          <option value="freezer">🧊 Freezer</option>
+          <option value="pantry" selected>🥫 Pantry</option>
+          <option value="counter">🧺 Counter</option>
+        </select>
+        <button type="submit">Add</button>
+      </form>
+    </div>
+    ${wdata.skip ? `<div class="skip-note">⏭ Skip this week: ${escapeHtml(wdata.skip)}</div>` : ''}
+  `;
+  return panel;
+}
+
+function renderTray(week){
+  const panel = document.createElement('div');
+  panel.className = 'tray-panel';
+  const items = trayItems(week);
+  const chipsHtml = items.map(item=>{
+    const qtyVal = displayQty(week, 'tray', item);
+    const qtyAttrs = item.custom
+      ? `data-custom="1" data-id="${item.id}"`
+      : `data-custom="0" data-id="${item.id}" data-stablekey="${builtInStableKey(week,item)}"`;
+    return `
+      <div class="drag-chip" draggable="true" data-dragid="${item.id}" data-dragsection="tray" data-dragcustom="${item.custom?1:0}">
+        <div class="dc-name">${escapeHtml(item.name)}</div>
+        <input type="text" class="qty-edit dc-qty" value="${escapeHtml(qtyVal)}" ${qtyAttrs} placeholder="qty">
+        <div class="move-row">
+          <select class="move-select" data-id="${item.id}" data-section="tray" data-custom="${item.custom?1:0}">
+            <option value="costco">→ Costco</option>
+            <option value="tj">→ TJ's</option>
+            <option value="tray" selected>Tray</option>
+          </select>
+          ${item.custom ? `<button class="del-custom" data-delkey="${customKey(week,'tray')}" data-delid="${item.id}" title="Remove item" style="margin-left:auto;">✕</button>` : ''}
+        </div>
+      </div>`;
+  }).join('') || '<div style="font-size:11.5px;color:#9AA79E;font-style:italic;">Nothing here — add something below.</div>';
+
+  panel.innerHTML = `
+    <h3>🗂 Quick add</h3>
+    <p class="tray-hint">Drop items here you're not sure about yet, or type below. Drag any chip into Costco or Trader Joe's when you decide, or use its dropdown.</p>
+    <div class="tray-add">
+      <form id="tray-add-form">
+        <input type="text" id="tray-add-name" placeholder="Item name" required>
+        <input type="text" id="tray-add-qty" placeholder="qty" style="max-width:60px;">
+        <button type="submit">+</button>
+      </form>
+    </div>
+    <div class="drop-zone" data-zone="tray">${chipsHtml}</div>
+  `;
+  return panel;
+}
+
+function renderWeek(){
+  const wdata = WEEKS[activeWeek];
+  const container = document.getElementById('week-content');
+  container.innerHTML = '';
+
+  const banner = document.createElement('div');
+  banner.className = 'banner';
+  banner.innerHTML = `
+    <div class="emoji">${wdata.emoji}</div>
+    <div>
+      <h2>${wdata.title}</h2>
+      <p>${wdata.blurb}</p>
+      ${wdata.note ? `<p style="margin-top:6px;color:#8B7146;font-weight:600;">${wdata.note}</p>` : ''}
+    </div>`;
+  container.appendChild(banner);
+
+  container.appendChild(renderZones(activeWeek));
+
+  const cols = document.createElement('div');
+  cols.className = 'board';
+  cols.appendChild(renderPanel(activeWeek, 'costco', "Costco", '🛒'));
+  cols.appendChild(renderPanel(activeWeek, 'tj', "Trader Joe's", '🍊'));
+  cols.appendChild(renderTray(activeWeek));
+  container.appendChild(cols);
+
+  const footer = document.createElement('div');
+  footer.className = 'week-footer';
+  footer.innerHTML = `<button class="reset-btn" id="reset-week">↺ Uncheck everything for Week ${activeWeek}</button>`;
+  container.appendChild(footer);
+
+  attachHandlers();
+}
+
+function attachHandlers(){
+  document.querySelectorAll('#week-content input[type=checkbox]').forEach(cb=>{
+    cb.addEventListener('change', e=>{
+      const key = e.target.dataset.key;
+      if(e.target.checked){
+        state.checked[key] = { by: myName || 'Someone', at: new Date().toISOString() };
+      } else {
+        delete state.checked[key];
+      }
+      saveState();
+      renderTabs();
+      renderWeek();
+    });
+  });
+
+  document.querySelectorAll('.qty-edit').forEach(inp=>{
+    inp.addEventListener('change', e=>{
+      const isCustom = e.target.dataset.custom === '1';
+      const value = e.target.value.trim();
+      if(isCustom){
+        const id = e.target.dataset.id;
+        const arr = state.customItems[activeWeek] || [];
+        const item = arr.find(c=>c.id===id);
+        if(item) item.qty = value;
+      } else {
+        const stableKey = e.target.dataset.stablekey;
+        const homeItem = builtInItemsForWeek(activeWeek).find(i=>i.id===e.target.dataset.id);
+        const original = homeItem ? (homeItem.qty || '') : '';
+        if(value === original) delete state.qtyOverride[stableKey];
+        else state.qtyOverride[stableKey] = value;
+      }
+      saveState();
+    });
+  });
+
+  document.querySelectorAll('.add-item form').forEach(form=>{
+    form.addEventListener('submit', e=>{
+      e.preventDefault();
+      const fd = new FormData(form);
+      const name = (fd.get('name')||'').toString().trim();
+      if(!name) return;
+      const section = form.dataset.section;
+      if(!state.customItems[activeWeek]) state.customItems[activeWeek] = [];
+      const id = 'custom-'+Date.now()+'-'+Math.floor(Math.random()*1000);
+      state.customItems[activeWeek].push({
+        id, name,
+        qty:(fd.get('qty')||'').toString().trim(),
+        zone: section
+      });
+      saveState();
+      renderTabs();
+      renderWeek();
+      form.reset();
+    });
+  });
+
+  const trayForm = document.getElementById('tray-add-form');
+  if(trayForm){
+    trayForm.addEventListener('submit', e=>{
+      e.preventDefault();
+      const nameInput = document.getElementById('tray-add-name');
+      const qtyInput = document.getElementById('tray-add-qty');
+      const name = nameInput.value.trim();
+      if(!name) return;
+      if(!state.customItems[activeWeek]) state.customItems[activeWeek] = [];
+      const id = 'custom-'+Date.now()+'-'+Math.floor(Math.random()*1000);
+      state.customItems[activeWeek].push({ id, name, qty: qtyInput.value.trim(), zone:'tray' });
+      saveState();
+      nameInput.value=''; qtyInput.value='';
+      renderTabs();
+      renderWeek();
+    });
+  }
+
+  document.querySelectorAll('.price-toggle').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      const key = btn.dataset.pricekey;
+      const form = document.getElementById('price-form-'+key.replace(/[^a-zA-Z0-9]/g,''));
+      if(form) form.style.display = form.style.display==='none' ? 'flex' : 'none';
+    });
+  });
+  document.querySelectorAll('.btn-save-price').forEach(btn=>{
+    btn.addEventListener('click', async ()=>{
+      const key = btn.dataset.pricekey;
+      const form = btn.closest('.price-form');
+      const priceVal = parseFloat(form.querySelector('.pf-price').value);
+      if(isNaN(priceVal) || priceVal < 0){
+        form.querySelector('.pf-price').style.borderColor = '#C4477A';
+        return;
+      }
+      const [week, section, ...rest] = key.split('-');
+      const itemId = rest.join('-');
+      const itemsList = allItems(Number(week), section);
+      const itemObj = itemsList.find(i=>i.id===itemId);
+      priceLog[key] = {
+        price: Math.round(priceVal*100)/100,
+        taxable: form.querySelector('.pf-taxable').checked,
+        paidBy: form.querySelector('.pf-paidby').value,
+        link: form.querySelector('.pf-link').value.trim(),
+        itemName: itemObj ? itemObj.name : itemId,
+        week: Number(week), section,
+        loggedAt: new Date().toISOString()
+      };
+      await savePriceLog();
+      renderWeek();
+    });
+  });
+
+  document.querySelectorAll('.del-custom').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      const id = btn.dataset.delid;
+      const week = btn.dataset.week;
+      const arr = state.customItems[week] || [];
+      const item = arr.find(c=>c.id===id);
+      state.customItems[week] = arr.filter(c=>c.id!==id);
+      if(item && item.zone !== 'tray'){
+        delete state.checked[itemKey(week, item.zone, id)];
+      }
+      saveState();
+      renderTabs();
+      renderWeek();
+    });
+  });
+
+  // Drag and drop between costco / tj / tray — every item is draggable now,
+  // including the built-in weekly-plan items (not just ones you've added).
+  document.querySelectorAll('.drag-chip, .item-row.movable').forEach(el=>{
+    el.addEventListener('dragstart', e=>{
+      e.dataTransfer.setData('text/plain', JSON.stringify({
+        id: el.dataset.dragid,
+        section: el.dataset.dragsection,
+        custom: el.dataset.dragcustom === '1'
+      }));
+      el.classList.add('dragging');
+    });
+    el.addEventListener('dragend', ()=> el.classList.remove('dragging'));
+  });
+  document.querySelectorAll('.drop-zone').forEach(zone=>{
+    zone.addEventListener('dragover', e=>{ e.preventDefault(); zone.classList.add('drag-over'); });
+    zone.addEventListener('dragleave', ()=> zone.classList.remove('drag-over'));
+    zone.addEventListener('drop', e=>{
+      e.preventDefault();
+      zone.classList.remove('drag-over');
+      let payload;
+      try{ payload = JSON.parse(e.dataTransfer.getData('text/plain')); }catch(err){ return; }
+      moveItem(payload.id, payload.custom, payload.section, zone.dataset.zone);
+    });
+  });
+  document.querySelectorAll('.move-select').forEach(sel=>{
+    sel.addEventListener('change', e=>{
+      moveItem(e.target.dataset.id, e.target.dataset.custom === '1', e.target.dataset.section, e.target.value);
+    });
+  });
+
+  const resetBtn = document.getElementById('reset-week');
+  if(resetBtn){
+    resetBtn.addEventListener('click', ()=>{
+      ['costco','tj'].forEach(section=>{
+        allItems(activeWeek, section).forEach(item=>{
+          delete state.checked[itemKey(activeWeek, section, item.id)];
+        });
+      });
+      saveState();
+      renderTabs();
+      renderWeek();
+    });
+  }
+}
+
+function computeTallyAll(){
+  const counts = {};
+  Object.keys(WEEKS).forEach(w=>{
+    ['costco','tj'].forEach(section=>{
+      allItems(w, section).forEach(item=>{
+        const c = state.checked[itemKey(w, section, item.id)];
+        if(c && c.by){ counts[c.by] = (counts[c.by]||0)+1; }
+      });
+    });
+  });
+  return counts;
+}
+
+function renderMonthBar(){
+  const {checked,total} = monthProgress();
+  const pct = total ? Math.round(100*checked/total) : 0;
+  document.getElementById('month-bar').style.width = pct+'%';
+  document.getElementById('month-pct').textContent = checked+'/'+total+' · '+pct+'%';
+  const tally = computeTallyAll();
+  const names = Object.keys(tally);
+  document.getElementById('tally').innerHTML = names.length
+    ? names.map(n=>`<span>🙋 ${escapeHtml(n)}: ${tally[n]} items</span>`).join('')
+    : '';
+}
+
+function render(){
+  renderTabs();
+  renderWeek();
+  renderMonthBar();
+}
+
+/* patch renderWeek/renderTabs to also refresh month bar */
+const _renderWeek = renderWeek;
+renderWeek = function(){ _renderWeek(); renderMonthBar(); };
+
+/* ---------------- REFERENCE TABLES ---------------- */
+function fillReference(){
+  document.getElementById('ref-consumption').innerHTML = CONSUMPTION.map(
+    ([a,b])=>`<tr><td>${a}</td><td>${b}</td></tr>`
+  ).join('');
+  document.getElementById('ref-packages').innerHTML = PACKAGES.map(
+    ([a,b,c])=>`<tr><td>${a}</td><td>${b}</td><td>${c}</td></tr>`
+  ).join('');
+  document.getElementById('ref-tj').innerHTML = TJ_TOTALS.map(
+    ([a,b])=>`<tr><td>${a}</td><td>${b}</td></tr>`
+  ).join('');
+}
+
+/* ---------------- ARCHIVE / HISTORY ---------------- */
+function renderHistory(){
+  const el = document.getElementById('history-list');
+  if(!history.length){
+    el.innerHTML = '<div class="empty-history">No archived cycles yet. Finish a cycle and hit "Archive cycle" above to save a record.</div>';
+    return;
+  }
+  const sorted = [...history].sort((a,b)=> new Date(b.archivedAt) - new Date(a.archivedAt));
+  el.innerHTML = sorted.map(h=>{
+    const dateStr = new Date(h.archivedAt).toLocaleDateString(undefined,{year:'numeric',month:'short',day:'numeric'});
+    const weekLine = Object.keys(h.weeks||{}).map(w=>`Week ${w}: ${h.weeks[w].checked}/${h.weeks[w].total}`).join(' · ');
+    const tallyLine = Object.entries(h.tally||{}).map(([n,c])=>`${n} (${c})`).join(', ');
+    return `
+      <div class="history-entry">
+        <div class="hhead">
+          <span class="hlabel">${escapeHtml(h.label||'Untitled cycle')}</span>
+          <button class="hdel" data-hid="${h.id}" title="Delete this record">✕ remove</button>
+        </div>
+        <div class="hdate">Archived ${dateStr}</div>
+        <div class="hstats">${h.checked}/${h.total} items checked (${h.pct}%) &nbsp;·&nbsp; ${weekLine}</div>
+        ${tallyLine ? `<div class="hstats">🙋 ${escapeHtml(tallyLine)}</div>` : ''}
+      </div>`;
+  }).join('');
+
+  document.querySelectorAll('.hdel').forEach(btn=>{
+    btn.addEventListener('click', async ()=>{
+      history = history.filter(h=>h.id!==btn.dataset.hid);
+      await saveHistory();
+      renderHistory();
+    });
+  });
+}
+
+async function archiveCycle(){
+  const labelInput = document.getElementById('cycle-label');
+  const label = (labelInput.value||'').trim() || ('Cycle archived ' + new Date().toLocaleDateString());
+  const weeks = {};
+  Object.keys(WEEKS).forEach(w=>{ weeks[w] = weekProgress(w); });
+  const {checked,total} = monthProgress();
+  const pct = total ? Math.round(100*checked/total) : 0;
+  const entry = {
+    id: 'cycle-'+Date.now(),
+    label,
+    archivedAt: new Date().toISOString(),
+    checked, total, pct,
+    weeks,
+    tally: computeTallyAll(),
+  };
+  history.push(entry);
+  await saveHistory();
+
+  // start fresh: clear all checks (keep any custom items people added, just unchecked)
+  state.checked = {};
+  saveState();
+  labelInput.value = '';
+  renderTabs();
+  renderWeek();
+  renderHistory();
+}
+
+function initControls(){
+  document.getElementById('save-name').addEventListener('click', saveName);
+  document.getElementById('your-name').addEventListener('keydown', e=>{
+    if(e.key==='Enter'){ e.preventDefault(); saveName(); }
+  });
+  document.getElementById('archive-btn').addEventListener('click', archiveCycle);
+
+  document.getElementById('view-week-btn').addEventListener('click', ()=>{
+    document.getElementById('view-week-btn').classList.add('active');
+    document.getElementById('view-prices-btn').classList.remove('active');
+    document.getElementById('week-view').style.display = 'block';
+    document.getElementById('prices-view').style.display = 'none';
+  });
+  document.getElementById('view-prices-btn').addEventListener('click', ()=>{
+    document.getElementById('view-prices-btn').classList.add('active');
+    document.getElementById('view-week-btn').classList.remove('active');
+    document.getElementById('week-view').style.display = 'none';
+    document.getElementById('prices-view').style.display = 'block';
+    renderPricesView();
+  });
+}
+
+/* ---------------- PRICES VIEW ---------------- */
+function computeSpending(){
+  const entries = Object.entries(priceLog).map(([key, e])=>({key, ...e}));
+  let subtotal = 0, taxAmt = 0;
+  const byPerson = {Bhargav:0, Anusha:0};
+  entries.forEach(e=>{
+    const price = Number(e.price)||0;
+    subtotal += price;
+    if(e.taxable) taxAmt += price * (priceSettings.taxPct/100);
+    const share = e.paidBy==='Shared' ? price/2 : 0;
+    if(e.paidBy==='Bhargav') byPerson.Bhargav += price;
+    else if(e.paidBy==='Anusha') byPerson.Anusha += price;
+    else { byPerson.Bhargav += share; byPerson.Anusha += share; }
+  });
+  const tipAmt = subtotal * (priceSettings.tipPct/100);
+  const total = subtotal + taxAmt + tipAmt;
+  return {entries, subtotal, taxAmt, tipAmt, total, byPerson};
+}
+
+function renderPricesView(){
+  const {entries, subtotal, taxAmt, tipAmt, total, byPerson} = computeSpending();
+  const el = document.getElementById('prices-view');
+
+  const rowsHtml = entries.length ? entries
+    .sort((a,b)=> (b.loggedAt||'').localeCompare(a.loggedAt||''))
+    .map(e=>`
+      <tr>
+        <td>${escapeHtml(e.itemName||e.key)}</td>
+        <td>Week ${e.week}</td>
+        <td>$${Number(e.price).toFixed(2)}</td>
+        <td>${e.taxable ? '<span class="taxable-pill">taxable</span>' : ''}</td>
+        <td>${escapeHtml(e.paidBy||'Shared')}</td>
+        <td>${e.link ? `<a class="link-icon" href="${escapeHtml(e.link)}" target="_blank" rel="noopener">🔗 link</a>` : ''}</td>
+      </tr>`).join('')
+    : `<tr><td colspan="6" style="color:var(--ink-soft);font-style:italic;">No prices logged yet — tap the "$" button next to any item on the shopping list.</td></tr>`;
+
+  el.innerHTML = `
+    <div class="settings-card">
+      <div class="sfield"><label>City</label><input type="text" id="set-city" value="${escapeHtml(priceSettings.city)}"></div>
+      <div class="sfield"><label>Tax %</label><input type="number" step="0.01" id="set-tax" value="${priceSettings.taxPct}"></div>
+      <div class="sfield"><label>Tip %</label><input type="number" step="0.5" id="set-tip" value="${priceSettings.tipPct}"></div>
+      <div style="font-size:11px;color:var(--ink-soft);max-width:220px;">Tax applies only to items marked "taxable" below. Tip applies to every item's subtotal.</div>
+    </div>
+
+    <div class="split-cards">
+      <div class="split-card"><div class="sc-label">Bhargav's share</div><div class="sc-value">$${byPerson.Bhargav.toFixed(2)}</div></div>
+      <div class="split-card"><div class="sc-label">Anusha's share</div><div class="sc-value">$${byPerson.Anusha.toFixed(2)}</div></div>
+      <div class="split-card"><div class="sc-label">Items logged</div><div class="sc-value">${entries.length}</div></div>
+    </div>
+
+    <div class="total-card">
+      <table>
+        <tr><td>Subtotal</td><td style="text-align:right;">$${subtotal.toFixed(2)}</td></tr>
+        <tr><td>Tip (${priceSettings.tipPct}%)</td><td style="text-align:right;">$${tipAmt.toFixed(2)}</td></tr>
+        <tr><td>Tax (${priceSettings.taxPct}%, taxable items only)</td><td style="text-align:right;">$${taxAmt.toFixed(2)}</td></tr>
+        <tr class="grand"><td>Total</td><td style="text-align:right;">$${total.toFixed(2)}</td></tr>
+      </table>
+    </div>
+
+    <div style="overflow-x:auto;">
+      <table class="price-log-table">
+        <thead><tr><th>Item</th><th>Week</th><th>Price</th><th>Tax</th><th>Paid by</th><th>Link</th></tr></thead>
+        <tbody>${rowsHtml}</tbody>
+      </table>
+    </div>
+  `;
+
+  ['set-city','set-tax','set-tip'].forEach(id=>{
+    document.getElementById(id).addEventListener('change', async (e)=>{
+      priceSettings.city = document.getElementById('set-city').value.trim();
+      priceSettings.taxPct = parseFloat(document.getElementById('set-tax').value) || 0;
+      priceSettings.tipPct = parseFloat(document.getElementById('set-tip').value) || 0;
+      await savePriceSettings();
+      renderPricesView();
+    });
+  });
+}
+
+/* ---------------- INIT ---------------- */
+// init now runs from the onAuthStateChanged handler above, once the
+// shared sign-in from the hub page is confirmed.
+</script>
+</body>
+</html>
