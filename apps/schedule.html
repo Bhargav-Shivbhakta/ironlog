@@ -1,0 +1,826 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Schedule — Bhargav + Anusha</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<style>
+  :root{
+    --bg:#F6F7FA; --surface:#FFFFFF; --surface-alt:#F0F1F6;
+    --border:#E4E6ED; --border-soft:#EDEEF3;
+    --text:#12141C; --text-soft:#5B5F6E; --text-faint:#9A9DAD;
+    --accent:#4F46E5; --accent-soft:#EAE9FC; --accent-deep:#3730A3;
+    --bhargav:#D6402C; --bhargav-soft:#FBE6E2;
+    --anusha:#DB2777; --anusha-soft:#FCE4F0;
+    --shared:#0F7A38; --shared-soft:#E3F5EA;
+    --warn:#B45309; --warn-soft:#FEF3E2;
+    --danger:#DC2626; --danger-soft:#FDECEC;
+    --radius-lg:18px; --radius-md:12px; --radius-sm:8px;
+    --shadow:0 1px 2px rgba(18,20,28,0.04), 0 8px 20px -14px rgba(18,20,28,0.16);
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;padding:18px 14px 70px;-webkit-font-smoothing:antialiased;}
+  .wrap{max-width:1000px;margin:0 auto;}
+  h1,h2,h3{font-family:'Manrope',sans-serif;}
+  button,input,select,textarea{font-family:inherit;}
+  a{color:var(--accent-deep);}
+
+  .topbar{max-width:520px;margin:0 auto 14px;display:flex;align-items:center;justify-content:space-between;gap:10px;}
+  .topbar a.back{font-size:12.5px;color:var(--text-soft);text-decoration:none;}
+  .topbar .who{display:flex;align-items:center;gap:6px;}
+  .topbar input{font-size:12.5px;padding:6px 10px;border-radius:var(--radius-sm);border:1px solid var(--border);width:110px;}
+  .topbar button.savebtn{font-size:12.5px;font-weight:600;background:var(--text);color:#fff;border:none;border-radius:var(--radius-sm);padding:6px 12px;cursor:pointer;}
+
+  header.app-head{text-align:center;margin-bottom:16px;}
+  header.app-head h1{font-size:22px;font-weight:800;margin:0 0 3px;letter-spacing:-0.01em;}
+  header.app-head p{margin:0;color:var(--text-soft);font-size:13px;}
+
+  .segmented{max-width:420px;margin:0 auto 16px;background:var(--surface-alt);border-radius:999px;padding:4px;display:flex;gap:2px;}
+  .segmented button{flex:1;border:none;background:transparent;border-radius:999px;padding:9px 4px;font-size:12.5px;font-weight:700;color:var(--text-soft);cursor:pointer;transition:all .15s ease;}
+  .segmented button.active{background:var(--surface);color:var(--text);box-shadow:var(--shadow);}
+
+  .card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:16px 18px;box-shadow:var(--shadow);}
+  .stat-row{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:14px;}
+  .stat-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-md);padding:12px 14px;box-shadow:var(--shadow);}
+  .stat-card .sc-label{font-size:10.5px;color:var(--text-faint);font-weight:700;text-transform:uppercase;letter-spacing:0.03em;}
+  .stat-card .sc-value{font-family:'Manrope',sans-serif;font-weight:800;font-size:19px;margin-top:2px;}
+
+  .notif-banner{background:var(--accent-soft);border:1px solid var(--accent);border-radius:var(--radius-md);padding:11px 14px;margin-bottom:14px;font-size:12px;color:var(--accent-deep);display:flex;align-items:center;gap:10px;flex-wrap:wrap;}
+  .notif-banner button{background:var(--accent);color:#fff;border:none;border-radius:var(--radius-sm);padding:6px 12px;font-size:12px;font-weight:700;cursor:pointer;}
+  .notif-banner .nb-note{font-size:10.5px;color:var(--accent-deep);opacity:0.75;flex-basis:100%;}
+
+  .section-title{font-family:'Manrope',sans-serif;font-size:14px;font-weight:700;color:var(--text-soft);margin:20px 0 8px;display:flex;align-items:center;gap:8px;}
+  .section-title::after{content:'';flex:1;height:1px;background:var(--border);}
+
+  .event-row{display:flex;align-items:flex-start;gap:10px;padding:10px 12px;border-radius:var(--radius-md);border:1px solid var(--border-soft);margin-bottom:7px;background:var(--surface);}
+  .event-row.auto{border-style:dashed;background:var(--surface-alt);}
+  .event-time{font-family:'Manrope',sans-serif;font-weight:800;font-size:12.5px;color:var(--text-soft);min-width:56px;}
+  .event-body{flex:1;min-width:0;}
+  .event-title{font-size:13.5px;font-weight:600;}
+  .event-meta{font-size:11px;color:var(--text-faint);margin-top:2px;}
+  .person-pill{font-size:10px;font-weight:700;border-radius:20px;padding:1px 8px;text-transform:uppercase;letter-spacing:0.03em;}
+  .person-pill.Bhargav{background:var(--bhargav-soft);color:var(--bhargav);}
+  .person-pill.Anusha{background:var(--anusha-soft);color:var(--anusha);}
+  .person-pill.Shared{background:var(--shared-soft);color:var(--shared);}
+  .auto-badge{font-size:9.5px;font-weight:700;background:var(--surface);border:1px solid var(--border);color:var(--text-faint);border-radius:20px;padding:1px 7px;}
+  .event-actions{display:flex;gap:6px;flex:none;}
+  .icon-btn{background:none;border:none;color:var(--text-faint);cursor:pointer;font-size:14px;padding:3px;}
+  .icon-btn:hover{color:var(--text);}
+  .empty-note{color:var(--text-faint);font-style:italic;font-size:12.5px;padding:10px 4px;}
+
+  .add-bar{display:flex;justify-content:center;margin:14px 0;}
+  .add-btn{background:var(--accent);color:#fff;border:none;border-radius:999px;padding:9px 20px;font-size:13px;font-weight:700;cursor:pointer;box-shadow:var(--shadow);}
+
+  .event-form{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:16px 18px;margin-bottom:14px;box-shadow:var(--shadow);}
+  .event-form h3{font-size:14.5px;margin:0 0 10px;}
+  .ff-grid{display:grid;grid-template-columns:2fr 1fr 1fr;gap:8px;}
+  @media(max-width:600px){.ff-grid{grid-template-columns:1fr 1fr;}}
+  .ff-grid .f{display:flex;flex-direction:column;gap:3px;}
+  .ff-grid label{font-size:10px;color:var(--text-faint);font-weight:700;text-transform:uppercase;letter-spacing:0.03em;}
+  .ff-grid input,.ff-grid select{font-size:12.5px;padding:8px 9px;border-radius:var(--radius-sm);border:1px solid var(--border);}
+  .weekday-picker{display:flex;gap:5px;flex-wrap:wrap;grid-column:1/-1;}
+  .weekday-picker button{
+    width:36px;height:36px;border-radius:50%;border:1px solid var(--border);background:var(--surface-alt);
+    font-size:11.5px;font-weight:700;color:var(--text-soft);cursor:pointer;
+  }
+  .weekday-picker button.on{background:var(--accent);color:#fff;border-color:var(--accent);}
+  .ff-actions{grid-column:1/-1;display:flex;gap:8px;margin-top:4px;}
+  .btn{font-size:12.5px;font-weight:700;border:none;border-radius:var(--radius-sm);padding:9px 16px;cursor:pointer;}
+  .btn.primary{background:var(--accent);color:#fff;}
+  .btn.ghost{background:var(--surface-alt);color:var(--text-soft);}
+  .btn.danger{background:none;color:var(--danger);}
+
+  .week-days{display:flex;flex-direction:column;gap:8px;}
+  .day-block{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);box-shadow:var(--shadow);overflow:hidden;}
+  .day-head{padding:11px 16px;display:flex;justify-content:space-between;align-items:center;cursor:pointer;}
+  .day-head.today{background:var(--accent-soft);}
+  .day-head .dh-name{font-family:'Manrope',sans-serif;font-weight:700;font-size:13.5px;}
+  .day-head .dh-date{font-size:11px;color:var(--text-faint);margin-left:6px;}
+  .day-head .dh-count{font-size:11px;color:var(--text-faint);font-weight:700;}
+  .day-content{padding:0 16px 14px;display:none;}
+  .day-content.open{display:block;}
+
+  .chore-columns{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;}
+  @media(max-width:760px){.chore-columns{grid-template-columns:1fr;}}
+  .chore-col{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:14px;box-shadow:var(--shadow);}
+  .chore-col h3{font-size:13.5px;margin:0 0 10px;display:flex;align-items:center;gap:6px;}
+  .chore-card{background:var(--surface-alt);border-radius:var(--radius-md);padding:10px 12px;margin-bottom:8px;}
+  .chore-card.done{opacity:0.55;}
+  .chore-card-top{display:flex;align-items:flex-start;gap:8px;}
+  .chore-chk{appearance:none;width:20px;height:20px;border-radius:6px;border:2px solid var(--border);flex:none;margin-top:1px;cursor:pointer;position:relative;background:var(--surface);}
+  .chore-chk:checked{background:var(--shared);border-color:var(--shared);}
+  .chore-chk:checked::after{content:'';position:absolute;left:5px;top:1px;width:5px;height:9px;border:solid #fff;border-width:0 2px 2px 0;transform:rotate(45deg);}
+  .chore-name{font-size:13px;font-weight:600;flex:1;}
+  .chore-name.strike{text-decoration:line-through;color:var(--text-faint);}
+  .chore-meta{font-size:10.5px;color:var(--text-faint);margin-top:2px;margin-left:28px;}
+  .streak-badge{font-size:10px;font-weight:700;background:var(--warn-soft);color:var(--warn);border-radius:20px;padding:1px 7px;white-space:nowrap;}
+  .chore-empty{font-size:12px;color:var(--text-faint);font-style:italic;}
+
+  .chore-manage{margin-top:22px;}
+  .chore-def-row{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-md);padding:10px 12px;margin-bottom:6px;box-shadow:var(--shadow);}
+  .chore-def-main{display:flex;align-items:center;gap:8px;flex-wrap:wrap;cursor:pointer;}
+  .chore-def-main .cdm-name{font-weight:700;font-size:13px;flex:1;min-width:100px;}
+  .chore-def-edit{display:none;margin-top:10px;padding-top:10px;border-top:1px dashed var(--border);}
+  .chore-def-edit.open{display:block;}
+  .pill{font-size:10px;font-weight:700;background:var(--surface-alt);color:var(--text-soft);border-radius:20px;padding:1px 8px;}
+
+  details.reference{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:12px 16px;margin-top:14px;box-shadow:var(--shadow);}
+  details.reference summary{cursor:pointer;font-family:'Manrope',sans-serif;font-weight:700;font-size:13.5px;list-style:none;}
+  details.reference summary::-webkit-details-marker{display:none;}
+  details.reference summary::before{content:'▸ ';color:var(--text-faint);}
+  details.reference[open] summary::before{content:'▾ ';}
+  details.reference p{font-size:12px;color:var(--text-soft);line-height:1.6;margin:8px 0 0;}
+
+  :focus-visible{outline:2px solid var(--accent);outline-offset:2px;}
+</style>
+</head>
+<body>
+
+<div id="loading-gate" style="position:fixed;inset:0;z-index:200;background:var(--bg);display:flex;align-items:center;justify-content:center;font-family:'Inter',sans-serif;color:var(--text);">
+  Loading…
+</div>
+
+<div class="wrap" id="app-wrap" style="display:none;">
+  <div class="topbar">
+    <a class="back" href="../index.html">← All apps</a>
+    <div class="who">
+      <input type="text" id="your-name" placeholder="your name">
+      <button class="savebtn" id="save-name">Save</button>
+    </div>
+  </div>
+
+  <header class="app-head">
+    <h1>Schedule</h1>
+    <p>Bhargav + Anusha's shared calendar & chores</p>
+  </header>
+
+  <div id="notif-banner-wrap"></div>
+
+  <div class="segmented">
+    <button id="view-today-btn" class="active">🔆 Today</button>
+    <button id="view-week-btn">🗓️ Week</button>
+    <button id="view-chores-btn">✅ Chores</button>
+  </div>
+
+  <div id="today-view"></div>
+  <div id="week-view" style="display:none;"></div>
+  <div id="chores-view" style="display:none;"></div>
+
+  <details class="reference">
+    <summary>About the auto blocks & notifications</summary>
+    <p><strong>Dashed items</strong> (like workouts and the grocery run) are auto-generated from your usual weekly rhythm, not stored individually — adjust the pattern in Week view settings rather than deleting single instances.</p>
+    <p><strong>Notifications</strong> fire reliably while this app is open, or recently opened on this device (foreground + background-tab). They won't fire if the app has been fully closed for a long stretch — that needs a small paid Firebase upgrade (Cloud Functions) to send true closed-app push. Ask if you ever want that added.</p>
+  </details>
+</div>
+
+<script>
+/* =====================================================================
+   FIREBASE
+===================================================================== */
+const FIREBASE_CONFIG = {
+  apiKey: "AIzaSyBe01eR2RZwSbU_aoJMeh_2MMJ5mqkVuKk",
+  authDomain: "iron-log-bfc55.firebaseapp.com",
+  projectId: "iron-log-bfc55",
+  storageBucket: "iron-log-bfc55.firebasestorage.app",
+  messagingSenderId: "106586808946",
+  appId: "1:106586808946:web:f4736554ba9fc82c6fd8eb"
+};
+firebase.initializeApp(FIREBASE_CONFIG);
+const auth = firebase.auth();
+const db = firebase.firestore();
+db.enablePersistence({synchronizeTabs:true}).catch(()=>{});
+let currentUser = null;
+
+function schedDoc(key){
+  return db.collection('users').doc(currentUser.uid).collection('apps').doc('schedule').collection('data').doc(key);
+}
+
+auth.onAuthStateChanged(async (user)=>{
+  if(!user){ window.location.href = '../index.html'; return; }
+  currentUser = user;
+  document.getElementById('loading-gate').style.display = 'none';
+  document.getElementById('app-wrap').style.display = 'block';
+  loadName();
+  initControls();
+  await loadEvents();
+  await loadChores();
+  await loadChoreLog();
+  await loadAutoConfig();
+  renderNotifBanner();
+  showView('today');
+  startNotificationLoop();
+});
+
+/* =====================================================================
+   DATA
+===================================================================== */
+const DAY_NAMES = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+const DAY_SHORT = ['S','M','T','W','T','F','S'];
+
+// Known weekly training pattern (from the Gym app) — auto-generated blocks,
+// not stored individually. Both profiles follow the same day-types.
+const WORKOUT_PATTERN = {
+  1:{title:'Push + Core workout', time:'—'},
+  3:{title:'Pull workout', time:'—'},
+  4:{title:'Legs A workout', time:'—'},
+  5:{title:'Upper + Core workout', time:'—'},
+  6:{title:'Active recovery / mobility', time:'—'},
+  0:{title:'Legs B + Arms workout', time:'—'},
+};
+
+let events = [];       // one-off or weekly-recurring events you add
+let chores = [];       // recurring chore definitions
+let choreLog = {};     // {choreId+':'+date: {done, by, at}}
+let autoConfig = { workoutsOn:true, groceryOn:true, groceryWeekday:6 }; // 6=Saturday
+let myName = '';
+let activeView = 'today';
+let notifPermission = (typeof Notification !== 'undefined') ? Notification.permission : 'unsupported';
+let notifiedToday = new Set();
+const NAME_KEY = 'schedule-your-name';
+const NOTIFIED_KEY = 'schedule-notified-'+(new Date().toISOString().slice(0,10));
+
+function loadName(){
+  try{ myName = localStorage.getItem(NAME_KEY) || ''; }catch(e){ myName=''; }
+  const input = document.getElementById('your-name');
+  if(input) input.value = myName;
+}
+function saveName(){
+  const input = document.getElementById('your-name');
+  myName = (input.value||'').trim();
+  try{ localStorage.setItem(NAME_KEY, myName); }catch(e){}
+}
+
+async function loadEvents(){
+  try{
+    const doc = await schedDoc('events').get();
+    events = (doc.exists && doc.data().json) ? JSON.parse(doc.data().json) : [];
+  }catch(e){ events = []; }
+}
+async function saveEvents(){
+  try{ await schedDoc('events').set({json: JSON.stringify(events)}); }
+  catch(e){ console.error('events save failed', e); }
+}
+async function loadChores(){
+  try{
+    const doc = await schedDoc('chores').get();
+    chores = (doc.exists && doc.data().json) ? JSON.parse(doc.data().json) : [];
+  }catch(e){ chores = []; }
+}
+async function saveChores(){
+  try{ await schedDoc('chores').set({json: JSON.stringify(chores)}); }
+  catch(e){ console.error('chores save failed', e); }
+}
+async function loadChoreLog(){
+  try{
+    const doc = await schedDoc('choreLog').get();
+    choreLog = (doc.exists && doc.data().json) ? JSON.parse(doc.data().json) : {};
+  }catch(e){ choreLog = {}; }
+}
+async function saveChoreLog(){
+  try{ await schedDoc('choreLog').set({json: JSON.stringify(choreLog)}); }
+  catch(e){ console.error('choreLog save failed', e); }
+}
+async function loadAutoConfig(){
+  try{
+    const doc = await schedDoc('autoConfig').get();
+    if(doc.exists && doc.data().json) autoConfig = Object.assign(autoConfig, JSON.parse(doc.data().json));
+  }catch(e){}
+}
+async function saveAutoConfig(){
+  try{ await schedDoc('autoConfig').set({json: JSON.stringify(autoConfig)}); }
+  catch(e){ console.error('autoConfig save failed', e); }
+}
+
+function escapeHtml(s){
+  return String(s==null?'':s).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+function todayStr(){ return new Date().toISOString().slice(0,10); }
+function dateObj(str){ return new Date(str+'T00:00:00'); }
+function weekdayOf(dateStr){ return dateObj(dateStr).getDay(); }
+function fmtDate(d){ return d.toISOString().slice(0,10); }
+function addDays(dateStr, n){
+  const d = dateObj(dateStr); d.setDate(d.getDate()+n); return fmtDate(d);
+}
+function fmtHeaderDate(dateStr){
+  return dateObj(dateStr).toLocaleDateString(undefined,{month:'short',day:'numeric'});
+}
+function timeSort(a,b){ return (a.time||'99:99').localeCompare(b.time||'99:99'); }
+
+/* =====================================================================
+   EVENT RESOLUTION — merges one-off/recurring events with auto blocks
+   for a given date, sorted by time.
+===================================================================== */
+function eventsForDate(dateStr){
+  const wd = weekdayOf(dateStr);
+  const list = [];
+
+  events.forEach(ev=>{
+    if(ev.recurring){
+      if(ev.weekday === wd && (!ev.endDate || dateStr <= ev.endDate) && dateStr >= ev.startDate){
+        list.push(Object.assign({}, ev, {occDate:dateStr, auto:false}));
+      }
+    } else if(ev.date === dateStr){
+      list.push(Object.assign({}, ev, {occDate:dateStr, auto:false}));
+    }
+  });
+
+  if(autoConfig.workoutsOn && WORKOUT_PATTERN[wd]){
+    const w = WORKOUT_PATTERN[wd];
+    list.push({ id:'auto-workout-'+dateStr, title:w.title, time:'', person:'Shared', notes:'From the Gym app — training days follow this weekly pattern.', occDate:dateStr, auto:true, link:'../gym/index.html' });
+  }
+  if(autoConfig.groceryOn && wd === autoConfig.groceryWeekday){
+    list.push({ id:'auto-grocery-'+dateStr, title:'Grocery run (Costco / TJ\'s)', time:'', person:'Shared', notes:'From the Grocery app\'s weekly cycle.', occDate:dateStr, auto:true, link:'../apps/grocery.html' });
+  }
+
+  return list.sort(timeSort);
+}
+
+/* =====================================================================
+   CHORE LOGIC — recurrence, rotation, streaks
+===================================================================== */
+function choreDueOn(chore, dateStr){
+  const wd = weekdayOf(dateStr);
+  return (chore.weekdays||[]).includes(wd);
+}
+function choreAssignee(chore, dateStr){
+  if(chore.mode === 'fixed') return chore.fixedPerson;
+  if(chore.mode === 'shared') return 'Shared';
+  const ref = dateObj(chore.rotateStart || '2026-01-01');
+  const cur = dateObj(dateStr);
+  const weeksSince = Math.floor((cur - ref) / (7*86400000));
+  const people = ['Bhargav','Anusha'];
+  return people[((weeksSince % 2) + 2) % 2];
+}
+function choreLogKey(choreId, dateStr){ return choreId+':'+dateStr; }
+function isChoreDone(choreId, dateStr){ return !!choreLog[choreLogKey(choreId,dateStr)]; }
+function choreStreak(chore){
+  let streak = 0;
+  let cursor = todayStr();
+  for(let i=0;i<365;i++){
+    if(choreDueOn(chore, cursor)){
+      if(isChoreDone(chore.id, cursor)) streak++;
+      else if(cursor === todayStr()) { /* today not done yet, doesn't break streak */ }
+      else break;
+    }
+    cursor = addDays(cursor, -1);
+  }
+  return streak;
+}
+function choresDueOn(dateStr){
+  return chores.filter(c=>choreDueOn(c, dateStr)).map(c=>Object.assign({}, c, {
+    assignee: choreAssignee(c, dateStr),
+    done: isChoreDone(c.id, dateStr),
+    streak: choreStreak(c)
+  }));
+}
+
+/* =====================================================================
+   NOTIFICATIONS — free, foreground/background-tab local reminders.
+===================================================================== */
+function loadNotifiedToday(){
+  try{ notifiedToday = new Set(JSON.parse(localStorage.getItem(NOTIFIED_KEY)||'[]')); }
+  catch(e){ notifiedToday = new Set(); }
+}
+function saveNotifiedToday(){
+  try{ localStorage.setItem(NOTIFIED_KEY, JSON.stringify([...notifiedToday])); }catch(e){}
+}
+loadNotifiedToday();
+
+async function fireNotification(title, body, tag){
+  if(notifPermission !== 'granted') return;
+  try{
+    const reg = await navigator.serviceWorker.ready;
+    reg.showNotification(title, { body, tag, icon:'../icon-192.png', badge:'../icon-192.png' });
+  }catch(e){
+    try{ new Notification(title, {body}); }catch(e2){}
+  }
+}
+function checkUpcoming(){
+  if(notifPermission !== 'granted') return;
+  const now = new Date();
+  const today = todayStr();
+  const leadMinutes = 15;
+
+  eventsForDate(today).forEach(ev=>{
+    if(!ev.time) return;
+    const notifKey = 'evt-'+ev.id+'-'+ev.occDate;
+    if(notifiedToday.has(notifKey)) return;
+    const parts = ev.time.split(':').map(Number);
+    const evDate = new Date(now); evDate.setHours(parts[0],parts[1],0,0);
+    const diffMin = (evDate - now)/60000;
+    if(diffMin > 0 && diffMin <= leadMinutes){
+      fireNotification('Coming up: '+ev.title, ev.time+' · '+ev.person, notifKey);
+      notifiedToday.add(notifKey);
+      saveNotifiedToday();
+    }
+  });
+
+  if(now.getHours() === 20 && now.getMinutes() < 5){
+    const key = 'chore-evening-'+today;
+    if(!notifiedToday.has(key)){
+      const due = choresDueOn(today).filter(c=>!c.done);
+      if(due.length){
+        fireNotification('Chores left today', due.map(c=>c.title).join(', '), key);
+        notifiedToday.add(key);
+        saveNotifiedToday();
+      }
+    }
+  }
+}
+function startNotificationLoop(){
+  checkUpcoming();
+  setInterval(checkUpcoming, 60000);
+}
+
+function renderNotifBanner(){
+  const el = document.getElementById('notif-banner-wrap');
+  if(notifPermission === 'granted'){ el.innerHTML = ''; return; }
+  if(notifPermission === 'unsupported'){ el.innerHTML = ''; return; }
+  el.innerHTML = `
+    <div class="notif-banner">
+      <span>🔔 Turn on notifications for upcoming events & unfinished chores.</span>
+      <button id="enable-notif-btn">Enable</button>
+      <span class="nb-note">Works while this app is open or recently used on this device.</span>
+    </div>`;
+  document.getElementById('enable-notif-btn').addEventListener('click', async ()=>{
+    try{
+      const perm = await Notification.requestPermission();
+      notifPermission = perm;
+      renderNotifBanner();
+      if(perm==='granted') fireNotification('Notifications on', "You'll get reminders for upcoming events and chores.", 'welcome');
+    }catch(e){}
+  });
+}
+
+/* =====================================================================
+   VIEW SWITCHING
+===================================================================== */
+function initControls(){
+  document.getElementById('save-name').addEventListener('click', saveName);
+  document.getElementById('your-name').addEventListener('keydown', e=>{ if(e.key==='Enter'){ e.preventDefault(); saveName(); } });
+  document.getElementById('view-today-btn').addEventListener('click', ()=>showView('today'));
+  document.getElementById('view-week-btn').addEventListener('click', ()=>showView('week'));
+  document.getElementById('view-chores-btn').addEventListener('click', ()=>showView('chores'));
+}
+function showView(name){
+  activeView = name;
+  ['today','week','chores'].forEach(v=>{
+    document.getElementById('view-'+v+'-btn').classList.toggle('active', v===name);
+    document.getElementById(v+'-view').style.display = v===name ? 'block':'none';
+  });
+  if(name==='today') renderToday();
+  if(name==='week') renderWeek();
+  if(name==='chores') renderChores();
+}
+
+/* =====================================================================
+   TODAY VIEW
+===================================================================== */
+function renderToday(){
+  const today = todayStr();
+  const el = document.getElementById('today-view');
+  const todaysEvents = eventsForDate(today);
+  const todaysChores = choresDueOn(today);
+  const doneCount = todaysChores.filter(c=>c.done).length;
+
+  const now = new Date();
+  const upcoming = todaysEvents.filter(e=>e.time).find(e=>{
+    const parts = e.time.split(':').map(Number);
+    const t = new Date(now); t.setHours(parts[0],parts[1],0,0);
+    return t > now;
+  });
+
+  const bestStreak = chores.length ? Math.max(0, ...chores.map(choreStreak)) : 0;
+
+  el.innerHTML = `
+    <div class="stat-row">
+      <div class="stat-card"><div class="sc-label">Up Next</div><div class="sc-value" style="font-size:14px;">${upcoming ? escapeHtml(upcoming.title)+' · '+upcoming.time : 'Nothing scheduled'}</div></div>
+      <div class="stat-card"><div class="sc-label">Chores Today</div><div class="sc-value">${doneCount}/${todaysChores.length}</div></div>
+      <div class="stat-card"><div class="sc-label">Best Streak</div><div class="sc-value">${bestStreak}🔥</div></div>
+    </div>
+
+    <div class="section-title">${DAY_NAMES[weekdayOf(today)]}, ${fmtHeaderDate(today)}</div>
+    <div id="today-events"></div>
+
+    <div class="section-title">Today's Chores</div>
+    <div id="today-chores"></div>
+  `;
+
+  const evWrap = document.getElementById('today-events');
+  evWrap.innerHTML = todaysEvents.length ? todaysEvents.map(ev=>eventRowHtml(ev)).join('') : '<div class="empty-note">Nothing on the calendar today.</div>';
+  attachEventRowHandlers(evWrap);
+
+  const choreWrap = document.getElementById('today-chores');
+  choreWrap.innerHTML = todaysChores.length ? todaysChores.map(c=>todayChoreRowHtml(c)).join('') : '<div class="empty-note">No chores due today.</div>';
+  attachTodayChoreHandlers(choreWrap, today);
+}
+
+function eventRowHtml(ev){
+  return `
+    <div class="event-row ${ev.auto?'auto':''}" data-eventid="${ev.id}" data-occdate="${ev.occDate}">
+      <div class="event-time">${ev.time || 'All day'}</div>
+      <div class="event-body">
+        <div class="event-title">${escapeHtml(ev.title)} ${ev.auto?'<span class="auto-badge">auto</span>':''}</div>
+        <div class="event-meta">
+          <span class="person-pill ${ev.person}">${ev.person}</span>
+          ${ev.notes ? ' · '+escapeHtml(ev.notes) : ''}
+          ${ev.link ? ' · <a href="'+ev.link+'">open app</a>' : ''}
+        </div>
+      </div>
+      ${ev.auto ? '' : '<div class="event-actions"><button class="icon-btn" data-editevent="'+ev.id+'" title="Edit">✎</button><button class="icon-btn" data-delevent="'+ev.id+'" title="Delete">✕</button></div>'}
+    </div>`;
+}
+function todayChoreRowHtml(c){
+  return `
+    <div class="chore-card ${c.done?'done':''}">
+      <div class="chore-card-top">
+        <input type="checkbox" class="chore-chk" data-choreid="${c.id}" ${c.done?'checked':''}>
+        <span class="chore-name ${c.done?'strike':''}">${escapeHtml(c.title)}</span>
+        <span class="streak-badge">${c.streak}🔥</span>
+      </div>
+      <div class="chore-meta"><span class="person-pill ${c.assignee}">${c.assignee}</span></div>
+    </div>`;
+}
+function attachTodayChoreHandlers(wrap, dateStr){
+  wrap.querySelectorAll('.chore-chk').forEach(cb=>{
+    cb.addEventListener('change', async e=>{
+      const id = e.target.dataset.choreid;
+      const key = choreLogKey(id, dateStr);
+      if(e.target.checked) choreLog[key] = { done:true, by: myName||'Someone', at: new Date().toISOString() };
+      else delete choreLog[key];
+      await saveChoreLog();
+      renderToday();
+      if(activeView==='chores') renderChores();
+    });
+  });
+}
+function attachEventRowHandlers(wrap){
+  wrap.querySelectorAll('[data-delevent]').forEach(btn=>{
+    btn.addEventListener('click', async ()=>{
+      events = events.filter(e=>e.id!==btn.dataset.delevent);
+      await saveEvents();
+      showView(activeView);
+    });
+  });
+  wrap.querySelectorAll('[data-editevent]').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      const ev = events.find(e=>e.id===btn.dataset.editevent);
+      if(ev) openEventForm(ev);
+    });
+  });
+}
+
+/* =====================================================================
+   WEEK VIEW
+===================================================================== */
+let editingEventId = null;
+function renderWeek(){
+  const el = document.getElementById('week-view');
+  const today = todayStr();
+  const start = addDays(today, -weekdayOf(today));
+
+  let daysHtml = '';
+  for(let i=0;i<7;i++){
+    const d = addDays(start, i);
+    const isToday = d === today;
+    const dayEvents = eventsForDate(d);
+    daysHtml += '<div class="day-block"><div class="day-head '+(isToday?'today':'')+'" data-daytoggle="'+d+'"><div><span class="dh-name">'+DAY_NAMES[i]+'</span><span class="dh-date">'+fmtHeaderDate(d)+'</span></div><span class="dh-count">'+dayEvents.length+' item'+(dayEvents.length===1?'':'s')+'</span></div><div class="day-content '+(isToday?'open':'')+'" id="daycontent-'+d+'">'+
+      (dayEvents.length ? dayEvents.map(ev=>eventRowHtml(ev)).join('') : '<div class="empty-note">Nothing scheduled.</div>')+
+      '<div class="add-bar"><button class="btn ghost" data-addfor="'+d+'">+ Add to '+DAY_NAMES[i]+'</button></div></div></div>';
+  }
+
+  el.innerHTML = `
+    <div id="event-form-mount"></div>
+    <div class="card" style="margin-bottom:14px;">
+      <h3 style="font-size:13.5px;margin:0 0 8px;">Auto blocks</h3>
+      <label style="display:flex;align-items:center;gap:8px;font-size:12.5px;margin-bottom:6px;">
+        <input type="checkbox" id="toggle-workouts" ${autoConfig.workoutsOn?'checked':''}> Show workout days (from Gym app)
+      </label>
+      <label style="display:flex;align-items:center;gap:8px;font-size:12.5px;">
+        <input type="checkbox" id="toggle-grocery" ${autoConfig.groceryOn?'checked':''}> Show grocery run on
+        <select id="grocery-weekday" style="font-size:12px;padding:4px 6px;border-radius:6px;border:1px solid var(--border);">
+          ${DAY_NAMES.map(function(n,i){ return '<option value="'+i+'" '+(autoConfig.groceryWeekday===i?'selected':'')+'>'+n+'</option>'; }).join('')}
+        </select>
+      </label>
+    </div>
+    <div class="week-days">${daysHtml}</div>
+  `;
+
+  document.getElementById('toggle-workouts').addEventListener('change', async e=>{ autoConfig.workoutsOn = e.target.checked; await saveAutoConfig(); renderWeek(); });
+  document.getElementById('toggle-grocery').addEventListener('change', async e=>{ autoConfig.groceryOn = e.target.checked; await saveAutoConfig(); renderWeek(); });
+  document.getElementById('grocery-weekday').addEventListener('change', async e=>{ autoConfig.groceryWeekday = Number(e.target.value); await saveAutoConfig(); renderWeek(); });
+
+  el.querySelectorAll('[data-daytoggle]').forEach(head=>{
+    head.addEventListener('click', ()=>{
+      const d = head.dataset.daytoggle;
+      document.getElementById('daycontent-'+d).classList.toggle('open');
+    });
+  });
+  el.querySelectorAll('[data-addfor]').forEach(btn=>{
+    btn.addEventListener('click', (e)=>{ e.stopPropagation(); openEventForm(null, btn.dataset.addfor); });
+  });
+  el.querySelectorAll('.event-row').forEach(row=> attachEventRowHandlers(row.parentElement));
+}
+
+function openEventForm(existingEvent, defaultDate){
+  editingEventId = existingEvent ? existingEvent.id : null;
+  const mount = document.getElementById('event-form-mount');
+  const ev = existingEvent || { title:'', date: defaultDate || todayStr(), time:'', person:'Shared', notes:'', recurring:false, weekday: weekdayOf(defaultDate||todayStr()), startDate: defaultDate||todayStr(), endDate:'' };
+
+  mount.innerHTML = `
+    <div class="event-form">
+      <h3>${existingEvent ? 'Edit event' : 'Add event'}</h3>
+      <div class="ff-grid">
+        <div class="f"><label>Title</label><input type="text" id="ef-title" value="${escapeHtml(ev.title)}" required placeholder="e.g. Dinner with parents"></div>
+        <div class="f"><label>Time</label><input type="time" id="ef-time" value="${ev.time||''}"></div>
+        <div class="f"><label>Person</label>
+          <select id="ef-person">
+            <option value="Shared" ${ev.person==='Shared'?'selected':''}>Shared</option>
+            <option value="Bhargav" ${ev.person==='Bhargav'?'selected':''}>Bhargav</option>
+            <option value="Anusha" ${ev.person==='Anusha'?'selected':''}>Anusha</option>
+          </select>
+        </div>
+        <div class="f"><label>Repeats</label>
+          <select id="ef-recurring">
+            <option value="0" ${!ev.recurring?'selected':''}>Just once</option>
+            <option value="1" ${ev.recurring?'selected':''}>Weekly</option>
+          </select>
+        </div>
+        <div class="f" id="ef-date-wrap"><label>Date</label><input type="date" id="ef-date" value="${ev.date||defaultDate||todayStr()}"></div>
+        <div class="f" style="grid-column:1/-1;"><label>Notes</label><input type="text" id="ef-notes" value="${escapeHtml(ev.notes||'')}" placeholder="optional"></div>
+        <div class="ff-actions">
+          <button class="btn primary" id="ef-save">${existingEvent?'Save changes':'Add event'}</button>
+          <button class="btn ghost" id="ef-cancel">Cancel</button>
+        </div>
+      </div>
+    </div>`;
+  mount.scrollIntoView({behavior:'smooth', block:'center'});
+
+  document.getElementById('ef-cancel').addEventListener('click', ()=>{ mount.innerHTML=''; editingEventId=null; });
+  document.getElementById('ef-save').addEventListener('click', async ()=>{
+    const title = document.getElementById('ef-title').value.trim();
+    if(!title) return;
+    const isRecurring = document.getElementById('ef-recurring').value === '1';
+    const dateVal = document.getElementById('ef-date').value || todayStr();
+    const newEv = {
+      id: existingEvent ? existingEvent.id : 'evt-'+Date.now()+'-'+Math.floor(Math.random()*1000),
+      title, time: document.getElementById('ef-time').value,
+      person: document.getElementById('ef-person').value,
+      notes: document.getElementById('ef-notes').value.trim(),
+      recurring: isRecurring,
+      date: isRecurring ? null : dateVal,
+      weekday: isRecurring ? weekdayOf(dateVal) : undefined,
+      startDate: isRecurring ? dateVal : undefined,
+      endDate: undefined
+    };
+    if(existingEvent){
+      events = events.map(e=>e.id===existingEvent.id ? newEv : e);
+    } else {
+      events.push(newEv);
+    }
+    await saveEvents();
+    mount.innerHTML = '';
+    editingEventId = null;
+    showView(activeView);
+  });
+}
+
+/* =====================================================================
+   CHORES VIEW
+===================================================================== */
+function renderChores(){
+  const el = document.getElementById('chores-view');
+  const today = todayStr();
+  const due = choresDueOn(today);
+
+  const cols = ['Bhargav','Anusha','Shared'].map(function(person){
+    const items = due.filter(function(c){ return c.assignee===person; });
+    return '<div class="chore-col"><h3><span class="person-pill '+person+'">'+person+'</span></h3>'+
+      (items.length ? items.map(function(c){ return todayChoreRowHtml(c); }).join('') : '<div class="chore-empty">Nothing due today.</div>')+
+      '</div>';
+  }).join('');
+
+  el.innerHTML = `
+    <div class="section-title">Due Today</div>
+    <div class="chore-columns" id="chore-board">${cols}</div>
+
+    <div class="chore-manage">
+      <div class="section-title">Manage recurring chores</div>
+      <div id="chore-def-form-mount"></div>
+      <div class="add-bar"><button class="add-btn" id="add-chore-btn">+ New recurring chore</button></div>
+      <div id="chore-def-list"></div>
+    </div>
+  `;
+
+  attachTodayChoreHandlers(document.getElementById('chore-board'), today);
+
+  document.getElementById('add-chore-btn').addEventListener('click', ()=> openChoreForm(null));
+
+  const listEl = document.getElementById('chore-def-list');
+  listEl.innerHTML = chores.length ? chores.map(function(c){ return choreDefRowHtml(c); }).join('') : '<div class="empty-note">No recurring chores set up yet.</div>';
+  listEl.querySelectorAll('.chore-def-main').forEach(row=>{
+    row.addEventListener('click', ()=>{ row.nextElementSibling.classList.toggle('open'); });
+  });
+  listEl.querySelectorAll('[data-editchore]').forEach(btn=>{
+    btn.addEventListener('click', e=>{ e.stopPropagation(); openChoreForm(chores.find(function(c){ return c.id===btn.dataset.editchore; })); });
+  });
+  listEl.querySelectorAll('[data-delchore]').forEach(btn=>{
+    btn.addEventListener('click', async e=>{
+      e.stopPropagation();
+      chores = chores.filter(function(c){ return c.id!==btn.dataset.delchore; });
+      await saveChores();
+      renderChores();
+    });
+  });
+}
+
+function choreDefRowHtml(c){
+  const days = (c.weekdays||[]).map(function(w){ return DAY_SHORT[w]; }).join(' ');
+  const modeLabel = c.mode==='rotate' ? 'Rotates weekly' : (c.mode==='shared' ? 'Shared' : 'Fixed: '+c.fixedPerson);
+  return `
+    <div class="chore-def-row">
+      <div class="chore-def-main">
+        <span class="cdm-name">${escapeHtml(c.title)}</span>
+        <span class="pill">${days||'no days set'}</span>
+        <span class="pill">${modeLabel}</span>
+        <span class="expand-btn" style="color:var(--text-faint);">⌄</span>
+      </div>
+      <div class="chore-def-edit">
+        <div style="display:flex;gap:8px;">
+          <button class="btn ghost" data-editchore="${c.id}">Edit</button>
+          <button class="btn danger" data-delchore="${c.id}">Delete</button>
+        </div>
+      </div>
+    </div>`;
+}
+
+function openChoreForm(existing){
+  const mount = document.getElementById('chore-def-form-mount');
+  const c = existing || { title:'', weekdays:[], mode:'shared', fixedPerson:'Bhargav', rotateStart: todayStr() };
+  const daySet = new Set(c.weekdays||[]);
+
+  mount.innerHTML = `
+    <div class="event-form">
+      <h3>${existing?'Edit chore':'New recurring chore'}</h3>
+      <div class="ff-grid">
+        <div class="f" style="grid-column:1/-1;"><label>Title</label><input type="text" id="cf-title" value="${escapeHtml(c.title)}" required placeholder="e.g. Take out trash"></div>
+        <div class="weekday-picker" id="cf-weekdays">
+          ${DAY_SHORT.map(function(s,i){ return '<button type="button" data-day="'+i+'" class="'+(daySet.has(i)?'on':'')+'">'+s+'</button>'; }).join('')}
+        </div>
+        <div class="f"><label>Assignment</label>
+          <select id="cf-mode">
+            <option value="shared" ${c.mode==='shared'?'selected':''}>Shared (either does it)</option>
+            <option value="rotate" ${c.mode==='rotate'?'selected':''}>Rotates weekly</option>
+            <option value="fixed" ${c.mode==='fixed'?'selected':''}>Fixed person</option>
+          </select>
+        </div>
+        <div class="f" id="cf-fixed-wrap" style="${c.mode==='fixed'?'':'display:none;'}"><label>Person</label>
+          <select id="cf-fixedperson">
+            <option value="Bhargav" ${c.fixedPerson==='Bhargav'?'selected':''}>Bhargav</option>
+            <option value="Anusha" ${c.fixedPerson==='Anusha'?'selected':''}>Anusha</option>
+          </select>
+        </div>
+        <div class="ff-actions">
+          <button class="btn primary" id="cf-save">${existing?'Save changes':'Add chore'}</button>
+          <button class="btn ghost" id="cf-cancel">Cancel</button>
+        </div>
+      </div>
+    </div>`;
+  mount.scrollIntoView({behavior:'smooth', block:'center'});
+
+  mount.querySelectorAll('#cf-weekdays button').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      const d = Number(btn.dataset.day);
+      if(daySet.has(d)){ daySet.delete(d); btn.classList.remove('on'); }
+      else{ daySet.add(d); btn.classList.add('on'); }
+    });
+  });
+  document.getElementById('cf-mode').addEventListener('change', e=>{
+    document.getElementById('cf-fixed-wrap').style.display = e.target.value==='fixed' ? 'flex' : 'none';
+  });
+  document.getElementById('cf-cancel').addEventListener('click', ()=>{ mount.innerHTML=''; });
+  document.getElementById('cf-save').addEventListener('click', async ()=>{
+    const title = document.getElementById('cf-title').value.trim();
+    if(!title || !daySet.size) return;
+    const newChore = {
+      id: existing ? existing.id : 'chore-'+Date.now()+'-'+Math.floor(Math.random()*1000),
+      title, weekdays: [...daySet].sort(),
+      mode: document.getElementById('cf-mode').value,
+      fixedPerson: document.getElementById('cf-fixedperson').value,
+      rotateStart: c.rotateStart || todayStr()
+    };
+    if(existing) chores = chores.map(function(ch){ return ch.id===existing.id ? newChore : ch; });
+    else chores.push(newChore);
+    await saveChores();
+    mount.innerHTML = '';
+    renderChores();
+  });
+}
+</script>
+</body>
+</html>
