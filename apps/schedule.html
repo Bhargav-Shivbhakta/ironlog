@@ -1,0 +1,681 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Schedule</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<style>
+  :root{
+    --bg:#F4F1EA; --surface:#FDFCF8; --surface-alt:#EDE8DA;
+    --border:#DDD5C0; --border-soft:#E7E1D0;
+    --text:#1F1B14; --text-soft:#6B6558; --text-faint:#9C9585;
+    --accent:#1F3B32; --accent-soft:#E3ECE8; --accent-deep:#14261F;
+    --gold:#9C7B0E; --gold-soft:#F3ECD6;
+    --danger:#A3402F; --danger-soft:#F5E6E1;
+    --radius-lg:14px; --radius-md:10px; --radius-sm:7px;
+    --shadow:0 1px 2px rgba(31,27,20,0.05), 0 6px 14px -10px rgba(31,27,20,0.18);
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;padding:14px 12px 60px;-webkit-font-smoothing:antialiased;}
+  .wrap{max-width:980px;margin:0 auto;}
+  h1,h2,h3{font-family:'Manrope',sans-serif;}
+  button,input,select{font-family:inherit;}
+  a{color:var(--accent);}
+
+  .auth-overlay,.profile-overlay{position:fixed;inset:0;z-index:200;background:var(--bg);display:flex;align-items:center;justify-content:center;padding:20px;}
+  .auth-box{width:100%;max-width:340px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:26px 24px;text-align:center;box-shadow:var(--shadow);}
+  .auth-box h2{font-size:20px;margin:0 0 4px;}
+  .auth-box p{color:var(--text-soft);font-size:12.5px;margin:0 0 16px;}
+  .auth-box input{width:100%;font-size:13px;padding:8px 10px;border-radius:var(--radius-sm);border:1px solid var(--border);margin-bottom:8px;}
+  .auth-box button{width:100%;background:var(--accent);color:#fff;border:none;border-radius:var(--radius-sm);padding:9px;font-size:13px;font-weight:700;cursor:pointer;}
+  .auth-toggle{margin-top:10px;font-size:11.5px;color:var(--text-soft);}
+  .auth-toggle button{background:none;color:var(--gold);text-decoration:underline;font-weight:600;width:auto;padding:0 0 0 4px;}
+  .auth-error{color:var(--danger);font-size:11.5px;min-height:14px;margin-bottom:6px;}
+
+  .profile-inner{text-align:center;}
+  .profile-inner h1{font-size:22px;margin:0 0 30px;}
+  .profile-row{display:flex;gap:26px;justify-content:center;flex-wrap:wrap;}
+  .profile-card{background:none;border:none;color:var(--text);display:flex;flex-direction:column;align-items:center;gap:10px;cursor:pointer;}
+  .profile-avatar{width:92px;height:92px;border-radius:14px;display:flex;align-items:center;justify-content:center;font-size:32px;font-weight:800;color:#fff;border:3px solid transparent;font-family:'Manrope',sans-serif;}
+  .profile-card:hover .profile-avatar{border-color:var(--accent);}
+  .av-b{background:linear-gradient(135deg,#1F3B32,#3E6B58);}
+  .av-a{background:linear-gradient(135deg,#9C7B0E,#C9A227);}
+  .profile-name{font-size:13.5px;font-weight:600;color:var(--text-soft);}
+
+  .topbar{max-width:480px;margin:0 auto 12px;display:flex;align-items:center;justify-content:space-between;gap:8px;}
+  .topbar a.back,.topbar button.switch{font-size:11.5px;color:var(--text-soft);text-decoration:none;background:none;border:none;cursor:pointer;padding:0;}
+
+  header.app-head{text-align:center;margin-bottom:12px;}
+  header.app-head .who-badge{display:inline-flex;align-items:center;gap:6px;background:var(--surface);border:1px solid var(--border);border-radius:20px;padding:3px 12px 3px 4px;margin-bottom:6px;}
+  header.app-head .who-avatar{width:20px;height:20px;border-radius:6px;font-size:10px;font-weight:800;color:#fff;display:flex;align-items:center;justify-content:center;font-family:'Manrope',sans-serif;}
+  header.app-head .who-avatar.av-b{background:#1F3B32;}
+  header.app-head .who-avatar.av-a{background:#9C7B0E;}
+  header.app-head .who-name{font-size:11.5px;font-weight:700;}
+  header.app-head h1{font-size:19px;font-weight:800;margin:0;letter-spacing:-0.01em;}
+
+  .segmented{max-width:280px;margin:0 auto 12px;background:var(--surface-alt);border-radius:999px;padding:3px;display:flex;gap:2px;}
+  .segmented button{flex:1;border:none;background:transparent;border-radius:999px;padding:7px 4px;font-size:12px;font-weight:700;color:var(--text-soft);cursor:pointer;}
+  .segmented button.active{background:var(--surface);color:var(--text);box-shadow:var(--shadow);}
+
+  .notif-banner{background:var(--accent-soft);border:1px solid var(--accent);border-radius:var(--radius-md);padding:8px 12px;margin-bottom:10px;font-size:11px;color:var(--accent-deep);display:flex;align-items:center;gap:8px;flex-wrap:wrap;}
+  .notif-banner button{background:var(--accent);color:#fff;border:none;border-radius:var(--radius-sm);padding:4px 10px;font-size:11px;font-weight:700;cursor:pointer;}
+
+  .stat-row{display:grid;grid-template-columns:repeat(3,1fr);gap:7px;margin-bottom:10px;}
+  .stat-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-md);padding:9px 10px;box-shadow:var(--shadow);}
+  .stat-card .sc-label{font-size:9.5px;color:var(--text-faint);font-weight:700;text-transform:uppercase;letter-spacing:0.03em;}
+  .stat-card .sc-value{font-family:'Manrope',sans-serif;font-weight:800;font-size:15px;margin-top:1px;}
+
+  .section-title{font-family:'Manrope',sans-serif;font-size:12.5px;font-weight:700;color:var(--text-soft);margin:14px 0 6px;display:flex;align-items:center;gap:6px;}
+  .section-title::after{content:'';flex:1;height:1px;background:var(--border);}
+
+  .row-item{display:flex;align-items:center;gap:8px;padding:7px 8px;border-radius:var(--radius-sm);border-bottom:1px solid var(--border-soft);background:var(--surface);}
+  .row-item.auto{border-style:dashed;background:var(--surface-alt);}
+  .row-item.mirrored{opacity:0.85;}
+  .row-time{font-family:'Manrope',sans-serif;font-weight:700;font-size:11px;color:var(--text-soft);min-width:42px;}
+  .row-body{flex:1;min-width:0;}
+  .row-title{font-size:12.5px;font-weight:600;outline:none;}
+  .row-title[contenteditable]:hover,.row-title[contenteditable]:focus{border-bottom:1px dashed var(--border);}
+  .row-title.strike{text-decoration:line-through;color:var(--text-faint);}
+  .row-meta{font-size:10px;color:var(--text-faint);margin-top:1px;}
+  .tag{font-size:9px;font-weight:700;border-radius:20px;padding:1px 7px;}
+  .tag.shared{background:var(--gold-soft);color:var(--gold);}
+  .tag.auto{background:var(--surface);border:1px solid var(--border);color:var(--text-faint);}
+  .row-actions{display:flex;gap:4px;flex:none;}
+  .icon-btn{background:none;border:none;color:var(--text-faint);cursor:pointer;font-size:12px;padding:2px;}
+  .icon-btn:hover{color:var(--text);}
+  .empty-note{color:var(--text-faint);font-style:italic;font-size:11.5px;padding:6px 3px;}
+
+  .chk{appearance:none;width:17px;height:17px;border-radius:5px;border:2px solid var(--border);flex:none;cursor:pointer;position:relative;background:var(--surface);}
+  .chk:checked{background:var(--accent);border-color:var(--accent);}
+  .chk:checked::after{content:'';position:absolute;left:4px;top:1px;width:4px;height:8px;border:solid #fff;border-width:0 2px 2px 0;transform:rotate(45deg);}
+
+  .add-bar{display:flex;justify-content:center;margin:8px 0;}
+  .add-btn{background:transparent;border:1px solid var(--gold);color:var(--gold);border-radius:999px;padding:5px 14px;font-size:11.5px;font-weight:700;cursor:pointer;}
+
+  .inline-form{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-md);padding:10px 12px;margin-bottom:10px;box-shadow:var(--shadow);}
+  .inline-form h3{font-size:12.5px;margin:0 0 8px;}
+  .ff-grid{display:grid;grid-template-columns:2fr 1fr 1fr;gap:6px;}
+  @media(max-width:520px){.ff-grid{grid-template-columns:1fr 1fr;}}
+  .ff-grid .f{display:flex;flex-direction:column;gap:2px;}
+  .ff-grid label{font-size:9px;color:var(--text-faint);font-weight:700;text-transform:uppercase;}
+  .ff-grid input,.ff-grid select{font-size:12px;padding:6px 7px;border-radius:var(--radius-sm);border:1px solid var(--border);}
+  .ff-check{grid-column:1/-1;display:flex;align-items:center;gap:6px;font-size:11.5px;color:var(--text-soft);}
+  .weekday-picker{display:flex;gap:4px;flex-wrap:wrap;grid-column:1/-1;}
+  .weekday-picker button{width:28px;height:28px;border-radius:50%;border:1px solid var(--border);background:var(--surface-alt);font-size:10px;font-weight:700;color:var(--text-soft);cursor:pointer;}
+  .weekday-picker button.on{background:var(--accent);color:#fff;border-color:var(--accent);}
+  .ff-actions{grid-column:1/-1;display:flex;gap:6px;margin-top:2px;}
+  .btn{font-size:11.5px;font-weight:700;border:none;border-radius:var(--radius-sm);padding:7px 12px;cursor:pointer;}
+  .btn.primary{background:var(--accent);color:#fff;}
+  .btn.ghost{background:var(--surface-alt);color:var(--text-soft);}
+  .btn.danger{background:none;color:var(--danger);}
+
+  .day-block{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-md);box-shadow:var(--shadow);overflow:hidden;margin-bottom:6px;}
+  .day-head{padding:8px 12px;display:flex;justify-content:space-between;align-items:center;cursor:pointer;}
+  .day-head.today{background:var(--accent-soft);}
+  .day-head .dh-name{font-family:'Manrope',sans-serif;font-weight:700;font-size:12px;}
+  .day-head .dh-date{font-size:10px;color:var(--text-faint);margin-left:5px;}
+  .day-head .dh-count{font-size:10px;color:var(--text-faint);font-weight:700;}
+  .day-content{padding:0 12px 10px;display:none;}
+  .day-content.open{display:block;}
+
+  details.reference{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-md);padding:9px 12px;margin-top:12px;box-shadow:var(--shadow);}
+  details.reference summary{cursor:pointer;font-family:'Manrope',sans-serif;font-weight:700;font-size:11.5px;list-style:none;}
+  details.reference summary::-webkit-details-marker{display:none;}
+  details.reference summary::before{content:'▸ ';color:var(--text-faint);}
+  details.reference[open] summary::before{content:'▾ ';}
+  details.reference p{font-size:11px;color:var(--text-soft);line-height:1.5;margin:6px 0 0;}
+
+  :focus-visible{outline:2px solid var(--accent);outline-offset:1px;}
+</style>
+</head>
+<body>
+
+<div id="auth-overlay" class="auth-overlay">
+  <div class="auth-box">
+    <h2>Schedule</h2>
+    <p>Sign in to sync across devices.</p>
+    <form id="auth-form">
+      <input type="email" id="auth-email" placeholder="Email" required>
+      <input type="password" id="auth-password" placeholder="Password" required minlength="6">
+      <div class="auth-error" id="auth-error"></div>
+      <button type="submit" id="auth-submit">Sign in</button>
+    </form>
+    <div class="auth-toggle"><span id="auth-toggle-text">New here?</span><button type="button" id="auth-toggle-btn">Create an account</button></div>
+  </div>
+</div>
+
+<div id="profile-overlay" class="profile-overlay" style="display:none;">
+  <div class="profile-inner">
+    <h1>Who's checking their schedule?</h1>
+    <div class="profile-row" id="profile-row"></div>
+  </div>
+</div>
+
+<div class="wrap" id="app-wrap" style="display:none;">
+  <div class="topbar">
+    <a class="back" href="../index.html">← All apps</a>
+    <button class="switch" id="switch-profile-btn">Switch profile</button>
+  </div>
+
+  <header class="app-head">
+    <div class="who-badge" id="who-badge"></div>
+    <h1>Schedule</h1>
+  </header>
+
+  <div id="notif-banner-wrap"></div>
+
+  <div class="segmented">
+    <button id="view-today-btn" class="active">Today</button>
+    <button id="view-week-btn">Week</button>
+  </div>
+
+  <div id="today-view"></div>
+  <div id="week-view" style="display:none;"></div>
+</div>
+
+<script>
+/* =====================================================================
+   FIREBASE
+===================================================================== */
+const FIREBASE_CONFIG = {
+  apiKey: "AIzaSyBe01eR2RZwSbU_aoJMeh_2MMJ5mqkVuKk",
+  authDomain: "iron-log-bfc55.firebaseapp.com",
+  projectId: "iron-log-bfc55",
+  storageBucket: "iron-log-bfc55.firebasestorage.app",
+  messagingSenderId: "106586808946",
+  appId: "1:106586808946:web:f4736554ba9fc82c6fd8eb"
+};
+firebase.initializeApp(FIREBASE_CONFIG);
+const auth = firebase.auth();
+const db = firebase.firestore();
+db.enablePersistence({synchronizeTabs:true}).catch(()=>{});
+let currentUser = null;
+let activeProfile = null;
+
+function profileDoc(profileId, key){
+  return db.collection('users').doc(currentUser.uid).collection('schedule-profiles').doc(profileId).collection('data').doc(key);
+}
+function otherProfile(p){ return p==='Bhargav' ? 'Anusha' : 'Bhargav'; }
+
+/* =====================================================================
+   AUTH
+===================================================================== */
+let authMode = 'signin';
+document.getElementById('auth-toggle-btn').addEventListener('click', ()=>{
+  authMode = authMode==='signin' ? 'signup' : 'signin';
+  document.getElementById('auth-submit').textContent = authMode==='signin' ? 'Sign in' : 'Create account';
+  document.getElementById('auth-toggle-text').textContent = authMode==='signin' ? 'New here?' : 'Already have an account?';
+  document.getElementById('auth-toggle-btn').textContent = authMode==='signin' ? 'Create an account' : 'Sign in';
+});
+document.getElementById('auth-form').addEventListener('submit', async e=>{
+  e.preventDefault();
+  const email = document.getElementById('auth-email').value.trim();
+  const password = document.getElementById('auth-password').value;
+  const errEl = document.getElementById('auth-error');
+  errEl.textContent = '';
+  try{
+    await auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL);
+    if(authMode==='signin') await auth.signInWithEmailAndPassword(email, password);
+    else await auth.createUserWithEmailAndPassword(email, password);
+  }catch(err){ errEl.textContent = err.message.replace('Firebase: ',''); }
+});
+
+function showProfilePicker(){
+  document.getElementById('auth-overlay').style.display = 'none';
+  document.getElementById('app-wrap').style.display = 'none';
+  document.getElementById('profile-overlay').style.display = 'flex';
+  const row = document.getElementById('profile-row');
+  row.innerHTML = '';
+  [{id:'Bhargav',cls:'av-b'},{id:'Anusha',cls:'av-a'}].forEach(p=>{
+    const card = document.createElement('button');
+    card.className = 'profile-card';
+    card.innerHTML = '<div class="profile-avatar '+p.cls+'">'+p.id[0]+'</div><div class="profile-name">'+p.id+'</div>';
+    card.addEventListener('click', ()=> enterProfile(p.id));
+    row.appendChild(card);
+  });
+}
+function showAuth(){
+  document.getElementById('auth-overlay').style.display = 'flex';
+  document.getElementById('profile-overlay').style.display = 'none';
+  document.getElementById('app-wrap').style.display = 'none';
+}
+auth.onAuthStateChanged(user=>{
+  currentUser = user;
+  user ? showProfilePicker() : showAuth();
+});
+
+async function enterProfile(profileId){
+  activeProfile = profileId;
+  document.getElementById('profile-overlay').style.display = 'none';
+  document.getElementById('app-wrap').style.display = 'block';
+  document.getElementById('who-badge').innerHTML = '<span class="who-avatar av-'+(profileId==='Bhargav'?'b':'a')+'">'+profileId[0]+'</span><span class="who-name">'+profileId+'</span>';
+  document.getElementById('switch-profile-btn').onclick = showProfilePicker;
+  initControls();
+  await loadEvents();
+  await loadChores();
+  await loadChoreLog();
+  await loadAutoConfig();
+  renderNotifBanner();
+  showView('today');
+  startNotificationLoop();
+}
+
+/* =====================================================================
+   DATA
+===================================================================== */
+const DAY_NAMES = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+const DAY_SHORT = ['S','M','T','W','T','F','S'];
+
+const WORKOUT_PATTERN = {
+  1:'Push + core workout', 3:'Pull workout', 4:'Legs A workout',
+  5:'Upper + core workout', 6:'Active recovery / mobility', 0:'Legs B + arms workout'
+};
+
+let events = [];
+let chores = [];
+let choreLog = {};
+let autoConfig = { workoutsOn:true, groceryOn:true, groceryWeekday:6 };
+let activeView = 'today';
+let notifPermission = (typeof Notification !== 'undefined') ? Notification.permission : 'unsupported';
+let notifiedToday = new Set();
+const NOTIFIED_KEY = 'schedule-notified-'+(new Date().toISOString().slice(0,10));
+
+async function loadEvents(){
+  try{ const doc = await profileDoc(activeProfile,'events').get(); events = (doc.exists && doc.data().json) ? JSON.parse(doc.data().json) : []; }
+  catch(e){ events = []; }
+}
+async function saveEvents(){
+  try{ await profileDoc(activeProfile,'events').set({json: JSON.stringify(events)}); }
+  catch(e){ console.error('events save failed', e); }
+}
+async function loadChores(){
+  try{ const doc = await profileDoc(activeProfile,'chores').get(); chores = (doc.exists && doc.data().json) ? JSON.parse(doc.data().json) : []; }
+  catch(e){ chores = []; }
+}
+async function saveChores(){
+  try{ await profileDoc(activeProfile,'chores').set({json: JSON.stringify(chores)}); }
+  catch(e){ console.error('chores save failed', e); }
+}
+async function loadChoreLog(){
+  try{ const doc = await profileDoc(activeProfile,'choreLog').get(); choreLog = (doc.exists && doc.data().json) ? JSON.parse(doc.data().json) : {}; }
+  catch(e){ choreLog = {}; }
+}
+async function saveChoreLog(){
+  try{ await profileDoc(activeProfile,'choreLog').set({json: JSON.stringify(choreLog)}); }
+  catch(e){ console.error('choreLog save failed', e); }
+}
+async function loadAutoConfig(){
+  try{ const doc = await profileDoc(activeProfile,'autoConfig').get(); if(doc.exists && doc.data().json) autoConfig = Object.assign(autoConfig, JSON.parse(doc.data().json)); }
+  catch(e){}
+}
+async function saveAutoConfig(){
+  try{ await profileDoc(activeProfile,'autoConfig').set({json: JSON.stringify(autoConfig)}); }
+  catch(e){ console.error('autoConfig save failed', e); }
+}
+
+async function mirrorToPartner(kind, item, deleted){
+  if(!item.shared) return;
+  const partner = otherProfile(activeProfile);
+  const docKey = kind === 'event' ? 'events' : 'chores';
+  try{
+    const doc = await profileDoc(partner, docKey).get();
+    let list = (doc.exists && doc.data().json) ? JSON.parse(doc.data().json) : [];
+    list = list.filter(i=> i.id !== item.id);
+    if(!deleted) list.push(Object.assign({}, item, {mirrored:true, ownerProfile:activeProfile}));
+    await profileDoc(partner, docKey).set({json: JSON.stringify(list)});
+  }catch(e){ console.error('mirror failed', e); }
+}
+
+function escapeHtml(s){
+  return String(s==null?'':s).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+function todayStr(){ return new Date().toISOString().slice(0,10); }
+function dateObj(str){ return new Date(str+'T00:00:00'); }
+function weekdayOf(dateStr){ return dateObj(dateStr).getDay(); }
+function fmtDate(d){ return d.toISOString().slice(0,10); }
+function addDays(dateStr, n){ const d = dateObj(dateStr); d.setDate(d.getDate()+n); return fmtDate(d); }
+function fmtHeaderDate(dateStr){ return dateObj(dateStr).toLocaleDateString(undefined,{month:'short',day:'numeric'}); }
+function timeSort(a,b){ return (a.time||'99:99').localeCompare(b.time||'99:99'); }
+
+function eventsForDate(dateStr){
+  const wd = weekdayOf(dateStr);
+  const list = [];
+  events.forEach(ev=>{
+    if(ev.recurring){
+      if(ev.weekday === wd && dateStr >= ev.startDate) list.push(Object.assign({}, ev, {occDate:dateStr, auto:false}));
+    } else if(ev.date === dateStr){
+      list.push(Object.assign({}, ev, {occDate:dateStr, auto:false}));
+    }
+  });
+  if(autoConfig.workoutsOn && WORKOUT_PATTERN[wd]){
+    list.push({ id:'auto-workout-'+dateStr, title:WORKOUT_PATTERN[wd], time:'', occDate:dateStr, auto:true, link:'../gym/index.html' });
+  }
+  if(autoConfig.groceryOn && wd === autoConfig.groceryWeekday){
+    list.push({ id:'auto-grocery-'+dateStr, title:"Grocery run (Costco / TJ's)", time:'', occDate:dateStr, auto:true, link:'../apps/grocery.html' });
+  }
+  return list.sort(timeSort);
+}
+
+function choreDueOn(chore, dateStr){ return (chore.weekdays||[]).includes(weekdayOf(dateStr)); }
+function choreLogKey(choreId, dateStr){ return choreId+':'+dateStr; }
+function isChoreDone(choreId, dateStr){ return !!choreLog[choreLogKey(choreId,dateStr)]; }
+function choreStreak(chore){
+  let streak = 0, cursor = todayStr();
+  for(let i=0;i<365;i++){
+    if(choreDueOn(chore, cursor)){
+      if(isChoreDone(chore.id, cursor)) streak++;
+      else if(cursor !== todayStr()) break;
+    }
+    cursor = addDays(cursor, -1);
+  }
+  return streak;
+}
+function whoseTurn(chore, dateStr){
+  if(!chore.rotates) return null;
+  const ref = dateObj(chore.rotateStart || '2026-01-01');
+  const weeksSince = Math.floor((dateObj(dateStr) - ref) / (7*86400000));
+  const people = ['Bhargav','Anusha'];
+  return people[((weeksSince % 2)+2)%2];
+}
+function choresDueOn(dateStr){
+  return chores.filter(c=>choreDueOn(c,dateStr)).map(c=>Object.assign({}, c, {
+    done: isChoreDone(c.id, dateStr), streak: choreStreak(c), turn: whoseTurn(c, dateStr)
+  }));
+}
+
+function loadNotifiedToday(){ try{ notifiedToday = new Set(JSON.parse(localStorage.getItem(NOTIFIED_KEY)||'[]')); }catch(e){ notifiedToday = new Set(); } }
+function saveNotifiedToday(){ try{ localStorage.setItem(NOTIFIED_KEY, JSON.stringify([...notifiedToday])); }catch(e){} }
+loadNotifiedToday();
+
+async function fireNotification(title, body, tag){
+  if(notifPermission !== 'granted') return;
+  try{ const reg = await navigator.serviceWorker.ready; reg.showNotification(title, {body, tag, icon:'../icon-192.png'}); }
+  catch(e){ try{ new Notification(title, {body}); }catch(e2){} }
+}
+function checkUpcoming(){
+  if(notifPermission !== 'granted') return;
+  const now = new Date(), today = todayStr();
+  eventsForDate(today).forEach(ev=>{
+    if(!ev.time) return;
+    const notifKey = 'evt-'+ev.id+'-'+ev.occDate;
+    if(notifiedToday.has(notifKey)) return;
+    const parts = ev.time.split(':').map(Number);
+    const evDate = new Date(now); evDate.setHours(parts[0],parts[1],0,0);
+    const diffMin = (evDate-now)/60000;
+    if(diffMin>0 && diffMin<=15){ fireNotification('Coming up: '+ev.title, ev.time, notifKey); notifiedToday.add(notifKey); saveNotifiedToday(); }
+  });
+  if(now.getHours()===20 && now.getMinutes()<5){
+    const key = 'chore-evening-'+today;
+    if(!notifiedToday.has(key)){
+      const due = choresDueOn(today).filter(c=>!c.done);
+      if(due.length){ fireNotification('Chores left today', due.map(c=>c.title).join(', '), key); notifiedToday.add(key); saveNotifiedToday(); }
+    }
+  }
+}
+function startNotificationLoop(){ checkUpcoming(); setInterval(checkUpcoming, 60000); }
+function renderNotifBanner(){
+  const el = document.getElementById('notif-banner-wrap');
+  if(notifPermission!=='default'){ el.innerHTML=''; return; }
+  el.innerHTML = '<div class="notif-banner"><span>Turn on notifications for upcoming events and chores.</span><button id="enable-notif-btn">Enable</button></div>';
+  document.getElementById('enable-notif-btn').addEventListener('click', async ()=>{
+    try{ notifPermission = await Notification.requestPermission(); renderNotifBanner(); }catch(e){}
+  });
+}
+
+function initControls(){
+  document.getElementById('view-today-btn').onclick = ()=>showView('today');
+  document.getElementById('view-week-btn').onclick = ()=>showView('week');
+}
+function showView(name){
+  activeView = name;
+  document.getElementById('view-today-btn').classList.toggle('active', name==='today');
+  document.getElementById('view-week-btn').classList.toggle('active', name==='week');
+  document.getElementById('today-view').style.display = name==='today' ? 'block':'none';
+  document.getElementById('week-view').style.display = name==='week' ? 'block':'none';
+  if(name==='today') renderToday();
+  if(name==='week') renderWeek();
+}
+
+function eventRowHtml(ev){
+  return '<div class="row-item '+(ev.auto?'auto':'')+' '+(ev.mirrored?'mirrored':'')+'">'+
+    '<div class="row-time">'+(ev.time || '—')+'</div>'+
+    '<div class="row-body">'+
+      '<span class="row-title" '+((!ev.auto && !ev.mirrored)?'contenteditable="true" data-eventid="'+ev.id+'"':'')+'>'+escapeHtml(ev.title)+'</span>'+
+      '<div class="row-meta">'+
+        (ev.auto ? '<span class="tag auto">auto</span>' : '')+
+        (ev.shared ? '<span class="tag shared">shared</span>' : '')+
+        (ev.mirrored ? ' from '+escapeHtml(ev.ownerProfile) : '')+
+        (ev.notes ? ' · '+escapeHtml(ev.notes) : '')+
+        (ev.link ? ' · <a href="'+ev.link+'">open</a>' : '')+
+      '</div></div>'+
+    ((!ev.auto && !ev.mirrored) ? '<div class="row-actions"><button class="icon-btn" data-delevent="'+ev.id+'">✕</button></div>' : '')+
+    '</div>';
+}
+function choreRowHtml(c){
+  const turnNote = c.turn ? ' · '+c.turn+"'s turn" : '';
+  return '<div class="row-item '+(c.mirrored?'mirrored':'')+'">'+
+    '<input type="checkbox" class="chk" data-choreid="'+c.id+'" data-mirrored="'+(c.mirrored?1:0)+'" data-owner="'+(c.ownerProfile||'')+'" '+(c.done?'checked':'')+'>'+
+    '<div class="row-body">'+
+      '<span class="row-title '+(c.done?'strike':'')+'">'+escapeHtml(c.title)+'</span>'+
+      '<div class="row-meta">'+c.streak+'🔥'+turnNote+(c.shared?' <span class="tag shared">shared</span>':'')+'</div></div>'+
+    ((!c.mirrored) ? '<div class="row-actions"><button class="icon-btn" data-delchore="'+c.id+'">✕</button></div>' : '')+
+    '</div>';
+}
+
+function attachRowHandlers(wrap, dateStr){
+  wrap.querySelectorAll('[contenteditable][data-eventid]').forEach(el=>{
+    el.addEventListener('blur', async ()=>{
+      const id = el.dataset.eventid;
+      const ev = events.find(e=>e.id===id);
+      if(ev && ev.title !== el.textContent){
+        ev.title = el.textContent.trim();
+        await saveEvents();
+        await mirrorToPartner('event', ev, false);
+      }
+    });
+  });
+  wrap.querySelectorAll('[data-delevent]').forEach(btn=>{
+    btn.addEventListener('click', async ()=>{
+      const ev = events.find(e=>e.id===btn.dataset.delevent);
+      events = events.filter(e=>e.id!==btn.dataset.delevent);
+      await saveEvents();
+      if(ev) await mirrorToPartner('event', ev, true);
+      showView(activeView);
+    });
+  });
+  wrap.querySelectorAll('.chk[data-choreid]').forEach(cb=>{
+    cb.addEventListener('change', async e=>{
+      const id = e.target.dataset.choreid;
+      const isMirrored = e.target.dataset.mirrored === '1';
+      const key = choreLogKey(id, dateStr);
+      if(isMirrored){
+        const owner = e.target.dataset.owner;
+        try{
+          const doc = await profileDoc(owner, 'choreLog').get();
+          let log = (doc.exists && doc.data().json) ? JSON.parse(doc.data().json) : {};
+          if(e.target.checked) log[key] = {done:true, by:activeProfile, at:new Date().toISOString()};
+          else delete log[key];
+          await profileDoc(owner, 'choreLog').set({json: JSON.stringify(log)});
+        }catch(err){}
+      }
+      if(e.target.checked) choreLog[key] = {done:true, by:activeProfile, at:new Date().toISOString()};
+      else delete choreLog[key];
+      await saveChoreLog();
+      showView(activeView);
+    });
+  });
+  wrap.querySelectorAll('[data-delchore]').forEach(btn=>{
+    btn.addEventListener('click', async ()=>{
+      const chore = chores.find(c=>c.id===btn.dataset.delchore);
+      chores = chores.filter(c=>c.id!==btn.dataset.delchore);
+      await saveChores();
+      if(chore) await mirrorToPartner('chore', chore, true);
+      showView(activeView);
+    });
+  });
+}
+
+function renderToday(){
+  const today = todayStr();
+  const el = document.getElementById('today-view');
+  const todaysEvents = eventsForDate(today);
+  const todaysChores = choresDueOn(today);
+  const doneCount = todaysChores.filter(c=>c.done).length;
+  const now = new Date();
+  const upcoming = todaysEvents.filter(e=>e.time).find(e=>{
+    const parts = e.time.split(':').map(Number);
+    const t = new Date(now); t.setHours(parts[0],parts[1],0,0);
+    return t > now;
+  });
+  const bestStreak = chores.length ? Math.max(0, ...chores.map(choreStreak)) : 0;
+
+  el.innerHTML = '<div class="stat-row">'+
+    '<div class="stat-card"><div class="sc-label">Up next</div><div class="sc-value" style="font-size:12px;">'+(upcoming ? escapeHtml(upcoming.title) : 'Nothing')+'</div></div>'+
+    '<div class="stat-card"><div class="sc-label">Chores</div><div class="sc-value">'+doneCount+'/'+todaysChores.length+'</div></div>'+
+    '<div class="stat-card"><div class="sc-label">Streak</div><div class="sc-value">'+bestStreak+'🔥</div></div>'+
+    '</div>'+
+    '<div class="section-title">'+DAY_NAMES[weekdayOf(today)]+', '+fmtHeaderDate(today)+'</div>'+
+    '<div id="today-events"></div>'+
+    '<div class="add-bar"><button class="add-btn" id="add-event-today">+ Add event</button></div>'+
+    '<div id="event-form-mount-today"></div>'+
+    '<div class="section-title">Chores today</div>'+
+    '<div id="today-chores"></div>'+
+    '<div class="add-bar"><button class="add-btn" id="add-chore-today">+ New chore</button></div>'+
+    '<div id="chore-form-mount-today"></div>';
+
+  document.getElementById('today-events').innerHTML = todaysEvents.length ? todaysEvents.map(eventRowHtml).join('') : '<div class="empty-note">Nothing scheduled.</div>';
+  document.getElementById('today-chores').innerHTML = todaysChores.length ? todaysChores.map(choreRowHtml).join('') : '<div class="empty-note">No chores due today.</div>';
+  attachRowHandlers(el, today);
+
+  document.getElementById('add-event-today').addEventListener('click', ()=> openEventForm('event-form-mount-today', today));
+  document.getElementById('add-chore-today').addEventListener('click', ()=> openChoreForm('chore-form-mount-today'));
+}
+
+function renderWeek(){
+  const el = document.getElementById('week-view');
+  const today = todayStr();
+  const start = addDays(today, -weekdayOf(today));
+  let daysHtml = '';
+  for(let i=0;i<7;i++){
+    const d = addDays(start, i);
+    const isToday = d === today;
+    const dayEvents = eventsForDate(d);
+    const dayChores = choresDueOn(d);
+    const total = dayEvents.length + dayChores.length;
+    daysHtml += '<div class="day-block"><div class="day-head '+(isToday?'today':'')+'" data-daytoggle="'+d+'"><div><span class="dh-name">'+DAY_NAMES[i]+'</span><span class="dh-date">'+fmtHeaderDate(d)+'</span></div><span class="dh-count">'+total+'</span></div><div class="day-content '+(isToday?'open':'')+'" id="daycontent-'+d+'">'+
+      (dayEvents.length ? dayEvents.map(eventRowHtml).join('') : '')+
+      (dayChores.length ? dayChores.map(choreRowHtml).join('') : '')+
+      (total===0 ? '<div class="empty-note">Nothing scheduled.</div>' : '')+
+      '<div class="add-bar"><button class="btn ghost" data-addfor="'+d+'">+ Add to '+DAY_NAMES[i]+'</button></div></div></div>';
+  }
+
+  el.innerHTML = '<div class="inline-form" style="margin-bottom:10px;"><h3>Auto blocks</h3>'+
+    '<label style="display:flex;align-items:center;gap:6px;font-size:11.5px;margin-bottom:5px;"><input type="checkbox" id="toggle-workouts" '+(autoConfig.workoutsOn?'checked':'')+'> Show workout days</label>'+
+    '<label style="display:flex;align-items:center;gap:6px;font-size:11.5px;"><input type="checkbox" id="toggle-grocery" '+(autoConfig.groceryOn?'checked':'')+'> Show grocery run on '+
+      '<select id="grocery-weekday" style="font-size:11px;padding:3px 5px;border-radius:6px;border:1px solid var(--border);">'+
+        DAY_NAMES.map(function(n,i){ return '<option value="'+i+'" '+(autoConfig.groceryWeekday===i?'selected':'')+'>'+n+'</option>'; }).join('')+
+      '</select></label></div>'+
+    '<div id="event-form-mount-week"></div>'+
+    daysHtml;
+
+  document.getElementById('toggle-workouts').addEventListener('change', async e=>{ autoConfig.workoutsOn=e.target.checked; await saveAutoConfig(); renderWeek(); });
+  document.getElementById('toggle-grocery').addEventListener('change', async e=>{ autoConfig.groceryOn=e.target.checked; await saveAutoConfig(); renderWeek(); });
+  document.getElementById('grocery-weekday').addEventListener('change', async e=>{ autoConfig.groceryWeekday=Number(e.target.value); await saveAutoConfig(); renderWeek(); });
+
+  el.querySelectorAll('[data-daytoggle]').forEach(head=>{
+    head.addEventListener('click', ()=> document.getElementById('daycontent-'+head.dataset.daytoggle).classList.toggle('open'));
+  });
+  el.querySelectorAll('[data-addfor]').forEach(btn=>{
+    btn.addEventListener('click', e=>{ e.stopPropagation(); openEventForm('event-form-mount-week', btn.dataset.addfor); });
+  });
+  attachRowHandlers(el, today);
+}
+
+function openEventForm(mountId, defaultDate){
+  const mount = document.getElementById(mountId);
+  mount.innerHTML = '<div class="inline-form"><h3>Add event</h3><div class="ff-grid">'+
+    '<div class="f"><label>Title</label><input type="text" id="ef-title" required placeholder="e.g. Dinner with parents"></div>'+
+    '<div class="f"><label>Time</label><input type="time" id="ef-time"></div>'+
+    '<div class="f"><label>Repeats</label><select id="ef-recurring"><option value="0">Just once</option><option value="1">Weekly</option></select></div>'+
+    '<div class="f"><label>Date</label><input type="date" id="ef-date" value="'+(defaultDate||todayStr())+'"></div>'+
+    '<label class="ff-check"><input type="checkbox" id="ef-shared"> Share with '+otherProfile(activeProfile)+'</label>'+
+    '<div class="f" style="grid-column:1/-1;"><label>Notes</label><input type="text" id="ef-notes" placeholder="optional"></div>'+
+    '<div class="ff-actions"><button class="btn primary" id="ef-save">Add</button><button class="btn ghost" id="ef-cancel">Cancel</button></div>'+
+    '</div></div>';
+  mount.scrollIntoView({behavior:'smooth', block:'center'});
+
+  document.getElementById('ef-cancel').addEventListener('click', ()=>{ mount.innerHTML=''; });
+  document.getElementById('ef-save').addEventListener('click', async ()=>{
+    const title = document.getElementById('ef-title').value.trim();
+    if(!title){ document.getElementById('ef-title').style.outline='2px solid var(--danger)'; return; }
+    const isRecurring = document.getElementById('ef-recurring').value === '1';
+    const dateVal = document.getElementById('ef-date').value || todayStr();
+    const newEv = {
+      id: 'evt-'+Date.now()+'-'+Math.floor(Math.random()*1000),
+      title, time: document.getElementById('ef-time').value,
+      notes: document.getElementById('ef-notes').value.trim(),
+      shared: document.getElementById('ef-shared').checked,
+      recurring: isRecurring,
+      date: isRecurring ? null : dateVal,
+      weekday: isRecurring ? weekdayOf(dateVal) : undefined,
+      startDate: isRecurring ? dateVal : undefined
+    };
+    events.push(newEv);
+    await saveEvents();
+    await mirrorToPartner('event', newEv, false);
+    mount.innerHTML = '';
+    showView(activeView);
+  });
+}
+
+function openChoreForm(mountId){
+  const mount = document.getElementById(mountId);
+  const daySet = new Set();
+  mount.innerHTML = '<div class="inline-form"><h3>New recurring chore</h3><div class="ff-grid">'+
+    '<div class="f" style="grid-column:1/-1;"><label>Title</label><input type="text" id="cf-title" required placeholder="e.g. Take out trash"></div>'+
+    '<div class="weekday-picker" id="cf-weekdays">'+DAY_SHORT.map(function(s,i){ return '<button type="button" data-day="'+i+'">'+s+'</button>'; }).join('')+'</div>'+
+    '<label class="ff-check"><input type="checkbox" id="cf-shared"> Share with '+otherProfile(activeProfile)+'</label>'+
+    '<label class="ff-check" id="cf-rotate-wrap" style="display:none;"><input type="checkbox" id="cf-rotates"> Alternate whose turn each week</label>'+
+    '<div class="ff-actions"><button class="btn primary" id="cf-save">Add chore</button><button class="btn ghost" id="cf-cancel">Cancel</button></div>'+
+    '</div></div>';
+  mount.scrollIntoView({behavior:'smooth', block:'center'});
+
+  mount.querySelectorAll('#cf-weekdays button').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      const d = Number(btn.dataset.day);
+      if(daySet.has(d)){ daySet.delete(d); btn.classList.remove('on'); }
+      else{ daySet.add(d); btn.classList.add('on'); }
+    });
+  });
+  document.getElementById('cf-shared').addEventListener('change', e=>{
+    document.getElementById('cf-rotate-wrap').style.display = e.target.checked ? 'flex' : 'none';
+  });
+  document.getElementById('cf-cancel').addEventListener('click', ()=>{ mount.innerHTML=''; });
+  document.getElementById('cf-save').addEventListener('click', async ()=>{
+    const title = document.getElementById('cf-title').value.trim();
+    if(!title || !daySet.size){
+      if(!title) document.getElementById('cf-title').style.outline='2px solid var(--danger)';
+      return;
+    }
+    const newChore = {
+      id: 'chore-'+Date.now()+'-'+Math.floor(Math.random()*1000),
+      title, weekdays: [...daySet].sort(),
+      shared: document.getElementById('cf-shared').checked,
+      rotates: document.getElementById('cf-shared').checked ? document.getElementById('cf-rotates').checked : false,
+      rotateStart: todayStr()
+    };
+    chores.push(newChore);
+    await saveChores();
+    await mirrorToPartner('chore', newChore, false);
+    mount.innerHTML = '';
+    showView(activeView);
+  });
+}
+</script>
+</body>
+</html>
