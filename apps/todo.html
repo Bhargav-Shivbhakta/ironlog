@@ -1,0 +1,1203 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>To-Do</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<style>
+  :root{
+    --bg:#14161F; --surface:#1B1E2A; --surface-2:#232637;
+    --border:#2E3245; --border-soft:#262A3A;
+    --text:#F1F0EC; --text-soft:#9A9DAD; --text-faint:#5F6376;
+    --accent:#FF6B4A; --accent-soft:#3A2620; --accent-deep:#FF8A6E;
+    --done:#34D399; --done-soft:#16342A;
+    --p1:#F0596B; --p1-soft:#3A1F26;
+    --p2:#F5B942; --p2-soft:#332A14;
+    --p3:#5B8DEF; --p3-soft:#1B2740;
+    --p4:#5F6376; --p4-soft:#22242F;
+    --danger:#F0596B; --danger-soft:#3A1F26;
+    --radius-lg:16px; --radius-md:11px; --radius-sm:8px;
+    --shadow:0 1px 2px rgba(0,0,0,0.2), 0 10px 24px -16px rgba(0,0,0,0.5);
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;padding:18px 14px 70px;-webkit-font-smoothing:antialiased;}
+  .wrap{max-width:640px;margin:0 auto;}
+  h1,h2,h3{font-family:'Space Grotesk',sans-serif;}
+  button,input,select,textarea{font-family:inherit;}
+  a{color:var(--accent-deep);}
+
+  .auth-overlay,.profile-overlay{position:fixed;inset:0;z-index:200;background:var(--bg);display:flex;align-items:center;justify-content:center;padding:20px;}
+  .auth-box{width:100%;max-width:340px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:28px 26px;text-align:center;box-shadow:var(--shadow);}
+  .auth-box h2{font-size:22px;margin:0 0 4px;}
+  .auth-box p{color:var(--text-soft);font-size:13px;margin:0 0 18px;}
+  .auth-box input{width:100%;font-size:14px;padding:10px 12px;border-radius:var(--radius-sm);border:1px solid var(--border);background:var(--surface-2);color:var(--text);margin-bottom:9px;}
+  .auth-box button{width:100%;background:var(--accent);color:#1A0E09;border:none;border-radius:var(--radius-sm);padding:10px;font-size:14px;font-weight:700;cursor:pointer;}
+  .auth-box button:disabled{opacity:0.6;cursor:not-allowed;}
+  .load-note{color:var(--text-faint);font-size:13px;}
+
+  .profile-inner{text-align:center;}
+  .profile-inner h1{font-size:24px;margin:0 0 32px;font-weight:600;}
+  .profile-row{display:flex;gap:28px;justify-content:center;flex-wrap:wrap;}
+  .profile-card{background:none;border:none;color:var(--text);display:flex;flex-direction:column;align-items:center;gap:11px;cursor:pointer;}
+  .profile-avatar{width:96px;height:96px;border-radius:18px;display:flex;align-items:center;justify-content:center;font-size:34px;font-weight:700;color:#fff;border:3px solid transparent;font-family:'Space Grotesk',sans-serif;}
+  .profile-card:hover .profile-avatar{border-color:var(--accent);}
+  .av-b{background:linear-gradient(135deg,#FF6B4A,#D6402C);}
+  .av-a{background:linear-gradient(135deg,#34D399,#0F7A5A);}
+  .profile-name{font-size:14.5px;font-weight:600;color:var(--text-soft);}
+
+  .topbar{max-width:600px;margin:0 auto 14px;display:flex;align-items:center;justify-content:space-between;gap:8px;}
+  .topbar a.back,.topbar button.switch{font-size:12.5px;color:var(--text-faint);text-decoration:none;background:none;border:none;cursor:pointer;padding:0;}
+
+  header.app-head{text-align:center;margin-bottom:16px;}
+  header.app-head .who-badge{display:inline-flex;align-items:center;gap:7px;background:var(--surface);border:1px solid var(--border);border-radius:20px;padding:4px 14px 4px 5px;margin-bottom:9px;}
+  header.app-head .who-avatar{width:22px;height:22px;border-radius:7px;font-size:11px;font-weight:700;color:#fff;display:flex;align-items:center;justify-content:center;font-family:'Space Grotesk',sans-serif;}
+  header.app-head .who-avatar.av-b{background:#FF6B4A;}
+  header.app-head .who-avatar.av-a{background:#34D399;}
+  header.app-head .who-name{font-size:12.5px;font-weight:600;color:var(--text-soft);}
+  header.app-head h1{font-size:25px;font-weight:700;margin:0;letter-spacing:-0.01em;}
+
+  .quick-add{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:6px;box-shadow:var(--shadow);}
+  .quick-add-row{display:flex;gap:6px;}
+  .quick-add input[type=text]{flex:1;border:none;background:transparent;color:var(--text);font-size:15.5px;padding:11px 12px;outline:none;}
+  .quick-add input[type=text]::placeholder{color:var(--text-faint);}
+  .quick-add button.add-submit{background:var(--accent);color:#1A0E09;border:none;border-radius:var(--radius-sm);padding:0 18px;font-size:14.5px;font-weight:700;cursor:pointer;}
+  .parse-preview{display:flex;gap:6px;flex-wrap:wrap;padding:0 10px 8px;min-height:20px;}
+  .parse-chip{font-size:11px;font-weight:600;border-radius:20px;padding:2px 9px;background:var(--surface-2);color:var(--text-soft);}
+  .parse-chip.p1{background:var(--p1-soft);color:var(--p1);}
+  .parse-chip.p2{background:var(--p2-soft);color:var(--p2);}
+  .parse-chip.p3{background:var(--p3-soft);color:var(--p3);}
+  .parse-chip.list{background:var(--accent-soft);color:var(--accent-deep);}
+  .parse-hint{font-size:10.5px;color:var(--text-faint);padding:6px 10px 2px;}
+  .parse-hint-details{margin-bottom:10px;}
+  .parse-hint-details summary{font-size:11px;color:var(--text-faint);cursor:pointer;padding:2px 4px;list-style:none;}
+  .parse-hint-details summary::-webkit-details-marker{display:none;}
+  .parse-hint-details summary::before{content:'+ ';}
+  .parse-hint-details[open] summary::before{content:'– ';}
+
+  .list-chips{display:flex;gap:6px;margin:14px 0 6px;overflow-x:auto;padding-bottom:2px;}
+  .list-chip{flex:none;font-size:12.5px;font-weight:600;padding:6px 13px;border-radius:999px;border:1px solid var(--border);background:var(--surface);color:var(--text-soft);cursor:pointer;white-space:nowrap;}
+  .list-chip.active{background:var(--surface-2);color:var(--text);border-color:var(--text-faint);}
+  .list-chip .lc-dot{display:inline-block;width:7px;height:7px;border-radius:50%;margin-right:5px;}
+  .list-chip.add-new{border-style:dashed;color:var(--text-faint);}
+
+  .smart-tabs{display:flex;gap:18px;margin:12px 0 14px;border-bottom:1px solid var(--border);}
+  .smart-tabs button{background:none;border:none;color:var(--text-faint);font-size:14px;font-weight:600;padding:0 0 9px;cursor:pointer;border-bottom:2px solid transparent;display:flex;align-items:center;gap:6px;}
+  .smart-tabs button.active{color:var(--text);border-bottom-color:var(--accent);}
+  .smart-tabs .count-badge{font-size:10.5px;background:var(--surface-2);color:var(--text-soft);border-radius:20px;padding:1px 7px;}
+  .smart-tabs button.active .count-badge{background:var(--accent-soft);color:var(--accent-deep);}
+
+  .toolbar-row{display:flex;gap:6px;overflow-x:auto;padding-bottom:2px;margin-bottom:10px;}
+  .tool-btn{flex:none;font-size:12px;font-weight:600;padding:6px 12px;border-radius:999px;border:1px solid var(--border);background:var(--surface);color:var(--text-soft);cursor:pointer;white-space:nowrap;}
+  .tool-btn.active{background:var(--surface-2);color:var(--text);border-color:var(--text-faint);}
+
+  .notif-banner{background:var(--accent-soft);border:1px solid var(--accent);border-radius:var(--radius-md);padding:9px 13px;margin-bottom:10px;font-size:12px;color:var(--accent-deep);display:flex;align-items:center;gap:9px;flex-wrap:wrap;}
+  .notif-banner button{background:var(--accent);color:#1A0E09;border:none;border-radius:var(--radius-sm);padding:5px 11px;font-size:11.5px;font-weight:700;cursor:pointer;}
+
+  .search-bar input{width:100%;font-size:14px;padding:9px 12px;border-radius:var(--radius-md);border:1px dashed var(--border);background:var(--surface-2);color:var(--text);margin-bottom:8px;}
+  #search-results{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-md);padding:6px;margin-bottom:10px;max-height:300px;overflow-y:auto;}
+  .search-result-row{padding:8px 10px;border-radius:var(--radius-sm);cursor:pointer;}
+  .search-result-row:hover{background:var(--surface-2);}
+  .search-result-row .sr-title{font-size:13.5px;font-weight:600;}
+  .search-result-row .sr-meta{font-size:10.5px;color:var(--text-faint);margin-top:2px;}
+  .search-empty{padding:12px;font-size:13px;color:var(--text-faint);font-style:italic;text-align:center;}
+
+  .panel-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:14px 16px;margin-bottom:12px;box-shadow:var(--shadow);}
+  .panel-card h3{font-size:15px;margin:0 0 10px;}
+  .panel-card textarea{width:100%;min-height:90px;font-size:13px;padding:9px;border-radius:8px;border:1px solid var(--border);background:var(--surface-2);color:var(--text);resize:vertical;}
+  .panel-card input[type=text]{width:100%;font-size:13px;padding:8px 10px;border-radius:8px;border:1px solid var(--border);background:var(--surface-2);color:var(--text);margin-bottom:8px;}
+  .panel-actions{display:flex;gap:8px;margin-top:10px;}
+
+  .stat-row2{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px;}
+  .stat-block{background:var(--surface-2);border-radius:10px;padding:11px 13px;}
+  .stat-block .sb-label{font-size:9.5px;color:var(--text-faint);font-weight:700;text-transform:uppercase;letter-spacing:0.04em;}
+  .stat-block .sb-value{font-family:'Space Grotesk',sans-serif;font-weight:700;font-size:20px;margin-top:2px;}
+  .day-bars{display:flex;gap:6px;align-items:flex-end;height:80px;margin:10px 0 6px;}
+  .day-bar{flex:1;background:var(--accent);border-radius:4px 4px 0 0;min-height:3px;}
+  .day-bar-labels{display:flex;gap:6px;}
+  .day-bar-labels span{flex:1;text-align:center;font-size:10px;color:var(--text-faint);}
+  .prio-breakdown{display:flex;gap:8px;margin-top:6px;}
+  .prio-pill{flex:1;text-align:center;padding:8px;border-radius:8px;font-size:12px;font-weight:700;}
+
+  .week-day-group{margin-bottom:14px;}
+  .week-day-head{font-size:12.5px;font-weight:700;color:var(--text-soft);margin-bottom:6px;display:flex;align-items:center;gap:8px;}
+  .week-day-head::after{content:'';flex:1;height:1px;background:var(--border);}
+
+  .template-row{display:flex;justify-content:space-between;align-items:center;padding:9px 11px;background:var(--surface-2);border-radius:9px;margin-bottom:6px;}
+  .template-row .tpl-name{font-size:13.5px;font-weight:600;}
+  .template-row .tpl-count{font-size:11px;color:var(--text-faint);}
+  .template-row .tpl-actions{display:flex;gap:6px;}
+  .template-row button{font-size:11.5px;font-weight:700;border:none;border-radius:7px;padding:6px 10px;cursor:pointer;background:var(--accent);color:#1A0E09;}
+  .template-row button.ghost{background:var(--surface);color:var(--text-soft);border:1px solid var(--border);}
+
+  .import-preview-row{display:flex;gap:6px;align-items:center;padding:6px 0;border-bottom:1px solid var(--border-soft);}
+  .import-preview-row input[type=text]{flex:2;}
+  .import-preview-row input[type=date]{flex:1;font-size:12px;padding:6px;border-radius:6px;border:1px solid var(--border);background:var(--surface-2);color:var(--text);}
+  .import-preview-row button{background:none;border:none;color:var(--danger);cursor:pointer;font-size:14px;}
+
+  .bulk-bar{position:sticky;top:8px;z-index:20;display:flex;align-items:center;gap:8px;background:var(--surface-2);border:1px solid var(--border);border-radius:var(--radius-md);padding:9px 12px;margin-bottom:10px;box-shadow:var(--shadow);flex-wrap:wrap;}
+  .bulk-bar span{font-size:12.5px;color:var(--text-soft);font-weight:600;}
+  .bulk-bar button{font-size:12px;font-weight:700;border:none;border-radius:7px;padding:6px 11px;cursor:pointer;background:var(--accent);color:#1A0E09;}
+  .bulk-bar button.danger{background:var(--danger-soft);color:var(--danger);}
+  .bulk-bar select{font-size:12px;padding:6px;border-radius:7px;border:1px solid var(--border);background:var(--surface);color:var(--text);}
+  .select-chk{width:20px;height:20px;flex:none;margin-top:1px;}
+  .link-chip{font-size:11px;font-weight:600;border-radius:20px;padding:2px 8px;background:var(--surface-2);color:var(--accent-deep);text-decoration:none;}
+
+  .task-row{
+    background:var(--surface);border:1px solid var(--border-soft);border-left:3px solid var(--p4);border-radius:var(--radius-md);
+    margin-bottom:7px;overflow:hidden;transition:opacity .4s ease;
+  }
+  .task-row.p1{border-left-color:var(--p1);}
+  .task-row.p2{border-left-color:var(--p2);}
+  .task-row.p3{border-left-color:var(--p3);}
+  .task-row.done{opacity:0.55;}
+  .task-row.dragging{opacity:0.3;}
+  .task-text{transition:color .3s ease;}
+  .task-main{display:flex;align-items:flex-start;gap:11px;padding:12px 12px 12px 10px;cursor:grab;}
+
+  .task-chk{
+    appearance:none;width:23px;height:23px;border-radius:50%;border:2px solid var(--border);flex:none;margin-top:1px;
+    cursor:pointer;position:relative;background:var(--surface-2);transition:all .15s cubic-bezier(.34,1.56,.64,1);
+  }
+  .task-chk:checked{background:var(--done);border-color:var(--done);transform:scale(1.08);}
+  .task-chk:checked::after{content:'';position:absolute;left:6px;top:2px;width:6px;height:11px;border:solid #0D2018;border-width:0 2.5px 2.5px 0;transform:rotate(45deg);}
+
+  .task-body{flex:1;min-width:0;}
+  .task-text{font-size:15px;font-weight:500;outline:none;line-height:1.4;}
+  .task-text[contenteditable]:hover,.task-text[contenteditable]:focus{border-bottom:1px dashed var(--border);}
+  .task-text.strike{text-decoration:line-through;color:var(--text-faint);}
+  .task-meta{display:flex;gap:6px;align-items:center;margin-top:6px;flex-wrap:wrap;}
+  .meta-chip{font-size:11px;font-weight:600;border-radius:20px;padding:2px 8px;background:var(--surface-2);color:var(--text-soft);display:flex;align-items:center;gap:4px;}
+  .meta-chip.overdue{background:var(--p1-soft);color:var(--p1);}
+  .meta-chip.today{background:var(--p2-soft);color:var(--p2);}
+  .meta-chip.repeat{background:var(--surface-2);}
+  .meta-chip.list-tag{background:var(--accent-soft);color:var(--accent-deep);}
+
+  .task-actions{display:flex;gap:4px;flex:none;align-items:flex-start;padding-top:1px;}
+  .icon-btn{background:none;border:none;color:var(--text-faint);cursor:pointer;font-size:15px;padding:3px;line-height:1;}
+  .icon-btn:hover{color:var(--text);}
+
+  .task-detail{display:none;padding:0 14px 14px 43px;border-top:1px dashed var(--border-soft);margin-top:2px;padding-top:12px;}
+  .task-detail.open{display:block;}
+  .td-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px;}
+  .td-grid .f{display:flex;flex-direction:column;gap:3px;}
+  .td-grid label{font-size:9.5px;color:var(--text-faint);font-weight:700;text-transform:uppercase;letter-spacing:0.04em;}
+  .td-grid input,.td-grid select,.td-grid textarea{font-size:13px;padding:7px 9px;border-radius:7px;border:1px solid var(--border);background:var(--surface-2);color:var(--text);}
+  .td-grid textarea{grid-column:1/-1;resize:vertical;min-height:44px;}
+  .subtasks{margin-bottom:10px;}
+  .subtask-row{display:flex;align-items:center;gap:7px;padding:4px 0;}
+  .subtask-row input[type=checkbox]{width:15px;height:15px;flex:none;}
+  .subtask-row .st-text{flex:1;font-size:12.5px;outline:none;}
+  .subtask-row .st-text.strike{text-decoration:line-through;color:var(--text-faint);}
+  .subtask-add{display:flex;gap:6px;margin-top:6px;}
+  .subtask-add input{flex:1;font-size:12.5px;padding:6px 8px;border-radius:6px;border:1px solid var(--border);background:var(--surface-2);color:var(--text);}
+  .subtask-add button{background:var(--surface-2);border:1px solid var(--border);color:var(--text-soft);border-radius:6px;padding:6px 10px;font-size:12px;cursor:pointer;}
+  .td-actions{display:flex;gap:8px;}
+  .btn-mini{font-size:12px;font-weight:700;border:none;border-radius:7px;padding:7px 13px;cursor:pointer;}
+  .btn-mini.danger{background:var(--danger-soft);color:var(--danger);}
+  .btn-mini.ghost{background:var(--surface-2);color:var(--text-soft);}
+
+  .empty-note{color:var(--text-faint);font-size:13.5px;padding:22px 6px;text-align:center;}
+
+  .new-list-form{display:flex;gap:6px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-md);padding:10px;margin-bottom:10px;}
+  .new-list-form input{flex:1;font-size:13px;padding:7px 9px;border-radius:7px;border:1px solid var(--border);background:var(--surface-2);color:var(--text);}
+  .new-list-form button{background:var(--accent);color:#1A0E09;border:none;border-radius:7px;padding:7px 12px;font-size:12.5px;font-weight:700;cursor:pointer;}
+
+  .undo-toast{
+    position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:var(--surface-2);border:1px solid var(--border);
+    border-radius:var(--radius-md);padding:10px 16px;display:flex;align-items:center;gap:12px;box-shadow:var(--shadow);
+    font-size:13px;z-index:150;opacity:0;pointer-events:none;transition:opacity .2s ease;
+  }
+  .undo-toast.show{opacity:1;pointer-events:auto;}
+  .undo-toast button{background:none;border:none;color:var(--accent-deep);font-weight:700;font-size:13px;cursor:pointer;}
+
+  :focus-visible{outline:2px solid var(--accent);outline-offset:2px;}
+</style>
+</head>
+<body>
+
+<div id="loading-gate" class="auth-overlay">
+  <div class="auth-box"><p class="load-note" id="load-note">Loading…</p></div>
+</div>
+
+<div id="profile-overlay" class="profile-overlay" style="display:none;">
+  <div class="profile-inner">
+    <h1>Whose list?</h1>
+    <div class="profile-row" id="profile-row"></div>
+  </div>
+</div>
+
+<div class="wrap" id="app-wrap" style="display:none;">
+  <div class="topbar">
+    <a class="back" href="../index.html">← All apps</a>
+    <button class="switch" id="switch-profile-btn">Switch profile</button>
+  </div>
+
+  <header class="app-head">
+    <div class="who-badge" id="who-badge"></div>
+    <h1>To-Do</h1>
+  </header>
+
+  <div id="notif-banner-wrap"></div>
+
+  <div class="toolbar-row">
+    <button class="tool-btn" id="search-toggle-btn">🔍</button>
+    <button class="tool-btn" id="stats-toggle-btn">📊</button>
+    <button class="tool-btn" id="templates-toggle-btn">📋</button>
+    <button class="tool-btn" id="bulk-toggle-btn">☑</button>
+  </div>
+  <div class="search-bar" id="search-bar" style="display:none;">
+    <input type="text" id="search-input" placeholder="Search all tasks…">
+  </div>
+  <div id="search-results" style="display:none;"></div>
+  <div id="stats-panel" style="display:none;"></div>
+  <div id="templates-panel" style="display:none;"></div>
+
+  <div class="quick-add">
+    <div class="quick-add-row">
+      <input type="text" id="quick-add-input" placeholder="Add a task…">
+      <button class="add-submit" id="quick-add-btn">Add</button>
+    </div>
+    <div class="parse-preview" id="parse-preview"></div>
+  </div>
+  <details class="parse-hint-details"><summary>Want dates, priority, or lists in one line?</summary>
+    <div class="parse-hint">Try: <b>tomorrow</b>/<b>friday</b> for dates, <b>3pm</b> for time, <b>!1</b>-<b>!3</b> for priority, <b>#listname</b> to file it.</div>
+  </details>
+
+  <div class="list-chips" id="list-chips"></div>
+  <div id="new-list-mount"></div>
+
+  <div class="smart-tabs" id="smart-tabs">
+    <button data-view="today" class="active">Today <span class="count-badge" id="count-today">0</span></button>
+    <button data-view="upcoming">Upcoming <span class="count-badge" id="count-upcoming">0</span></button>
+    <button data-view="week">Week</button>
+    <button data-view="all">All <span class="count-badge" id="count-all">0</span></button>
+    <button data-view="done">Done</button>
+  </div>
+
+  <div class="bulk-bar" id="bulk-bar" style="display:none;">
+    <span id="bulk-count">0 selected</span>
+    <button id="bulk-complete">Complete</button>
+    <button id="bulk-move-btn">Move to…</button>
+    <select id="bulk-move-select" style="display:none;"></select>
+    <button id="bulk-delete" class="danger">Delete</button>
+  </div>
+
+  <div id="task-list"></div>
+</div>
+
+<div class="undo-toast" id="undo-toast">
+  <span id="undo-text">Task deleted</span>
+  <button id="undo-btn">Undo</button>
+</div>
+
+<script>
+/* =====================================================================
+   BULLETPROOFING: catch anything that would otherwise fail silently
+   and show it on screen instead of leaving the page looking frozen.
+===================================================================== */
+window.addEventListener('error', function(e){
+  const noteEl = document.getElementById('load-note');
+  if(noteEl && document.getElementById('loading-gate').style.display !== 'none'){
+    noteEl.textContent = 'Something went wrong loading the page: ' + (e.message||'unknown error') + '. Try a hard refresh (Ctrl/Cmd+Shift+R).';
+  }
+});
+window.addEventListener('unhandledrejection', function(e){
+  const noteEl = document.getElementById('load-note');
+  if(noteEl && document.getElementById('loading-gate').style.display !== 'none'){
+    noteEl.textContent = 'Unexpected error: ' + (e.reason && e.reason.message ? e.reason.message : e.reason) + '.';
+  }
+});
+
+if(typeof firebase === 'undefined'){
+  document.getElementById('load-note').textContent = "Couldn't load — check your internet connection and refresh.";
+} else {
+
+const FIREBASE_CONFIG = {
+  apiKey: "AIzaSyBe01eR2RZwSbU_aoJMeh_2MMJ5mqkVuKk",
+  authDomain: "iron-log-bfc55.firebaseapp.com",
+  projectId: "iron-log-bfc55",
+  storageBucket: "iron-log-bfc55.firebasestorage.app",
+  messagingSenderId: "106586808946",
+  appId: "1:106586808946:web:f4736554ba9fc82c6fd8eb"
+};
+firebase.initializeApp(FIREBASE_CONFIG);
+const auth = firebase.auth();
+const db = firebase.firestore();
+try{ db.enablePersistence({synchronizeTabs:true}).catch(function(){}); }catch(e){}
+let currentUser = null;
+let activeProfile = null;
+const LAST_PROFILE_KEY = 'todo-last-profile';
+
+function profileDoc(profileId, key){
+  return db.collection('users').doc(currentUser.uid).collection('todo-profiles').doc(profileId).collection('data').doc(key);
+}
+function sharedDoc(key){
+  return db.collection('users').doc(currentUser.uid).collection('todo-shared').doc(key);
+}
+function otherProfile(p){ return p==='Bhargav' ? 'Anusha' : 'Bhargav'; }
+
+/* =====================================================================
+   AUTH — sign-in itself lives on the hub (index.html). This page just
+   checks whether you're already signed in; if not, it sends you there.
+===================================================================== */
+function showProfilePicker(){
+  document.getElementById('loading-gate').style.display = 'none';
+  document.getElementById('app-wrap').style.display = 'none';
+  document.getElementById('profile-overlay').style.display = 'flex';
+  const row = document.getElementById('profile-row');
+  row.innerHTML = '';
+  [{id:'Bhargav',cls:'av-b'},{id:'Anusha',cls:'av-a'}].forEach(function(p){
+    const card = document.createElement('button');
+    card.className = 'profile-card';
+    card.innerHTML = '<div class="profile-avatar '+p.cls+'">'+p.id[0]+'</div><div class="profile-name">'+p.id+'</div>';
+    card.addEventListener('click', function(){ enterProfile(p.id); });
+    row.appendChild(card);
+  });
+}
+auth.onAuthStateChanged(function(user){
+  currentUser = user;
+  if(!user){ window.location.href = '../index.html'; return; }
+  let last = null;
+  try{ last = localStorage.getItem(LAST_PROFILE_KEY); }catch(e){}
+  if(last === 'Bhargav' || last === 'Anusha') enterProfile(last);
+  else showProfilePicker();
+});
+
+async function enterProfile(profileId){
+  activeProfile = profileId;
+  try{ localStorage.setItem(LAST_PROFILE_KEY, profileId); }catch(e){}
+  document.getElementById('loading-gate').style.display = 'none';
+  document.getElementById('profile-overlay').style.display = 'none';
+  document.getElementById('app-wrap').style.display = 'block';
+  document.getElementById('who-badge').innerHTML = '<span class="who-avatar av-'+(profileId==='Bhargav'?'b':'a')+'">'+profileId[0]+'</span><span class="who-name">'+profileId+'</span>';
+  document.getElementById('switch-profile-btn').onclick = showProfilePicker;
+  initControls();
+  await loadLists();
+  await loadTasks();
+  render();
+  document.getElementById('quick-add-input').focus();
+}
+
+let personalLists = [];
+let personalTasks = [];
+let sharedTasks = [];
+let activeListFilter = 'all';
+let activeSmartView = 'today';
+let templates = [];
+let bulkMode = false;
+let selectedTaskIds = new Set();
+let notifPermission = (typeof Notification !== 'undefined') ? Notification.permission : 'unsupported';
+let notifiedIds = new Set();
+const NOTIFIED_KEY_PREFIX = 'todo-notified-';
+
+const BUILTIN_LISTS = [
+  {id:'personal', name:'Personal', color:'#5B8DEF', shared:false},
+  {id:'shared', name:'Shared', color:'#FF6B4A', shared:true}
+];
+function allLists(){ return BUILTIN_LISTS.concat(personalLists); }
+function listById(id){ return allLists().find(function(l){ return l.id===id; }); }
+
+async function loadLists(){
+  try{ const doc = await profileDoc(activeProfile,'lists').get(); personalLists = (doc.exists && doc.data().json) ? JSON.parse(doc.data().json) : []; }
+  catch(e){ personalLists = []; }
+}
+async function saveLists(){
+  try{ await profileDoc(activeProfile,'lists').set({json: JSON.stringify(personalLists)}); }
+  catch(e){ console.error('lists save failed', e); }
+}
+async function loadTasks(){
+  try{ const doc = await profileDoc(activeProfile,'tasks').get(); personalTasks = (doc.exists && doc.data().json) ? JSON.parse(doc.data().json) : []; }
+  catch(e){ personalTasks = []; }
+  try{ const doc2 = await sharedDoc('tasks').get(); sharedTasks = (doc2.exists && doc2.data().json) ? JSON.parse(doc2.data().json) : []; }
+  catch(e){ sharedTasks = []; }
+}
+async function savePersonalTasks(){
+  try{ await profileDoc(activeProfile,'tasks').set({json: JSON.stringify(personalTasks)}); }
+  catch(e){ console.error('tasks save failed', e); }
+}
+async function saveSharedTasks(){
+  try{ await sharedDoc('tasks').set({json: JSON.stringify(sharedTasks)}); }
+  catch(e){ console.error('shared tasks save failed', e); }
+}
+function tasksArrFor(listId){ return listId==='shared' ? sharedTasks : personalTasks; }
+async function saveTasksFor(listId){ return listId==='shared' ? saveSharedTasks() : savePersonalTasks(); }
+function allVisibleTasks(){ return personalTasks.concat(sharedTasks); }
+
+function escapeHtml(s){
+  return String(s==null?'':s).replace(/[&<>"']/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; });
+}
+function todayStr(){ return new Date().toISOString().slice(0,10); }
+function fmtDate(d){ return d.toISOString().slice(0,10); }
+function addDays(dateStr, n){ const d = new Date(dateStr+'T00:00:00'); d.setDate(d.getDate()+n); return fmtDate(d); }
+function fmtDue(dateStr){
+  const d = new Date(dateStr+'T00:00:00');
+  const t = new Date(todayStr()+'T00:00:00');
+  const diff = Math.round((d-t)/86400000);
+  if(diff===0) return 'Today';
+  if(diff===1) return 'Tomorrow';
+  if(diff===-1) return 'Yesterday';
+  return d.toLocaleDateString(undefined,{month:'short',day:'numeric'});
+}
+function fmt12(hhmm){
+  if(!hhmm) return '';
+  const parts = hhmm.split(':').map(Number);
+  const h = parts[0], m = parts[1];
+  const period = h<12 ? 'AM' : 'PM';
+  let h12 = h%12; if(h12===0) h12=12;
+  return h12+(m?':'+String(m).padStart(2,'0'):'')+period;
+}
+
+function parseQuickAdd(raw){
+  let text = raw;
+  const today = new Date();
+  let dueDate = null;
+  let dueTime = null;
+  let priority = 0;
+  let listMatch = null;
+
+  const listTag = text.match(/#(\w+)/);
+  if(listTag){
+    const found = allLists().find(function(l){ return l.name.toLowerCase() === listTag[1].toLowerCase(); });
+    if(found) listMatch = found.id;
+    text = text.replace(listTag[0],'').trim();
+  }
+  const prioTag = text.match(/!([1-3])\b/);
+  if(prioTag){ priority = Number(prioTag[1]); text = text.replace(prioTag[0],'').trim(); }
+
+  const weekdayNames = ['sunday','monday','tuesday','wednesday','thursday','friday','saturday'];
+  if(/\btoday\b/i.test(text)){ dueDate = fmtDate(today); text = text.replace(/\btoday\b/i,'').trim(); }
+  else if(/\btomorrow\b/i.test(text)){ dueDate = addDays(fmtDate(today),1); text = text.replace(/\btomorrow\b/i,'').trim(); }
+  else{
+    const wdMatch = text.match(/\b(next\s+)?(sunday|monday|tuesday|wednesday|thursday|friday|saturday)\b/i);
+    if(wdMatch){
+      const wantWd = weekdayNames.indexOf(wdMatch[2].toLowerCase());
+      let diff = (wantWd - today.getDay() + 7) % 7;
+      if(diff===0 || wdMatch[1]) diff += 7;
+      dueDate = addDays(fmtDate(today), diff);
+      text = text.replace(wdMatch[0],'').trim();
+    } else {
+      const dateMatch = text.match(/\b(\d{1,2})[\/\-](\d{1,2})\b/);
+      if(dateMatch){
+        const d = new Date(today);
+        d.setMonth(parseInt(dateMatch[1],10)-1);
+        d.setDate(parseInt(dateMatch[2],10));
+        dueDate = fmtDate(d);
+        text = text.replace(dateMatch[0],'').trim();
+      }
+    }
+  }
+
+  const timeMatch = text.match(/\b(\d{1,2})(:(\d{2}))?\s*(am|pm)\b/i);
+  if(timeMatch){
+    let h = parseInt(timeMatch[1],10);
+    const m = timeMatch[3] ? parseInt(timeMatch[3],10) : 0;
+    const ampm = timeMatch[4].toLowerCase();
+    if(ampm==='pm' && h<12) h += 12;
+    if(ampm==='am' && h===12) h = 0;
+    dueTime = String(h).padStart(2,'0')+':'+String(m).padStart(2,'0');
+    if(!dueDate) dueDate = fmtDate(today);
+    text = text.replace(timeMatch[0],'').trim();
+  }
+
+  text = text.replace(/\s+/g,' ').trim();
+  return { title: text, dueDate: dueDate, dueTime: dueTime, priority: priority, listId: listMatch };
+}
+
+function renderParsePreview(){
+  const input = document.getElementById('quick-add-input');
+  const preview = document.getElementById('parse-preview');
+  const parsed = parseQuickAdd(input.value);
+  const chips = [];
+  if(parsed.dueDate) chips.push('<span class="parse-chip">'+fmtDue(parsed.dueDate)+(parsed.dueTime?' '+fmt12(parsed.dueTime):'')+'</span>');
+  if(parsed.priority) chips.push('<span class="parse-chip p'+parsed.priority+'">P'+parsed.priority+'</span>');
+  const list = listById(parsed.listId || activeListFilterForAdd());
+  if(list) chips.push('<span class="parse-chip list">'+escapeHtml(list.name)+'</span>');
+  preview.innerHTML = chips.join('');
+}
+function activeListFilterForAdd(){
+  return (activeListFilter==='all' || activeListFilter==='personal') ? 'personal' : activeListFilter;
+}
+
+let lastDeleted = null;
+let undoTimer = null;
+
+function nextRepeatDate(dateStr, repeat){
+  if(repeat==='daily') return addDays(dateStr,1);
+  if(repeat==='weekly') return addDays(dateStr,7);
+  if(repeat==='weekdays'){
+    let d = addDays(dateStr,1);
+    while([0,6].indexOf(new Date(d+'T00:00:00').getDay())!==-1) d = addDays(d,1);
+    return d;
+  }
+  if(repeat==='monthly'){
+    const dt = new Date(dateStr+'T00:00:00');
+    dt.setMonth(dt.getMonth()+1);
+    return fmtDate(dt);
+  }
+  return null;
+}
+
+async function addTask(parsed){
+  const listId = parsed.listId || activeListFilterForAdd();
+  const item = {
+    id:'task-'+Date.now()+'-'+Math.floor(Math.random()*1000),
+    title: parsed.title, done:false,
+    priority: parsed.priority || 0,
+    due: parsed.dueDate || null,
+    dueTime: parsed.dueTime || null,
+    repeat: 'none',
+    notes: '',
+    link: '',
+    subtasks: [],
+    listId: listId,
+    createdBy: activeProfile,
+    order: Date.now(),
+    createdAt: new Date().toISOString()
+  };
+  const arr = tasksArrFor(listId);
+  arr.push(item);
+  await saveTasksFor(listId);
+  return item;
+}
+async function toggleTask(id, listId){
+  const arr = tasksArrFor(listId);
+  const t = arr.find(function(x){ return x.id===id; });
+  if(!t) return;
+  t.done = !t.done;
+  t.completedOn = t.done ? todayStr() : null;
+  if(t.done && t.repeat && t.repeat!=='none' && t.due){
+    const nextDue = nextRepeatDate(t.due, t.repeat);
+    arr.push(Object.assign({}, t, {
+      id:'task-'+Date.now()+'-'+Math.floor(Math.random()*1000),
+      done:false, due:nextDue, completedOn:null,
+      subtasks: t.subtasks.map(function(s){ return Object.assign({},s,{done:false}); }),
+      order: Date.now(), createdAt: new Date().toISOString()
+    }));
+  }
+  await saveTasksFor(listId);
+}
+function deleteTask(id, listId){
+  const arr = tasksArrFor(listId);
+  const idx = arr.findIndex(function(x){ return x.id===id; });
+  if(idx<0) return;
+  lastDeleted = { listId: listId, item: arr[idx], idx: idx };
+  arr.splice(idx,1);
+  saveTasksFor(listId);
+  showUndo('Task deleted');
+}
+function showUndo(msg){
+  document.getElementById('undo-text').textContent = msg;
+  document.getElementById('undo-toast').classList.add('show');
+  clearTimeout(undoTimer);
+  undoTimer = setTimeout(function(){ document.getElementById('undo-toast').classList.remove('show'); lastDeleted=null; }, 5000);
+}
+document.getElementById('undo-btn').addEventListener('click', async function(){
+  if(!lastDeleted) return;
+  const arr = tasksArrFor(lastDeleted.listId);
+  arr.splice(lastDeleted.idx, 0, lastDeleted.item);
+  await saveTasksFor(lastDeleted.listId);
+  lastDeleted = null;
+  document.getElementById('undo-toast').classList.remove('show');
+  render();
+});
+
+function taskDueClass(t){
+  if(!t.due) return '';
+  if(t.due < todayStr()) return 'overdue';
+  if(t.due === todayStr()) return 'today';
+  return '';
+}
+function tasksInScope(){
+  let list = allVisibleTasks();
+  if(activeListFilter === 'personal') list = personalTasks;
+  else if(activeListFilter === 'shared') list = sharedTasks;
+  else if(activeListFilter !== 'all') list = personalTasks.filter(function(t){ return t.listId===activeListFilter; });
+  return list;
+}
+function filterBySmartView(list){
+  const today = todayStr();
+  const in7 = addDays(today,7);
+  // Today = anything overdue, due today, OR with no due date at all — a task
+  // you just added with no date is something you want to do now, not
+  // something that should silently vanish until you dig into "All".
+  if(activeSmartView==='today') return list.filter(function(t){ return !t.done && (!t.due || t.due<=today); });
+  if(activeSmartView==='upcoming') return list.filter(function(t){ return !t.done && t.due && t.due>today && t.due<=in7; });
+  if(activeSmartView==='all') return list.filter(function(t){ return !t.done; });
+  if(activeSmartView==='done') return list.filter(function(t){ return t.done; });
+  return list;
+}
+function sortTasks(list){
+  const prioRank = function(t){ return t.priority===0 ? 9 : t.priority; };
+  return list.slice().sort(function(a,b){
+    return (a.due||'9999').localeCompare(b.due||'9999') || prioRank(a)-prioRank(b) || a.order-b.order;
+  });
+}
+
+function render(){
+  const scoped = tasksInScope();
+  document.getElementById('count-today').textContent = scoped.filter(function(t){ return !t.done && (!t.due || t.due<=todayStr()); }).length;
+  document.getElementById('count-upcoming').textContent = scoped.filter(function(t){ return !t.done && t.due && t.due>todayStr() && t.due<=addDays(todayStr(),7); }).length;
+  document.getElementById('count-all').textContent = scoped.filter(function(t){ return !t.done; }).length;
+
+  renderListChips();
+
+  const listEl = document.getElementById('task-list');
+
+  if(activeSmartView === 'week'){
+    renderWeekView(listEl, scoped);
+    return;
+  }
+
+  const shown = sortTasks(filterBySmartView(scoped));
+  if(!shown.length){
+    const emptyMsgs = { today:'Nothing on your list right now — add something above.', upcoming:'Nothing scheduled for the next week.', all:'Add a task above to get started.', done:'Nothing completed yet.' };
+    listEl.innerHTML = '<div class="empty-note">'+emptyMsgs[activeSmartView]+'</div>';
+    return;
+  }
+  listEl.innerHTML = shown.map(taskRowHtml).join('');
+  attachTaskHandlers(listEl);
+  updateBulkBar();
+}
+
+function renderWeekView(listEl, scoped){
+  const active = scoped.filter(function(t){ return !t.done; });
+  let html = '';
+  for(let i=0;i<7;i++){
+    const d = addDays(todayStr(), i);
+    const dayTasks = active.filter(function(t){ return t.due===d; });
+    const label = i===0 ? 'Today' : (i===1 ? 'Tomorrow' : new Date(d+'T00:00:00').toLocaleDateString(undefined,{weekday:'long', month:'short', day:'numeric'}));
+    html += '<div class="week-day-group"><div class="week-day-head">'+label+' <span class="count-badge">'+dayTasks.length+'</span></div>'+
+      (dayTasks.length ? sortTasks(dayTasks).map(taskRowHtml).join('') : '<div class="empty-note">Nothing due.</div>')+
+      '</div>';
+  }
+  const undated = active.filter(function(t){ return !t.due; });
+  if(undated.length){
+    html += '<div class="week-day-group"><div class="week-day-head">No date <span class="count-badge">'+undated.length+'</span></div>'+
+      sortTasks(undated).map(taskRowHtml).join('')+'</div>';
+  }
+  listEl.innerHTML = html;
+  attachTaskHandlers(listEl);
+  updateBulkBar();
+}
+
+function updateBulkBar(){
+  const bar = document.getElementById('bulk-bar');
+  if(!bulkMode){ bar.style.display = 'none'; return; }
+  bar.style.display = 'flex';
+  document.getElementById('bulk-count').textContent = selectedTaskIds.size + ' selected';
+}
+
+function renderListChips(){
+  const wrap = document.getElementById('list-chips');
+  const chips = [{id:'all',name:'All',color:'#9A9DAD'}].concat(allLists());
+  wrap.innerHTML = chips.map(function(l){
+    return '<button class="list-chip '+(activeListFilter===l.id?'active':'')+'" data-listfilter="'+l.id+'"><span class="lc-dot" style="background:'+l.color+';"></span>'+escapeHtml(l.name)+'</button>';
+  }).join('') + '<button class="list-chip add-new" id="add-list-btn">+ New list</button>';
+
+  wrap.querySelectorAll('[data-listfilter]').forEach(function(btn){
+    btn.addEventListener('click', function(){ activeListFilter = btn.dataset.listfilter; render(); });
+  });
+  document.getElementById('add-list-btn').addEventListener('click', openNewListForm);
+}
+
+function taskRowHtml(t){
+  const dueClass = taskDueClass(t);
+  const list = listById(t.listId);
+  const subDone = t.subtasks.filter(function(s){ return s.done; }).length;
+  const chips = [];
+  if(t.due) chips.push('<span class="meta-chip '+dueClass+'">'+fmtDue(t.due)+(t.dueTime?' '+fmt12(t.dueTime):'')+'</span>');
+  if(t.repeat && t.repeat!=='none') chips.push('<span class="meta-chip repeat">repeats '+t.repeat+'</span>');
+  if(t.subtasks.length) chips.push('<span class="meta-chip">'+subDone+'/'+t.subtasks.length+'</span>');
+  if(t.link) chips.push('<a class="link-chip" href="'+escapeHtml(t.link)+'" target="_blank" rel="noopener" onclick="event.stopPropagation()">🔗 link</a>');
+  if(list && (activeListFilter==='all')) chips.push('<span class="meta-chip list-tag">'+escapeHtml(list.name)+'</span>');
+
+  const selectChk = bulkMode ? '<input type="checkbox" class="select-chk" data-select="'+t.id+'" '+(selectedTaskIds.has(t.id)?'checked':'')+'>' : '';
+
+  return '<div class="task-row '+(t.done?'done':'')+' '+(t.priority?'p'+t.priority:'')+'" data-taskid="'+t.id+'" data-listid="'+t.listId+'">'+
+    '<div class="task-main" draggable="'+(!bulkMode)+'" data-dragid="'+t.id+'">'+
+      selectChk+
+      '<input type="checkbox" class="task-chk" data-toggle="'+t.id+'" data-listid="'+t.listId+'" '+(t.done?'checked':'')+'>'+
+      '<div class="task-body">'+
+        '<div class="task-text '+(t.done?'strike':'')+'" contenteditable="true" data-edit="'+t.id+'" data-listid="'+t.listId+'">'+escapeHtml(t.title)+'</div>'+
+        (chips.length ? '<div class="task-meta">'+chips.join('')+'</div>' : '')+
+      '</div>'+
+      '<div class="task-actions">'+
+        '<button class="icon-btn" data-expand="'+t.id+'">…</button>'+
+        '<button class="icon-btn" data-del="'+t.id+'" data-listid="'+t.listId+'">✕</button>'+
+      '</div>'+
+    '</div>'+
+    '<div class="task-detail" id="detail-'+t.id+'">'+taskDetailHtml(t)+'</div>'+
+    '</div>';
+}
+
+function taskDetailHtml(t){
+  const listOpts = allLists().map(function(l){ return '<option value="'+l.id+'" '+(t.listId===l.id?'selected':'')+'>'+escapeHtml(l.name)+'</option>'; }).join('');
+  const subtasksHtml = t.subtasks.map(function(s){
+    return '<div class="subtask-row"><input type="checkbox" data-subtoggle="'+s.id+'" data-taskid="'+t.id+'" data-listid="'+t.listId+'" '+(s.done?'checked':'')+'>'+
+    '<span class="st-text '+(s.done?'strike':'')+'">'+escapeHtml(s.text)+'</span>'+
+    '<button class="icon-btn" data-subdel="'+s.id+'" data-taskid="'+t.id+'" data-listid="'+t.listId+'">✕</button></div>';
+  }).join('');
+
+  return '<div class="td-grid">'+
+    '<div class="f"><label>Due date</label><input type="date" class="td-due" value="'+(t.due||'')+'"></div>'+
+    '<div class="f"><label>Due time</label><input type="time" class="td-duetime" value="'+(t.dueTime||'')+'"></div>'+
+    '<div class="f"><label>Priority</label><select class="td-priority"><option value="0" '+(t.priority===0?'selected':'')+'>None</option><option value="1" '+(t.priority===1?'selected':'')+'>P1 - urgent</option><option value="2" '+(t.priority===2?'selected':'')+'>P2 - high</option><option value="3" '+(t.priority===3?'selected':'')+'>P3 - medium</option></select></div>'+
+    '<div class="f"><label>Repeats</label><select class="td-repeat"><option value="none" '+(t.repeat==='none'?'selected':'')+'>Never</option><option value="daily" '+(t.repeat==='daily'?'selected':'')+'>Daily</option><option value="weekdays" '+(t.repeat==='weekdays'?'selected':'')+'>Weekdays</option><option value="weekly" '+(t.repeat==='weekly'?'selected':'')+'>Weekly</option><option value="monthly" '+(t.repeat==='monthly'?'selected':'')+'>Monthly</option></select></div>'+
+    '<div class="f"><label>List</label><select class="td-list">'+listOpts+'</select></div>'+
+    '<div class="f" style="grid-column:1/-1;"><label>Link</label><input type="text" class="td-link" placeholder="https://…" value="'+escapeHtml(t.link||'')+'"></div>'+
+    '<div class="f" style="grid-column:1/-1;"><label>Notes</label><textarea class="td-notes">'+escapeHtml(t.notes||'')+'</textarea></div>'+
+    '</div>'+
+    '<div class="subtasks">'+
+      '<label style="font-size:9.5px;color:var(--text-faint);font-weight:700;text-transform:uppercase;letter-spacing:0.04em;">Subtasks</label>'+
+      subtasksHtml+
+      '<div class="subtask-add"><input type="text" class="td-newsubtask" placeholder="Add a subtask…"><button class="td-addsubtask">Add</button></div>'+
+    '</div>'+
+    '<div class="td-actions">'+
+      '<button class="btn-mini ghost td-save">Save</button>'+
+      '<button class="btn-mini danger td-delete">Delete task</button>'+
+    '</div>';
+}
+
+function attachTaskHandlers(wrap){
+  wrap.querySelectorAll('.task-chk').forEach(function(cb){
+    cb.addEventListener('change', async function(){
+      const becomingDone = cb.checked;
+      await toggleTask(cb.dataset.toggle, cb.dataset.listid);
+      // Show the strikethrough in place first — checking something off should
+      // feel satisfying, not make the row vanish instantly.
+      const row = cb.closest('.task-row');
+      const textEl = row.querySelector('.task-text');
+      row.classList.toggle('done', becomingDone);
+      if(textEl) textEl.classList.toggle('strike', becomingDone);
+      if(becomingDone) setTimeout(render, 550);
+      else render();
+    });
+  });
+  wrap.querySelectorAll('[data-select]').forEach(function(cb){
+    cb.addEventListener('change', function(){
+      if(cb.checked) selectedTaskIds.add(cb.dataset.select); else selectedTaskIds.delete(cb.dataset.select);
+      updateBulkBar();
+    });
+  });
+  wrap.querySelectorAll('[data-del]').forEach(function(btn){
+    btn.addEventListener('click', function(){ deleteTask(btn.dataset.del, btn.dataset.listid); render(); });
+  });
+  wrap.querySelectorAll('[data-edit]').forEach(function(el){
+    el.addEventListener('blur', async function(){
+      const arr = tasksArrFor(el.dataset.listid);
+      const t = arr.find(function(x){ return x.id===el.dataset.edit; });
+      const newText = el.textContent.trim();
+      if(t && newText && newText!==t.title){ t.title = newText; await saveTasksFor(el.dataset.listid); }
+    });
+  });
+  wrap.querySelectorAll('[data-expand]').forEach(function(btn){
+    btn.addEventListener('click', function(){
+      document.getElementById('detail-'+btn.dataset.expand).classList.toggle('open');
+    });
+  });
+  wrap.querySelectorAll('.task-row').forEach(function(row){
+    const listId = row.dataset.listid, taskId = row.dataset.taskid;
+    const detail = row.querySelector('.task-detail');
+    const saveBtn = detail.querySelector('.td-save');
+    saveBtn.addEventListener('click', async function(){
+      const arr = tasksArrFor(listId);
+      const t = arr.find(function(x){ return x.id===taskId; });
+      if(!t) return;
+      t.due = detail.querySelector('.td-due').value || null;
+      t.dueTime = detail.querySelector('.td-duetime').value || null;
+      t.priority = Number(detail.querySelector('.td-priority').value);
+      t.repeat = detail.querySelector('.td-repeat').value;
+      const newListId = detail.querySelector('.td-list').value;
+      t.notes = detail.querySelector('.td-notes').value.trim();
+      t.link = detail.querySelector('.td-link').value.trim();
+      if(newListId !== t.listId){
+        arr.splice(arr.indexOf(t),1);
+        t.listId = newListId;
+        tasksArrFor(newListId).push(t);
+        await saveTasksFor(listId);
+        await saveTasksFor(newListId);
+      } else {
+        await saveTasksFor(listId);
+      }
+      render();
+    });
+    detail.querySelector('.td-delete').addEventListener('click', function(){ deleteTask(taskId, listId); render(); });
+    detail.querySelectorAll('[data-subtoggle]').forEach(function(cb){
+      cb.addEventListener('change', async function(){
+        const arr = tasksArrFor(listId);
+        const t = arr.find(function(x){ return x.id===taskId; });
+        const s = t.subtasks.find(function(x){ return x.id===cb.dataset.subtoggle; });
+        if(s){ s.done = cb.checked; await saveTasksFor(listId); render(); }
+      });
+    });
+    detail.querySelectorAll('[data-subdel]').forEach(function(btn){
+      btn.addEventListener('click', async function(){
+        const arr = tasksArrFor(listId);
+        const t = arr.find(function(x){ return x.id===taskId; });
+        t.subtasks = t.subtasks.filter(function(s){ return s.id!==btn.dataset.subdel; });
+        await saveTasksFor(listId);
+        render();
+      });
+    });
+    const addBtn = detail.querySelector('.td-addsubtask');
+    if(addBtn){
+      addBtn.addEventListener('click', async function(){
+        const input = detail.querySelector('.td-newsubtask');
+        const text = input.value.trim();
+        if(!text) return;
+        const arr = tasksArrFor(listId);
+        const t = arr.find(function(x){ return x.id===taskId; });
+        t.subtasks.push({ id:'sub-'+Date.now()+'-'+Math.floor(Math.random()*1000), text: text, done:false });
+        await saveTasksFor(listId);
+        render();
+        document.getElementById('detail-'+taskId).classList.add('open');
+      });
+    }
+  });
+
+  wrap.querySelectorAll('[draggable="true"]').forEach(function(el){
+    el.addEventListener('dragstart', function(){ el.closest('.task-row').classList.add('dragging'); });
+    el.addEventListener('dragend', function(){ el.closest('.task-row').classList.remove('dragging'); });
+  });
+  wrap.addEventListener('dragover', function(e){
+    e.preventDefault();
+    const dragging = wrap.querySelector('.dragging');
+    if(!dragging) return;
+    const after = [].slice.call(wrap.querySelectorAll('.task-row:not(.dragging)')).find(function(row){
+      const box = row.getBoundingClientRect();
+      return e.clientY < box.top + box.height/2;
+    });
+    if(after) wrap.insertBefore(dragging, after);
+    else wrap.appendChild(dragging);
+  });
+  wrap.addEventListener('drop', async function(){
+    const ids = [].slice.call(wrap.querySelectorAll('.task-row')).map(function(r){ return r.dataset.taskid; });
+    ids.forEach(function(id,i){
+      const t = personalTasks.find(function(x){ return x.id===id; }) || sharedTasks.find(function(x){ return x.id===id; });
+      if(t) t.order = i;
+    });
+    await savePersonalTasks();
+    await saveSharedTasks();
+  });
+}
+
+function openNewListForm(){
+  const mount = document.getElementById('new-list-mount');
+  if(mount.innerHTML){ mount.innerHTML=''; return; }
+  mount.innerHTML = '<div class="new-list-form"><input type="text" id="new-list-name" placeholder="List name, e.g. Work"><button id="new-list-save">Create</button></div>';
+  const input = document.getElementById('new-list-name');
+  input.focus();
+  const colors = ['#5B8DEF','#34D399','#F5B942','#F0596B','#A78BFA','#22D3EE'];
+  document.getElementById('new-list-save').addEventListener('click', async function(){
+    const name = input.value.trim();
+    if(!name) return;
+    personalLists.push({ id:'list-'+Date.now(), name: name, color: colors[personalLists.length % colors.length], shared:false });
+    await saveLists();
+    mount.innerHTML = '';
+    render();
+  });
+  input.addEventListener('keydown', function(e){ if(e.key==='Enter') document.getElementById('new-list-save').click(); });
+}
+
+/* =====================================================================
+   NOTIFICATIONS — free, foreground/background-tab local reminders for
+   tasks with a due time today.
+===================================================================== */
+function notifiedKey(){ return NOTIFIED_KEY_PREFIX + todayStr(); }
+function loadNotifiedIds(){
+  try{ notifiedIds = new Set(JSON.parse(localStorage.getItem(notifiedKey())||'[]')); }
+  catch(e){ notifiedIds = new Set(); }
+}
+function saveNotifiedIds(){
+  try{ localStorage.setItem(notifiedKey(), JSON.stringify([...notifiedIds])); }catch(e){}
+}
+async function fireNotification(title, body, tag){
+  if(notifPermission !== 'granted') return;
+  try{ const reg = await navigator.serviceWorker.ready; reg.showNotification(title, {body:body, tag:tag}); }
+  catch(e){ try{ new Notification(title, {body:body}); }catch(e2){} }
+}
+function checkDueNotifications(){
+  if(notifPermission !== 'granted') return;
+  const now = new Date();
+  const today = todayStr();
+  allVisibleTasks().forEach(function(t){
+    if(t.done || !t.due || t.due !== today || !t.dueTime) return;
+    if(notifiedIds.has(t.id)) return;
+    const parts = t.dueTime.split(':').map(Number);
+    const dueAt = new Date(now); dueAt.setHours(parts[0], parts[1], 0, 0);
+    const diffMin = (dueAt-now)/60000;
+    if(diffMin > 0 && diffMin <= 15){
+      fireNotification('Due soon: '+t.title, t.dueTime, t.id);
+      notifiedIds.add(t.id);
+      saveNotifiedIds();
+    }
+  });
+}
+function renderNotifBanner(){
+  const el = document.getElementById('notif-banner-wrap');
+  if(notifPermission !== 'default'){ el.innerHTML=''; return; }
+  el.innerHTML = '<div class="notif-banner"><span>Get a reminder when a timed task is due soon.</span><button id="enable-notif-btn">Enable</button></div>';
+  document.getElementById('enable-notif-btn').addEventListener('click', async function(){
+    try{ notifPermission = await Notification.requestPermission(); renderNotifBanner(); }catch(e){}
+  });
+}
+
+/* =====================================================================
+   SEARCH
+===================================================================== */
+function runSearch(query){
+  const el = document.getElementById('search-results');
+  const q = query.trim().toLowerCase();
+  if(!q){ el.style.display='none'; el.innerHTML=''; return; }
+  el.style.display = 'block';
+  const results = allVisibleTasks().filter(function(t){
+    return t.title.toLowerCase().indexOf(q)!==-1 || (t.notes||'').toLowerCase().indexOf(q)!==-1;
+  });
+  el.innerHTML = results.length ? results.slice(0,25).map(function(t){
+    const list = listById(t.listId);
+    return '<div class="search-result-row" data-jumpto="'+t.id+'" data-jumplist="'+t.listId+'"><div class="sr-title">'+escapeHtml(t.title)+(t.done?' ✓':'')+'</div><div class="sr-meta">'+(list?escapeHtml(list.name):'')+(t.due?' · '+fmtDue(t.due):'')+'</div></div>';
+  }).join('') : '<div class="search-empty">No matches.</div>';
+  el.querySelectorAll('[data-jumpto]').forEach(function(row){
+    row.addEventListener('click', function(){
+      activeSmartView='all'; activeListFilter='all';
+      document.querySelectorAll('#smart-tabs button').forEach(function(b){ b.classList.toggle('active', b.dataset.view==='all'); });
+      render();
+      setTimeout(function(){
+        const detail = document.getElementById('detail-'+row.dataset.jumpto);
+        if(detail){ detail.classList.add('open'); detail.scrollIntoView({behavior:'smooth', block:'center'}); }
+      }, 50);
+    });
+  });
+}
+
+/* =====================================================================
+   STATS
+===================================================================== */
+function choreStreakForTasks(){
+  // consecutive days (back from today) with at least one task completed
+  let streak = 0;
+  let cursor = todayStr();
+  for(let i=0;i<365;i++){
+    const doneThatDay = allVisibleTasks().some(function(t){ return t.done && (t.completedOn===cursor); });
+    if(doneThatDay) streak++;
+    else if(cursor !== todayStr()) break;
+    cursor = addDays(cursor, -1);
+  }
+  return streak;
+}
+function renderStats(){
+  const el = document.getElementById('stats-panel');
+  const all = allVisibleTasks();
+  const completedThisWeek = all.filter(function(t){ return t.done && t.completedOn && t.completedOn >= addDays(todayStr(),-6); }).length;
+  const activeCount = all.filter(function(t){ return !t.done; }).length;
+  const streak = choreStreakForTasks();
+
+  const days = [];
+  for(let i=6;i>=0;i--){
+    const d = addDays(todayStr(),-i);
+    const count = all.filter(function(t){ return t.done && t.completedOn===d; }).length;
+    days.push({label: new Date(d+'T00:00:00').toLocaleDateString(undefined,{weekday:'short'})[0], count:count});
+  }
+  const maxCount = Math.max(1, Math.max.apply(null, days.map(function(d){return d.count;})));
+
+  const prioCounts = {1:0,2:0,3:0,0:0};
+  all.filter(function(t){ return !t.done; }).forEach(function(t){ prioCounts[t.priority] = (prioCounts[t.priority]||0)+1; });
+
+  el.innerHTML = '<div class="panel-card">'+
+    '<h3>Stats</h3>'+
+    '<div class="stat-row2">'+
+      '<div class="stat-block"><div class="sb-label">Completed this week</div><div class="sb-value">'+completedThisWeek+'</div></div>'+
+      '<div class="stat-block"><div class="sb-label">Current streak</div><div class="sb-value">'+streak+'🔥</div></div>'+
+    '</div>'+
+    '<div class="stat-row2">'+
+      '<div class="stat-block"><div class="sb-label">Active tasks</div><div class="sb-value">'+activeCount+'</div></div>'+
+      '<div class="stat-block"><div class="sb-label">Overdue</div><div class="sb-value">'+all.filter(function(t){return !t.done && t.due && t.due<todayStr();}).length+'</div></div>'+
+    '</div>'+
+    '<div class="sb-label" style="margin-bottom:4px;">Last 7 days completed</div>'+
+    '<div class="day-bars">'+days.map(function(d){ return '<div class="day-bar" style="height:'+Math.max(4,100*d.count/maxCount)+'%;" title="'+d.count+'"></div>'; }).join('')+'</div>'+
+    '<div class="day-bar-labels">'+days.map(function(d){ return '<span>'+d.label+'</span>'; }).join('')+'</div>'+
+    '<div class="sb-label" style="margin:12px 0 4px;">Active by priority</div>'+
+    '<div class="prio-breakdown">'+
+      '<div class="prio-pill" style="background:var(--p1-soft);color:var(--p1);">P1 '+prioCounts[1]+'</div>'+
+      '<div class="prio-pill" style="background:var(--p2-soft);color:var(--p2);">P2 '+prioCounts[2]+'</div>'+
+      '<div class="prio-pill" style="background:var(--p3-soft);color:var(--p3);">P3 '+prioCounts[3]+'</div>'+
+      '<div class="prio-pill" style="background:var(--p4-soft);color:var(--text-soft);">None '+prioCounts[0]+'</div>'+
+    '</div>'+
+  '</div>';
+}
+
+/* =====================================================================
+   TEMPLATES
+===================================================================== */
+async function loadTemplates(){
+  try{ const doc = await profileDoc(activeProfile,'templates').get(); templates = (doc.exists && doc.data().json) ? JSON.parse(doc.data().json) : []; }
+  catch(e){ templates = []; }
+}
+async function saveTemplates(){
+  try{ await profileDoc(activeProfile,'templates').set({json: JSON.stringify(templates)}); }
+  catch(e){ console.error('templates save failed', e); }
+}
+function renderTemplatesPanel(){
+  const el = document.getElementById('templates-panel');
+  el.innerHTML = '<div class="panel-card"><h3>Templates</h3>'+
+    '<p style="font-size:12px;color:var(--text-faint);margin:0 0 8px;">Save a reusable checklist (e.g. a packing list) and apply it any time.</p>'+
+    '<input type="text" id="tpl-name" placeholder="Template name, e.g. Packing List">'+
+    '<textarea id="tpl-items" placeholder="One item per line…"></textarea>'+
+    '<div class="panel-actions"><button class="btn-mini ghost" id="tpl-save-btn" style="background:var(--accent);color:#1A0E09;">Save template</button></div>'+
+    '<div style="margin-top:14px;">'+
+      (templates.length ? templates.map(function(tpl,i){
+        return '<div class="template-row"><div><div class="tpl-name">'+escapeHtml(tpl.name)+'</div><div class="tpl-count">'+tpl.items.length+' items</div></div>'+
+          '<div class="tpl-actions"><button data-applytpl="'+i+'">Apply</button><button class="ghost" data-deltpl="'+i+'">Delete</button></div></div>';
+      }).join('') : '<div class="empty-note">No templates yet.</div>')+
+    '</div></div>';
+
+  document.getElementById('tpl-save-btn').addEventListener('click', async function(){
+    const name = document.getElementById('tpl-name').value.trim();
+    const itemsRaw = document.getElementById('tpl-items').value.split('\n').map(function(s){return s.trim();}).filter(Boolean);
+    if(!name || !itemsRaw.length) return;
+    templates.push({ id:'tpl-'+Date.now(), name:name, items: itemsRaw.map(function(text){ return {title:text}; }) });
+    await saveTemplates();
+    renderTemplatesPanel();
+  });
+  el.querySelectorAll('[data-applytpl]').forEach(function(btn){
+    btn.addEventListener('click', async function(){
+      const tpl = templates[Number(btn.dataset.applytpl)];
+      const listId = activeListFilterForAdd();
+      for(const item of tpl.items){
+        await addTask({ title:item.title, dueDate:null, dueTime:null, priority:0, listId:listId });
+      }
+      render();
+    });
+  });
+  el.querySelectorAll('[data-deltpl]').forEach(function(btn){
+    btn.addEventListener('click', async function(){
+      templates.splice(Number(btn.dataset.deltpl),1);
+      await saveTemplates();
+      renderTemplatesPanel();
+    });
+  });
+}
+
+function initControls(){
+  document.querySelectorAll('#smart-tabs button').forEach(function(btn){
+    btn.addEventListener('click', function(){
+      activeSmartView = btn.dataset.view;
+      document.querySelectorAll('#smart-tabs button').forEach(function(b){ b.classList.toggle('active', b===btn); });
+      render();
+    });
+  });
+  document.getElementById('quick-add-input').addEventListener('input', renderParsePreview);
+  document.getElementById('quick-add-input').addEventListener('keydown', function(e){ if(e.key==='Enter') submitQuickAdd(); });
+  document.getElementById('quick-add-btn').addEventListener('click', submitQuickAdd);
+
+  async function submitQuickAdd(){
+    const input = document.getElementById('quick-add-input');
+    const raw = input.value.trim();
+    if(!raw) return;
+    const parsed = parseQuickAdd(raw);
+    if(!parsed.title){ input.style.outline='2px solid var(--danger)'; return; }
+    input.style.outline='';
+    await addTask(parsed);
+    input.value = '';
+    document.getElementById('parse-preview').innerHTML = '';
+    render();
+  }
+
+  function hideAllPanels(){
+    ['search-bar','search-results','stats-panel','templates-panel'].forEach(function(id){
+      document.getElementById(id).style.display = 'none';
+    });
+    ['search-toggle-btn','stats-toggle-btn','templates-toggle-btn'].forEach(function(id){
+      document.getElementById(id).classList.remove('active');
+    });
+  }
+  function togglePanel(btnId, panelIds, onOpen){
+    const btn = document.getElementById(btnId);
+    const alreadyOpen = btn.classList.contains('active');
+    hideAllPanels();
+    if(!alreadyOpen){
+      btn.classList.add('active');
+      panelIds.forEach(function(id){ document.getElementById(id).style.display = 'block'; });
+      if(onOpen) onOpen();
+    }
+  }
+  document.getElementById('search-toggle-btn').addEventListener('click', function(){
+    togglePanel('search-toggle-btn', ['search-bar'], function(){ document.getElementById('search-input').focus(); });
+  });
+  document.getElementById('stats-toggle-btn').addEventListener('click', function(){
+    togglePanel('stats-toggle-btn', ['stats-panel'], renderStats);
+  });
+  document.getElementById('templates-toggle-btn').addEventListener('click', function(){
+    togglePanel('templates-toggle-btn', ['templates-panel'], renderTemplatesPanel);
+  });
+  document.getElementById('search-input').addEventListener('input', function(e){ runSearch(e.target.value); });
+
+  document.getElementById('bulk-toggle-btn').addEventListener('click', function(){
+    bulkMode = !bulkMode;
+    selectedTaskIds.clear();
+    document.getElementById('bulk-toggle-btn').classList.toggle('active', bulkMode);
+    render();
+  });
+  document.getElementById('bulk-complete').addEventListener('click', async function(){
+    for(const id of selectedTaskIds){
+      const t = personalTasks.find(function(x){return x.id===id;}) || sharedTasks.find(function(x){return x.id===id;});
+      if(t && !t.done){ const listId = t.listId; await toggleTask(id, listId); }
+    }
+    selectedTaskIds.clear();
+    render();
+  });
+  document.getElementById('bulk-delete').addEventListener('click', function(){
+    selectedTaskIds.forEach(function(id){
+      const t = personalTasks.find(function(x){return x.id===id;}) || sharedTasks.find(function(x){return x.id===id;});
+      if(t) deleteTask(id, t.listId);
+    });
+    selectedTaskIds.clear();
+    render();
+  });
+  document.getElementById('bulk-move-btn').addEventListener('click', function(){
+    const sel = document.getElementById('bulk-move-select');
+    if(sel.style.display === 'none'){
+      sel.innerHTML = allLists().map(function(l){ return '<option value="'+l.id+'">'+escapeHtml(l.name)+'</option>'; }).join('');
+      sel.style.display = 'inline-block';
+    } else {
+      const targetList = sel.value;
+      const ids = [...selectedTaskIds];
+      (async function(){
+        for(const id of ids){
+          const fromArr = personalTasks.find(function(x){return x.id===id;}) ? personalTasks : sharedTasks;
+          const t = fromArr.find(function(x){return x.id===id;});
+          if(!t || t.listId === targetList) continue;
+          fromArr.splice(fromArr.indexOf(t),1);
+          t.listId = targetList;
+          tasksArrFor(targetList).push(t);
+        }
+        await savePersonalTasks();
+        await saveSharedTasks();
+        selectedTaskIds.clear();
+        sel.style.display = 'none';
+        render();
+      })();
+    }
+  });
+}
+
+/* Notification loop + template/notif loading kick off once a profile is entered. */
+const _origEnterProfile = enterProfile;
+enterProfile = async function(profileId){
+  await _origEnterProfile(profileId);
+  await loadTemplates();
+  loadNotifiedIds();
+  renderNotifBanner();
+  checkDueNotifications();
+  setInterval(checkDueNotifications, 60000);
+};
+
+} // end firebase-available guard
+</script>
+</body>
+</html>
