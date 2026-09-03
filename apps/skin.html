@@ -1,0 +1,688 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Skin Plan</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<style>
+  :root{
+    --bg:#F5F6F3; --surface:#FFFFFF; --surface-alt:#EFF1EC;
+    --border:#DEE2D8; --border-soft:#E9EBE5;
+    --text:#1C201A; --text-soft:#5B6355; --text-faint:#8E9587;
+    --accent:#3F7A54; --accent-soft:#E3EEE5; --accent-deep:#2C5A3C;
+    --am:#D97A3F; --am-soft:#FBEADC;
+    --pm:#5B5FA8; --pm-soft:#E7E7F5;
+    --warn:#B4483B; --warn-soft:#F7E4E1;
+    --radius-lg:16px; --radius-md:11px; --radius-sm:8px;
+    --shadow:0 1px 2px rgba(28,32,26,0.05), 0 8px 20px -14px rgba(28,32,26,0.16);
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;padding:16px 14px 60px;-webkit-font-smoothing:antialiased;}
+  .wrap{max-width:640px;margin:0 auto;}
+  h1,h2,h3{font-family:'Manrope',sans-serif;}
+  button,input,select,textarea{font-family:inherit;}
+  a{color:var(--accent-deep);}
+
+  .loading-gate{position:fixed;inset:0;z-index:200;background:var(--bg);display:flex;align-items:center;justify-content:center;color:var(--text-soft);}
+
+  .profile-inner{text-align:center;}
+  .profile-inner h1{font-size:22px;margin:0 0 30px;font-weight:800;color:var(--text);}
+  .profile-row{display:flex;gap:26px;justify-content:center;flex-wrap:wrap;}
+  .profile-card{background:none;border:none;color:var(--text);display:flex;flex-direction:column;align-items:center;gap:10px;cursor:pointer;}
+  .profile-avatar{width:88px;height:88px;border-radius:16px;display:flex;align-items:center;justify-content:center;font-size:30px;font-weight:800;color:#fff;border:3px solid transparent;font-family:'Manrope',sans-serif;}
+  .profile-card:hover .profile-avatar{border-color:var(--accent);}
+  .av-b{background:linear-gradient(135deg,#3F7A54,#2C5A3C);}
+  .av-a{background:linear-gradient(135deg,#C97BA0,#A8517A);}
+  .profile-name{font-size:13.5px;font-weight:600;color:var(--text-soft);}
+
+  .topbar{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;}
+  .topbar a{font-size:12.5px;color:var(--text-soft);text-decoration:none;}
+  .switch-btn{background:none;border:none;font-size:12.5px;color:var(--text-soft);cursor:pointer;padding:0;}
+
+  .who-badge{display:inline-flex;align-items:center;gap:7px;background:var(--surface);border:1px solid var(--border);border-radius:20px;padding:3px 13px 3px 4px;margin-bottom:8px;}
+  .who-avatar{width:20px;height:20px;border-radius:6px;font-size:10px;font-weight:800;color:#fff;display:flex;align-items:center;justify-content:center;font-family:'Manrope',sans-serif;}
+  .who-avatar.av-b{background:#3F7A54;}
+  .who-avatar.av-a{background:#A8517A;}
+  .who-name{font-size:11.5px;font-weight:700;color:var(--text-soft);}
+
+
+  header.app-head{text-align:center;margin-bottom:14px;}
+  header.app-head h1{font-size:23px;font-weight:800;margin:0 0 2px;}
+  header.app-head p{margin:0;color:var(--text-soft);font-size:12.5px;}
+
+  .week-banner{background:var(--accent);color:#fff;border-radius:var(--radius-lg);padding:14px 18px;margin-bottom:14px;box-shadow:var(--shadow);}
+  .week-banner .wb-top{display:flex;justify-content:space-between;align-items:baseline;}
+  .week-banner .wb-week{font-family:'Manrope',sans-serif;font-weight:800;font-size:18px;}
+  .week-banner .wb-dates{font-size:11.5px;opacity:0.85;}
+  .week-banner .wb-note{font-size:12px;margin-top:6px;opacity:0.95;}
+  .week-banner.done{background:var(--text-soft);}
+
+  .segmented{max-width:460px;margin:0 auto 14px;background:var(--surface-alt);border-radius:999px;padding:3px;display:flex;gap:2px;}
+  .segmented button{flex:1;border:none;background:transparent;border-radius:999px;padding:8px 4px;font-size:12px;font-weight:700;color:var(--text-soft);cursor:pointer;}
+  .segmented button.active{background:var(--surface);color:var(--text);box-shadow:var(--shadow);}
+
+  .routine-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:14px 16px;margin-bottom:12px;box-shadow:var(--shadow);}
+  .routine-card .rc-head{display:flex;align-items:center;gap:9px;margin-bottom:10px;}
+  .routine-card .rc-icon{width:30px;height:30px;border-radius:9px;display:flex;align-items:center;justify-content:center;font-size:15px;flex:none;}
+  .routine-card.am .rc-icon{background:var(--am-soft);}
+  .routine-card.pm .rc-icon{background:var(--pm-soft);}
+  .routine-card .rc-title{font-size:14.5px;font-weight:700;}
+  .routine-card .rc-time{font-size:11px;color:var(--text-faint);}
+
+  .step-row{display:flex;align-items:flex-start;gap:10px;padding:8px 4px;border-bottom:1px solid var(--border-soft);}
+  .step-row:last-child{border-bottom:none;}
+  .step-chk{appearance:none;width:21px;height:21px;border-radius:6px;border:2px solid var(--border);flex:none;margin-top:1px;cursor:pointer;position:relative;background:var(--surface);}
+  .step-chk:checked{background:var(--accent);border-color:var(--accent);}
+  .step-chk:checked::after{content:'';position:absolute;left:5px;top:1px;width:6px;height:11px;border:solid #fff;border-width:0 2px 2px 0;transform:rotate(45deg);}
+  .step-text{font-size:13.5px;font-weight:500;}
+  .step-text.strike{text-decoration:line-through;color:var(--text-faint);}
+  .step-note{font-size:11px;color:var(--warn);margin-top:2px;}
+
+  .empty-note{color:var(--text-faint);font-style:italic;font-size:13px;padding:10px 2px;}
+
+  .section-title{font-family:'Manrope',sans-serif;font-size:13px;font-weight:700;color:var(--text-soft);margin:18px 0 8px;display:flex;align-items:center;gap:8px;}
+  .section-title::after{content:'';flex:1;height:1px;background:var(--border);}
+
+  .shop-row{display:flex;align-items:center;gap:10px;padding:9px 4px;border-bottom:1px solid var(--border-soft);}
+  .shop-text{font-size:13.5px;font-weight:600;flex:1;}
+  .shop-text.strike{text-decoration:line-through;color:var(--text-faint);}
+  .shop-sub{font-size:11px;color:var(--text-faint);}
+  .shop-sent{display:block;font-size:10.5px;color:var(--accent-deep);margin-top:2px;font-weight:600;}
+  .send-grocery-btn{flex:none;font-size:11.5px;font-weight:700;background:var(--accent);color:#fff;border:none;border-radius:8px;padding:7px 12px;cursor:pointer;}
+  .send-grocery-btn:disabled{opacity:0.6;cursor:default;}
+  .send-grocery-btn.wide{width:100%;background:var(--surface-alt);color:var(--accent-deep);border:1px solid var(--accent);}
+
+  .milestone-row{display:flex;align-items:flex-start;gap:10px;padding:10px 4px;border-bottom:1px solid var(--border-soft);}
+  .milestone-date{font-family:'Manrope',sans-serif;font-weight:800;font-size:12px;color:var(--text-soft);min-width:58px;}
+  .milestone-row.overdue .milestone-date{color:var(--warn);}
+  .milestone-row.today .milestone-date{color:var(--accent-deep);}
+  .milestone-text{font-size:13px;flex:1;}
+  .milestone-text.strike{text-decoration:line-through;color:var(--text-faint);}
+  .badge{font-size:9.5px;font-weight:700;border-radius:20px;padding:1px 7px;background:var(--warn-soft);color:var(--warn);}
+  .badge.today{background:var(--accent-soft);color:var(--accent-deep);}
+
+  .checkin-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:14px 16px;margin-bottom:12px;box-shadow:var(--shadow);}
+  .checkin-card h3{font-size:14px;margin:0 0 3px;display:flex;align-items:center;gap:7px;}
+  .gym-sync-tag{font-size:9.5px;font-weight:700;background:var(--accent-soft);color:var(--accent-deep);border-radius:20px;padding:2px 8px;}
+  .gym-log-link{display:inline-block;font-size:12.5px;font-weight:700;color:var(--accent-deep);text-decoration:none;background:var(--accent-soft);padding:8px 13px;border-radius:8px;}
+  .checkin-card .ci-sub{font-size:11.5px;color:var(--text-faint);margin-bottom:10px;}
+  .checkin-card .ci-due{font-size:11px;font-weight:700;color:var(--warn);margin-bottom:8px;}
+  .ci-form{display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end;}
+  .ci-form .f{display:flex;flex-direction:column;gap:3px;}
+  .ci-form label{font-size:9.5px;color:var(--text-faint);font-weight:700;text-transform:uppercase;}
+  .ci-form input{font-size:13px;padding:7px 9px;border-radius:8px;border:1px solid var(--border);width:90px;}
+  .ci-form button{background:var(--accent);color:#fff;border:none;border-radius:8px;padding:8px 14px;font-size:12.5px;font-weight:700;cursor:pointer;}
+  .ci-log{margin-top:10px;font-size:11.5px;color:var(--text-soft);}
+  .ci-log-row{display:flex;justify-content:space-between;padding:3px 0;border-top:1px dashed var(--border-soft);}
+
+  details.reference{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-md);padding:10px 14px;margin-top:12px;box-shadow:var(--shadow);}
+  details.reference summary{cursor:pointer;font-family:'Manrope',sans-serif;font-weight:700;font-size:12.5px;list-style:none;}
+  details.reference summary::-webkit-details-marker{display:none;}
+  details.reference summary::before{content:'▸ ';color:var(--text-faint);}
+  details.reference[open] summary::before{content:'▾ ';}
+  details.reference p{font-size:12px;color:var(--text-soft);line-height:1.6;margin:8px 0 0;}
+  details.reference ul{font-size:12px;color:var(--text-soft);line-height:1.7;margin:8px 0 0;padding-left:18px;}
+
+  .emergency-banner{background:var(--warn-soft);border:1px solid var(--warn);color:var(--warn);border-radius:var(--radius-md);padding:10px 14px;margin-bottom:12px;font-size:12px;}
+  .emergency-banner b{display:block;margin-bottom:4px;}
+</style>
+</head>
+<body>
+
+<div id="loading-gate" class="loading-gate">Loading…</div>
+
+<div id="profile-overlay" class="loading-gate" style="display:none;">
+  <div class="profile-inner">
+    <h1>Whose skin plan?</h1>
+    <div class="profile-row" id="profile-row"></div>
+  </div>
+</div>
+
+<div class="wrap" id="app-wrap" style="display:none;">
+  <div class="topbar">
+    <a href="../index.html">← All apps</a>
+    <button class="switch-btn" id="switch-profile-btn">Switch profile</button>
+  </div>
+
+  <header class="app-head">
+    <div class="who-badge" id="who-badge"></div>
+    <h1>Skin Plan</h1>
+    <p id="app-sub"></p>
+  </header>
+
+  <div id="week-banner-wrap"></div>
+
+  <div class="segmented">
+    <button id="tab-today-btn" class="active">Today</button>
+    <button id="tab-shopping-btn">Shopping</button>
+    <button id="tab-milestones-btn">Milestones</button>
+    <button id="tab-checkins-btn">Check-ins</button>
+  </div>
+
+  <div id="today-view"></div>
+  <div id="shopping-view" style="display:none;"></div>
+  <div id="milestones-view" style="display:none;"></div>
+  <div id="checkins-view" style="display:none;"></div>
+</div>
+
+<script>
+/* =====================================================================
+   FIREBASE — same account as the rest of the hub; sign-in lives on the
+   hub itself, this page just checks and redirects if not signed in.
+===================================================================== */
+const FIREBASE_CONFIG = {
+  apiKey: "AIzaSyBe01eR2RZwSbU_aoJMeh_2MMJ5mqkVuKk",
+  authDomain: "iron-log-bfc55.firebaseapp.com",
+  projectId: "iron-log-bfc55",
+  storageBucket: "iron-log-bfc55.firebasestorage.app",
+  messagingSenderId: "106586808946",
+  appId: "1:106586808946:web:f4736554ba9fc82c6fd8eb"
+};
+firebase.initializeApp(FIREBASE_CONFIG);
+const auth = firebase.auth();
+const db = firebase.firestore();
+try{ db.enablePersistence({synchronizeTabs:true}).catch(function(){}); }catch(e){}
+let currentUser = null;
+let activeProfile = null;
+const LAST_PROFILE_KEY = 'skin-last-profile';
+
+function skinDoc(key){
+  return db.collection('users').doc(currentUser.uid).collection('skin-profiles').doc(activeProfile).collection('data').doc(key);
+}
+
+/* =====================================================================
+   GROCERY INTEGRATION — sends a product into Grocery's own list (Week 1
+   tray, same shape as a manually-added item there) rather than keeping
+   a second disconnected shopping list. Safe to send again any time you
+   run out and need to restock — it just skips adding a duplicate if
+   one's already sitting there unbought.
+===================================================================== */
+function groceryStateDoc(){
+  return db.collection('users').doc(currentUser.uid).collection('apps').doc('grocery').collection('data').doc('state');
+}
+async function sendItemToGrocery(name){
+  try{
+    const doc = await groceryStateDoc().get();
+    let state = (doc.exists && doc.data().json) ? JSON.parse(doc.data().json) : {checked:{},customItems:{},qtyOverride:{},sectionOverride:{}};
+    if(!state.customItems) state.customItems = {};
+    if(!state.customItems['1']) state.customItems['1'] = [];
+    const already = state.customItems['1'].some(function(it){ return it.name === name; });
+    if(!already){
+      state.customItems['1'].push({
+        id: 'skin-'+Date.now()+'-'+Math.floor(Math.random()*1000),
+        name: name, qty: '', section: 'tray', kitchenZone: 'pantry'
+      });
+      await groceryStateDoc().set({json: JSON.stringify(state)});
+    }
+    return { added: !already };
+  }catch(e){ console.error('send to grocery failed', e); return { added:false, error:true }; }
+}
+
+/* =====================================================================
+   GYM INTEGRATION — weight and waist are already logged weekly/biweekly
+   in the Gym app's daily check-in. Read that directly instead of asking
+   for the same numbers twice.
+===================================================================== */
+function gymDailyLogsCol(){
+  return db.collection('users').doc(currentUser.uid).collection('profiles').doc(activeProfile.toLowerCase()).collection('dailyLogs');
+}
+let gymWeightEntries = [];
+let gymWaistEntries = [];
+async function loadGymLogs(){
+  try{
+    const snap = await gymDailyLogsCol().get();
+    const all = [];
+    snap.forEach(function(d){ all.push(d.data()); });
+    all.sort(function(a,b){ return a.date < b.date ? -1 : 1; });
+    gymWeightEntries = all.filter(function(d){ return d.weight != null && d.weight !== ''; }).map(function(d){ return {date:d.date, value:d.weight}; });
+    gymWaistEntries = all.filter(function(d){ return d.waist != null && d.waist !== ''; }).map(function(d){ return {date:d.date, value:d.waist}; });
+  }catch(e){ gymWeightEntries = []; gymWaistEntries = []; }
+}
+
+/* =====================================================================
+   AUTH + PROFILE PICKER — sign-in itself lives on the hub; this page
+   checks and redirects if not signed in, then asks whose plan to open.
+===================================================================== */
+function showProfilePicker(){
+  document.getElementById('loading-gate').style.display = 'none';
+  document.getElementById('app-wrap').style.display = 'none';
+  document.getElementById('profile-overlay').style.display = 'flex';
+  const row = document.getElementById('profile-row');
+  row.innerHTML = '';
+  [{id:'Bhargav',cls:'av-b'},{id:'Anusha',cls:'av-a'}].forEach(function(p){
+    const card = document.createElement('button');
+    card.className = 'profile-card';
+    card.innerHTML = '<div class="profile-avatar '+p.cls+'">'+p.id[0]+'</div><div class="profile-name">'+p.id+'</div>';
+    card.addEventListener('click', function(){ enterProfile(p.id); });
+    row.appendChild(card);
+  });
+}
+async function enterProfile(profileId){
+  activeProfile = profileId;
+  try{ localStorage.setItem(LAST_PROFILE_KEY, profileId); }catch(e){}
+  document.getElementById('loading-gate').style.display = 'none';
+  document.getElementById('profile-overlay').style.display = 'none';
+  document.getElementById('app-wrap').style.display = 'block';
+  document.getElementById('who-badge').innerHTML = '<span class="who-avatar av-'+(profileId==='Bhargav'?'b':'a')+'">'+profileId[0]+'</span><span class="who-name">'+profileId+'</span>';
+  document.getElementById('app-sub').textContent = profileId==='Bhargav' ? '12-week transformation — Sep 2 to Dec 2, 2026' : 'Daily routine';
+  document.getElementById('switch-profile-btn').onclick = showProfilePicker;
+  await init();
+}
+
+auth.onAuthStateChanged(function(user){
+  currentUser = user;
+  if(!user){ window.location.href = '../index.html'; return; }
+  let last = null;
+  try{ last = localStorage.getItem(LAST_PROFILE_KEY); }catch(e){}
+  if(last === 'Bhargav' || last === 'Anusha') enterProfile(last);
+  else showProfilePicker();
+});
+
+/* =====================================================================
+   PLAN DATA — the whole 12-week plan, baked in. Nothing to configure.
+===================================================================== */
+const START_DATE = '2026-09-02';
+const DAY_NAMES = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+
+function todayStr(){ return new Date().toISOString().slice(0,10); }
+function addDays(dateStr, n){ const d = new Date(dateStr+'T00:00:00'); d.setDate(d.getDate()+n); return d.toISOString().slice(0,10); }
+function weekdayOf(dateStr){ return new Date(dateStr+'T00:00:00').getDay(); }
+function weekNumberFor(dateStr){
+  const start = new Date(START_DATE+'T00:00:00');
+  const d = new Date(dateStr+'T00:00:00');
+  const diffDays = Math.floor((d-start)/86400000);
+  return Math.max(1, Math.floor(diffDays/7)+1);
+}
+function fmtHeaderDate(dateStr){ return new Date(dateStr+'T00:00:00').toLocaleDateString(undefined,{month:'short',day:'numeric'}); }
+
+// ---- Morning face routine, by weekday, with azelaic acid phased in ----
+function morningFaceSteps(weekday, week){
+  const azelaicOK = week>=5;
+  const azelaicDaysByPhase = week===5 ? [1,5] : (week>=6 ? [1,3,5] : []); // Mon=1,Wed=3,Fri=5
+  const hasAzelaic = azelaicOK && azelaicDaysByPhase.includes(weekday);
+  if(weekday===1 || weekday===3 || weekday===5){ // Mon/Wed/Fri
+    const steps = ['Gentle cleanser'];
+    if(hasAzelaic) steps.push('Azelaic acid (thin layer)');
+    steps.push('Moisturizer','Tinted SPF 50');
+    return steps;
+  }
+  if(weekday===2 || weekday===4){ // Tue/Thu
+    return ['Benzoyl peroxide wash (~60 sec massage, rinse)','Moisturizer','Tinted SPF 50'];
+  }
+  if(weekday===6){ // Saturday
+    const bpStarted = week>=3;
+    const steps = bpStarted ? ['Benzoyl peroxide wash (~60 sec massage, rinse)'] : ['Gentle cleanser'];
+    steps.push('Moisturizer','Tinted SPF 50');
+    return steps;
+  }
+  // Sunday
+  return ['Gentle cleanser','Moisturizer','Tinted SPF 50'];
+}
+function morningScalpSteps(weekday){
+  if(weekday===2 || weekday===6) return ['Ketoconazole 1% shampoo on scalp (per label contact time)','Conditioner on hair lengths only','Wash face after rinsing hair'];
+  if(weekday===0) return ['Gentle shampoo — only if necessary'];
+  return ['Regular shampoo — only if necessary'];
+}
+// ---- Night routine, by weekday, with adapalene phased in ----
+function nightSteps(weekday, week){
+  let adapalene = false;
+  if(week<=4) adapalene = (weekday===1 || weekday===5); // Mon, Fri
+  else if(week<=8) adapalene = (weekday===1 || weekday===3 || weekday===5); // Mon, Wed, Fri
+  else adapalene = (weekday===1 || weekday===3 || weekday===5 || weekday===0); // + Sunday
+
+  const steps = ['Cleanser'];
+  if(adapalene){
+    steps.push('Wait ~10 min after cleansing','Moisturizer','Adapalene — pea-sized, whole face (avoid eyelids/lips/nostrils/neck)');
+  } else {
+    steps.push('Moisturizer');
+  }
+  if(weekday===1 || weekday===3 || weekday===5){
+    steps.push('Elbows/knees: 10% urea or 10–12% lactic acid lotion (not on adapalene nights near irritated skin)');
+  }
+  return steps;
+}
+function bodyAcneNote(weekday){
+  if([2,4,6].includes(weekday)) return "If chest/shoulder/back breakouts: benzoyl peroxide wash on body, leave ~2 min, rinse.";
+  return null;
+}
+
+const SHOPPING_LIST_BHARGAV = [
+  {name:'Gentle cleanser', sub:'Fragrance-free, non-comedogenic'},
+  {name:'Benzoyl peroxide wash', sub:'2.5%, max 4%'},
+  {name:'Adapalene gel', sub:'0.1%'},
+  {name:'Azelaic acid', sub:'10%'},
+  {name:'Face moisturizer', sub:'Lightweight, fragrance-free, non-comedogenic'},
+  {name:'Face sunscreen', sub:'Tinted, broad-spectrum, water-resistant SPF 50, iron oxides preferred'},
+  {name:'Dandruff shampoo', sub:'Ketoconazole 1%'},
+  {name:'Regular shampoo', sub:'Gentle, non-oily'},
+  {name:'Conditioner', sub:'Lightweight, hair lengths only'},
+  {name:'Body lotion', sub:'10% urea or ~10–12% lactic acid'},
+  {name:'Body sunscreen', sub:'Broad-spectrum SPF 50'}
+];
+
+const MILESTONES_BHARGAV = [
+  {date:'2026-09-02', text:'Baseline photos + start basic routine'},
+  {date:'2026-09-05', text:'Introduce benzoyl peroxide and adapalene schedule'},
+  {date:'2026-09-16', text:'Book/attend dermatologist visit (within first 2 weeks)'},
+  {date:'2026-09-16', text:'Check dandruff and irritation'},
+  {date:'2026-10-02', text:'First complete photo comparison'},
+  {date:'2026-10-05', text:'Introduce azelaic acid'},
+  {date:'2026-11-02', text:'Second photo comparison and acne count'},
+  {date:'2026-11-18', text:'Stop experimentation and new products'},
+  {date:'2026-12-02', text:'Full three-month review and Phase 2 plan'}
+];
+
+// ---- Anusha: fixed daily routine (same every day, no phases) ----
+const ANUSHA_MORNING = [
+  'Rinse with water — INKEY List Salicylic Acid Cleanser only if face is oily',
+  'Tone: Anua Heartleaf 77 + Hyaluron Soothing Toner',
+  'Brighten: INKEY List 15% Vitamin C + EGF Serum — 1–2 pumps',
+  'Hydrate: Atomy Hydra Brightening Capsule Essence — 1–2 pumps',
+  'Moisturize: Atomy Hydra Brightening Cream',
+  'Broad-spectrum sunscreen SPF 30–50'
+];
+const ANUSHA_NIGHT = [
+  'Cleanse: INKEY List Salicylic Acid Cleanser',
+  'Tone: Anua Heartleaf 77 + Hyaluron Soothing Toner',
+  'Treat: Anua Azelaic Acid 10% Serum — 2–3 drops',
+  'Hydrate: Atomy Hydra Brightening Capsule Essence — 1–2 pumps',
+  'Moisturize: Anua Ceramide 3 + Panthenol Barrier Cream'
+];
+const SHOPPING_LIST_ANUSHA = [
+  {name:'INKEY List Salicylic Acid Cleanser', sub:'Morning (oily skin only) + every night'},
+  {name:'Anua Heartleaf 77 + Hyaluron Soothing Toner', sub:'Morning and night'},
+  {name:'INKEY List 15% Vitamin C + EGF Serum', sub:'Morning — 1–2 pumps'},
+  {name:'Atomy Hydra Brightening Capsule Essence', sub:'Morning and night — 1–2 pumps'},
+  {name:'Atomy Hydra Brightening Cream', sub:'Morning moisturizer'},
+  {name:'Broad-spectrum sunscreen SPF 30–50', sub:'Every morning'},
+  {name:'Anua Azelaic Acid 10% Serum', sub:'Night — 2–3 drops'},
+  {name:'Anua Ceramide 3 + Panthenol Barrier Cream', sub:'Night moisturizer'}
+];
+const MILESTONES_ANUSHA = [];
+
+function currentShoppingList(){ return activeProfile==='Anusha' ? SHOPPING_LIST_ANUSHA : SHOPPING_LIST_BHARGAV; }
+function currentMilestones(){ return activeProfile==='Anusha' ? MILESTONES_ANUSHA : MILESTONES_BHARGAV; }
+
+/* =====================================================================
+   STATE (all persisted to Firestore)
+===================================================================== */
+let stepLog = {};      // { 'date:section:stepIndex': true }
+let shoppingLog = {};  // { itemName: 'YYYY-MM-DD' } — last date sent to Grocery
+let milestoneLog = {}; // { 'date:text': true }
+let checkins = { weight:[], waist:[], photos:[], pimples:[] };
+let activeTab = 'today';
+
+async function loadAll(){
+  try{ const d = await skinDoc('stepLog').get(); stepLog = (d.exists && d.data().json) ? JSON.parse(d.data().json) : {}; }catch(e){ stepLog = {}; }
+  try{ const d = await skinDoc('shoppingLog').get(); shoppingLog = (d.exists && d.data().json) ? JSON.parse(d.data().json) : {}; }catch(e){ shoppingLog = {}; }
+  try{ const d = await skinDoc('milestoneLog').get(); milestoneLog = (d.exists && d.data().json) ? JSON.parse(d.data().json) : {}; }catch(e){ milestoneLog = {}; }
+  try{ const d = await skinDoc('checkins').get(); checkins = (d.exists && d.data().json) ? JSON.parse(d.data().json) : {weight:[],waist:[],photos:[],pimples:[]}; }catch(e){ checkins = {weight:[],waist:[],photos:[],pimples:[]}; }
+}
+async function saveStepLog(){ try{ await skinDoc('stepLog').set({json: JSON.stringify(stepLog)}); }catch(e){} }
+async function saveShoppingLog(){ try{ await skinDoc('shoppingLog').set({json: JSON.stringify(shoppingLog)}); }catch(e){} }
+async function saveMilestoneLog(){ try{ await skinDoc('milestoneLog').set({json: JSON.stringify(milestoneLog)}); }catch(e){} }
+async function saveCheckins(){ try{ await skinDoc('checkins').set({json: JSON.stringify(checkins)}); }catch(e){} }
+
+function escapeHtml(s){
+  return String(s==null?'':s).replace(/[&<>"']/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; });
+}
+
+/* =====================================================================
+   INIT / TABS
+===================================================================== */
+async function init(){
+  await loadAll();
+  await loadGymLogs();
+  document.getElementById('tab-today-btn').onclick = function(){ showTab('today'); };
+  document.getElementById('tab-shopping-btn').onclick = function(){ showTab('shopping'); };
+  document.getElementById('tab-milestones-btn').onclick = function(){ showTab('milestones'); };
+  document.getElementById('tab-checkins-btn').onclick = function(){ showTab('checkins'); };
+  renderWeekBanner();
+  showTab('today');
+}
+function showTab(name){
+  activeTab = name;
+  ['today','shopping','milestones','checkins'].forEach(function(t){
+    document.getElementById('tab-'+t+'-btn').classList.toggle('active', t===name);
+    document.getElementById(t+'-view').style.display = t===name ? 'block':'none';
+  });
+  if(name==='today') renderToday();
+  if(name==='shopping') renderShopping();
+  if(name==='milestones') renderMilestones();
+  if(name==='checkins') renderCheckins();
+}
+
+function renderWeekBanner(){
+  const el = document.getElementById('week-banner-wrap');
+  if(activeProfile === 'Anusha'){
+    el.innerHTML = '<div class="week-banner"><div class="wb-top"><span class="wb-week">Daily routine</span><span class="wb-dates">'+fmtHeaderDate(todayStr())+'</span></div><div class="wb-note">Same routine every day — no phases to track.</div></div>';
+    return;
+  }
+  const today = todayStr();
+  const week = weekNumberFor(today);
+  if(week > 13){
+    el.innerHTML = '<div class="week-banner done"><div class="wb-top"><span class="wb-week">Plan complete</span><span class="wb-dates">Review was Dec 2</span></div><div class="wb-note">Time for the Phase 2 conversation with your dermatologist.</div></div>';
+    return;
+  }
+  const weekStart = addDays(START_DATE, (week-1)*7);
+  const weekEnd = addDays(weekStart, 6);
+  let note = '';
+  if(week<=4) note = 'Adapalene: Mon + Fri nights. Azelaic acid: not yet. Saturday: gentle cleanser (BP starts week 3 on face routine, already active).';
+  if(week===5) note = 'Azelaic acid introduced — Monday & Friday mornings.';
+  if(week>=6 && week<=8) note = 'Adapalene: Mon/Wed/Fri nights. Azelaic acid: Mon/Wed/Fri mornings.';
+  if(week>=9) note = 'Adapalene: Mon/Wed/Fri + Sunday if no irritation. Azelaic acid: Mon/Wed/Fri mornings.';
+  if(week===3) note = 'Saturday benzoyl peroxide begins this week.';
+  el.innerHTML = '<div class="week-banner"><div class="wb-top"><span class="wb-week">Week '+week+' of 12</span><span class="wb-dates">'+fmtHeaderDate(weekStart)+' – '+fmtHeaderDate(weekEnd)+'</span></div><div class="wb-note">'+note+'</div></div>';
+}
+
+/* =====================================================================
+   TODAY
+===================================================================== */
+function stepKey(date, section, idx){ return date+':'+section+':'+idx; }
+function stepRowHtml(date, section, idx, text){
+  const key = stepKey(date, section, idx);
+  const done = !!stepLog[key];
+  return '<div class="step-row"><input type="checkbox" class="step-chk" data-stepkey="'+key+'" '+(done?'checked':'')+'>'+
+    '<div class="step-text '+(done?'strike':'')+'">'+escapeHtml(text)+'</div></div>';
+}
+function attachStepHandlers(el){
+  el.querySelectorAll('.step-chk').forEach(function(cb){
+    cb.addEventListener('change', async function(){
+      const key = cb.dataset.stepkey;
+      if(cb.checked) stepLog[key] = true; else delete stepLog[key];
+      cb.closest('.step-row').querySelector('.step-text').classList.toggle('strike', cb.checked);
+      await saveStepLog();
+    });
+  });
+}
+function renderToday(){
+  if(activeProfile === 'Anusha') renderTodayAnusha();
+  else renderTodayBhargav();
+}
+function renderTodayAnusha(){
+  const today = todayStr();
+  const el = document.getElementById('today-view');
+  el.innerHTML =
+    '<div class="routine-card am"><div class="rc-head"><div class="rc-icon">☀️</div><div><div class="rc-title">Morning</div></div></div>'+
+      ANUSHA_MORNING.map(function(s,i){ return stepRowHtml(today,'am',i,s); }).join('')+
+    '</div>'+
+    '<div class="routine-card pm"><div class="rc-head"><div class="rc-icon">🌙</div><div><div class="rc-title">Night</div></div></div>'+
+      ANUSHA_NIGHT.map(function(s,i){ return stepRowHtml(today,'pm',i,s); }).join('')+
+    '</div>';
+  attachStepHandlers(el);
+}
+function renderTodayBhargav(){
+  const today = todayStr();
+  const week = weekNumberFor(today);
+  const wd = weekdayOf(today);
+  const el = document.getElementById('today-view');
+
+  const morningFace = morningFaceSteps(wd, week);
+  const morningScalp = morningScalpSteps(wd);
+  const night = nightSteps(wd, week);
+  const bodyNote = bodyAcneNote(wd);
+
+  el.innerHTML =
+    '<div class="routine-card am"><div class="rc-head"><div class="rc-icon">☀️</div><div><div class="rc-title">Morning — '+DAY_NAMES[wd]+'</div><div class="rc-time">'+(wd===2?'~7:30 AM':(wd===0||wd===6?'~9:45 AM (after gym)':'~7:15–7:30 AM (after workout/shower)'))+'</div></div></div>'+
+      morningFace.map(function(s,i){ return stepRowHtml(today,'am-face',i,s); }).join('')+
+      '<div style="height:8px;"></div>'+
+      morningScalp.map(function(s,i){ return stepRowHtml(today,'am-scalp',i,s); }).join('')+
+    '</div>'+
+    '<div class="routine-card pm"><div class="rc-head"><div class="rc-icon">🌙</div><div><div class="rc-title">Night — '+DAY_NAMES[wd]+'</div><div class="rc-time">~9:30 PM, or 30–60 min before sleep</div></div></div>'+
+      night.map(function(s,i){ return stepRowHtml(today,'pm',i,s); }).join('')+
+      (bodyNote ? '<div class="step-note">'+escapeHtml(bodyNote)+'</div>' : '')+
+    '</div>'+
+    '<details class="reference"><summary>Application notes</summary>'+
+      '<p><b>Benzoyl peroxide:</b> wet face, small amount, massage ~60 sec, rinse, moisturizer, sunscreen. Can bleach towels/clothing — use white towels.</p>'+
+      '<p><b>Adapalene:</b> cleanse, pat dry, wait ~10 min, moisturizer, pea-sized amount whole face, avoid eyelids/lips/nostril corners/neck, never directly under eyes.</p>'+
+      '<p><b>Dark circles:</b> mornings — moisturizer around orbital bone + sunscreen (not inside eye area) + sunglasses outside. Nights — plain moisturizer only under eyes, no actives.</p>'+
+    '</details>'+
+    '<div class="emergency-banner"><b>Irritation emergency rule</b>If strong burning, swelling, cracking, severe peeling, or rapidly worsening pigmentation: stop adapalene, benzoyl peroxide, and azelaic acid. Use only gentle cleanser, moisturizer, and sunscreen until skin fully settles, then restart one active at a time. Seek medical care for facial swelling, blistering, or severe symptoms.</div>';
+
+  attachStepHandlers(el);
+}
+
+/* =====================================================================
+   SHOPPING
+===================================================================== */
+function daysAgo(dateStr){ return Math.floor((new Date(todayStr()+'T00:00:00') - new Date(dateStr+'T00:00:00'))/86400000); }
+function renderShopping(){
+  const el = document.getElementById('shopping-view');
+  el.innerHTML = '<div class="routine-card"><div class="rc-head"><div><div class="rc-title">Products</div><div class="rc-time">Skip scrubs, brushes, bleach, pore vacuums, strong peels, extra acids/serums. Send anything you\'re low on straight into Grocery\'s list — safe to send again whenever you run out.</div></div></div>'+
+    currentShoppingList().map(function(it){
+      const sentDate = shoppingLog[it.name];
+      const statusHtml = sentDate
+        ? '<span class="shop-sent">Sent to Grocery '+(daysAgo(sentDate)===0?'today':daysAgo(sentDate)+'d ago')+'</span>'
+        : '';
+      return '<div class="shop-row"><div style="flex:1;"><div class="shop-text">'+escapeHtml(it.name)+'</div><div class="shop-sub">'+escapeHtml(it.sub)+'</div>'+statusHtml+'</div>'+
+        '<button class="send-grocery-btn" data-senditem="'+escapeHtml(it.name)+'">'+(sentDate?'Send again':'Send to Grocery')+'</button></div>';
+    }).join('')+
+    '<div style="margin-top:10px;"><button class="send-grocery-btn wide" id="send-all-btn">Send everything not yet sent</button></div>'+
+  '</div>';
+
+  el.querySelectorAll('[data-senditem]').forEach(function(btn){
+    btn.addEventListener('click', async function(){
+      const name = btn.dataset.senditem;
+      btn.disabled = true; btn.textContent = 'Sending…';
+      const result = await sendItemToGrocery(name);
+      shoppingLog[name] = todayStr();
+      await saveShoppingLog();
+      renderShopping();
+    });
+  });
+  document.getElementById('send-all-btn').addEventListener('click', async function(){
+    const btn = document.getElementById('send-all-btn');
+    btn.disabled = true; btn.textContent = 'Sending…';
+    const unsent = currentShoppingList().filter(function(it){ return !shoppingLog[it.name]; });
+    for(const it of unsent){
+      await sendItemToGrocery(it.name);
+      shoppingLog[it.name] = todayStr();
+    }
+    await saveShoppingLog();
+    renderShopping();
+  });
+}
+
+/* =====================================================================
+   MILESTONES
+===================================================================== */
+function renderMilestones(){
+  const el = document.getElementById('milestones-view');
+  const today = todayStr();
+  const list = currentMilestones();
+  if(!list.length){
+    el.innerHTML = '<div class="routine-card"><div class="empty-note">No dated milestones for this routine — it\'s a steady daily plan rather than a phased one.</div></div>';
+    return;
+  }
+  el.innerHTML = '<div class="routine-card">'+
+    list.map(function(m){
+      const key = m.date+':'+m.text;
+      const done = !!milestoneLog[key];
+      const status = done ? '' : (m.date<today ? 'overdue' : (m.date===today ? 'today' : ''));
+      const badge = !done && status==='overdue' ? '<span class="badge">overdue</span>' : (!done && status==='today' ? '<span class="badge today">today</span>' : '');
+      return '<div class="milestone-row '+status+'"><div class="milestone-date">'+fmtHeaderDate(m.date)+'</div>'+
+        '<div class="milestone-text '+(done?'strike':'')+'">'+escapeHtml(m.text)+' '+badge+'</div>'+
+        '<input type="checkbox" class="step-chk" data-mskey="'+escapeHtml(key)+'" '+(done?'checked':'')+'></div>';
+    }).join('')+
+  '</div>';
+  el.querySelectorAll('[data-mskey]').forEach(function(cb){
+    cb.addEventListener('change', async function(){
+      const key = cb.dataset.mskey;
+      if(cb.checked) milestoneLog[key] = true; else delete milestoneLog[key];
+      await saveMilestoneLog();
+      renderMilestones();
+    });
+  });
+}
+
+/* =====================================================================
+   CHECK-INS
+===================================================================== */
+function lastEntry(arr){ return arr.length ? arr[arr.length-1] : null; }
+function daysSince(dateStr){ return Math.floor((new Date(todayStr()+'T00:00:00') - new Date(dateStr+'T00:00:00'))/86400000); }
+function dueNote(arr, intervalDays, label){
+  const last = lastEntry(arr);
+  if(!last) return 'Not logged yet — log your first '+label+'.';
+  const since = daysSince(last.date);
+  if(since >= intervalDays) return 'Due now — last logged '+since+' days ago.';
+  return 'Logged '+since+' day'+(since===1?'':'s')+' ago. Next due in '+(intervalDays-since)+' day'+((intervalDays-since)===1?'':'s')+'.';
+}
+function renderCheckins(){
+  const el = document.getElementById('checkins-view');
+  el.innerHTML =
+    gymSyncedCardHtml('Weight', 'Weekly, same conditions', 'kg', 7, gymWeightEntries)+
+    gymSyncedCardHtml('Waist', 'Every 2 weeks', 'cm', 14, gymWaistEntries)+
+    checkinCardHtml('pimples','Active pimple count','Every 2 weeks','count',14)+
+    photosCardHtml();
+
+  const btn = document.getElementById('log-pimples-btn');
+  btn.addEventListener('click', async function(){
+    const input = document.getElementById('log-pimples-input');
+    const val = parseFloat(input.value);
+    if(isNaN(val)) return;
+    checkins.pimples.push({date: todayStr(), value: val});
+    await saveCheckins();
+    input.value = '';
+    renderCheckins();
+  });
+  const photoBtn = document.getElementById('log-photos-btn');
+  photoBtn.addEventListener('click', async function(){
+    checkins.photos.push({date: todayStr()});
+    await saveCheckins();
+    renderCheckins();
+  });
+}
+function gymSyncedCardHtml(label, freq, unit, intervalDays, arr){
+  const recent = arr.slice(-5).reverse();
+  return '<div class="checkin-card"><h3>'+label+' <span class="gym-sync-tag">synced from Gym</span></h3><div class="ci-sub">'+freq+'</div>'+
+    '<div class="ci-due">'+dueNote(arr, intervalDays, label.toLowerCase())+'</div>'+
+    '<div class="ci-form"><a class="gym-log-link" href="../gym/index.html">Log today\'s '+label.toLowerCase()+' in Gym app →</a></div>'+
+    (recent.length ? '<div class="ci-log">'+recent.map(function(e){ return '<div class="ci-log-row"><span>'+fmtHeaderDate(e.date)+'</span><span>'+e.value+' '+unit+'</span></div>'; }).join('')+'</div>' : '<div class="ci-log"><div class="ci-log-row"><span>No weigh-ins logged in Gym yet.</span></div></div>')+
+  '</div>';
+}
+function checkinCardHtml(kind, label, freq, unit, intervalDays){
+  const arr = checkins[kind] || [];
+  const recent = arr.slice(-5).reverse();
+  return '<div class="checkin-card"><h3>'+label+'</h3><div class="ci-sub">'+freq+'</div>'+
+    '<div class="ci-due">'+dueNote(arr, intervalDays, label.toLowerCase())+'</div>'+
+    '<div class="ci-form"><div class="f"><label>'+unit+'</label><input type="number" step="0.1" id="log-'+kind+'-input"></div><button id="log-'+kind+'-btn">Log today</button></div>'+
+    (recent.length ? '<div class="ci-log">'+recent.map(function(e){ return '<div class="ci-log-row"><span>'+fmtHeaderDate(e.date)+'</span><span>'+e.value+' '+unit+'</span></div>'; }).join('')+'</div>' : '')+
+  '</div>';
+}
+function photosCardHtml(){
+  const arr = checkins.photos || [];
+  const recent = arr.slice(-4).reverse();
+  return '<div class="checkin-card"><h3>Face photos</h3><div class="ci-sub">Every 4 weeks — same daylight, no filter, same camera, neutral expression: front, both 45°, both profiles, forehead/nose close-up, both cheeks, under-eye.</div>'+
+    '<div class="ci-due">'+dueNote(arr, 28, 'photo set')+'</div>'+
+    '<div class="ci-form"><button id="log-photos-btn">Mark photos taken today</button></div>'+
+    (recent.length ? '<div class="ci-log">'+recent.map(function(e){ return '<div class="ci-log-row"><span>'+fmtHeaderDate(e.date)+'</span><span>✓ taken</span></div>'; }).join('')+'</div>' : '')+
+  '</div>';
+}
+</script>
+</body>
+</html>
