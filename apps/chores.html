@@ -1,0 +1,609 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Household Chores</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<style>
+  :root{
+    --bg:#F5F5F2; --surface:#FFFFFF; --surface-alt:#EEEEE9;
+    --border:#DFDED6; --border-soft:#EAE9E2;
+    --text:#201F1A; --text-soft:#615F55; --text-faint:#96938A;
+    --accent:#3D6A5C; --accent-soft:#E3ECE9; --accent-deep:#284A40;
+    --gold:#B4862E; --gold-soft:#F3ECD9;
+    --danger:#B4463A; --danger-soft:#F5E3E0;
+    --b:#D6402C; --a:#A8517A; --arya:#3D6AB4;
+    --radius-lg:16px; --radius-md:11px; --radius-sm:8px;
+    --shadow:0 1px 2px rgba(32,31,26,0.05), 0 8px 20px -14px rgba(32,31,26,0.16);
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;padding:16px 14px 60px;-webkit-font-smoothing:antialiased;}
+  .wrap{max-width:660px;margin:0 auto;}
+  h1,h2,h3{font-family:'Manrope',sans-serif;}
+  button,input,select,textarea{font-family:inherit;}
+  a{color:var(--accent-deep);}
+
+  .loading-gate{position:fixed;inset:0;z-index:200;background:var(--bg);display:flex;align-items:center;justify-content:center;color:var(--text-soft);}
+
+  .topbar{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;}
+  .topbar a{font-size:12.5px;color:var(--text-soft);text-decoration:none;}
+  .who-picker{display:flex;align-items:center;gap:6px;}
+  .who-picker select{font-size:12px;padding:5px 8px;border-radius:8px;border:1px solid var(--border);background:var(--surface);}
+
+  header.app-head{text-align:center;margin-bottom:14px;}
+  header.app-head h1{font-size:23px;font-weight:800;margin:0 0 2px;}
+  header.app-head p{margin:0;color:var(--text-soft);font-size:12.5px;}
+
+  .segmented{max-width:460px;margin:0 auto 14px;background:var(--surface-alt);border-radius:999px;padding:3px;display:flex;gap:2px;}
+  .segmented button{flex:1;border:none;background:transparent;border-radius:999px;padding:8px 4px;font-size:12px;font-weight:700;color:var(--text-soft);cursor:pointer;}
+  .segmented button.active{background:var(--surface);color:var(--text);box-shadow:var(--shadow);}
+
+  .stat-row{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:14px;}
+  .stat-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-md);padding:10px 12px;box-shadow:var(--shadow);}
+  .stat-card .sc-label{font-size:9.5px;color:var(--text-faint);font-weight:700;text-transform:uppercase;letter-spacing:0.03em;}
+  .stat-card .sc-value{font-family:'Manrope',sans-serif;font-weight:800;font-size:18px;margin-top:2px;}
+
+  .section-title{font-family:'Manrope',sans-serif;font-size:13px;font-weight:700;color:var(--text-soft);margin:16px 0 8px;display:flex;align-items:center;gap:8px;}
+  .section-title::after{content:'';flex:1;height:1px;background:var(--border);}
+
+  .chore-row{background:var(--surface);border:1px solid var(--border-soft);border-left:3px solid var(--border);border-radius:var(--radius-md);padding:11px 13px;margin-bottom:7px;box-shadow:var(--shadow);}
+  .chore-row.overdue{border-left-color:var(--danger);}
+  .chore-row.today{border-left-color:var(--gold);}
+  .chore-row.upcoming{border-left-color:var(--accent);}
+  .chore-row.asneeded{border-left-color:var(--text-faint);}
+  .cr-top{display:flex;align-items:flex-start;gap:10px;}
+  .cr-body{flex:1;min-width:0;}
+  .cr-name{font-size:14px;font-weight:700;}
+  .cr-meta{display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-top:5px;}
+  .person-pill{font-size:10px;font-weight:700;border-radius:20px;padding:2px 8px;color:#fff;}
+  .person-pill.b{background:var(--b);}
+  .person-pill.a{background:var(--a);}
+  .person-pill.arya{background:var(--arya);}
+  .status-pill{font-size:10px;font-weight:700;border-radius:20px;padding:2px 8px;}
+  .status-pill.overdue{background:var(--danger-soft);color:var(--danger);}
+  .status-pill.today{background:var(--gold-soft);color:var(--gold);}
+  .status-pill.upcoming{background:var(--accent-soft);color:var(--accent-deep);}
+  .status-pill.asneeded{background:var(--surface-alt);color:var(--text-faint);}
+  .freq-tag{font-size:10.5px;color:var(--text-faint);}
+  .cr-note{font-size:11px;color:var(--gold);margin-top:4px;}
+  .done-btn{flex:none;background:var(--accent);color:#fff;border:none;border-radius:8px;padding:8px 13px;font-size:12px;font-weight:700;cursor:pointer;}
+  .done-btn:disabled{opacity:0.5;}
+
+  .empty-note{color:var(--text-faint);font-style:italic;font-size:13px;padding:14px 4px;text-align:center;}
+
+  .add-form{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:14px 16px;margin-bottom:12px;box-shadow:var(--shadow);}
+  .add-form h3{font-size:14px;margin:0 0 10px;}
+  .link-row{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:7px 0;border-bottom:1px solid var(--border-soft);font-size:12px;}
+  .link-row:last-child{border-bottom:none;}
+  .link-row.linked span{color:var(--accent-deep);font-weight:600;}
+  .link-btn{flex:none;font-size:11px;font-weight:700;border:1px solid var(--accent);background:var(--accent-soft);color:var(--accent-deep);border-radius:7px;padding:5px 10px;cursor:pointer;}
+  .link-btn.unlink{border-color:var(--border);background:var(--surface-alt);color:var(--text-faint);}
+  .af-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;}
+  .af-grid .f{display:flex;flex-direction:column;gap:3px;}
+  .af-grid label{font-size:9.5px;color:var(--text-faint);font-weight:700;text-transform:uppercase;}
+  .af-grid input,.af-grid select{font-size:12.5px;padding:7px 9px;border-radius:8px;border:1px solid var(--border);}
+  .af-grid input[type=text]{grid-column:1/-1;}
+  .day-picker{display:flex;gap:4px;grid-column:1/-1;}
+  .day-picker button{width:30px;height:30px;border-radius:50%;border:1px solid var(--border);background:var(--surface-alt);font-size:10px;font-weight:700;cursor:pointer;}
+  .day-picker button.on{background:var(--accent);color:#fff;border-color:var(--accent);}
+  .assign-picker{display:flex;gap:6px;grid-column:1/-1;}
+  .assign-picker button{flex:1;padding:7px;border-radius:8px;border:1px solid var(--border);background:var(--surface-alt);font-size:11.5px;font-weight:700;cursor:pointer;}
+  .assign-picker button.on{background:var(--accent);color:#fff;border-color:var(--accent);}
+  .add-form .submit-row{grid-column:1/-1;display:flex;gap:8px;margin-top:2px;}
+  .btn-mini{font-size:12px;font-weight:700;border:none;border-radius:8px;padding:8px 14px;cursor:pointer;}
+  .btn-mini.primary{background:var(--accent);color:#fff;}
+  .btn-mini.ghost{background:var(--surface-alt);color:var(--text-soft);}
+  .add-toggle-bar{display:flex;justify-content:center;margin-bottom:12px;}
+
+  .perf-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:14px 16px;margin-bottom:12px;box-shadow:var(--shadow);}
+  .perf-card h3{font-size:14px;margin:0 0 10px;}
+  .perf-person-row{display:flex;justify-content:space-between;align-items:center;padding:8px 4px;border-bottom:1px solid var(--border-soft);}
+  .perf-person-row:last-child{border-bottom:none;}
+  .perf-name{display:flex;align-items:center;gap:8px;font-size:13px;font-weight:600;}
+  .perf-numbers{display:flex;gap:14px;font-size:12px;color:var(--text-soft);}
+  .perf-numbers b{color:var(--text);font-family:'Manrope',sans-serif;}
+
+  .history-row{display:flex;justify-content:space-between;align-items:center;padding:8px 4px;border-bottom:1px solid var(--border-soft);font-size:12.5px;}
+  .history-row .hr-date{color:var(--text-faint);font-size:11px;min-width:56px;}
+  .history-row .hr-task{flex:1;font-weight:600;}
+
+  :focus-visible{outline:2px solid var(--accent);outline-offset:2px;}
+</style>
+</head>
+<body>
+
+<div id="loading-gate" class="loading-gate">Loading…</div>
+
+<div class="wrap" id="app-wrap" style="display:none;">
+  <div class="topbar">
+    <a href="../index.html">← All apps</a>
+    <div class="who-picker">
+      <span style="font-size:11.5px;color:var(--text-faint);">I'm</span>
+      <select id="who-select">
+        <option value="Bhargav">Bhargav</option>
+        <option value="Anusha">Anusha</option>
+        <option value="Arya">Arya</option>
+      </select>
+    </div>
+  </div>
+
+  <header class="app-head">
+    <h1>Household Chores</h1>
+    <p>Shared with Anusha and Arya — everyone sees the same list</p>
+  </header>
+
+  <div class="stat-row" id="stat-row"></div>
+
+  <div class="segmented">
+    <button id="tab-today-btn" class="active">Today</button>
+    <button id="tab-all-btn">All Chores</button>
+    <button id="tab-history-btn">History & Performance</button>
+  </div>
+
+  <div id="today-view"></div>
+  <div id="all-view" style="display:none;"></div>
+  <div id="history-view" style="display:none;"></div>
+</div>
+
+<script>
+/* =====================================================================
+   FIREBASE — same account as the rest of the hub. Sign-in lives on the
+   hub; this page just checks and redirects if not signed in. This app
+   is a single shared view (not per-profile private) since the whole
+   point is seeing what everyone in the house has and hasn't done.
+===================================================================== */
+const FIREBASE_CONFIG = {
+  apiKey: "AIzaSyBe01eR2RZwSbU_aoJMeh_2MMJ5mqkVuKk",
+  authDomain: "iron-log-bfc55.firebaseapp.com",
+  projectId: "iron-log-bfc55",
+  storageBucket: "iron-log-bfc55.firebasestorage.app",
+  messagingSenderId: "106586808946",
+  appId: "1:106586808946:web:f4736554ba9fc82c6fd8eb"
+};
+firebase.initializeApp(FIREBASE_CONFIG);
+const auth = firebase.auth();
+const db = firebase.firestore();
+try{ db.enablePersistence({synchronizeTabs:true}).catch(function(){}); }catch(e){}
+let currentUser = null;
+const WHO_KEY = 'chores-who-am-i';
+
+function choresDoc(key){
+  return db.collection('users').doc(currentUser.uid).collection('apps').doc('chores').collection('data').doc(key);
+}
+
+auth.onAuthStateChanged(function(user){
+  currentUser = user;
+  if(!user){ window.location.href = '../index.html'; return; }
+  document.getElementById('loading-gate').style.display = 'none';
+  document.getElementById('app-wrap').style.display = 'block';
+  init();
+});
+
+/* =====================================================================
+   SEEDED DATA — from the household tracker spreadsheet (Sep 3, 2026).
+   Loaded once; after that everything lives in Firestore and this seed
+   is never touched again.
+===================================================================== */
+function d(dateStr){ return dateStr; } // ISO date strings throughout
+const CHORES_SEED = [
+  {id:'mopping', name:'Mopping', freqType:'everyNDays', freqDays:10, assignedTo:['Anusha'], lastCompleted:d('2026-08-29'), notes:null},
+  {id:'brooming', name:'Brooming / Sweeping', freqType:'everyNDays', freqDays:10, assignedTo:['Arya'], lastCompleted:d('2026-08-29'), notes:null},
+  {id:'dusting', name:'Dusting', freqType:'asNeeded', assignedTo:['Anusha','Arya','Bhargav'], lastCompleted:null, notes:'Not done yet; schedule when guests are invited'},
+  {id:'trash', name:'Taking Out Trash', freqType:'specificDays', days:[1,5], assignedTo:['Bhargav'], lastCompleted:d('2026-09-03'), notes:null},
+  {id:'laundry-b', name:'Laundry — Bhargav', freqType:'everyNDays', freqDays:15, assignedTo:['Bhargav'], lastCompleted:d('2026-09-02'), notes:null},
+  {id:'laundry-arya', name:'Laundry — Arya', freqType:'everyNDays', freqDays:15, assignedTo:['Arya'], lastCompleted:null, dueOverride:'2026-09-04', notes:'First cycle scheduled'},
+  {id:'dishwashing', name:'Dishwashing', freqType:'daily', assignedTo:['Anusha','Arya'], lastCompleted:d('2026-09-02'), notes:'Compulsory; no timing changes'},
+  {id:'cooking', name:'Cooking', freqType:'daily', assignedTo:['Bhargav','Arya'], lastCompleted:d('2026-09-03'), notes:'Last completed in the morning'},
+  {id:'bathroom1', name:'Bathroom 1 — Left', freqType:'everyNDays', freqDays:15, assignedTo:['Arya'], lastCompleted:null, notes:'Not done yet'},
+  {id:'bathroom2', name:'Bathroom 2 — Right', freqType:'everyNDays', freqDays:15, assignedTo:['Bhargav'], lastCompleted:d('2026-08-29'), notes:null},
+  {id:'basin1', name:'Basin 1 — Right', freqType:'everyNDays', freqDays:7, assignedTo:['Arya'], lastCompleted:d('2026-08-29'), notes:null},
+  {id:'basin2', name:'Basin 2 — Left', freqType:'everyNDays', freqDays:7, assignedTo:['Anusha'], lastCompleted:d('2026-08-29'), notes:null},
+  {id:'washroom1', name:'Washroom 1 — Small', freqType:'everyNDays', freqDays:10, assignedTo:['Arya'], lastCompleted:d('2026-08-29'), notes:null},
+  {id:'washroom2', name:'Washroom 2 — Big', freqType:'everyNDays', freqDays:7, assignedTo:['Anusha'], lastCompleted:d('2026-08-29'), notes:null},
+  {id:'dishkeeping', name:'Dish Keeping', freqType:'daily', assignedTo:['Bhargav'], lastCompleted:null, notes:'Do before dishwashing'},
+  {id:'countertop', name:'Countertop Cleaning', freqType:'daily', assignedTo:['Anusha'], lastCompleted:d('2026-09-02'), notes:'Do after dishwashing'},
+  {id:'restocking', name:'Restocking', freqType:'everyNDays', freqDays:7, assignedTo:['Bhargav'], lastCompleted:null, dueOverride:'2026-09-07', notes:'Scheduled for next week'},
+  {id:'grocery-order', name:'Grocery Ordering', freqType:'everyNDays', freqDays:7, assignedTo:['Bhargav'], lastCompleted:null, dueOverride:'2026-09-07', notes:'Scheduled for next week'}
+];
+const HISTORY_SEED = [
+  {date:'2026-08-29', task:'Mopping', by:'Anusha', shift:null, notes:'Initial record'},
+  {date:'2026-08-29', task:'Brooming / Sweeping', by:'Arya', shift:null, notes:'Initial record'},
+  {date:'2026-08-29', task:'Bathroom 2 — Right', by:'Bhargav', shift:null, notes:'Initial record'},
+  {date:'2026-08-29', task:'Basin 1 — Right', by:'Arya', shift:null, notes:'Initial record'},
+  {date:'2026-08-29', task:'Basin 2 — Left', by:'Anusha', shift:null, notes:'Initial record'},
+  {date:'2026-08-29', task:'Washroom 1 — Small', by:'Arya', shift:null, notes:'Initial record'},
+  {date:'2026-08-29', task:'Washroom 2 — Big', by:'Anusha', shift:null, notes:'Initial record'},
+  {date:'2026-09-02', task:'Laundry — Bhargav', by:'Bhargav', shift:null, notes:'Initial record'},
+  {date:'2026-09-02', task:'Dishwashing', by:'Anusha & Arya', shift:'Night', notes:'Initial record'},
+  {date:'2026-09-02', task:'Countertop Cleaning', by:'Anusha', shift:'Night', notes:'Initial record'},
+  {date:'2026-09-03', task:'Taking Out Trash', by:'Bhargav', shift:null, notes:'Initial record'},
+  {date:'2026-09-03', task:'Cooking', by:'Bhargav & Arya', shift:'Morning', notes:'Initial record'}
+];
+
+/* =====================================================================
+   STATE
+===================================================================== */
+let chores = [];
+let history = [];
+let whoAmI = 'Bhargav';
+let activeTab = 'today';
+let showAddForm = false;
+
+async function loadAll(){
+  try{
+    const doc = await choresDoc('chores').get();
+    if(doc.exists && doc.data().json) chores = JSON.parse(doc.data().json);
+    else { chores = JSON.parse(JSON.stringify(CHORES_SEED)); await saveChores(); }
+  }catch(e){ chores = JSON.parse(JSON.stringify(CHORES_SEED)); }
+  try{
+    const doc = await choresDoc('history').get();
+    if(doc.exists && doc.data().json) history = JSON.parse(doc.data().json);
+    else { history = JSON.parse(JSON.stringify(HISTORY_SEED)); await saveHistory(); }
+  }catch(e){ history = JSON.parse(JSON.stringify(HISTORY_SEED)); }
+}
+async function saveChores(){ try{ await choresDoc('chores').set({json: JSON.stringify(chores)}); }catch(e){ console.error(e); } }
+async function saveHistory(){ try{ await choresDoc('history').set({json: JSON.stringify(history)}); }catch(e){ console.error(e); } }
+
+function escapeHtml(s){
+  return String(s==null?'':s).replace(/[&<>"']/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; });
+}
+function todayStr(){ return new Date().toISOString().slice(0,10); }
+function addDays(dateStr, n){ const dt = new Date(dateStr+'T00:00:00'); dt.setDate(dt.getDate()+n); return dt.toISOString().slice(0,10); }
+function weekdayOf(dateStr){ return new Date(dateStr+'T00:00:00').getDay(); }
+function fmtShort(dateStr){ return new Date(dateStr+'T00:00:00').toLocaleDateString(undefined,{month:'short',day:'numeric'}); }
+function personClass(name){ return name==='Bhargav' ? 'b' : (name==='Anusha' ? 'a' : 'arya'); }
+
+/* =====================================================================
+   DUE-DATE / STATUS LOGIC
+===================================================================== */
+function nextDueFor(chore){
+  const today = todayStr();
+  if(chore.freqType === 'asNeeded') return null;
+  if(!chore.lastCompleted && chore.dueOverride) return chore.dueOverride;
+  if(chore.freqType === 'daily') return chore.lastCompleted ? addDays(chore.lastCompleted,1) : today;
+  if(chore.freqType === 'everyNDays') return chore.lastCompleted ? addDays(chore.lastCompleted, chore.freqDays) : today;
+  if(chore.freqType === 'specificDays'){
+    const start = chore.lastCompleted ? addDays(chore.lastCompleted,1) : today;
+    for(let i=0;i<14;i++){
+      const dd = addDays(start,i);
+      if(chore.days.indexOf(weekdayOf(dd)) !== -1) return dd;
+    }
+  }
+  return today;
+}
+function statusFor(chore){
+  const nd = nextDueFor(chore);
+  if(nd === null) return 'asneeded';
+  const today = todayStr();
+  if(nd < today) return 'overdue';
+  if(nd === today) return 'today';
+  return 'upcoming';
+}
+function freqLabel(chore){
+  if(chore.freqType==='asNeeded') return 'As needed';
+  if(chore.freqType==='daily') return 'Every day';
+  if(chore.freqType==='everyNDays') return 'Every '+chore.freqDays+' days';
+  if(chore.freqType==='specificDays'){
+    const names=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+    return chore.days.map(function(w){return names[w];}).join(' & ');
+  }
+  return '';
+}
+
+/* =====================================================================
+   SCHEDULE INTEGRATION — match household chores against what's already
+   in Bhargav's and Anusha's Schedule chore lists (Arya has no Schedule
+   profile, so this only applies to those two). Once linked, completing
+   a chore in either app marks it done in both.
+===================================================================== */
+function scheduleProfileDoc(profile, key){
+  return db.collection('users').doc(currentUser.uid).collection('schedule-profiles').doc(profile).collection('data').doc(key);
+}
+let scheduleChores = { Bhargav: [], Anusha: [] };
+async function loadScheduleChores(){
+  for(const profile of ['Bhargav','Anusha']){
+    try{
+      const doc = await scheduleProfileDoc(profile,'chores').get();
+      scheduleChores[profile] = (doc.exists && doc.data().json) ? JSON.parse(doc.data().json) : [];
+    }catch(e){ scheduleChores[profile] = []; }
+  }
+}
+function normalizeName(s){ return s.toLowerCase().replace(/[^a-z0-9]/g,''); }
+function suggestedMatchesFor(chore){
+  const results = [];
+  ['Bhargav','Anusha'].forEach(function(profile){
+    if(chore.assignedTo.indexOf(profile) === -1) return;
+    (scheduleChores[profile]||[]).forEach(function(sc){
+      const already = (chore.links||[]).some(function(l){ return l.profile===profile && l.scheduleChoreId===sc.id; });
+      if(already) return;
+      const nA = normalizeName(chore.name), nB = normalizeName(sc.title);
+      const isMatch = nA===nB || nA.indexOf(nB)!==-1 || nB.indexOf(nA)!==-1;
+      results.push({profile, scheduleChore: sc, isMatch});
+    });
+  });
+  return results;
+}
+async function linkChore(choreId, profile, scheduleChoreId){
+  const chore = chores.find(function(c){ return c.id===choreId; });
+  if(!chore) return;
+  if(!chore.links) chore.links = [];
+  if(chore.links.some(function(l){ return l.profile===profile && l.scheduleChoreId===scheduleChoreId; })) return;
+  chore.links.push({profile, scheduleChoreId});
+  await saveChores();
+}
+async function unlinkChore(choreId, profile, scheduleChoreId){
+  const chore = chores.find(function(c){ return c.id===choreId; });
+  if(!chore || !chore.links) return;
+  chore.links = chore.links.filter(function(l){ return !(l.profile===profile && l.scheduleChoreId===scheduleChoreId); });
+  await saveChores();
+}
+async function syncCompletionToSchedule(chore, dateStr){
+  for(const link of (chore.links||[])){
+    try{
+      const doc = await scheduleProfileDoc(link.profile,'choreLog').get();
+      let log = (doc.exists && doc.data().json) ? JSON.parse(doc.data().json) : {};
+      log[link.scheduleChoreId+':'+dateStr] = {done:true, by: whoAmI, at: new Date().toISOString()};
+      await scheduleProfileDoc(link.profile,'choreLog').set({json: JSON.stringify(log)});
+    }catch(e){ console.error('schedule sync failed', e); }
+  }
+}
+
+/* =====================================================================
+   COMPLETE A CHORE
+===================================================================== */
+async function completeChore(choreId){
+  const chore = chores.find(function(c){ return c.id===choreId; });
+  if(!chore) return;
+  const today = todayStr();
+  chore.lastCompleted = today;
+  history.unshift({date: today, task: chore.name, by: whoAmI, shift:null, notes:null});
+  await saveChores();
+  await saveHistory();
+  await syncCompletionToSchedule(chore, today);
+  showTab(activeTab);
+}
+
+/* =====================================================================
+   STATS
+===================================================================== */
+function computeStats(){
+  const today = todayStr();
+  const dueToday = chores.filter(function(c){ return statusFor(c)==='today'; }).length;
+  const overdue = chores.filter(function(c){ return statusFor(c)==='overdue'; }).length;
+  const last7 = history.filter(function(h){ return h.date >= addDays(today,-6); }).length;
+  return {dueToday, overdue, last7};
+}
+function personStats(name){
+  const today = todayStr();
+  const mine = history.filter(function(h){ return h.by === name || h.by.indexOf(name) !== -1; });
+  const last30 = mine.filter(function(h){ return h.date >= addDays(today,-29); }).length;
+  let streak = 0, cursor = today;
+  for(let i=0;i<60;i++){
+    const didSomething = mine.some(function(h){ return h.date === cursor; });
+    if(didSomething) streak++;
+    else if(cursor !== today) break;
+    cursor = addDays(cursor,-1);
+  }
+  const assignedCount = chores.filter(function(c){ return c.assignedTo.indexOf(name) !== -1; }).length;
+  return {last30, streak, assignedCount};
+}
+
+/* =====================================================================
+   RENDER
+===================================================================== */
+function choreRowHtml(chore, showCompleteBtn){
+  const status = statusFor(chore);
+  const statusLabel = {overdue:'Overdue', today:'Due today', upcoming:'Upcoming', asneeded:'As needed'}[status];
+  const nd = nextDueFor(chore);
+  return '<div class="chore-row '+status+'"><div class="cr-top">'+
+    '<div class="cr-body">'+
+      '<div class="cr-name">'+escapeHtml(chore.name)+'</div>'+
+      '<div class="cr-meta">'+
+        chore.assignedTo.map(function(p){ return '<span class="person-pill '+personClass(p)+'">'+escapeHtml(p)+'</span>'; }).join('')+
+        '<span class="status-pill '+status+'">'+statusLabel+(nd && status!=='asneeded' ? ' · '+fmtShort(nd) : '')+'</span>'+
+        '<span class="freq-tag">'+freqLabel(chore)+'</span>'+
+      '</div>'+
+      (chore.notes ? '<div class="cr-note">'+escapeHtml(chore.notes)+'</div>' : '')+
+    '</div>'+
+    (showCompleteBtn ? '<button class="done-btn" data-complete="'+chore.id+'">Mark done</button>' : '')+
+    '</div></div>';
+}
+function attachChoreHandlers(el){
+  el.querySelectorAll('[data-complete]').forEach(function(btn){
+    btn.addEventListener('click', async function(){
+      btn.disabled = true; btn.textContent = '…';
+      await completeChore(btn.dataset.complete);
+    });
+  });
+}
+
+function renderStatRow(){
+  const s = computeStats();
+  document.getElementById('stat-row').innerHTML =
+    '<div class="stat-card"><div class="sc-label">Due Today</div><div class="sc-value">'+s.dueToday+'</div></div>'+
+    '<div class="stat-card"><div class="sc-label">Overdue</div><div class="sc-value">'+s.overdue+'</div></div>'+
+    '<div class="stat-card"><div class="sc-label">Done, Last 7d</div><div class="sc-value">'+s.last7+'</div></div>';
+}
+
+function renderToday(){
+  const el = document.getElementById('today-view');
+  const due = chores.filter(function(c){ return ['overdue','today'].indexOf(statusFor(c)) !== -1; })
+    .sort(function(a,b){ return statusFor(a)==='overdue' ? -1 : 1; });
+  el.innerHTML = due.length ? due.map(function(c){ return choreRowHtml(c,true); }).join('') : '<div class="empty-note">Nothing due or overdue right now — nice.</div>';
+  attachChoreHandlers(el);
+}
+
+function renderLinksSection(){
+  const relevant = [];
+  chores.forEach(function(c){
+    const suggestions = suggestedMatchesFor(c).filter(function(s){ return s.isMatch; });
+    if((c.links && c.links.length) || suggestions.length) relevant.push({chore:c, suggestions:suggestions});
+  });
+  if(!relevant.length) return '';
+  return '<div class="add-form"><h3>🔗 Matched with Schedule</h3>'+
+    '<p style="font-size:11.5px;color:var(--text-faint);margin:0 0 10px;">Linked chores get ticked in both places automatically.</p>'+
+    relevant.map(function(r){
+      const linksHtml = (r.chore.links||[]).map(function(l){
+        const sc = (scheduleChores[l.profile]||[]).find(function(x){ return x.id===l.scheduleChoreId; });
+        return '<div class="link-row linked"><span>✓ Linked to '+escapeHtml(l.profile)+'\'s "'+escapeHtml(sc?sc.title:l.scheduleChoreId)+'"</span><button class="link-btn unlink" data-unlink="'+r.chore.id+'" data-profile="'+l.profile+'" data-scid="'+l.scheduleChoreId+'">Unlink</button></div>';
+      }).join('');
+      const suggHtml = r.suggestions.map(function(s){
+        return '<div class="link-row"><span>'+escapeHtml(r.chore.name)+' ↔ '+escapeHtml(s.profile)+'\'s "'+escapeHtml(s.scheduleChore.title)+'"</span><button class="link-btn" data-link="'+r.chore.id+'" data-profile="'+s.profile+'" data-scid="'+s.scheduleChore.id+'">Link</button></div>';
+      }).join('');
+      return linksHtml + suggHtml;
+    }).join('')+
+  '</div>';
+}
+function attachLinkHandlers(el){
+  el.querySelectorAll('[data-link]').forEach(function(btn){
+    btn.addEventListener('click', async function(){
+      await linkChore(btn.dataset.link, btn.dataset.profile, btn.dataset.scid);
+      renderAll();
+    });
+  });
+  el.querySelectorAll('[data-unlink]').forEach(function(btn){
+    btn.addEventListener('click', async function(){
+      await unlinkChore(btn.dataset.unlink, btn.dataset.profile, btn.dataset.scid);
+      renderAll();
+    });
+  });
+}
+function renderAll(){
+  const el = document.getElementById('all-view');
+  const order = {overdue:0, today:1, upcoming:2, asneeded:3};
+  const sorted = chores.slice().sort(function(a,b){ return order[statusFor(a)]-order[statusFor(b)]; });
+  el.innerHTML =
+    renderLinksSection()+
+    '<div class="add-toggle-bar"><button class="btn-mini '+(showAddForm?'ghost':'primary')+'" id="toggle-add-btn">'+(showAddForm?'Cancel':'+ Add a chore')+'</button></div>'+
+    (showAddForm ? addFormHtml() : '')+
+    sorted.map(function(c){ return choreRowHtml(c,true); }).join('');
+
+  document.getElementById('toggle-add-btn').addEventListener('click', function(){ showAddForm = !showAddForm; renderAll(); });
+  attachChoreHandlers(el);
+  attachLinkHandlers(el);
+  if(showAddForm) wireAddForm(el);
+}
+
+function addFormHtml(){
+  return '<div class="add-form"><h3>New chore</h3><div class="af-grid">'+
+    '<input type="text" id="new-chore-name" placeholder="Chore name">'+
+    '<div class="f"><label>Frequency</label><select id="new-chore-freq">'+
+      '<option value="daily">Every day</option>'+
+      '<option value="everyNDays">Every N days</option>'+
+      '<option value="specificDays">Specific weekdays</option>'+
+      '<option value="asNeeded">As needed</option>'+
+    '</select></div>'+
+    '<div class="f" id="freq-n-wrap"><label>N days</label><input type="number" id="new-chore-n" value="7" min="1"></div>'+
+    '<div class="day-picker" id="freq-days-wrap" style="display:none;">'+
+      ['S','M','T','W','T','F','S'].map(function(l,i){ return '<button type="button" data-day="'+i+'">'+l+'</button>'; }).join('')+
+    '</div>'+
+    '<div class="assign-picker">'+
+      ['Bhargav','Anusha','Arya'].map(function(p){ return '<button type="button" data-assign="'+p+'">'+p+'</button>'; }).join('')+
+    '</div>'+
+    '<input type="text" id="new-chore-notes" placeholder="Notes (optional)">'+
+    '<div class="submit-row"><button class="btn-mini primary" id="save-chore-btn">Add chore</button></div>'+
+  '</div></div>';
+}
+function wireAddForm(root){
+  const freqSel = root.querySelector('#new-chore-freq');
+  const nWrap = root.querySelector('#freq-n-wrap');
+  const daysWrap = root.querySelector('#freq-days-wrap');
+  freqSel.addEventListener('change', function(){
+    nWrap.style.display = freqSel.value==='everyNDays' ? 'flex' : 'none';
+    daysWrap.style.display = freqSel.value==='specificDays' ? 'flex' : 'none';
+  });
+  const daySet = new Set();
+  root.querySelectorAll('[data-day]').forEach(function(btn){
+    btn.addEventListener('click', function(){
+      const dnum = Number(btn.dataset.day);
+      if(daySet.has(dnum)){ daySet.delete(dnum); btn.classList.remove('on'); }
+      else{ daySet.add(dnum); btn.classList.add('on'); }
+    });
+  });
+  const assignSet = new Set();
+  root.querySelectorAll('[data-assign]').forEach(function(btn){
+    btn.addEventListener('click', function(){
+      const p = btn.dataset.assign;
+      if(assignSet.has(p)){ assignSet.delete(p); btn.classList.remove('on'); }
+      else{ assignSet.add(p); btn.classList.add('on'); }
+    });
+  });
+  root.querySelector('#save-chore-btn').addEventListener('click', async function(){
+    const name = root.querySelector('#new-chore-name').value.trim();
+    if(!name || !assignSet.size){
+      if(!name) root.querySelector('#new-chore-name').style.outline = '2px solid var(--danger)';
+      return;
+    }
+    const freqType = freqSel.value;
+    const newChore = {
+      id: 'chore-'+Date.now(), name: name, freqType: freqType,
+      freqDays: freqType==='everyNDays' ? Number(root.querySelector('#new-chore-n').value)||7 : undefined,
+      days: freqType==='specificDays' ? [...daySet].sort() : undefined,
+      assignedTo: [...assignSet],
+      lastCompleted: null,
+      notes: root.querySelector('#new-chore-notes').value.trim() || null
+    };
+    chores.push(newChore);
+    await saveChores();
+    showAddForm = false;
+    renderAll();
+  });
+}
+
+function renderHistory(){
+  const el = document.getElementById('history-view');
+  const people = ['Bhargav','Anusha','Arya'];
+  const perfHtml = '<div class="perf-card"><h3>Performance</h3>'+
+    people.map(function(p){
+      const s = personStats(p);
+      return '<div class="perf-person-row"><div class="perf-name"><span class="person-pill '+personClass(p)+'">'+p+'</span></div>'+
+        '<div class="perf-numbers"><span><b>'+s.streak+'</b>🔥 streak</span><span><b>'+s.last30+'</b> done/30d</span><span><b>'+s.assignedCount+'</b> assigned</span></div></div>';
+    }).join('')+
+  '</div>';
+
+  const logHtml = '<div class="perf-card"><h3>Completion log</h3>'+
+    (history.length ? history.slice(0,60).map(function(h){
+      return '<div class="history-row"><span class="hr-date">'+fmtShort(h.date)+'</span><span class="hr-task">'+escapeHtml(h.task)+'</span><span class="person-pill '+personClass(h.by.split(' ')[0])+'">'+escapeHtml(h.by)+'</span></div>';
+    }).join('') : '<div class="empty-note">Nothing logged yet.</div>')+
+  '</div>';
+
+  el.innerHTML = perfHtml + logHtml;
+}
+
+/* =====================================================================
+   INIT / TABS
+===================================================================== */
+async function init(){
+  try{ whoAmI = localStorage.getItem(WHO_KEY) || 'Bhargav'; }catch(e){}
+  document.getElementById('who-select').value = whoAmI;
+  document.getElementById('who-select').addEventListener('change', function(e){
+    whoAmI = e.target.value;
+    try{ localStorage.setItem(WHO_KEY, whoAmI); }catch(err){}
+  });
+  document.getElementById('tab-today-btn').onclick = function(){ showTab('today'); };
+  document.getElementById('tab-all-btn').onclick = function(){ showTab('all'); };
+  document.getElementById('tab-history-btn').onclick = function(){ showTab('history'); };
+
+  await loadAll();
+  await loadScheduleChores();
+  showTab('today');
+}
+function showTab(name){
+  activeTab = name;
+  ['today','all','history'].forEach(function(t){
+    document.getElementById('tab-'+t+'-btn').classList.toggle('active', t===name);
+    document.getElementById(t+'-view').style.display = t===name ? 'block':'none';
+  });
+  renderStatRow();
+  if(name==='today') renderToday();
+  if(name==='all') renderAll();
+  if(name==='history') renderHistory();
+}
+</script>
+</body>
+</html>
