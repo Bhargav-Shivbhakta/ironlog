@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Home Hub</title>
+
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#121114">
+<link rel="icon" href="icon-192.png" type="image/png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Home Hub">
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Oswald:wght@400;500;600;700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<style>
+  :root{
+    --bg:#121114; --bg-2:#0c0b0d; --surface:#1c1a1f; --surface-2:#25222a;
+    --border:#332f38; --text:#f1eef2; --text-dim:#a49da8; --text-faint:#615c66;
+    --accent-a:#d6402c; --accent-b:#c9a227;
+    --font-display:'Oswald',sans-serif; --font-body:'Inter',system-ui,sans-serif; --font-mono:'JetBrains Mono',monospace;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    background:
+      radial-gradient(1100px 480px at 10% -10%, rgba(214,64,44,0.10), transparent 60%),
+      radial-gradient(900px 480px at 100% 0%, rgba(201,162,39,0.08), transparent 55%),
+      var(--bg);
+    color:var(--text); font-family:var(--font-body); min-height:100vh; -webkit-font-smoothing:antialiased;
+  }
+  a{color:inherit;} button{font-family:inherit;cursor:pointer;} input{font-family:inherit;}
+
+  .auth-overlay{position:fixed;inset:0;z-index:200;background:var(--bg);display:flex;align-items:center;justify-content:center;padding:20px;}
+  .auth-box{width:100%;max-width:360px;background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:30px 28px;text-align:center;}
+  .plate-mark{width:44px;height:44px;border-radius:50%;margin:0 auto 14px;background:conic-gradient(from -90deg, var(--accent-a) 0 25%, var(--accent-b) 25% 50%, var(--accent-a) 50% 75%, var(--accent-b) 75% 100%);box-shadow:inset 0 0 0 2px var(--bg), inset 0 0 0 3px rgba(255,255,255,0.06);}
+  .plate-mark::after{content:"";display:block;width:14px;height:14px;border-radius:50%;background:var(--bg);margin:15px auto 0;}
+  .auth-box h2{font-family:var(--font-display);font-size:24px;text-transform:uppercase;margin:0 0 6px;font-weight:600;}
+  .auth-box p{color:var(--text-dim);font-size:13px;margin:0 0 20px;line-height:1.5;}
+  .auth-box form{text-align:left;}
+  .field{margin-bottom:14px;}
+  label.field-label{display:block;font-size:11.5px;color:var(--text-dim);margin-bottom:5px;font-weight:600;text-transform:uppercase;letter-spacing:0.3px;}
+  input[type=email],input[type=password]{background:var(--bg-2);border:1px solid var(--border);color:var(--text);border-radius:8px;padding:9px 10px;font-size:13.5px;width:100%;}
+  input:focus{outline:2px solid var(--accent-a);outline-offset:1px;border-color:var(--accent-a);}
+  .auth-error{color:var(--accent-a);font-size:12.5px;min-height:16px;margin-bottom:10px;}
+  .btn{background:var(--accent-a);border:1px solid var(--accent-a);color:#fff;padding:9px 16px;border-radius:8px;font-size:13px;font-weight:600;width:100%;}
+  .btn:disabled{opacity:0.5;}
+  .auth-toggle{margin-top:16px;font-size:12.5px;color:var(--text-dim);}
+  .auth-toggle button{background:none;border:none;color:var(--accent-b);font-weight:600;font-size:12.5px;padding:0 0 0 5px;text-decoration:underline;}
+
+  .hub{max-width:900px;margin:0 auto;padding:60px 24px;display:none;}
+  .hub-head{text-align:center;margin-bottom:44px;}
+  .hub-head h1{font-family:var(--font-display);font-size:30px;text-transform:uppercase;font-weight:600;margin:0 0 8px;}
+  .hub-head p{color:var(--text-dim);font-size:14px;margin:0;}
+  .hub-account{position:fixed;top:18px;right:20px;font-family:var(--font-mono);font-size:11px;color:var(--text-faint);display:flex;align-items:center;gap:10px;}
+  .hub-account button{background:none;border:none;color:var(--text-faint);text-decoration:underline;font-size:11px;}
+  .sync-dot{width:7px;height:7px;border-radius:50%;background:#4caf6d;display:inline-block;}
+
+  .tile-grid{display:flex;gap:24px;flex-wrap:wrap;justify-content:center;}
+  .tile{
+    width:170px;background:var(--surface);border:1px solid var(--border);border-radius:16px;
+    padding:26px 16px;text-align:center;color:var(--text);transition:all .15s ease;
+  }
+  .tile:hover{border-color:var(--text-dim);transform:translateY(-3px);}
+  .tile-icon{width:72px;height:72px;border-radius:16px;margin:0 auto 14px;display:flex;align-items:center;justify-content:center;overflow:hidden;}
+  .tile-icon img{width:100%;height:100%;object-fit:cover;}
+  .tile-name{font-family:var(--font-display);font-size:15px;font-weight:600;text-transform:uppercase;}
+  .tile-sub{font-size:11px;color:var(--text-faint);margin-top:4px;font-family:var(--font-mono);}
+
+  .hub-foot{text-align:center;margin-top:50px;color:var(--text-faint);font-size:11.5px;font-family:var(--font-mono);}
+  .hub-foot code{background:var(--surface-2);padding:1px 5px;border-radius:4px;}
+</style>
+</head>
+<body>
+
+<div id="auth-overlay" class="auth-overlay">
+  <div class="auth-box">
+    <div class="plate-mark"></div>
+    <h2>Home Hub</h2>
+    <p id="auth-sub">Sign in to sync everything across every device.</p>
+    <div id="auth-setup-warning" class="auth-error" style="display:none;">Firebase isn't connected — check FIREBASE_CONFIG at the top of the script.</div>
+    <form id="auth-form">
+      <div class="field"><label class="field-label">Email</label><input type="email" id="auth-email" required autocomplete="email"></div>
+      <div class="field"><label class="field-label">Password</label><input type="password" id="auth-password" required autocomplete="current-password" minlength="6"></div>
+      <div class="auth-error" id="auth-error"></div>
+      <button type="submit" class="btn" id="auth-submit">Sign In</button>
+    </form>
+    <div class="auth-toggle">
+      <span id="auth-toggle-text">New here?</span>
+      <button type="button" id="auth-toggle-btn">Create an account</button>
+    </div>
+  </div>
+</div>
+
+<div class="hub-account" id="hub-account" style="display:none;"></div>
+
+<div class="hub" id="hub">
+  <div class="hub-head">
+    <h1>Home Hub</h1>
+    <p>Pick a space to open.</p>
+  </div>
+  <div class="tile-grid" id="tile-grid"></div>
+  <div class="hub-foot">Drop a new <code>.html</code> file into <code>/apps/</code> in the repo and it appears here automatically.</div>
+</div>
+
+<script>
+/* =====================================================================
+   FIREBASE
+===================================================================== */
+const FIREBASE_CONFIG = {
+  apiKey: "AIzaSyBe01eR2RZwSbU_aoJMeh_2MMJ5mqkVuKk",
+  authDomain: "iron-log-bfc55.firebaseapp.com",
+  projectId: "iron-log-bfc55",
+  storageBucket: "iron-log-bfc55.firebasestorage.app",
+  messagingSenderId: "106586808946",
+  appId: "1:106586808946:web:f4736554ba9fc82c6fd8eb"
+};
+const firebaseReady = FIREBASE_CONFIG.apiKey !== "YOUR_API_KEY";
+let auth = null;
+if(firebaseReady){
+  firebase.initializeApp(FIREBASE_CONFIG);
+  auth = firebase.auth();
+} else {
+  document.getElementById('auth-setup-warning').style.display = 'block';
+}
+
+/* =====================================================================
+   AUTO-DISCOVERED APPS
+   ---------------------------------------------------------------------
+   GITHUB_REPO must be set to "yourusername/your-repo-name" for the hub
+   to auto-discover files dropped into the /apps/ folder. Until then (or
+   if the lookup fails — e.g. offline, rate-limited) it falls back to the
+   FALLBACK_APPS list below, so nothing is ever missing.
+===================================================================== */
+const GITHUB_REPO = "Bhargav-Shivbhakta/ironlog";
+
+const FALLBACK_APPS = [
+  { file: 'grocery.html', title: 'Grocery Tracker' },
+  { file: 'schedule.html', title: 'Schedule' },
+  { file: 'todo.html', title: 'To-Do' },
+  { file: 'skin.html', title: 'Skin Plan' },
+  { file: 'chores.html', title: 'Household Chores' }
+];
+
+const ICONS = {
+  'grocery.html': 'tile-icons/grocery.png',
+  'schedule.html': 'tile-icons/schedule.png',
+  'todo.html': 'tile-icons/todo.png',
+  'skin.html': 'tile-icons/skin.png',
+  'chores.html': 'tile-icons/chores.png'
+};
+
+function titleFromFilename(name){
+  return name.replace(/\.html?$/i,'').replace(/[-_]+/g,' ').replace(/\b\w/g, c=>c.toUpperCase());
+}
+
+async function discoverApps(){
+  if(GITHUB_REPO === "YOUR_USERNAME/YOUR_REPO"){
+    return FALLBACK_APPS.map(a => ({...a, icon: ICONS[a.file] || null}));
+  }
+  try{
+    const res = await fetch(`https://api.github.com/repos/${GITHUB_REPO}/contents/apps`);
+    if(!res.ok) throw new Error('bad response');
+    const files = await res.json();
+    const htmlFiles = files.filter(f => f.type === 'file' && /\.html?$/i.test(f.name));
+    if(!htmlFiles.length) return FALLBACK_APPS.map(a => ({...a, icon: ICONS[a.file] || null}));
+    return htmlFiles.map(f => ({
+      file: f.name,
+      title: titleFromFilename(f.name),
+      icon: ICONS[f.name] || null
+    }));
+  }catch(e){
+    return FALLBACK_APPS.map(a => ({...a, icon: ICONS[a.file] || null}));
+  }
+}
+
+/* =====================================================================
+   AUTH
+===================================================================== */
+let authMode = 'signin';
+document.getElementById('auth-toggle-btn').addEventListener('click', ()=>{
+  authMode = authMode === 'signin' ? 'signup' : 'signin';
+  document.getElementById('auth-submit').textContent = authMode === 'signin' ? 'Sign In' : 'Create Account';
+  document.getElementById('auth-toggle-text').textContent = authMode === 'signin' ? 'New here?' : 'Already have an account?';
+  document.getElementById('auth-toggle-btn').textContent = authMode === 'signin' ? 'Create an account' : 'Sign in';
+  document.getElementById('auth-error').textContent = '';
+});
+document.getElementById('auth-form').addEventListener('submit', async (e)=>{
+  e.preventDefault();
+  if(!firebaseReady){ document.getElementById('auth-error').textContent = 'Add your Firebase config first.'; return; }
+  const email = document.getElementById('auth-email').value.trim();
+  const password = document.getElementById('auth-password').value;
+  const errEl = document.getElementById('auth-error');
+  const btn = document.getElementById('auth-submit');
+  errEl.textContent = ''; btn.disabled = true;
+  try{
+    await auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL);
+    if(authMode === 'signin') await auth.signInWithEmailAndPassword(email, password);
+    else await auth.createUserWithEmailAndPassword(email, password);
+  }catch(err){ errEl.textContent = err.message.replace('Firebase: ',''); }
+  finally{ btn.disabled = false; }
+});
+
+async function showHub(user){
+  document.getElementById('auth-overlay').style.display = 'none';
+  document.getElementById('hub').style.display = 'block';
+  document.getElementById('hub-account').style.display = 'flex';
+  document.getElementById('hub-account').innerHTML =
+    `<span class="sync-dot"></span>${user.email}<button id="signout-btn">Sign out</button>`;
+  document.getElementById('signout-btn').addEventListener('click', ()=> auth.signOut());
+
+  const apps = await discoverApps();
+  const grid = document.getElementById('tile-grid');
+  grid.innerHTML = '';
+
+  // Gym is always first — it's the built-in multi-profile app.
+  const gymTile = document.createElement('a');
+  gymTile.className = 'tile';
+  gymTile.href = 'gym/index.html';
+  gymTile.innerHTML = `<div class="tile-icon"><img src="tile-icons/gym.png" alt=""></div><div class="tile-name">Gym</div><div class="tile-sub">Bhargav · Anusha</div>`;
+  grid.appendChild(gymTile);
+
+  apps.forEach(app=>{
+    const tile = document.createElement('a');
+    tile.className = 'tile';
+    tile.href = `apps/${app.file}`;
+    const iconHtml = app.icon ? `<img src="${app.icon}" alt="">` : `<span style="font-size:30px;">🗂️</span>`;
+    tile.innerHTML = `<div class="tile-icon">${iconHtml}</div><div class="tile-name">${app.title}</div>`;
+    grid.appendChild(tile);
+  });
+}
+
+function showAuth(){
+  document.getElementById('auth-overlay').style.display = 'flex';
+  document.getElementById('hub').style.display = 'none';
+  document.getElementById('hub-account').style.display = 'none';
+}
+
+if(firebaseReady){
+  auth.onAuthStateChanged(user => user ? showHub(user) : showAuth());
+} else {
+  showAuth();
+}
+
+if('serviceWorker' in navigator){
+  window.addEventListener('load', ()=>{ navigator.serviceWorker.register('sw.js').catch(()=>{}); });
+}
+</script>
+</body>
+</html>
