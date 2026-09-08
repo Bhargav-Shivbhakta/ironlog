@@ -1,0 +1,597 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Grocery</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<style>
+  :root{
+    --bg:#F6F7FB; --surface:#FFFFFF; --surface-alt:#EEF0F8;
+    --border:#E4E6F1; --border-soft:#EDEFF7;
+    --text:#191A2B; --text-soft:#5B5F78; --text-faint:#9599B2;
+    --accent:#22A06B; --accent-soft:#DFF5EA; --accent-deep:#178152;
+    --link-blue:#3D7BF5; --link-soft:#E5EDFE;
+    --gold:#B8860B; --gold-soft:#FBF0D9;
+    --danger:#F0596B; --danger-soft:#FCE1E5;
+    --radius-lg:18px; --radius-md:13px; --radius-sm:9px;
+    --shadow:0 1px 2px rgba(20,20,50,0.04), 0 12px 26px -16px rgba(20,20,50,0.16);
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;padding:16px 14px 80px;-webkit-font-smoothing:antialiased;}
+  .wrap{max-width:640px;margin:0 auto;}
+  h1,h2,h3{font-family:'Manrope',sans-serif;}
+  button,input,select,textarea{font-family:inherit;}
+  button{cursor:pointer;transition:transform .12s cubic-bezier(.34,1.56,.64,1);}
+  button:active{transform:scale(0.96);}
+
+  .loading-gate{position:fixed;inset:0;z-index:200;background:var(--bg);display:flex;align-items:center;justify-content:center;color:var(--text-soft);}
+
+  .topbar{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;}
+  .topbar a{font-size:12.5px;color:var(--text-soft);text-decoration:none;}
+  header.app-head{text-align:center;margin-bottom:16px;}
+  header.app-head h1{font-size:23px;font-weight:800;margin:0 0 2px;letter-spacing:-0.02em;background:linear-gradient(135deg,var(--accent-deep),var(--accent));-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;}
+  header.app-head p{margin:0;color:var(--text-soft);font-size:12.5px;}
+
+  .segmented{max-width:320px;margin:0 auto 16px;background:var(--surface-alt);border-radius:999px;padding:4px;display:flex;gap:2px;}
+  .segmented button{flex:1;border:none;background:transparent;border-radius:999px;padding:9px 4px;font-size:12.5px;font-weight:700;color:var(--text-soft);}
+  .segmented button.active{background:var(--surface);color:var(--text);box-shadow:var(--shadow);}
+
+  /* ADD FORM */
+  .add-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:14px 16px;margin-bottom:16px;box-shadow:var(--shadow);}
+  .add-row1{display:flex;gap:8px;margin-bottom:8px;}
+  .add-row1 input{flex:1;font-size:15px;padding:11px 13px;border-radius:var(--radius-md);border:1px solid var(--border);}
+  .add-row1 button{background:linear-gradient(135deg,var(--accent),var(--accent-deep));color:#fff;border:none;border-radius:var(--radius-md);padding:0 18px;font-size:14px;font-weight:700;box-shadow:0 4px 12px -5px rgba(34,160,107,0.6);}
+  .add-row2{display:flex;gap:8px;}
+  .add-row2 input{flex:1;font-size:12.5px;padding:8px 10px;border-radius:var(--radius-sm);border:1px solid var(--border);background:var(--surface-alt);}
+
+  /* BUDGET SUMMARY CARD */
+  .budget-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:18px;margin-bottom:16px;box-shadow:var(--shadow);}
+  .budget-top{display:flex;justify-content:space-between;align-items:flex-end;margin-bottom:10px;}
+  .budget-spent{font-family:'Manrope',sans-serif;font-weight:800;font-size:28px;letter-spacing:-0.02em;}
+  .budget-target{font-size:12.5px;color:var(--text-faint);}
+  .budget-target input{width:70px;font-size:12.5px;padding:4px 7px;border-radius:7px;border:1px solid var(--border);}
+  .budget-bar-track{height:9px;border-radius:20px;background:var(--surface-alt);overflow:hidden;margin-bottom:4px;}
+  .budget-bar-fill{height:100%;border-radius:20px;background:linear-gradient(90deg,var(--accent),var(--gold));transition:width .5s ease;}
+  .budget-note{font-size:11.5px;color:var(--text-faint);}
+
+  /* CONTROLS ROW */
+  .controls-row{display:flex;gap:8px;align-items:center;margin-bottom:12px;}
+  .controls-row input[type=text]{flex:1;font-size:13px;padding:8px 12px;border-radius:999px;border:1px solid var(--border);background:var(--surface);}
+  .pill-btn{background:var(--surface-alt);color:var(--text-soft);border:none;border-radius:999px;padding:8px 14px;font-size:12px;font-weight:700;white-space:nowrap;}
+  .pill-btn.primary{background:var(--accent-soft);color:var(--accent-deep);}
+
+  /* STORE GROUPS */
+  .store-group{margin-bottom:16px;}
+  .store-head{display:flex;align-items:center;gap:8px;margin-bottom:7px;padding-left:2px;}
+  .store-head h3{font-size:12.5px;text-transform:uppercase;letter-spacing:0.05em;color:var(--text-faint);font-weight:800;margin:0;}
+  .store-head .count{font-size:11px;color:var(--text-faint);background:var(--surface-alt);border-radius:20px;padding:1px 8px;}
+
+  .item-row{background:var(--surface);border:1px solid var(--border-soft);border-radius:var(--radius-md);padding:11px 12px;margin-bottom:7px;box-shadow:var(--shadow);display:flex;align-items:flex-start;gap:10px;transition:opacity .3s ease;}
+  .item-row.done{opacity:0.55;}
+  .item-chk{appearance:none;width:22px;height:22px;border-radius:7px;border:2px solid var(--border);flex:none;margin-top:1px;cursor:pointer;position:relative;background:var(--surface);transition:all .18s cubic-bezier(.34,1.7,.64,1);}
+  .item-chk:hover{border-color:var(--accent);}
+  .item-chk:checked{background:linear-gradient(135deg,var(--accent),var(--accent-deep));border-color:transparent;}
+  .item-chk:checked::after{content:'';position:absolute;left:6.5px;top:2.5px;width:5px;height:10px;border:solid #fff;border-width:0 2.5px 2.5px 0;transform:rotate(45deg);}
+  .item-body{flex:1;min-width:0;}
+  .item-name{font-size:14.5px;font-weight:600;word-break:break-word;}
+  .item-row.done .item-name{text-decoration:line-through;color:var(--text-faint);}
+  .item-note{font-size:12px;color:var(--text-soft);margin-top:1px;}
+  .item-price{font-size:11.5px;color:var(--gold);font-weight:700;margin-top:2px;}
+  .due-badge{display:inline-block;font-size:11px;font-weight:700;border-radius:20px;padding:2px 9px;margin-top:3px;}
+  .due-badge.due-overdue{background:var(--danger-soft);color:var(--danger);}
+  .due-badge.due-due-soon{background:var(--gold-soft);color:var(--gold);}
+  .due-badge.due-stocked{background:var(--accent-soft);color:var(--accent-deep);}
+  .due-badge.due-never{background:var(--surface-alt);color:var(--text-faint);}
+  .recurring-buy-btn{appearance:none;width:22px;height:22px;border-radius:7px;border:2px solid var(--accent);flex:none;margin-top:1px;cursor:pointer;background:var(--accent-soft);color:var(--accent-deep);font-size:12px;font-weight:800;display:flex;align-items:center;justify-content:center;padding:0;}
+  .recurring-buy-btn:hover{background:var(--accent);color:#fff;}
+  .item-actions{display:flex;gap:4px;flex:none;align-items:center;}
+  .icon-btn{background:var(--surface-alt);border:none;border-radius:8px;width:30px;height:30px;font-size:13px;flex:none;color:var(--text-soft);}
+  .icon-btn.link-btn{background:var(--link-soft);color:var(--link-blue);text-decoration:none;display:flex;align-items:center;justify-content:center;}
+  .icon-btn.link-btn:hover{background:var(--link-blue);color:#fff;}
+  .icon-btn.del-btn{background:var(--danger-soft);color:var(--danger);}
+  .icon-btn.del-btn:hover{background:var(--danger);color:#fff;}
+  .icon-btn.edit-btn:hover{background:var(--accent-soft);color:var(--accent-deep);}
+
+  .edit-panel{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-md);padding:12px;margin:-3px 0 7px;box-shadow:var(--shadow);}
+  .edit-panel .ef{display:flex;flex-direction:column;gap:3px;margin-bottom:8px;}
+  .edit-panel label{font-size:10px;color:var(--text-faint);font-weight:700;text-transform:uppercase;letter-spacing:0.03em;}
+  .edit-panel input{font-size:13.5px;padding:8px 10px;border-radius:var(--radius-sm);border:1px solid var(--border);}
+  .edit-actions{display:flex;gap:8px;margin-top:4px;}
+  .btn-mini{font-size:12px;font-weight:700;border:none;border-radius:var(--radius-sm);padding:8px 14px;}
+  .btn-mini.primary{background:linear-gradient(135deg,var(--accent),var(--accent-deep));color:#fff;}
+  .btn-mini.ghost{background:var(--surface-alt);color:var(--text-soft);}
+
+  .empty-note{color:var(--text-faint);font-style:italic;font-size:13.5px;padding:30px 10px;text-align:center;}
+
+  /* PRICE PROMPT SHEET */
+  .price-overlay{position:fixed;inset:0;z-index:180;background:rgba(20,20,40,0.4);display:flex;align-items:flex-end;justify-content:center;}
+  .price-sheet{background:var(--surface);width:100%;max-width:420px;border-radius:20px 20px 0 0;padding:20px 18px 26px;box-shadow:0 -10px 40px rgba(0,0,0,0.2);}
+  .price-sheet h3{margin:0 0 4px;font-size:16px;}
+  .price-sheet p{margin:0 0 14px;font-size:12.5px;color:var(--text-soft);}
+  .price-sheet .pf{display:flex;align-items:center;gap:8px;margin-bottom:14px;}
+  .price-sheet .pf span{font-size:20px;font-weight:700;color:var(--text-faint);}
+  .price-sheet input{flex:1;font-size:22px;font-weight:700;padding:10px 12px;border-radius:var(--radius-md);border:1px solid var(--border);}
+  .price-sheet .sheet-actions{display:flex;gap:8px;}
+  .price-sheet .sheet-actions button{flex:1;padding:11px;font-size:13.5px;}
+
+  /* BUDGET VIEW */
+  .history-row{display:flex;justify-content:space-between;align-items:center;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-md);padding:11px 14px;margin-bottom:7px;box-shadow:var(--shadow);}
+  .history-row .hr-name{font-size:13.5px;font-weight:600;}
+  .history-row .hr-meta{font-size:11px;color:var(--text-faint);}
+  .history-row .hr-price{font-family:'Manrope',sans-serif;font-weight:800;font-size:15px;color:var(--gold);}
+  .trend-strip{display:flex;gap:5px;margin-top:3px;}
+  .trend-dot{font-size:10.5px;color:var(--text-faint);background:var(--surface-alt);border-radius:20px;padding:1px 7px;}
+  .trend-dot.up{color:var(--danger);background:var(--danger-soft);}
+  .trend-dot.down{color:var(--accent-deep);background:var(--accent-soft);}
+</style>
+</head>
+<body>
+
+<div id="loading-gate" class="loading-gate">Loading…</div>
+
+<div class="wrap" id="app-wrap" style="display:none;">
+  <div class="topbar"><a href="../index.html">← All apps</a></div>
+  <header class="app-head">
+    <h1>Grocery</h1>
+    <p>Add it, link it, buy it, track what it cost.</p>
+  </header>
+
+  <div class="segmented">
+    <button id="view-list-btn" class="active">Shopping List</button>
+    <button id="view-budget-btn">Budget</button>
+  </div>
+
+  <div id="list-view">
+    <div class="add-card">
+      <div class="add-row1">
+        <input type="text" id="add-name" placeholder="What do you need?">
+        <button id="add-btn" type="button">Add</button>
+      </div>
+      <div class="add-row2">
+        <input type="text" id="add-store" placeholder="Store (e.g. Costco)" list="store-suggestions">
+        <input type="url" id="add-link" placeholder="Link to the product (optional)">
+      </div>
+      <datalist id="store-suggestions"></datalist>
+    </div>
+
+    <div class="controls-row">
+      <input type="text" id="search-input" placeholder="Search your list…">
+      <button class="pill-btn" id="clear-done-btn">Clear checked</button>
+    </div>
+
+    <div id="list-mount"></div>
+  </div>
+
+  <div id="budget-view" style="display:none;"></div>
+</div>
+
+<div id="modal-mount"></div>
+
+<script>
+window.addEventListener('error', function(e){
+  const gate = document.getElementById('loading-gate');
+  if(gate && gate.style.display !== 'none') gate.textContent = 'Something went wrong: ' + (e.message||'unknown error') + '. Try a hard refresh.';
+});
+if(typeof firebase === 'undefined'){
+  document.getElementById('loading-gate').textContent = "Couldn't load — check your internet connection and refresh.";
+} else {
+
+const FIREBASE_CONFIG = {
+  apiKey: "AIzaSyBe01eR2RZwSbU_aoJMeh_2MMJ5mqkVuKk",
+  authDomain: "iron-log-bfc55.firebaseapp.com",
+  projectId: "iron-log-bfc55",
+  storageBucket: "iron-log-bfc55.firebasestorage.app",
+  messagingSenderId: "106586808946",
+  appId: "1:106586808946:web:f4736554ba9fc82c6fd8eb"
+};
+firebase.initializeApp(FIREBASE_CONFIG);
+const auth = firebase.auth();
+const db = firebase.firestore();
+try{ db.enablePersistence({synchronizeTabs:true}).catch(function(){}); }catch(e){}
+let currentUser = null;
+
+/* =====================================================================
+   SEED DATA — pulled directly from the household's actual 8-week diet +
+   grocery plan (Costco/Trader Joe's product list, section 4-5). Prices
+   are that document's own Costco Same-Day estimates as of Sep 8 2026 —
+   a starting reference point, not live, and fully editable. Links are
+   left blank since none were given — paste in the real product URLs
+   whenever you have them.
+===================================================================== */
+const SEED_ITEMS = [
+  { id:'costco-eggs', name:'Kirkland Signature Large Eggs (60 ct)', store:'Costco', note:'60 shell eggs — ~9/day household', lastPrice:9.18, link:'https://www.costco.com/CatalogSearch?keyword=1025795', cadenceDays:7 },
+  { id:'costco-whey', name:'ON Gold Standard Whey, Chocolate (5.64 lb)', store:'Costco', note:'80 servings, 1 scoop = 32g — lasts ~6.5 weeks', lastPrice:85.11, link:'https://www.costco.com/CatalogSearch?keyword=1243880', cadenceDays:45 },
+  { id:'costco-paneer', name:'Verka Paneer Indian Cheese (32 oz)', store:'Costco', note:'~155–160g/day household', lastPrice:12.02, link:'https://www.costco.com/CatalogSearch?keyword=505987', cadenceDays:7 },
+  { id:'costco-milk', name:'Kirkland 2% Milk (2×1 gallon)', store:'Costco', note:'320ml/day — lasts ~3.4 weeks. No item # given in your plan, so no link yet', lastPrice:8.16, link:'', cadenceDays:24 },
+  { id:'costco-yogurt', name:'Kirkland Nonfat Plain Greek Yogurt (48 oz)', store:'Costco', note:'300g/day household', lastPrice:5.55, link:'https://www.costco.com/CatalogSearch?keyword=1956023', cadenceDays:4 },
+  { id:'costco-oats', name:'Quaker Old-Fashioned Rolled Oats (10 lb)', store:'Costco', note:'75g/day — lasts ~8.6 weeks', lastPrice:8.96, link:'https://www.costco.com/CatalogSearch?keyword=446586', cadenceDays:60 },
+  { id:'costco-flax', name:"Bob's Red Mill Organic Golden Flaxseed Meal (64 oz)", store:'Costco', note:'20g/day — lasts ~13 weeks', lastPrice:9.59, link:'https://www.costco.com/CatalogSearch?keyword=9467', cadenceDays:91 },
+  { id:'costco-rice', name:'Royal Basmati Rice (20 lb)', store:'Costco', note:'~117g dry/day — lasts ~11 weeks', lastPrice:22.69, link:'https://www.costco.com/CatalogSearch?keyword=132666', cadenceDays:77 },
+  { id:'costco-dal', name:'Khazana Organic Masoor Dal (7 lb)', store:'Costco', note:'~93g dry/day, lasts ~4.9 weeks — item # in your plan was marked "approximately," so no link yet', lastPrice:13.79, link:'', cadenceDays:34 },
+  { id:'costco-mandarin', name:'Dole Mandarin Oranges in Juice (16 ct)', store:'Costco', note:"1 cup/day, Bhargav's snack — lasts 2 weeks", lastPrice:11.11, link:'https://www.costco.com/CatalogSearch?keyword=46586', cadenceDays:14 },
+  { id:'costco-banana', name:'Costco Bananas (3 lb)', store:'Costco', note:'1 banana/day household, ½ each', lastPrice:1.69, link:'https://www.costco.com/CatalogSearch?keyword=30669', cadenceDays:7 },
+  { id:'costco-ghee', name:'Kirkland Signature Organic Ghee (27 oz)', store:'Costco', note:'10g/day — lasts ~11 weeks', lastPrice:24.96, link:'https://www.costco.com/CatalogSearch?keyword=1582922', cadenceDays:76 },
+  { id:'costco-lemon', name:'Costco Lemons (5 lb)', store:'Costco', note:'2 lemons/day household', lastPrice:6.80, link:'https://www.costco.com/CatalogSearch?keyword=83345', cadenceDays:7 },
+  { id:'costco-water', name:'Kirkland Purified Water (40×500ml)', store:'Costco', note:'2–3 cases/week', lastPrice:4.53, link:'https://www.costco.com/CatalogSearch?keyword=782796', cadenceDays:4 },
+  { id:'tj-lunchsalad', name:"Trader Joe's Organic Baby Lettuce Mix (5 oz)", store:"Trader Joe's", note:'1 bag/day at lunch, shared', lastPrice:2.79, cadenceDays:7 },
+  { id:'tj-dinnersalad', name:"Trader Joe's Organic Herb Salad Mix (5 oz)", store:"Trader Joe's", note:'1 bag/day at dinner, shared', lastPrice:2.79, cadenceDays:7 },
+  { id:'tj-fruit', name:"Trader Joe's Fresh-Cut Fruit (e.g. Pineapple, ~16 oz)", store:"Trader Joe's", note:"Anusha's snack, ~200g/day", lastPrice:3.99, cadenceDays:3 }
+];
+
+function escapeHtml(s){ return String(s==null?'':s).replace(/[&<>"']/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); }
+function groceryDoc(key){ return db.collection('users').doc(currentUser.uid).collection('apps').doc('grocery-v3').collection('data').doc(key); }
+function fmtMoney(n){ return '$'+Number(n||0).toFixed(2); }
+function todayStr(){ const d=new Date(); return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
+
+let items = [];
+let priceLog = []; // {id, itemId, itemName, price, date}
+let budgetTarget = 150;
+let searchQuery = '';
+let activeView = 'list';
+let editingItemId = null;
+
+async function loadAll(){
+  try{
+    const doc = await groceryDoc('items').get();
+    items = (doc.exists && doc.data().json) ? JSON.parse(doc.data().json) : JSON.parse(JSON.stringify(SEED_ITEMS.map(function(i){ return Object.assign({link:'', done:false, recurring:true, cadenceDays:null, lastBoughtDate:null, addedAt:Date.now()}, i); })));
+    if(!doc.exists) await saveItems();
+  }catch(e){ items = JSON.parse(JSON.stringify(SEED_ITEMS.map(function(i){ return Object.assign({link:'', done:false, recurring:true, cadenceDays:null, lastBoughtDate:null, addedAt:Date.now()}, i); }))); }
+  try{
+    const doc2 = await groceryDoc('priceLog').get();
+    priceLog = (doc2.exists && doc2.data().json) ? JSON.parse(doc2.data().json) : [];
+  }catch(e){ priceLog = []; }
+  try{
+    const doc3 = await groceryDoc('budget').get();
+    budgetTarget = (doc3.exists && doc3.data().json) ? JSON.parse(doc3.data().json).weekly : 150;
+  }catch(e){ budgetTarget = 150; }
+}
+async function saveItems(){ try{ await groceryDoc('items').set({json: JSON.stringify(items)}); }catch(e){ console.error(e); } }
+async function savePriceLog(){ try{ await groceryDoc('priceLog').set({json: JSON.stringify(priceLog)}); }catch(e){ console.error(e); } }
+async function saveBudget(){ try{ await groceryDoc('budget').set({json: JSON.stringify({weekly: budgetTarget})}); }catch(e){ console.error(e); } }
+
+auth.onAuthStateChanged(async function(user){
+  currentUser = user;
+  if(!user){ window.location.href = '../index.html'; return; }
+  await loadAll();
+  document.getElementById('loading-gate').style.display = 'none';
+  document.getElementById('app-wrap').style.display = 'block';
+  wireControls();
+  render();
+});
+
+function wireControls(){
+  document.getElementById('view-list-btn').addEventListener('click', function(){ showView('list'); });
+  document.getElementById('view-budget-btn').addEventListener('click', function(){ showView('budget'); });
+  document.getElementById('add-btn').addEventListener('click', addItem);
+  document.getElementById('add-name').addEventListener('keydown', function(e){ if(e.key==='Enter') addItem(); });
+  document.getElementById('add-link').addEventListener('keydown', function(e){ if(e.key==='Enter') addItem(); });
+  document.getElementById('search-input').addEventListener('input', function(e){ searchQuery = e.target.value.toLowerCase().trim(); renderList(); });
+  document.getElementById('clear-done-btn').addEventListener('click', async function(){
+    const doneCount = items.filter(function(i){ return i.done; }).length;
+    if(!doneCount) return;
+    if(!confirm('Remove '+doneCount+' checked item'+(doneCount===1?'':'s')+' from the list entirely? (Their price history stays in Budget either way.)')) return;
+    items = items.filter(function(i){ return !i.done; });
+    await saveItems();
+    renderList();
+  });
+}
+function showView(v){
+  activeView = v;
+  document.getElementById('view-list-btn').classList.toggle('active', v==='list');
+  document.getElementById('view-budget-btn').classList.toggle('active', v==='budget');
+  document.getElementById('list-view').style.display = v==='list' ? 'block':'none';
+  document.getElementById('budget-view').style.display = v==='budget' ? 'block':'none';
+  if(v==='budget') renderBudget();
+}
+
+async function addItem(){
+  const nameInput = document.getElementById('add-name');
+  const name = nameInput.value.trim();
+  if(!name) return;
+  const store = document.getElementById('add-store').value.trim();
+  let link = document.getElementById('add-link').value.trim();
+  if(link && !/^https?:\/\//i.test(link)) link = 'https://'+link;
+  items.push({ id:'item-'+Date.now()+'-'+Math.floor(Math.random()*10000), name:name, note:'', store:store, link:link, lastPrice:null, done:false, recurring:false, cadenceDays:null, lastBoughtDate:null, addedAt:Date.now() });
+  await saveItems();
+  nameInput.value = '';
+  document.getElementById('add-store').value = '';
+  document.getElementById('add-link').value = '';
+  nameInput.focus();
+  renderList();
+}
+function knownStores(){
+  const set = new Set();
+  items.forEach(function(i){ if(i.store) set.add(i.store); });
+  return [...set].sort();
+}
+
+function render(){ renderList(); }
+
+/* =====================================================================
+   SHOPPING LIST
+===================================================================== */
+function daysBetween(a,b){ return Math.round((new Date(b+'T00:00:00') - new Date(a+'T00:00:00')) / 86400000); }
+// The core "smart" piece: for a recurring staple, work out how many days
+// are left before it should run out, based on your own consumption rate
+// from the plan — not just a static checklist.
+function dueInfo(item){
+  if(!item.recurring || !item.cadenceDays) return null;
+  if(!item.lastBoughtDate) return { status:'never', daysLeft:null, label:'Never logged — add to this week\'s trip' };
+  const due = new Date(item.lastBoughtDate+'T00:00:00');
+  due.setDate(due.getDate()+item.cadenceDays);
+  const dueStr = due.getFullYear()+'-'+String(due.getMonth()+1).padStart(2,'0')+'-'+String(due.getDate()).padStart(2,'0');
+  const daysLeft = daysBetween(todayStr(), dueStr);
+  if(daysLeft<=0) return { status:'overdue', daysLeft:daysLeft, label: daysLeft===0 ? 'Due today' : 'Overdue by '+Math.abs(daysLeft)+' day'+(Math.abs(daysLeft)===1?'':'s') };
+  if(daysLeft<=3) return { status:'due-soon', daysLeft:daysLeft, label:'Due in '+daysLeft+' day'+(daysLeft===1?'':'s') };
+  return { status:'stocked', daysLeft:daysLeft, label:'Stocked — good for '+daysLeft+' more days' };
+}
+
+function renderList(){
+  document.getElementById('store-suggestions').innerHTML = knownStores().map(function(s){ return '<option value="'+escapeHtml(s)+'">'; }).join('');
+  const mount = document.getElementById('list-mount');
+  const q = searchQuery;
+  const visible = items.filter(function(i){ return !q || i.name.toLowerCase().indexOf(q)!==-1 || (i.store||'').toLowerCase().indexOf(q)!==-1; });
+
+  if(!visible.length){
+    mount.innerHTML = '<div class="empty-note">'+(q ? 'No items match "'+escapeHtml(q)+'".' : 'Your list is empty — add something above.')+'</div>';
+    return;
+  }
+
+  // "Due to restock" — the actual point of the app: what genuinely needs
+  // buying right now, based on your real usage rate, not a manual reset.
+  const dueNow = visible.filter(function(i){
+    const d = dueInfo(i);
+    return d && (d.status==='overdue' || d.status==='due-soon' || d.status==='never');
+  }).sort(function(a,b){
+    const da = dueInfo(a).daysLeft, db = dueInfo(b).daysLeft;
+    if(da==null) return -1; if(db==null) return 1;
+    return da-db;
+  });
+  let html = '';
+  if(dueNow.length && !q){
+    html += '<div class="store-group"><div class="store-head"><h3>🛒 Due to restock</h3><span class="count">'+dueNow.length+'</span></div>'+
+      dueNow.map(itemRowHtml).join('') + '</div>';
+  }
+
+  const groups = {};
+  const groupOrder = [];
+  visible.forEach(function(i){
+    const g = i.store || 'No store yet';
+    if(!groups[g]){ groups[g] = []; groupOrder.push(g); }
+    groups[g].push(i);
+  });
+  groupOrder.sort(function(a,b){ if(a==='No store yet') return 1; if(b==='No store yet') return -1; return a.localeCompare(b); });
+
+  html += groupOrder.map(function(g){
+    const rows = groups[g];
+    const activeCount = rows.filter(function(i){ return !i.done; }).length;
+    return '<div class="store-group">'+
+      '<div class="store-head"><h3>'+escapeHtml(g)+'</h3><span class="count">'+activeCount+' left</span></div>'+
+      rows.map(itemRowHtml).join('')+
+    '</div>';
+  }).join('');
+  mount.innerHTML = html;
+  attachRowHandlers();
+}
+
+function itemRowHtml(item){
+  const isEditing = editingItemId === item.id;
+  const due = dueInfo(item);
+  const checkboxOrButton = item.recurring
+    ? '<button type="button" class="item-chk recurring-buy-btn" data-buy="'+item.id+'" title="Log this purchase">✓</button>'
+    : '<input type="checkbox" class="item-chk" data-toggle="'+item.id+'" '+(item.done?'checked':'')+'>';
+  let html = '<div class="item-row '+(item.done?'done':'')+'" data-itemid="'+item.id+'">'+
+    checkboxOrButton+
+    '<div class="item-body">'+
+      '<div class="item-name">'+escapeHtml(item.name)+'</div>'+
+      (item.note ? '<div class="item-note">'+escapeHtml(item.note)+'</div>' : '')+
+      (due ? '<div class="due-badge due-'+due.status+'">'+due.label+'</div>' : '')+
+      (item.lastPrice!=null ? '<div class="item-price">Last paid '+fmtMoney(item.lastPrice)+'</div>' : '')+
+    '</div>'+
+    '<div class="item-actions">'+
+      (item.link ? '<a class="icon-btn link-btn" href="'+escapeHtml(item.link)+'" target="_blank" rel="noopener" title="Open product link">🔗</a>' : '')+
+      '<button type="button" class="icon-btn edit-btn" data-edit="'+item.id+'" title="Edit">✎</button>'+
+      '<button type="button" class="icon-btn del-btn" data-del="'+item.id+'" title="Delete">✕</button>'+
+    '</div>'+
+  '</div>';
+  if(isEditing){
+    html += '<div class="edit-panel" data-editpanel="'+item.id+'">'+
+      '<div class="ef"><label>Name</label><input type="text" class="ei-name" value="'+escapeHtml(item.name)+'"></div>'+
+      '<div class="ef"><label>Note (quantity, brand, etc.)</label><input type="text" class="ei-note" value="'+escapeHtml(item.note||'')+'"></div>'+
+      '<div class="ef"><label>Store</label><input type="text" class="ei-store" value="'+escapeHtml(item.store||'')+'" list="store-suggestions"></div>'+
+      '<div class="ef"><label>Link to the product</label><input type="url" class="ei-link" value="'+escapeHtml(item.link||'')+'"></div>'+
+      '<div class="ef"><label>Last price paid</label><input type="number" step="0.01" class="ei-price" value="'+(item.lastPrice!=null?item.lastPrice:'')+'"></div>'+
+      '<div class="ef" style="flex-direction:row;align-items:center;gap:8px;"><input type="checkbox" class="ei-recurring" '+(item.recurring?'checked':'')+' style="width:auto;"><label style="text-transform:none;font-size:12.5px;">Recurring staple (track restock timing)</label></div>'+
+      '<div class="ef ei-cadence-wrap" style="'+(item.recurring?'':'display:none;')+'"><label>Restock every (days)</label><input type="number" class="ei-cadence" value="'+(item.cadenceDays||'')+'"></div>'+
+      '<div class="edit-actions"><button type="button" class="btn-mini primary" data-save="'+item.id+'">Save</button><button type="button" class="btn-mini ghost" data-cancel="'+item.id+'">Cancel</button></div>'+
+    '</div>';
+  }
+  return html;
+}
+
+function attachRowHandlers(){
+  document.querySelectorAll('[data-toggle]').forEach(function(cb){
+    cb.addEventListener('change', function(){
+      const item = items.find(function(i){ return i.id===cb.dataset.toggle; });
+      if(!item) return;
+      if(cb.checked) openPricePrompt(item);
+      else finishToggle(item, false);
+    });
+  });
+  document.querySelectorAll('[data-buy]').forEach(function(btn){
+    btn.addEventListener('click', function(){
+      const item = items.find(function(i){ return i.id===btn.dataset.buy; });
+      if(!item) return;
+      openPricePrompt(item);
+    });
+  });
+  document.querySelectorAll('[data-del]').forEach(function(btn){
+    btn.addEventListener('click', async function(){
+      const item = items.find(function(i){ return i.id===btn.dataset.del; });
+      if(!item) return;
+      if(!confirm('Delete "'+item.name+'"? (Its price history stays in Budget.)')) return;
+      items = items.filter(function(i){ return i.id!==btn.dataset.del; });
+      await saveItems();
+      renderList();
+    });
+  });
+  document.querySelectorAll('[data-edit]').forEach(function(btn){
+    btn.addEventListener('click', function(){
+      editingItemId = editingItemId===btn.dataset.edit ? null : btn.dataset.edit;
+      renderList();
+    });
+  });
+  document.querySelectorAll('[data-cancel]').forEach(function(btn){
+    btn.addEventListener('click', function(){ editingItemId = null; renderList(); });
+  });
+  document.querySelectorAll('.ei-recurring').forEach(function(cb){
+    cb.addEventListener('change', function(){
+      cb.closest('.edit-panel').querySelector('.ei-cadence-wrap').style.display = cb.checked ? 'flex' : 'none';
+    });
+  });
+  document.querySelectorAll('[data-save]').forEach(function(btn){
+    btn.addEventListener('click', async function(){
+      const item = items.find(function(i){ return i.id===btn.dataset.save; });
+      if(!item) return;
+      const panel = document.querySelector('[data-editpanel="'+item.id+'"]');
+      const newName = panel.querySelector('.ei-name').value.trim();
+      if(!newName) return;
+      item.name = newName;
+      item.note = panel.querySelector('.ei-note').value.trim();
+      item.store = panel.querySelector('.ei-store').value.trim();
+      let newLink = panel.querySelector('.ei-link').value.trim();
+      if(newLink && !/^https?:\/\//i.test(newLink)) newLink = 'https://'+newLink;
+      item.link = newLink;
+      const priceVal = panel.querySelector('.ei-price').value;
+      item.lastPrice = priceVal ? parseFloat(priceVal) : null;
+      item.recurring = panel.querySelector('.ei-recurring').checked;
+      const cadenceVal = panel.querySelector('.ei-cadence').value;
+      item.cadenceDays = item.recurring && cadenceVal ? parseInt(cadenceVal,10) : null;
+      editingItemId = null;
+      await saveItems();
+      renderList();
+    });
+  });
+}
+
+/* =====================================================================
+   PRICE PROMPT — the actual budget-tracking mechanism. Checking an item
+   off asks what you paid (pre-filled with last time's price so it's a
+   one-tap confirm, not a retype), logs it with today's date, and that
+   log is what the Budget tab is built from.
+===================================================================== */
+function openPricePrompt(item){
+  const mount = document.getElementById('modal-mount');
+  const isRecurring = item.recurring;
+  mount.innerHTML = '<div class="price-overlay" id="price-overlay"><div class="price-sheet">'+
+    '<h3>What did '+escapeHtml(item.name)+' cost?</h3>'+
+    '<p>'+(item.lastPrice!=null ? 'Last time: '+fmtMoney(item.lastPrice) : 'First time logging this one.')+'</p>'+
+    '<div class="pf"><span>$</span><input type="number" step="0.01" id="price-input" value="'+(item.lastPrice!=null?item.lastPrice:'')+'" autofocus></div>'+
+    '<div class="sheet-actions"><button class="btn-mini primary" id="price-confirm-btn">Log it'+(isRecurring?' — bought today':' & check off')+'</button><button class="btn-mini ghost" id="price-skip-btn">'+(isRecurring?'Skip logging':'Just check off')+'</button></div>'+
+  '</div></div>';
+  document.getElementById('price-input').focus();
+  document.getElementById('price-confirm-btn').addEventListener('click', async function(){
+    const val = parseFloat(document.getElementById('price-input').value);
+    if(!isNaN(val)){
+      priceLog.push({ id:'log-'+Date.now()+'-'+Math.floor(Math.random()*10000), itemId:item.id, itemName:item.name, price:val, date:todayStr() });
+      item.lastPrice = val;
+      await savePriceLog();
+    }
+    await finishPurchase(item);
+    closePriceModal();
+  });
+  document.getElementById('price-skip-btn').addEventListener('click', async function(){
+    await finishPurchase(item);
+    closePriceModal();
+  });
+  document.getElementById('price-overlay').addEventListener('click', function(e){
+    if(e.target.id==='price-overlay'){
+      if(!isRecurring) finishToggle(item, false);
+      closePriceModal();
+    }
+  });
+}
+function closePriceModal(){ document.getElementById('modal-mount').innerHTML = ''; }
+// Recurring staples never get "done" — buying one just resets its restock
+// clock. One-off items behave like a normal checklist item.
+async function finishPurchase(item){
+  if(item.recurring){ item.lastBoughtDate = todayStr(); }
+  else{ item.done = true; }
+  await saveItems();
+  renderList();
+}
+async function finishToggle(item, done){
+  item.done = done;
+  await saveItems();
+  renderList();
+}
+
+/* =====================================================================
+   BUDGET VIEW
+===================================================================== */
+function renderBudget(){
+  const mount = document.getElementById('budget-view');
+  const today = todayStr();
+  const weekAgo = new Date(); weekAgo.setDate(weekAgo.getDate()-7);
+  const weekAgoStr = weekAgo.getFullYear()+'-'+String(weekAgo.getMonth()+1).padStart(2,'0')+'-'+String(weekAgo.getDate()).padStart(2,'0');
+  const thisWeekLogs = priceLog.filter(function(l){ return l.date >= weekAgoStr; });
+  const spent = thisWeekLogs.reduce(function(s,l){ return s+l.price; }, 0);
+  const pct = budgetTarget ? Math.min(100, Math.round(100*spent/budgetTarget)) : 0;
+  const overBudget = spent > budgetTarget;
+
+  let html = '<div class="budget-card">'+
+    '<div class="budget-top"><div><div class="budget-spent" style="'+(overBudget?'color:var(--danger);':'')+'">'+fmtMoney(spent)+'</div><div class="budget-note">spent in the last 7 days</div></div>'+
+    '<div class="budget-target">weekly target $<input type="number" id="budget-target-input" value="'+budgetTarget+'"></div></div>'+
+    '<div class="budget-bar-track"><div class="budget-bar-fill" style="width:'+pct+'%;'+(overBudget?'background:var(--danger);':'')+'"></div></div>'+
+    '<div class="budget-note">'+pct+'% of target'+(overBudget?' — over budget':'')+'</div>'+
+  '</div>';
+
+  // Per-item price trend, most recently logged first
+  const byItem = {};
+  priceLog.forEach(function(l){ if(!byItem[l.itemId]) byItem[l.itemId] = []; byItem[l.itemId].push(l); });
+  const itemIds = Object.keys(byItem).sort(function(a,b){
+    const lastA = byItem[a][byItem[a].length-1].date;
+    const lastB = byItem[b][byItem[b].length-1].date;
+    return lastA < lastB ? 1 : -1;
+  });
+
+  if(!itemIds.length){
+    html += '<div class="empty-note">No prices logged yet — check something off your list to start tracking.</div>';
+  } else {
+    html += itemIds.map(function(id){
+      const log = byItem[id].slice(-5); // last 5 entries
+      const latest = log[log.length-1];
+      const prev = log.length>1 ? log[log.length-2] : null;
+      let trendHtml = '';
+      if(prev){
+        const diff = latest.price - prev.price;
+        if(Math.abs(diff) >= 0.01){
+          trendHtml = '<span class="trend-dot '+(diff>0?'up':'down')+'">'+(diff>0?'▲':'▼')+' '+fmtMoney(Math.abs(diff))+' vs last time</span>';
+        } else {
+          trendHtml = '<span class="trend-dot">= same as last time</span>';
+        }
+      }
+      return '<div class="history-row"><div><div class="hr-name">'+escapeHtml(latest.itemName)+'</div>'+
+        '<div class="hr-meta">'+log.map(function(l){ return fmtMoney(l.price); }).join(' → ')+'</div>'+
+        '<div class="trend-strip">'+trendHtml+'</div></div>'+
+        '<div class="hr-price">'+fmtMoney(latest.price)+'</div></div>';
+    }).join('');
+  }
+
+  mount.innerHTML = html;
+  document.getElementById('budget-target-input').addEventListener('change', async function(e){
+    budgetTarget = parseFloat(e.target.value) || 0;
+    await saveBudget();
+    renderBudget();
+  });
+}
+
+} // end firebase-available guard
+</script>
+</body>
+</html>
