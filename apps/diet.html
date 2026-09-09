@@ -1,0 +1,1416 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Diet Tracker</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<style>
+  :root{
+    --bg:#F7F8FC; --surface:#FFFFFF; --surface-alt:#F0F2F9;
+    --border:#E4E7F2; --border-soft:#EDEFF7;
+    --text:#191B29; --text-soft:#61667E; --text-faint:#9BA0B8;
+    --cal:#FF7A45; --cal-soft:#FFE8DC;
+    --protein:#3D8BFD; --protein-soft:#DFEBFF;
+    --carbs:#F5B942; --carbs-soft:#FDF1D6;
+    --fat:#B26FF5; --fat-soft:#F0E3FD;
+    --green:#22C55E; --green-soft:#DDF6E4;
+    --danger:#F0596B; --danger-soft:#FCE1E5;
+    --radius-lg:18px; --radius-md:13px; --radius-sm:9px;
+    --shadow:0 1px 2px rgba(20,20,50,0.04), 0 12px 26px -16px rgba(20,20,50,0.16);
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;padding:16px 14px 70px;-webkit-font-smoothing:antialiased;}
+  .wrap{max-width:680px;margin:0 auto;}
+  h1,h2,h3{font-family:'Manrope',sans-serif;}
+  button,input,select,textarea{font-family:inherit;}
+  button{transition:transform .12s cubic-bezier(.34,1.56,.64,1);}
+  button:active{transform:scale(0.96);}
+
+  .loading-gate{position:fixed;inset:0;z-index:200;background:var(--bg);display:flex;align-items:center;justify-content:center;color:var(--text-soft);}
+
+  .profile-inner{text-align:center;}
+  .profile-inner h1{font-size:22px;margin:0 0 30px;font-weight:800;}
+  .profile-row{display:flex;gap:26px;justify-content:center;flex-wrap:wrap;}
+  .profile-card{background:none;border:none;color:var(--text);display:flex;flex-direction:column;align-items:center;gap:10px;cursor:pointer;}
+  .profile-avatar{width:88px;height:88px;border-radius:20px;display:flex;align-items:center;justify-content:center;font-size:30px;font-weight:800;color:#fff;font-family:'Manrope',sans-serif;}
+  .av-b{background:linear-gradient(135deg,#FF7A45,#D6402C);}
+  .av-a{background:linear-gradient(135deg,#22C55E,#0F7A5A);}
+  .profile-name{font-size:13.5px;font-weight:600;color:var(--text-soft);}
+
+  .topbar{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;}
+  .topbar a{font-size:12.5px;color:var(--text-soft);text-decoration:none;}
+  .switch-btn{background:none;border:none;font-size:12.5px;color:var(--text-soft);cursor:pointer;}
+
+  header.app-head{text-align:center;margin-bottom:14px;}
+  header.app-head h1{font-size:23px;font-weight:800;margin:0 0 2px;letter-spacing:-0.02em;background:linear-gradient(135deg,var(--cal),var(--gold,#FFB020));-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;}
+  header.app-head p{margin:0;color:var(--text-soft);font-size:12.5px;}
+
+  .segmented{max-width:460px;margin:0 auto 16px;background:var(--surface-alt);border-radius:999px;padding:4px;display:flex;gap:2px;}
+  .segmented.scrollable{max-width:100%;overflow-x:auto;justify-content:flex-start;-webkit-overflow-scrolling:touch;}
+  .segmented.scrollable::-webkit-scrollbar{display:none;}
+  .segmented.scrollable button{flex:none;padding:9px 14px;}
+  .segmented button{flex:1;border:none;background:transparent;border-radius:999px;padding:9px 4px;font-size:12.5px;font-weight:700;color:var(--text-soft);cursor:pointer;}
+  .segmented button.active{background:var(--surface);color:var(--text);box-shadow:var(--shadow);}
+
+  .date-nav{display:flex;align-items:center;justify-content:center;gap:14px;margin-bottom:14px;}
+  .date-nav button{background:var(--surface);border:1px solid var(--border);border-radius:50%;width:32px;height:32px;cursor:pointer;font-size:14px;box-shadow:var(--shadow);}
+  .date-nav .date-label{font-family:'Manrope',sans-serif;font-weight:700;font-size:14.5px;min-width:120px;text-align:center;}
+  .date-nav .date-label small{display:block;font-weight:500;font-size:11px;color:var(--text-faint);}
+
+  .summary-card{background:var(--surface);border:1px solid var(--border);color:var(--text);border-radius:var(--radius-lg);padding:22px 20px;margin-bottom:16px;box-shadow:var(--shadow);}
+  .cal-ring-row{display:flex;align-items:center;gap:20px;}
+  .cal-ring-wrap{position:relative;width:112px;height:112px;flex:none;}
+  .cal-ring-svg{width:112px;height:112px;transform:rotate(-90deg);}
+  .cal-ring-track{fill:none;stroke:var(--surface-alt);stroke-width:11;}
+  .cal-ring-fill{fill:none;stroke:url(#calGradient);stroke-width:11;stroke-linecap:round;transition:stroke-dashoffset .5s cubic-bezier(.34,1.2,.64,1);}
+  .cal-ring-center{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;}
+  .cal-ring-num{font-family:'Manrope',sans-serif;font-weight:800;font-size:24px;color:var(--text);letter-spacing:-0.02em;}
+  .cal-ring-label{font-size:9px;color:var(--text-faint);text-transform:uppercase;letter-spacing:0.05em;font-weight:700;}
+  .cal-side{flex:1;}
+  .cal-side-row{display:flex;justify-content:space-between;font-size:13px;margin-bottom:7px;color:var(--text-soft);}
+  .cal-side-row b{font-weight:700;color:var(--text);}
+
+  .macro-bars{display:flex;gap:12px;margin-top:18px;}
+  .macro-bar-item{flex:1;}
+  .macro-bar-label{display:flex;justify-content:space-between;font-size:10.5px;color:var(--text-soft);font-weight:600;margin-bottom:5px;}
+  .macro-bar-track{height:7px;border-radius:20px;background:var(--surface-alt);overflow:hidden;}
+  .macro-bar-fill{height:100%;border-radius:20px;transition:width .4s ease;}
+
+  .meal-block{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:16px 18px;margin-bottom:12px;box-shadow:var(--shadow);transition:box-shadow .2s ease;}
+  .meal-block:hover{box-shadow:0 2px 6px rgba(20,20,50,0.06), 0 16px 32px -18px rgba(20,20,50,0.22);}
+  .meal-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;}
+  .meal-head h3{font-size:14.5px;margin:0;}
+  .meal-head .meal-cal{font-size:12px;color:var(--text-soft);font-weight:600;}
+  .add-food-btn{background:var(--cal-soft);color:var(--cal);border:none;border-radius:var(--radius-sm);padding:6px 12px;font-size:12px;font-weight:700;cursor:pointer;}
+
+  .food-entry-row{display:flex;justify-content:space-between;align-items:center;padding:7px 0;border-top:1px solid var(--border-soft);}
+  .food-entry-row:first-of-type{border-top:none;}
+  .fe-name{font-size:13px;font-weight:600;}
+  .fe-serving{font-size:11px;color:var(--text-faint);}
+  .fe-macros{font-size:11.5px;color:var(--text-soft);text-align:right;}
+  .fe-remove{background:none;border:none;color:var(--text-faint);cursor:pointer;font-size:13px;padding:2px 6px;}
+  .fe-remove:hover{color:var(--danger);}
+
+  .empty-meal{color:var(--text-faint);font-size:12.5px;font-style:italic;padding:6px 0;}
+
+  .search-overlay{position:fixed;inset:0;z-index:180;background:rgba(20,20,40,0.4);display:flex;align-items:flex-end;justify-content:center;}
+  .search-sheet{background:var(--surface);width:100%;max-width:520px;border-radius:20px 20px 0 0;padding:18px 16px 24px;max-height:82vh;overflow-y:auto;box-shadow:0 -10px 40px rgba(0,0,0,0.2);}
+  .search-sheet h3{margin:0 0 10px;font-size:16px;}
+  .search-sheet input[type=text]{width:100%;font-size:14px;padding:10px 12px;border-radius:var(--radius-md);border:1px solid var(--border);margin-bottom:10px;}
+  .search-result-item{display:flex;justify-content:space-between;align-items:center;padding:10px 4px;border-bottom:1px solid var(--border-soft);cursor:pointer;}
+  .sri-peek{background:var(--surface-alt);border:none;border-radius:50%;width:30px;height:30px;font-size:14px;cursor:pointer;flex:none;margin-left:8px;}
+  .sri-peek:hover{background:var(--cal-soft);}
+  .search-result-item:hover{background:var(--surface-alt);}
+  .sri-name{font-size:13.5px;font-weight:600;}
+  .sri-meta{font-size:11px;color:var(--text-faint);}
+  .sri-cal{font-size:12px;color:var(--text-soft);font-weight:600;}
+  .create-food-btn{width:100%;margin-top:10px;background:var(--surface-alt);border:1.5px dashed var(--border);border-radius:var(--radius-md);padding:11px;font-size:13px;font-weight:700;color:var(--text-soft);cursor:pointer;}
+  .qty-sheet .qf-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:12px 0;}
+  .qty-sheet .f{display:flex;flex-direction:column;gap:4px;}
+  .qty-sheet label{font-size:10.5px;color:var(--text-faint);font-weight:700;text-transform:uppercase;}
+  .qty-sheet input,.qty-sheet select{font-size:13px;padding:8px 10px;border-radius:var(--radius-sm);border:1px solid var(--border);}
+  .sheet-actions{display:flex;gap:8px;margin-top:10px;}
+  .btn-mini{font-size:12.5px;font-weight:700;border:none;border-radius:var(--radius-sm);padding:9px 16px;cursor:pointer;}
+  .btn-mini.primary{background:var(--cal);color:#fff;}
+  .btn-mini.ghost{background:var(--surface-alt);color:var(--text-soft);}
+
+  .foods-list-row{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-md);padding:11px 13px;margin-bottom:7px;box-shadow:var(--shadow);}
+  .flr-top{display:flex;justify-content:space-between;align-items:center;cursor:pointer;}
+  .flr-name{font-size:13.5px;font-weight:700;}
+  .flr-macros{font-size:11px;color:var(--text-faint);}
+  .food-edit{display:none;margin-top:10px;padding-top:10px;border-top:1px dashed var(--border);}
+  .food-edit.open{display:block;}
+
+  .targets-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:16px;margin-bottom:14px;box-shadow:var(--shadow);}
+  .targets-card h3{font-size:15px;margin:0 0 4px;}
+  .targets-card p{font-size:12px;color:var(--text-soft);margin:0 0 12px;}
+  .targets-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+  .targets-grid .f{display:flex;flex-direction:column;gap:4px;}
+  .targets-grid label{font-size:10.5px;color:var(--text-faint);font-weight:700;text-transform:uppercase;}
+  .targets-grid input{font-size:14px;padding:9px 11px;border-radius:var(--radius-sm);border:1px solid var(--border);}
+
+  .history-row{display:flex;justify-content:space-between;align-items:center;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-md);padding:11px 14px;margin-bottom:7px;box-shadow:var(--shadow);}
+  .hr-date{font-size:13px;font-weight:700;}
+  .hr-nums{font-size:11.5px;color:var(--text-soft);text-align:right;}
+  .hr-hit{color:var(--green);}
+  .hr-miss{color:var(--danger);}
+
+  .empty-note{color:var(--text-faint);font-style:italic;font-size:13px;padding:18px 6px;text-align:center;}
+</style>
+</head>
+<body>
+
+<div id="loading-gate" class="loading-gate">Loading…</div>
+
+<div id="profile-overlay" class="loading-gate" style="display:none;">
+  <div class="profile-inner">
+    <h1>Whose diary?</h1>
+    <div class="profile-row" id="profile-row"></div>
+  </div>
+</div>
+
+<div class="wrap" id="app-wrap" style="display:none;">
+  <div class="topbar">
+    <a href="../index.html">← All apps</a>
+    <button class="switch-btn" id="switch-profile-btn">Switch profile</button>
+  </div>
+  <header class="app-head">
+    <h1>Diet Tracker</h1>
+    <p id="app-sub"></p>
+  </header>
+
+  <div class="segmented scrollable">
+    <button id="tab-today-btn" class="active">Diary</button>
+    <button id="tab-foods-btn">Ingredients</button>
+    <button id="tab-recipes-btn">Recipes</button>
+    <button id="tab-meals-btn">Meals</button>
+    <button id="tab-targets-btn">Targets</button>
+    <button id="tab-history-btn">History</button>
+  </div>
+
+  <div id="today-view"></div>
+  <div id="foods-view" style="display:none;"></div>
+  <div id="recipes-view" style="display:none;"></div>
+  <div id="meals-view" style="display:none;"></div>
+  <div id="targets-view" style="display:none;"></div>
+  <div id="history-view" style="display:none;"></div>
+</div>
+
+<div id="modal-mount"></div>
+
+<script>
+window.addEventListener('error', function(e){
+  const gate = document.getElementById('loading-gate');
+  if(gate && gate.style.display !== 'none') gate.textContent = 'Something went wrong: ' + (e.message||'unknown error') + '. Try a hard refresh.';
+});
+if(typeof firebase === 'undefined'){
+  document.getElementById('loading-gate').textContent = "Couldn't load — check your internet connection and refresh.";
+} else {
+
+const FIREBASE_CONFIG = {
+  apiKey: "AIzaSyBe01eR2RZwSbU_aoJMeh_2MMJ5mqkVuKk",
+  authDomain: "iron-log-bfc55.firebaseapp.com",
+  projectId: "iron-log-bfc55",
+  storageBucket: "iron-log-bfc55.firebasestorage.app",
+  messagingSenderId: "106586808946",
+  appId: "1:106586808946:web:f4736554ba9fc82c6fd8eb"
+};
+firebase.initializeApp(FIREBASE_CONFIG);
+const auth = firebase.auth();
+const db = firebase.firestore();
+try{ db.enablePersistence({synchronizeTabs:true}).catch(function(){}); }catch(e){}
+let currentUser = null;
+let activeProfile = null;
+const LAST_PROFILE_KEY = 'diet-last-profile';
+
+function dietDoc(key){
+  return db.collection('users').doc(currentUser.uid).collection('diet-profiles').doc(activeProfile).collection('data').doc(key);
+}
+
+/* =====================================================================
+   SEEDED FOOD DATABASE — pulled directly from each person's actual
+   current diet plan (Gym app), not invented. Carbs/fat weren't tracked
+   in that plan, so they're left unset (shown as "—") rather than
+   guessed — editable any time from the Foods tab.
+===================================================================== */
+// ===== FOODS: atomic raw ingredients only =====
+const FOODS_SEED_BHARGAV = [
+  {id:'b-whey', name:'Whey protein powder', serving:'1 scoop (30 g)', cal:120, protein:24, carbs:3, fat:1.5, fiber:0, sodium:null},
+  {id:'b-oats', name:'Oats, dry', serving:'40 g', cal:150, protein:5, carbs:27, fat:3, fiber:4, sodium:null},
+  {id:'b-milk', name:'Milk, 2%', serving:'200 ml', cal:105, protein:7, carbs:10, fat:4.2, fiber:0, sodium:null},
+  {id:'b-banana', name:'Banana', serving:'55 g (about half)', cal:50, protein:0.6, carbs:12.5, fat:0.2, fiber:1.4, sodium:null},
+  {id:'b-flax', name:'Ground flaxseed', serving:'10 g', cal:55, protein:2, carbs:3.1, fat:3.5, fiber:2.7, sodium:null},
+  {id:'b-egg-whole', name:'Egg, whole', serving:'1 large egg', cal:72, protein:6.3, carbs:0.4, fat:5, fiber:0, sodium:71},
+  {id:'b-egg-white', name:'Egg white', serving:'1 large egg white', cal:17, protein:3.6, carbs:0.2, fat:0.1, fiber:0, sodium:55},
+  {id:'b-rice', name:'White rice, cooked', serving:'200 g', cal:260, protein:5, carbs:56, fat:0.6, fiber:0.8, sodium:null},
+  {id:'b-yogurt', name:'Greek yogurt, plain nonfat', serving:'200 g', cal:120, protein:20, carbs:8.2, fat:0, fiber:0, sodium:null},
+  {id:'b-salad', name:"Trader Joe's salad mix", serving:'150 g', cal:35, protein:2, carbs:5, fat:0.3, fiber:2, sodium:null},
+  {id:'b-lemon', name:'Lemon, salt, chilli powder', serving:'1 serving', cal:5, protein:0, carbs:1, fat:0, fiber:0.3, sodium:null},
+  {id:'b-mandarin', name:'Dole mandarin fruit bowl', serving:'1 cup', cal:70, protein:0, carbs:15.5, fat:0, fiber:0.5, sodium:null},
+  {id:'b-paneer', name:'Paneer', serving:'80 g', cal:257, protein:20, carbs:3, fat:20, fiber:0, sodium:null},
+  {id:'b-dal', name:'Moong/masoor dal, cooked', serving:'150 g', cal:170, protein:12, carbs:25, fat:0.5, fiber:4, sodium:null},
+  {id:'b-ghee', name:'Ghee', serving:'10 g', cal:90, protein:0, carbs:0, fat:10, fiber:0, sodium:0},
+  {id:'b-veg', name:'Salad or vegetables', serving:'125 g', cal:35, protein:2, carbs:4, fat:0.3, fiber:2, sodium:null}
+];
+const FOODS_SEED_ANUSHA = [
+  {id:'a-whey', name:'Whey protein powder', serving:'1 scoop (30 g)', cal:120, protein:24, carbs:3, fat:1.5, fiber:0, sodium:null},
+  {id:'a-oats', name:'Oats, dry', serving:'35 g', cal:131, protein:4.4, carbs:23.6, fat:2.6, fiber:3.5, sodium:null},
+  {id:'a-milk', name:'Milk, 2%', serving:'150 ml', cal:79, protein:5.3, carbs:7.5, fat:3.1, fiber:0, sodium:null},
+  {id:'a-banana', name:'Banana', serving:'55 g (about half)', cal:50, protein:0.6, carbs:12.5, fat:0.2, fiber:1.4, sodium:null},
+  {id:'a-flax', name:'Ground flaxseed', serving:'10 g', cal:55, protein:2, carbs:3.1, fat:3.5, fiber:2.7, sodium:null},
+  {id:'a-egg-whole', name:'Egg, whole', serving:'1 large egg', cal:72, protein:6.3, carbs:0.4, fat:5, fiber:0, sodium:71},
+  {id:'a-egg-white', name:'Egg white', serving:'1 large egg white', cal:17, protein:3.6, carbs:0.2, fat:0.1, fiber:0, sodium:55},
+  {id:'a-rice', name:'White rice, cooked', serving:'125 g', cal:163, protein:3.1, carbs:35, fat:0.4, fiber:0.5, sodium:null},
+  {id:'a-yogurt', name:'Greek yogurt, plain nonfat', serving:'150 g', cal:90, protein:15, carbs:6, fat:0, fiber:0, sodium:null},
+  {id:'a-salad', name:'Large salad', serving:'1 salad', cal:40, protein:2, carbs:5, fat:0.3, fiber:2, sodium:null},
+  {id:'a-lemon', name:'Lemon, salt, spices', serving:'1 serving', cal:5, protein:0, carbs:1, fat:0, fiber:0.3, sodium:null},
+  {id:'a-fruit', name:'Fruit (apple/orange/berries/banana)', serving:'1 piece/cup', cal:75, protein:0, carbs:19, fat:0.3, fiber:2.5, sodium:null},
+  {id:'a-paneer', name:'Paneer', serving:'78 g (75–80 g)', cal:251, protein:19.5, carbs:2.8, fat:19.5, fiber:0, sodium:null},
+  {id:'a-rice-dinner', name:'White rice, cooked', serving:'75 g', cal:98, protein:1.9, carbs:21, fat:0.2, fiber:0.3, sodium:null},
+  {id:'a-dal', name:'Dal, cooked', serving:'125 g', cal:142, protein:10, carbs:21, fat:0.4, fiber:3.3, sodium:null},
+  {id:'a-veg', name:'Vegetables/salad', serving:'175 g (150–200 g)', cal:49, protein:2.8, carbs:5.5, fat:0.4, fiber:2.8, sodium:null},
+  {id:'a-ghee', name:'Ghee', serving:'5 g', cal:45, protein:0, carbs:0, fat:5, fiber:0, sodium:0}
+];
+
+// ===== RECIPES: dishes built from foods, with real cooking instructions =====
+const RECIPES_SEED_BHARGAV = [
+  { id:'r-whey-shake-b', name:'Whey Shake', instructions:'Mix 1 scoop whey protein with water. Shake or stir well.',
+    ingredients:[{foodId:'b-whey',servings:1}], recipeServings:1 },
+  { id:'r-oat-bowl-b', name:'Protein Oat Bowl', instructions:'Place 40g oats and 150ml milk in a microwave-safe bowl. Microwave ~90 seconds, stirring and continuing in 20–30 second bursts until the right consistency. Let cool 1–2 minutes. Stir in the flaxseed. Stir in the half scoop of whey — do not add whey while the mixture is still boiling. Top with the sliced half banana.',
+    ingredients:[{foodId:'b-oats',servings:1},{foodId:'b-milk',servings:1},{foodId:'b-flax',servings:1},{foodId:'b-whey',servings:0.5},{foodId:'b-banana',servings:1}], recipeServings:1 },
+  { id:'r-boiled-eggs-b', name:'Boiled Eggs — 2 whole + 4 whites', instructions:'Boil 6 eggs. Eat 2 whole eggs. For the remaining 4, discard the yolks and eat only the whites. Served separately from the oat bowl, not mixed in.',
+    ingredients:[{foodId:'b-egg-whole',servings:2},{foodId:'b-egg-white',servings:4}], recipeServings:1 },
+  { id:'r-rice-yogurt-b', name:'Creamy Rice & Yogurt Bowl', instructions:'Measure 150g cooked rice and let it cool until warm rather than steaming. Add the yogurt and the milk. Mix until creamy. Do not add ghee or cooking oil. Keep the salad separate so it stays crisp.',
+    ingredients:[{foodId:'b-rice',servings:1},{foodId:'b-yogurt',servings:1},{foodId:'b-milk',servings:0.1}], recipeServings:1 },
+  { id:'r-lunch-salad-b', name:'Lunch Salad (your half)', instructions:'Divide the Trader Joe\'s Organic Baby Lettuce Mix bag evenly between two bowls — this is your half. Squeeze half a lemon over it. Add the measured salt and chilli powder. Toss immediately before eating. No oil, mayonnaise, or sugary dressing.',
+    ingredients:[{foodId:'b-salad',servings:1},{foodId:'b-lemon',servings:1}], recipeServings:1 },
+  { id:'r-mandarin-b', name:'Mandarin Cup', instructions:'Open and eat one Dole mandarin fruit bowl. Fresh fruit may replace this, but not be added alongside it.',
+    ingredients:[{foodId:'b-mandarin',servings:1}], recipeServings:1 },
+  { id:'r-paneer-b', name:'Measured Paneer', instructions:'Weigh exactly 80g paneer, cut into cubes, and heat in a nonstick pan. Season with salt, chilli powder, turmeric, cumin, coriander, black pepper, garlic powder or garam masala as desired. No extra ghee or oil — your 5g ghee is reserved for the dal bowl.',
+    ingredients:[{foodId:'b-paneer',servings:1}], recipeServings:1 },
+  { id:'r-dal-bowl-b', name:'Cooked Dal Bowl', instructions:'Measure 150g cooked dal and heat it. Stir in exactly 5g ghee. Season as desired. (No rice at dinner — adding it would change your diet.)',
+    ingredients:[{foodId:'b-dal',servings:1},{foodId:'b-ghee',servings:1}], recipeServings:1 },
+  { id:'r-dinner-salad-b', name:'Dinner Salad (your half)', instructions:'Divide the Trader Joe\'s Organic Herb Salad Mix bag evenly between two bowls — this is your half. Add half a lemon, the measured salt, and chilli powder. Toss immediately before eating.',
+    ingredients:[{foodId:'b-veg',servings:1},{foodId:'b-lemon',servings:1}], recipeServings:1 }
+];
+const RECIPES_SEED_ANUSHA = [
+  { id:'r-whey-shake-a', name:'Half Whey Shake', instructions:'Mix half a scoop of whey protein with water. If you mix this into your oat bowl instead, skip this separate shake — it\'s a replacement, not an extra half scoop.',
+    ingredients:[{foodId:'a-whey',servings:0.5}], recipeServings:1 },
+  { id:'r-oat-bowl-a', name:'Oat Bowl', instructions:'Combine 35g oats and 150ml milk in a microwave-safe bowl. Microwave ~90 seconds, stirring until the right consistency. Stir in the flaxseed. Add the sliced half banana. (Your after-gym half-scoop whey can be mixed in here instead of taken separately — just don\'t do both.)',
+    ingredients:[{foodId:'a-oats',servings:1},{foodId:'a-milk',servings:1},{foodId:'a-flax',servings:1},{foodId:'a-banana',servings:1}], recipeServings:1 },
+  { id:'r-boiled-eggs-a', name:'Boiled Eggs — 1 whole + 2 whites', instructions:'Boil 3 eggs. Eat 1 whole egg. For the remaining 2, discard the yolks and eat only the whites. Served separately from the oat bowl, not mixed in.',
+    ingredients:[{foodId:'a-egg-whole',servings:1},{foodId:'a-egg-white',servings:2}], recipeServings:1 },
+  { id:'r-rice-yogurt-a', name:'Rice & Yogurt Bowl', instructions:'Measure 125g cooked rice and let it cool until warm. Add the yogurt and mix until evenly combined. No milk in this bowl — that would change your diet.',
+    ingredients:[{foodId:'a-rice',servings:1},{foodId:'a-yogurt',servings:1}], recipeServings:1 },
+  { id:'r-lunch-salad-a', name:'Lunch Salad (your half)', instructions:'Divide the Trader Joe\'s Organic Baby Lettuce Mix bag evenly between two bowls — this is your half. Squeeze half a lemon over it, add the measured salt and chilli powder, and toss immediately before eating.',
+    ingredients:[{foodId:'a-salad',servings:1},{foodId:'a-lemon',servings:1}], recipeServings:1 },
+  { id:'r-fruit-whey-a', name:'Fruit + Half Whey', instructions:'Pick one fruit — apple, orange, berries, or banana. Mix half a scoop of whey with water. (If you already used your half-scoop in the oat bowl, don\'t repeat it here — under the original diet this snack and the after-gym shake are two separate half-scoops.)',
+    ingredients:[{foodId:'a-fruit',servings:1},{foodId:'a-whey',servings:0.5}], recipeServings:1 },
+  { id:'r-paneer-a', name:'Measured Paneer', instructions:'Weigh 75–80g paneer, cut into cubes, and heat in a nonstick pan. Add measured spices. No extra oil or ghee.',
+    ingredients:[{foodId:'a-paneer',servings:1}], recipeServings:1 },
+  { id:'r-ricedal-bowl-a', name:'Cooked Rice & Dal Bowl', instructions:'Measure 125g cooked dal and 75g cooked rice. Combine and heat. Stir in exactly 5g ghee. Add measured spices.',
+    ingredients:[{foodId:'a-rice-dinner',servings:1},{foodId:'a-dal',servings:1},{foodId:'a-ghee',servings:1}], recipeServings:1 },
+  { id:'r-dinner-salad-a', name:'Dinner Salad (your half)', instructions:'Divide the Trader Joe\'s Organic Herb Salad Mix bag evenly between two bowls — this is your half. Add half a lemon, measured salt, and chilli powder. Toss immediately before eating.',
+    ingredients:[{foodId:'a-veg',servings:1},{foodId:'a-lemon',servings:1}], recipeServings:1 }
+];
+
+// ===== MEALS: group recipes (and/or raw foods) into a full meal slot =====
+const MEALS_SEED_BHARGAV = [
+  { id:'m-postgym-b', name:'Post-Gym', mealSlot:'snacks', components:[{type:'recipe', id:'r-whey-shake-b', servings:1}] },
+  { id:'m-breakfast-b', name:'Breakfast', mealSlot:'breakfast', components:[{type:'recipe', id:'r-oat-bowl-b', servings:1},{type:'recipe', id:'r-boiled-eggs-b', servings:1}] },
+  { id:'m-lunch-b', name:'Lunch', mealSlot:'lunch', components:[{type:'recipe', id:'r-rice-yogurt-b', servings:1},{type:'recipe', id:'r-lunch-salad-b', servings:1}] },
+  { id:'m-snack-b', name:'Snack', mealSlot:'snacks', components:[{type:'recipe', id:'r-whey-shake-b', servings:1},{type:'recipe', id:'r-mandarin-b', servings:1}] },
+  { id:'m-dinner-b', name:'Dinner', mealSlot:'dinner', components:[{type:'recipe', id:'r-paneer-b', servings:1},{type:'recipe', id:'r-dal-bowl-b', servings:1},{type:'recipe', id:'r-dinner-salad-b', servings:1}] }
+];
+const MEALS_SEED_ANUSHA = [
+  { id:'m-postworkout-a', name:'Post-Workout', mealSlot:'snacks', components:[{type:'recipe', id:'r-whey-shake-a', servings:1}] },
+  { id:'m-breakfast-a', name:'Breakfast', mealSlot:'breakfast', components:[{type:'recipe', id:'r-oat-bowl-a', servings:1},{type:'recipe', id:'r-boiled-eggs-a', servings:1}] },
+  { id:'m-lunch-a', name:'Lunch', mealSlot:'lunch', components:[{type:'recipe', id:'r-rice-yogurt-a', servings:1},{type:'recipe', id:'r-lunch-salad-a', servings:1}] },
+  { id:'m-snack-a', name:'Snack', mealSlot:'snacks', components:[{type:'recipe', id:'r-fruit-whey-a', servings:1}] },
+  { id:'m-dinner-a', name:'Dinner', mealSlot:'dinner', components:[{type:'recipe', id:'r-paneer-a', servings:1},{type:'recipe', id:'r-ricedal-bowl-a', servings:1},{type:'recipe', id:'r-dinner-salad-a', servings:1}] }
+];
+
+// FDA reference Daily Values used only as editable starting defaults for
+// fiber/sodium (not personalized — clearly labeled and changeable).
+const TARGETS_SEED = {
+  bhargav: { cal:2000, protein:155, carbs:181, fat:57, fiber:28, sodium:2300 },
+  anusha: { cal:1500, protein:100, carbs:145, fat:50, fiber:28, sodium:2300 }
+};
+// Same weight-goal figures already used in the Gym app, so both apps agree.
+const WEIGHT_GOAL_SEED = {
+  bhargav: { startWeight:98.3, targetWeight:77, height:null, age:null, sex:'male' },
+  anusha: { startWeight:66, targetWeight:53, height:null, age:null, sex:'female' }
+};
+
+/* =====================================================================
+   GYM INTEGRATION — weight comes straight from Gym's own daily log
+   (same read pattern already used by the Skin app), so there's never a
+   second place to enter your weight.
+===================================================================== */
+function gymDailyLogsCol(){
+  return db.collection('users').doc(currentUser.uid).collection('profiles').doc(activeProfile.toLowerCase()).collection('dailyLogs');
+}
+let latestGymWeight = null;
+async function loadGymWeight(){
+  try{
+    const snap = await gymDailyLogsCol().get();
+    const all = [];
+    snap.forEach(function(d){ all.push(d.data()); });
+    const withWeight = all.filter(function(d){ return d.weight != null && d.weight !== ''; }).sort(function(a,b){ return a.date<b.date?1:-1; });
+    latestGymWeight = withWeight.length ? withWeight[0].weight : null;
+  }catch(e){ latestGymWeight = null; }
+}
+
+/* =====================================================================
+   ENERGY BALANCE — real BMR/TDEE-based tracking instead of just a
+   weight-progress bar. Uses Mifflin-St Jeor (the standard, well-validated
+   formula) for BMR — a real physiological estimate, not adjusted.
+
+   The 5% margin applies specifically to ESTIMATES that could otherwise
+   overstate progress: calories burned from a logged workout, and the
+   projected weekly weight change. Both get shaved down 5% before being
+   shown, so if the raw math says "0.85 kg this week," what actually
+   displays is ~0.80 kg — a deliberately conservative number, so results
+   and what the tracker promised stay honest with each other instead of
+   the tracker quietly overselling progress that doesn't show up on the
+   scale.
+===================================================================== */
+const ESTIMATE_MARGIN = 0.95; // conservative shave on any *estimated* quantity
+function calculateBMR(){
+  const wg = weightGoal;
+  const weight = latestGymWeight != null ? latestGymWeight : wg.startWeight;
+  if(!wg.height || !wg.age || !weight) return null;
+  const base = 10*weight + 6.25*wg.height - 5*wg.age;
+  return wg.sex==='female' ? base - 161 : base + 5;
+}
+async function workoutCaloriesFor(dateStr){
+  try{
+    const col = db.collection('users').doc(currentUser.uid).collection('profiles').doc(activeProfile.toLowerCase()).collection('workoutLogs');
+    const snap = await col.get();
+    let totalSets = 0;
+    snap.forEach(function(doc){
+      const id = doc.id; // format "YYYY-MM-DD:key"
+      if(id.indexOf(dateStr+':')!==0) return;
+      const data = doc.data();
+      (data.exercises||[]).forEach(function(ex){ totalSets += (ex.sets||[]).length; });
+    });
+    // Raw estimate: resistance training averages roughly 8 kcal per working
+    // set including rest between sets. Then the conservative margin —
+    // count it as slightly less than the raw estimate says, same logic as
+    // "if a walk calculates to 100 kcal, count 95."
+    const rawEstimate = totalSets * 8;
+    return rawEstimate * ESTIMATE_MARGIN;
+  }catch(e){ return 0; }
+}
+async function energyBalanceFor(dateStr){
+  const bmr = calculateBMR();
+  if(!bmr) return null;
+  const baselineActivity = 1.375; // light daily activity, exercise added separately below
+  const workoutCal = await workoutCaloriesFor(dateStr);
+  const tdee = bmr*baselineActivity + workoutCal; // TDEE = real maintenance estimate, not artificially cut
+  return { bmr:Math.round(bmr), tdee:Math.round(tdee), workoutCal:Math.round(workoutCal) };
+}
+// Looks at the last 7 days of actual logged intake vs. that day's TDEE to
+// get a real average daily deficit, projects it across a week, converts
+// to kg via the standard ~7700 kcal/kg rule, then applies the same
+// conservative 5% shave before showing it — exactly your 0.85→0.80 example.
+async function projectedWeeklyChange(){
+  const bmr = calculateBMR();
+  if(!bmr) return null;
+  const baselineActivity = 1.375;
+  let totalDeficit = 0, daysCounted = 0;
+  for(let i=0;i<7;i++){
+    const d = addDays(todayStr(), -i);
+    const dayLogs = logs[d] || (await loadLogForDate(d));
+    if(!dayLogs || !dayLogs.length) continue;
+    const eaten = totalsFor(dayLogs).cal;
+    const workoutCal = await workoutCaloriesFor(d);
+    const tdee = bmr*baselineActivity + workoutCal;
+    totalDeficit += (tdee - eaten);
+    daysCounted++;
+  }
+  if(!daysCounted) return null;
+  const avgDailyDeficit = totalDeficit/daysCounted;
+  const rawWeeklyKg = (avgDailyDeficit*7)/7700;
+  return { kg: rawWeeklyKg*ESTIMATE_MARGIN, daysCounted: daysCounted, losing: rawWeeklyKg>0 };
+}
+
+/* =====================================================================
+   STATE
+===================================================================== */
+let foods = [];
+let recipes = [];
+let meals = [];
+let targets = {};
+let weightGoal = {};
+let logs = {}; // { 'YYYY-MM-DD': [{id, sourceType:'food'|'recipe', sourceId, mealSlot, servings}] }
+let activeDate = null;
+let activeTab = 'today';
+
+function pad2(n){ return String(n).padStart(2,'0'); }
+function todayStr(){ const d = new Date(); return d.getFullYear()+'-'+pad2(d.getMonth()+1)+'-'+pad2(d.getDate()); }
+function addDays(dateStr, n){ const d = new Date(dateStr+'T00:00:00'); d.setDate(d.getDate()+n); return d.getFullYear()+'-'+pad2(d.getMonth()+1)+'-'+pad2(d.getDate()); }
+function fmtHuman(dateStr){ return new Date(dateStr+'T00:00:00').toLocaleDateString(undefined,{weekday:'short', month:'short', day:'numeric'}); }
+function escapeHtml(s){ return String(s==null?'':s).replace(/[&<>"']/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); }
+function foodById(id){ return foods.find(function(f){ return f.id===id; }); }
+function recipeById(id){ return recipes.find(function(r){ return r.id===id; }); }
+function mealById(id){ return meals.find(function(m){ return m.id===id; }); }
+function n2(v){ return v==null ? null : Math.round(v*10)/10; }
+
+// A recipe's macros are always derived live from its ingredients ÷
+// servings, never stored — so editing an ingredient food automatically
+// updates every recipe (and every meal) that uses it.
+function recipeMacros(r){
+  const t = totalsFor(r.ingredients.map(function(ing){ return {sourceType:'food', sourceId:ing.foodId, servings:ing.servings}; }));
+  const s = r.recipeServings || 1;
+  return { cal:Math.round(t.cal/s), protein:n2(t.protein/s), carbs:t.carbs!=null?n2(t.carbs/s):null, fat:t.fat!=null?n2(t.fat/s):null, fiber:t.fiber!=null?n2(t.fiber/s):null, sodium:t.sodium!=null?Math.round(t.sodium/s):null };
+}
+function macrosForComponent(c){
+  if(c.type==='recipe'){ const r = recipeById(c.id); if(!r) return {cal:0,protein:0,carbs:0,fat:0,fiber:0,sodium:0}; const m = recipeMacros(r); const mult = c.servings||1; return {cal:m.cal*mult, protein:(m.protein||0)*mult, carbs:m.carbs!=null?m.carbs*mult:0, fat:m.fat!=null?m.fat*mult:0, fiber:m.fiber!=null?m.fiber*mult:0, sodium:m.sodium!=null?m.sodium*mult:0}; }
+  const f = foodById(c.id); if(!f) return {cal:0,protein:0,carbs:0,fat:0,fiber:0,sodium:0};
+  const mult = c.servings||1;
+  return {cal:(f.cal||0)*mult, protein:(f.protein||0)*mult, carbs:f.carbs!=null?f.carbs*mult:0, fat:f.fat!=null?f.fat*mult:0, fiber:f.fiber!=null?f.fiber*mult:0, sodium:f.sodium!=null?f.sodium*mult:0};
+}
+function mealMacros(m){
+  const t = {cal:0,protein:0,carbs:0,fat:0,fiber:0,sodium:0};
+  m.components.forEach(function(c){
+    const cm = macrosForComponent(c);
+    t.cal+=cm.cal; t.protein+=cm.protein; t.carbs+=cm.carbs; t.fat+=cm.fat; t.fiber+=cm.fiber; t.sodium+=cm.sodium;
+  });
+  return t;
+}
+
+async function loadFoods(){
+  try{
+    const doc = await dietDoc('foods').get();
+    foods = (doc.exists && doc.data().json) ? JSON.parse(doc.data().json) : JSON.parse(JSON.stringify(activeProfile==='Bhargav'?FOODS_SEED_BHARGAV:FOODS_SEED_ANUSHA));
+    if(!doc.exists) await saveFoods();
+  }catch(e){ foods = JSON.parse(JSON.stringify(activeProfile==='Bhargav'?FOODS_SEED_BHARGAV:FOODS_SEED_ANUSHA)); }
+}
+async function saveFoods(){ try{ await dietDoc('foods').set({json: JSON.stringify(foods)}); }catch(e){ console.error(e); } }
+
+// One-time fix for foods saved before real carb/fat/fiber data was
+// available — fills in the correct values now sourced from the grocery
+// document, without touching anything else about a food (including any
+// genuine customization already made to its calories or protein).
+async function migrateFillMissingMacros(){
+  const seed = activeProfile==='Bhargav' ? FOODS_SEED_BHARGAV : FOODS_SEED_ANUSHA;
+  let changed = false;
+  foods.forEach(function(f){
+    const seedFood = seed.find(function(s){ return s.id===f.id; });
+    if(!seedFood) return;
+    if(f.carbs==null && seedFood.carbs!=null){ f.carbs = seedFood.carbs; changed = true; }
+    if(f.fat==null && seedFood.fat!=null){ f.fat = seedFood.fat; changed = true; }
+    if(f.fiber==null && seedFood.fiber!=null){ f.fiber = seedFood.fiber; changed = true; }
+  });
+  if(changed) await saveFoods();
+}
+
+async function loadRecipes(){
+  const seed = activeProfile==='Bhargav' ? RECIPES_SEED_BHARGAV : RECIPES_SEED_ANUSHA;
+  try{
+    const doc = await dietDoc('recipes').get();
+    recipes = (doc.exists && doc.data().json) ? JSON.parse(doc.data().json) : JSON.parse(JSON.stringify(seed));
+    if(!doc.exists) await saveRecipes();
+  }catch(e){ recipes = JSON.parse(JSON.stringify(seed)); }
+}
+async function saveRecipes(){ try{ await dietDoc('recipes').set({json: JSON.stringify(recipes)}); }catch(e){ console.error(e); } }
+
+async function loadMeals(){
+  const seed = activeProfile==='Bhargav' ? MEALS_SEED_BHARGAV : MEALS_SEED_ANUSHA;
+  try{
+    const doc = await dietDoc('meals').get();
+    meals = (doc.exists && doc.data().json) ? JSON.parse(doc.data().json) : JSON.parse(JSON.stringify(seed));
+    if(!doc.exists) await saveMeals();
+  }catch(e){ meals = JSON.parse(JSON.stringify(seed)); }
+}
+async function saveMeals(){ try{ await dietDoc('meals').set({json: JSON.stringify(meals)}); }catch(e){ console.error(e); } }
+
+// One-time fix for anyone who already used the app before eggs were split
+// out of the Oat Bowl recipe — an old saved Oat Bowl with egg ingredients
+// baked in gets corrected to the clean version, with eggs restored as
+// their own separate recipe in the Breakfast meal, exactly like Bhargav's
+// always was. Never touches anything the person has genuinely customized
+// beyond this specific known issue.
+async function migrateSplitEggsFromOatBowl(){
+  if(activeProfile!=='Anusha') return;
+  const oatBowl = recipes.find(function(r){ return r.id==='r-oat-bowl-a'; });
+  const hasEggsBakedIn = oatBowl && oatBowl.ingredients.some(function(ing){ return ing.foodId==='a-egg-whole' || ing.foodId==='a-egg-white'; });
+  if(!hasEggsBakedIn) return;
+  oatBowl.ingredients = oatBowl.ingredients.filter(function(ing){ return ing.foodId!=='a-egg-whole' && ing.foodId!=='a-egg-white'; });
+  oatBowl.instructions = RECIPES_SEED_ANUSHA.find(function(r){ return r.id==='r-oat-bowl-a'; }).instructions;
+  if(!recipes.some(function(r){ return r.id==='r-boiled-eggs-a'; })){
+    recipes.push(JSON.parse(JSON.stringify(RECIPES_SEED_ANUSHA.find(function(r){ return r.id==='r-boiled-eggs-a'; }))));
+  }
+  const breakfast = meals.find(function(m){ return m.id==='m-breakfast-a'; });
+  if(breakfast && !breakfast.components.some(function(c){ return c.id==='r-boiled-eggs-a'; })){
+    breakfast.components.push({type:'recipe', id:'r-boiled-eggs-a', servings:1});
+  }
+  await saveRecipes();
+  await saveMeals();
+}
+
+async function loadTargets(){
+  try{
+    const doc = await dietDoc('targets').get();
+    targets = (doc.exists && doc.data().json) ? JSON.parse(doc.data().json) : JSON.parse(JSON.stringify(TARGETS_SEED[activeProfile.toLowerCase()]));
+    if(!doc.exists) await saveTargets();
+  }catch(e){ targets = JSON.parse(JSON.stringify(TARGETS_SEED[activeProfile.toLowerCase()])); }
+  // Fix for anyone whose saved carbs/fat target is still the old 0
+  // placeholder — a 0 target makes the macro bar render at 0% width no
+  // matter how much was actually eaten, which is the "blank bar" bug.
+  const seedTargets = TARGETS_SEED[activeProfile.toLowerCase()];
+  let fixed = false;
+  if(!targets.carbs){ targets.carbs = seedTargets.carbs; fixed = true; }
+  if(!targets.fat){ targets.fat = seedTargets.fat; fixed = true; }
+  if(fixed) await saveTargets();
+}
+async function saveTargets(){ try{ await dietDoc('targets').set({json: JSON.stringify(targets)}); }catch(e){ console.error(e); } }
+
+async function loadWeightGoal(){
+  try{
+    const doc = await dietDoc('weightGoal').get();
+    weightGoal = (doc.exists && doc.data().json) ? JSON.parse(doc.data().json) : JSON.parse(JSON.stringify(WEIGHT_GOAL_SEED[activeProfile.toLowerCase()]));
+    if(!doc.exists) await saveWeightGoal();
+  }catch(e){ weightGoal = JSON.parse(JSON.stringify(WEIGHT_GOAL_SEED[activeProfile.toLowerCase()])); }
+}
+async function saveWeightGoal(){ try{ await dietDoc('weightGoal').set({json: JSON.stringify(weightGoal)}); }catch(e){ console.error(e); } }
+
+async function loadLogForDate(date){
+  if(logs[date]) return logs[date];
+  try{
+    const doc = await dietDoc('log-'+date).get();
+    logs[date] = (doc.exists && doc.data().json) ? JSON.parse(doc.data().json) : [];
+  }catch(e){ logs[date] = []; }
+  return logs[date];
+}
+async function saveLogForDate(date){
+  try{ await dietDoc('log-'+date).set({json: JSON.stringify(logs[date]||[])}); }catch(e){ console.error(e); }
+}
+async function loadRecentLogs(days){
+  const dates = [];
+  for(let i=0;i<days;i++) dates.push(addDays(todayStr(),-i));
+  await Promise.all(dates.map(function(d){ return loadLogForDate(d); }));
+  return dates;
+}
+
+function totalsFor(entries){
+  const t = {cal:0, protein:0, carbs:0, fat:0, fiber:0, sodium:0};
+  entries.forEach(function(e){
+    const mult = e.servings || 1;
+    let m;
+    if(e.sourceType==='recipe'){
+      const r = recipeById(e.sourceId);
+      if(!r) return;
+      m = recipeMacros(r);
+    } else {
+      const f = foodById(e.sourceId);
+      if(!f) return;
+      m = f;
+    }
+    t.cal += (m.cal||0)*mult;
+    t.protein += (m.protein||0)*mult;
+    t.carbs += (m.carbs||0)*mult;
+    t.fat += (m.fat||0)*mult;
+    t.fiber += (m.fiber||0)*mult;
+    t.sodium += (m.sodium||0)*mult;
+  });
+  return t;
+}
+
+auth.onAuthStateChanged(function(user){
+  currentUser = user;
+  if(!user){ window.location.href = '../index.html'; return; }
+  const params = new URLSearchParams(window.location.search);
+  const hubProfile = params.get('profile');
+  if(hubProfile === 'Bhargav' || hubProfile === 'Anusha'){ enterProfile(hubProfile); return; }
+  let last = null;
+  try{ last = localStorage.getItem(LAST_PROFILE_KEY); }catch(e){}
+  if(last === 'Bhargav' || last === 'Anusha') enterProfile(last);
+  else showProfilePicker();
+});
+function showProfilePicker(){
+  document.getElementById('loading-gate').style.display = 'none';
+  document.getElementById('app-wrap').style.display = 'none';
+  document.getElementById('profile-overlay').style.display = 'flex';
+  const row = document.getElementById('profile-row');
+  row.innerHTML = '';
+  [{id:'Bhargav',cls:'av-b'},{id:'Anusha',cls:'av-a'}].forEach(function(p){
+    const card = document.createElement('button');
+    card.className = 'profile-card';
+    card.innerHTML = '<div class="profile-avatar '+p.cls+'">'+p.id[0]+'</div><div class="profile-name">'+p.id+'</div>';
+    card.addEventListener('click', function(){ enterProfile(p.id); });
+    row.appendChild(card);
+  });
+}
+async function enterProfile(profileId){
+  activeProfile = profileId;
+  try{ localStorage.setItem(LAST_PROFILE_KEY, profileId); }catch(e){}
+  document.getElementById('loading-gate').style.display = 'none';
+  document.getElementById('profile-overlay').style.display = 'none';
+  document.getElementById('app-wrap').style.display = 'block';
+  document.getElementById('app-sub').textContent = profileId+"'s food diary";
+  document.getElementById('switch-profile-btn').textContent = 'Switch to '+(profileId==='Bhargav'?'Anusha':'Bhargav');
+  document.getElementById('switch-profile-btn').onclick = function(){
+    enterProfile(activeProfile==='Bhargav' ? 'Anusha' : 'Bhargav');
+  };
+  await init();
+}
+
+/* =====================================================================
+   INIT / TABS
+===================================================================== */
+async function init(){
+  activeDate = todayStr();
+  await loadFoods();
+  await migrateFillMissingMacros();
+  await loadRecipes();
+  await loadMeals();
+  await migrateSplitEggsFromOatBowl();
+  await loadTargets();
+  await loadWeightGoal();
+  await loadGymWeight();
+  await loadLogForDate(activeDate);
+  document.getElementById('tab-today-btn').onclick = function(){ showTab('today'); };
+  document.getElementById('tab-foods-btn').onclick = function(){ showTab('foods'); };
+  document.getElementById('tab-recipes-btn').onclick = function(){ showTab('recipes'); };
+  document.getElementById('tab-meals-btn').onclick = function(){ showTab('meals'); };
+  document.getElementById('tab-targets-btn').onclick = function(){ showTab('targets'); };
+  document.getElementById('tab-history-btn').onclick = function(){ showTab('history'); };
+  showTab('today');
+}
+function showTab(name){
+  activeTab = name;
+  ['today','foods','recipes','meals','targets','history'].forEach(function(t){
+    document.getElementById('tab-'+t+'-btn').classList.toggle('active', t===name);
+    document.getElementById(t+'-view').style.display = t===name ? 'block':'none';
+  });
+  if(name==='today') renderToday();
+  if(name==='foods') renderFoods();
+  if(name==='recipes') renderRecipes();
+  if(name==='meals') renderMeals();
+  if(name==='targets') renderTargets();
+  if(name==='history') renderHistoryTab();
+}
+
+/* =====================================================================
+   TODAY / DIARY
+===================================================================== */
+const MEAL_SLOTS = [
+  {key:'breakfast', label:'Breakfast'},
+  {key:'lunch', label:'Lunch'},
+  {key:'dinner', label:'Dinner'},
+  {key:'snacks', label:'Snacks'}
+];
+async function renderToday(){
+  const el = document.getElementById('today-view');
+  const entries = await loadLogForDate(activeDate);
+  const t = totalsFor(entries);
+  const energyBalance = await energyBalanceFor(activeDate);
+  const weeklyProjection = energyBalance ? await projectedWeeklyChange() : null;
+  const effectiveTarget = energyBalance ? energyBalance.tdee : targets.cal;
+  const remaining = Math.round((effectiveTarget||0) - t.cal);
+  const pct = effectiveTarget ? Math.min(100, Math.round(100*t.cal/effectiveTarget)) : 0;
+  const r = 46, circumference = Math.round(2*Math.PI*r*100)/100;
+  const offset = Math.round((circumference*(1-pct/100))*100)/100;
+
+  el.innerHTML =
+    dateNavHtml() +
+    weightProgressCardHtml() +
+    energyBalanceCardHtml(energyBalance, t.cal, weeklyProjection) +
+    '<div class="summary-card">'+
+      '<div class="cal-ring-row">'+
+        '<div class="cal-ring-wrap"><svg class="cal-ring-svg" viewBox="0 0 100 100">'+
+          '<defs><linearGradient id="calGradient" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#FF7A45"/><stop offset="100%" stop-color="#FFB020"/></linearGradient></defs>'+
+          '<circle class="cal-ring-track" cx="50" cy="50" r="'+r+'"></circle>'+
+          '<circle class="cal-ring-fill" cx="50" cy="50" r="'+r+'" stroke-dasharray="'+circumference+'" stroke-dashoffset="'+offset+'"></circle>'+
+        '</svg><div class="cal-ring-center"><div class="cal-ring-num">'+Math.round(t.cal)+'</div><div class="cal-ring-label">kcal</div></div></div>'+
+        '<div class="cal-side">'+
+          '<div class="cal-side-row"><span>Maintenance'+(energyBalance?' (TDEE)':' target')+'</span><b>'+(effectiveTarget||'—')+' kcal</b></div>'+
+          '<div class="cal-side-row"><span>Remaining</span><b>'+(effectiveTarget ? remaining+' kcal' : '—')+'</b></div>'+
+          '<div class="cal-side-row"><span>Fiber / Sodium</span><b>'+Math.round(t.fiber)+'g / '+Math.round(t.sodium)+'mg</b></div>'+
+        '</div>'+
+      '</div>'+
+      macroBarsHtml(t)+
+    '</div>'+
+    MEAL_SLOTS.map(function(slot){ return mealBlockHtml(slot, entries); }).join('');
+
+  el.querySelectorAll('[data-addfood]').forEach(function(btn){
+    btn.addEventListener('click', function(){ openFoodSearch(btn.dataset.addfood); });
+  });
+  el.querySelectorAll('[data-addmeal]').forEach(function(btn){
+    btn.addEventListener('click', function(){ openMealPicker(btn.dataset.addmeal); });
+  });
+  el.querySelectorAll('[data-viewrecipe]').forEach(function(btn){
+    btn.addEventListener('click', function(){ showInstructionsPopup([btn.dataset.viewrecipe], null); });
+  });
+  el.querySelectorAll('[data-clearsection]').forEach(function(btn){
+    btn.addEventListener('click', async function(){
+      const slotKey = btn.dataset.clearsection;
+      const slotLabel = MEAL_SLOTS.find(function(s){ return s.key===slotKey; }).label;
+      if(!confirm('Remove everything logged for '+slotLabel+' today?')) return;
+      logs[activeDate] = (logs[activeDate]||[]).filter(function(e){ return e.mealSlot!==slotKey; });
+      await saveLogForDate(activeDate);
+      renderToday();
+    });
+  });
+  el.querySelectorAll('[data-removeentry]').forEach(function(btn){
+    btn.addEventListener('click', async function(){
+      logs[activeDate] = logs[activeDate].filter(function(e){ return e.id!==btn.dataset.removeentry; });
+      await saveLogForDate(activeDate);
+      renderToday();
+    });
+  });
+  const prevBtn = document.getElementById('date-prev-btn');
+  const nextBtn = document.getElementById('date-next-btn');
+  if(prevBtn) prevBtn.addEventListener('click', async function(){ activeDate = addDays(activeDate,-1); await loadLogForDate(activeDate); renderToday(); });
+  if(nextBtn) nextBtn.addEventListener('click', async function(){ activeDate = addDays(activeDate,1); await loadLogForDate(activeDate); renderToday(); });
+}
+function dateNavHtml(){
+  const isToday = activeDate===todayStr();
+  return '<div class="date-nav"><button id="date-prev-btn">‹</button>'+
+    '<div class="date-label">'+(isToday?'Today':fmtHuman(activeDate))+(isToday?'<small>'+fmtHuman(activeDate)+'</small>':'')+'</div>'+
+    '<button id="date-next-btn" '+(isToday?'disabled style="opacity:0.3;"':'')+'>›</button></div>';
+}
+function macroBarsHtml(t){
+  function bar(label, val, target, color){
+    const pct = target ? Math.min(100, Math.round(100*val/target)) : 0;
+    return '<div class="macro-bar-item"><div class="macro-bar-label"><span>'+label+'</span><span>'+Math.round(val)+(target?'/'+target:'')+'g</span></div>'+
+      '<div class="macro-bar-track"><div class="macro-bar-fill" style="width:'+pct+'%;background:'+color+';"></div></div></div>';
+  }
+  return '<div class="macro-bars">'+
+    bar('Protein', t.protein, targets.protein, '#3D8BFD')+
+    bar('Carbs', t.carbs, targets.carbs, '#F5B942')+
+    bar('Fat', t.fat, targets.fat, '#B26FF5')+
+  '</div>';
+}
+function energyBalanceCardHtml(eb, eatenCal, weeklyProjection){
+  if(!eb){
+    return '<div class="targets-card" style="margin-bottom:14px;"><h3 style="margin:0 0 4px;font-size:14px;">Energy balance</h3>'+
+      '<p style="margin:0;font-size:12.5px;color:var(--text-faint);">Add your height and age in Targets to see your real BMR, TDEE, and a weekly projection based on them.</p></div>';
+  }
+  const deficitToday = Math.round(eb.tdee - eatenCal);
+  const inDeficit = deficitToday >= 0;
+  let projectionHtml = '';
+  if(weeklyProjection){
+    const kg = Math.abs(weeklyProjection.kg).toFixed(2);
+    const verb = weeklyProjection.losing ? 'Projected loss this week' : 'Projected gain this week';
+    projectionHtml = '<div style="display:flex;justify-content:space-between;font-size:13px;font-weight:700;padding:6px 0;border-top:1px solid rgba(0,0,0,0.06);"><span>'+verb+' (conservative)</span><span>~'+kg+' kg</span></div>'+
+      '<p style="margin:2px 0 0;font-size:10.5px;color:var(--text-faint);">Based on your last '+weeklyProjection.daysCounted+' logged day'+(weeklyProjection.daysCounted===1?'':'s')+', shaved 5% down from the raw estimate — a deliberately conservative number, not a promise.</p>';
+  }
+  return '<div class="targets-card" style="margin-bottom:14px;background:linear-gradient(135deg,#FFF7ED,#FFF1DC);">'+
+    '<h3 style="margin:0 0 4px;font-size:14px;">Energy balance — today</h3>'+
+    '<p style="margin:0 0 10px;font-size:12px;color:var(--text-soft);">BMR '+eb.bmr+' kcal'+(eb.workoutCal>0?' · +'+eb.workoutCal+' kcal estimated from today\'s workout (already shaved 5% conservative)':' · no workout logged yet today')+' → TDEE ~'+eb.tdee+' kcal</p>'+
+    '<div style="display:flex;justify-content:space-between;font-size:13px;font-weight:700;padding:6px 0;border-top:1px solid rgba(0,0,0,0.06);color:'+(inDeficit?'#178152':'#C1522E')+';"><span>'+(inDeficit?'Deficit today':'Surplus today')+'</span><span>'+Math.abs(deficitToday)+' kcal</span></div>'+
+    projectionHtml+
+    '</div>';
+}
+function weightProgressCardHtml(){
+  const wg = weightGoal;
+  const current = latestGymWeight != null ? latestGymWeight : wg.startWeight;
+  const totalToLose = wg.startWeight - wg.targetWeight;
+  const lostSoFar = wg.startWeight - current;
+  const pct = totalToLose ? Math.max(0, Math.min(100, Math.round(100*lostSoFar/totalToLose))) : 0;
+  const remaining = Math.max(0, (current - wg.targetWeight));
+  const bmi = wg.height ? (current / ((wg.height/100)*(wg.height/100))) : null;
+  const bmiCat = bmi==null ? '' : bmi<18.5?'Underweight':bmi<25?'Healthy range':bmi<30?'Overweight':'Higher range';
+  return '<div class="targets-card" style="margin-bottom:16px;">'+
+    '<h3>⚖️ Weight goal</h3>'+
+    '<p>'+wg.startWeight+' kg → '+wg.targetWeight+' kg'+(latestGymWeight!=null?' · currently '+current+' kg (from Gym)':' · no weigh-in logged in Gym yet')+'</p>'+
+    '<div class="macro-bar-track" style="height:10px;margin-bottom:6px;"><div class="macro-bar-fill" style="width:'+pct+'%;background:linear-gradient(90deg,#22C55E,#16A34A);"></div></div>'+
+    '<div style="display:flex;justify-content:space-between;font-size:12px;color:var(--text-soft);">'+
+      '<span>'+n2(lostSoFar)+' kg lost so far</span><span>'+n2(remaining)+' kg to go</span><span>'+pct+'%</span>'+
+    '</div>'+
+    (bmi ? '<div style="margin-top:10px;font-size:12.5px;color:var(--text-soft);">BMI: <b style="color:var(--text);">'+n2(bmi)+'</b> — '+bmiCat+'</div>' :
+      '<div style="margin-top:10px;font-size:12px;color:var(--text-faint);">Add your height in Targets to see BMI.</div>')+
+  '</div>';
+}
+function mealBlockHtml(slot, entries){
+  const slotEntries = entries.filter(function(e){ return e.mealSlot===slot.key; });
+  const slotTotals = totalsFor(slotEntries);
+  return '<div class="meal-block">'+
+    '<div class="meal-head"><h3>'+slot.label+'</h3><div style="display:flex;align-items:center;gap:8px;"><div class="meal-cal">'+Math.round(slotTotals.cal)+' kcal</div>'+
+      (slotEntries.length ? '<button type="button" class="sri-peek" data-clearsection="'+slot.key+'" title="Remove everything logged for '+slot.label+'">🗑</button>' : '')+
+    '</div></div>'+
+    (slotEntries.length ? slotEntries.map(function(e){
+      let name, serving;
+      if(e.sourceType==='recipe'){ const r = recipeById(e.sourceId); if(!r) return ''; name = '🍳 '+r.name; serving = '1 recipe serving'; }
+      else { const f = foodById(e.sourceId); if(!f) return ''; name = f.name; serving = f.serving; }
+      const m = macrosForComponent({type:e.sourceType, id:e.sourceId, servings:e.servings});
+      const mult = e.servings||1;
+      return '<div class="food-entry-row"><div><div class="fe-name">'+escapeHtml(name)+'</div><div class="fe-serving">'+(mult===1?'1×':n2(mult)+'×')+' '+escapeHtml(serving)+'</div></div>'+
+        '<div style="display:flex;align-items:center;gap:8px;"><div class="fe-macros">'+Math.round(m.cal)+' kcal<br>'+n2(m.protein)+'g protein</div>'+
+        (e.sourceType==='recipe' ? '<button class="sri-peek" data-viewrecipe="'+e.sourceId+'" title="See how to make this">👁</button>' : '')+
+        '<button class="fe-remove" data-removeentry="'+e.id+'">✕</button></div></div>';
+    }).join('') : '<div class="empty-meal">Nothing logged yet.</div>')+
+    '<div style="display:flex;gap:8px;margin-top:10px;">'+
+      '<button class="add-food-btn" data-addfood="'+slot.key+'">+ Add food or recipe</button>'+
+      '<button class="add-food-btn" data-addmeal="'+slot.key+'" style="background:var(--surface-alt);color:var(--text-soft);">🍽 Log a whole meal</button>'+
+    '</div>'+
+  '</div>';
+}
+
+/* =====================================================================
+   ADD-FOOD FLOW — search foods AND recipes together, or create a new
+   one, then set servings and log it to the selected meal.
+===================================================================== */
+function closeModal(){ document.getElementById('modal-mount').innerHTML = ''; }
+function openFoodSearch(mealSlot){
+  const mount = document.getElementById('modal-mount');
+  mount.innerHTML = '<div class="search-overlay" id="search-overlay"><div class="search-sheet">'+
+    '<h3>Add to '+MEAL_SLOTS.find(function(s){return s.key===mealSlot;}).label+'</h3>'+
+    '<input type="text" id="food-search-input" placeholder="Search foods, recipes, or whole meals…" autofocus>'+
+    '<div id="food-search-results"></div>'+
+    '<button class="create-food-btn" id="create-food-btn">+ Create a new raw ingredient</button>'+
+    '<button class="create-food-btn" id="build-recipe-btn" style="margin-top:8px;">🍳 Build a recipe from ingredients</button>'+
+  '</div></div>';
+  function renderResults(q){
+    const query = (q||'').toLowerCase().trim();
+    const foodMatches = foods.filter(function(f){ return !query || f.name.toLowerCase().indexOf(query)!==-1; }).map(function(f){ return {type:'food', id:f.id, name:f.name, serving:f.serving, cal:f.cal}; });
+    const recipeMatches = recipes.filter(function(r){ return !query || r.name.toLowerCase().indexOf(query)!==-1; }).map(function(r){ const m = recipeMacros(r); return {type:'recipe', id:r.id, name:'🍳 '+r.name, serving:'1 serving', cal:m.cal}; });
+    const mealMatches = meals.filter(function(m){ return !query || m.name.toLowerCase().indexOf(query)!==-1; }).map(function(m){ const mm = mealMacros(m); return {type:'meal', id:m.id, name:'🍽 '+m.name+' (whole meal)', serving:m.components.length+' item'+(m.components.length===1?'':'s'), cal:Math.round(mm.cal)}; });
+    const matches = mealMatches.concat(recipeMatches).concat(foodMatches);
+    const resEl = document.getElementById('food-search-results');
+    resEl.innerHTML = matches.length ? matches.map(function(m){
+      const canPeek = m.type==='recipe' || m.type==='meal';
+      return '<div class="search-result-item"><div class="sri-click" data-picktype="'+m.type+'" data-pickid="'+m.id+'" style="flex:1;display:flex;justify-content:space-between;align-items:center;cursor:pointer;">'+
+        '<div><div class="sri-name">'+escapeHtml(m.name)+'</div><div class="sri-meta">'+escapeHtml(m.serving)+'</div></div><div class="sri-cal">'+m.cal+' kcal</div></div>'+
+        (canPeek ? '<button class="sri-peek" data-peektype="'+m.type+'" data-peekid="'+m.id+'" title="See recipe / instructions">👁</button>' : '')+
+      '</div>';
+    }).join('') : '<div class="empty-note">No matches — create one below.</div>';
+    resEl.querySelectorAll('[data-pickid]').forEach(function(row){
+      row.addEventListener('click', function(){
+        if(row.dataset.picktype==='meal') logMealComponents(row.dataset.pickid, mealSlot);
+        else openQuantitySheet(row.dataset.picktype, row.dataset.pickid, mealSlot);
+      });
+    });
+    resEl.querySelectorAll('[data-peekid]').forEach(function(btn){
+      btn.addEventListener('click', function(e){
+        e.stopPropagation();
+        const recipeIds = btn.dataset.peektype==='meal' ? mealById(btn.dataset.peekid).components.filter(function(c){return c.type==='recipe';}).map(function(c){return c.id;}) : [btn.dataset.peekid];
+        showInstructionsPopup(recipeIds, {reopenSearch:true, mealSlot:mealSlot, query:document.getElementById('food-search-input').value});
+      });
+    });
+  }
+  renderResults('');
+  document.getElementById('food-search-input').addEventListener('input', function(e){ renderResults(e.target.value); });
+  document.getElementById('search-overlay').addEventListener('click', function(e){ if(e.target.id==='search-overlay') closeModal(); });
+  document.getElementById('create-food-btn').addEventListener('click', function(){ openCreateFoodSheet(mealSlot); });
+  document.getElementById('build-recipe-btn').addEventListener('click', function(){ openRecipeBuilder(mealSlot); });
+}
+async function logMealComponents(mealId, targetSlot){
+  const m = mealById(mealId);
+  if(!m) return;
+  if(!logs[activeDate]) logs[activeDate] = [];
+  m.components.forEach(function(c){
+    logs[activeDate].push({ id:'entry-'+Date.now()+'-'+Math.floor(Math.random()*10000), sourceType:c.type, sourceId:c.id, mealSlot:targetSlot, servings:c.servings||1 });
+  });
+  await saveLogForDate(activeDate);
+  closeModal();
+  renderToday();
+}
+// Shows one or more recipes' full ingredient list + cooking instructions —
+// used both to peek before adding something, and later to reference while
+// actually cooking, so this app can replace a separate recipe lookup.
+function showInstructionsPopup(recipeIds, reopenOpts){
+  const mount = document.getElementById('modal-mount');
+  const bodyHtml = recipeIds.map(function(rid){
+    const r = recipeById(rid);
+    if(!r) return '<div style="color:var(--text-faint);font-style:italic;font-size:12.5px;">Recipe not found — it may have been deleted.</div>';
+    const ingList = r.ingredients.map(function(ing){ const f = foodById(ing.foodId); return f ? '<li>'+n2(ing.servings)+'× '+escapeHtml(f.name)+' ('+escapeHtml(f.serving)+')</li>' : ''; }).filter(Boolean).join('');
+    return '<div style="margin-bottom:16px;">'+
+      '<div style="font-weight:700;font-size:14.5px;margin-bottom:6px;">'+escapeHtml(r.name)+'</div>'+
+      '<ul style="margin:0 0 8px;padding-left:18px;font-size:12.5px;color:var(--text-soft);">'+ingList+'</ul>'+
+      (r.instructions ? '<div style="font-size:13px;color:var(--text);white-space:pre-wrap;background:var(--surface-alt);border-radius:var(--radius-sm);padding:10px 12px;">'+escapeHtml(r.instructions)+'</div>' : '<div style="font-size:12px;color:var(--text-faint);font-style:italic;">No instructions written yet — add some by editing this recipe.</div>')+
+    '</div>';
+  }).join('');
+  mount.innerHTML = '<div class="search-overlay" id="instructions-overlay"><div class="search-sheet">'+
+    '<h3>👁 How to make this</h3>'+bodyHtml+
+    '<div class="sheet-actions"><button class="btn-mini primary" id="instructions-back-btn">'+(reopenOpts?'Back to search':'Close')+'</button></div>'+
+  '</div></div>';
+  document.getElementById('instructions-back-btn').addEventListener('click', function(){
+    if(reopenOpts){
+      openFoodSearch(reopenOpts.mealSlot);
+      if(reopenOpts.query){ document.getElementById('food-search-input').value = reopenOpts.query; document.getElementById('food-search-input').dispatchEvent(new Event('input')); }
+    } else closeModal();
+  });
+  document.getElementById('instructions-overlay').addEventListener('click', function(e){ if(e.target.id==='instructions-overlay'){ if(reopenOpts) openFoodSearch(reopenOpts.mealSlot); else closeModal(); } });
+}
+function openQuantitySheet(sourceType, sourceId, mealSlot){
+  const isRecipe = sourceType==='recipe';
+  const item = isRecipe ? recipeById(sourceId) : foodById(sourceId);
+  const m = isRecipe ? recipeMacros(item) : item;
+  const name = (isRecipe?'🍳 ':'')+item.name;
+  const servingLabel = isRecipe ? '1 recipe serving' : item.serving;
+  const mount = document.getElementById('modal-mount');
+  mount.innerHTML = '<div class="search-overlay" id="qty-overlay"><div class="search-sheet qty-sheet">'+
+    '<h3>'+escapeHtml(name)+'</h3>'+
+    (isRecipe ? '<p style="font-size:12px;color:var(--text-soft);margin:0 0 8px;white-space:pre-wrap;">'+escapeHtml(item.instructions||'')+'</p>' : '')+
+    '<p style="font-size:12px;color:var(--text-soft);margin:0;">1 serving = '+escapeHtml(servingLabel)+' · '+m.cal+' kcal · '+m.protein+'g protein</p>'+
+    '<div class="qf-grid"><div class="f"><label>Servings</label><input type="number" id="qty-servings" value="1" step="0.25" min="0.1"></div>'+
+    '<div class="f"><label>Total calories</label><input type="text" id="qty-cal-preview" disabled value="'+m.cal+' kcal"></div></div>'+
+    '<div class="sheet-actions"><button class="btn-mini primary" id="qty-confirm-btn">Add to diary</button><button class="btn-mini ghost" id="qty-cancel-btn">Cancel</button></div>'+
+  '</div></div>';
+  const servingsInput = document.getElementById('qty-servings');
+  servingsInput.addEventListener('input', function(){
+    const mult = parseFloat(servingsInput.value)||0;
+    document.getElementById('qty-cal-preview').value = Math.round(m.cal*mult)+' kcal';
+  });
+  document.getElementById('qty-confirm-btn').addEventListener('click', async function(){
+    const mult = parseFloat(servingsInput.value)||1;
+    if(!logs[activeDate]) logs[activeDate] = [];
+    logs[activeDate].push({ id:'entry-'+Date.now()+'-'+Math.floor(Math.random()*1000), sourceType:sourceType, sourceId:sourceId, mealSlot:mealSlot, servings:mult });
+    await saveLogForDate(activeDate);
+    closeModal();
+    renderToday();
+  });
+  document.getElementById('qty-cancel-btn').addEventListener('click', closeModal);
+  document.getElementById('qty-overlay').addEventListener('click', function(e){ if(e.target.id==='qty-overlay') closeModal(); });
+}
+
+/* =====================================================================
+   MEAL PICKER — logs every component of a saved meal to today's diary
+   at once, each as its own separate entry (so they're individually
+   editable/removable afterward, not merged into one blob).
+===================================================================== */
+function openMealPicker(targetSlot){
+  const mount = document.getElementById('modal-mount');
+  mount.innerHTML = '<div class="search-overlay" id="meal-pick-overlay"><div class="search-sheet">'+
+    '<h3>Log a whole meal</h3>'+
+    (meals.length ? meals.map(function(m){
+      const mm = mealMacros(m);
+      const compNames = m.components.map(function(c){ return c.type==='recipe' ? recipeById(c.id).name : foodById(c.id).name; }).join(', ');
+      return '<div class="search-result-item" data-pickmeal="'+m.id+'"><div><div class="sri-name">'+escapeHtml(m.name)+'</div><div class="sri-meta">'+escapeHtml(compNames)+'</div></div><div class="sri-cal">'+Math.round(mm.cal)+' kcal</div></div>';
+    }).join('') : '<div class="empty-note">No meals saved yet — build one in the Meals tab.</div>')+
+  '</div></div>';
+  document.getElementById('meal-pick-overlay').querySelectorAll('[data-pickmeal]').forEach(function(row){
+    row.addEventListener('click', async function(){
+      const m = mealById(row.dataset.pickmeal);
+      if(!logs[activeDate]) logs[activeDate] = [];
+      m.components.forEach(function(c){
+        logs[activeDate].push({ id:'entry-'+Date.now()+'-'+Math.floor(Math.random()*10000), sourceType:c.type, sourceId:c.id, mealSlot:targetSlot, servings:c.servings||1 });
+      });
+      await saveLogForDate(activeDate);
+      closeModal();
+      renderToday();
+    });
+  });
+  document.getElementById('meal-pick-overlay').addEventListener('click', function(e){ if(e.target.id==='meal-pick-overlay') closeModal(); });
+}
+function createFoodFormHtml(existing){
+  const f = existing || {name:'',serving:'',cal:'',protein:'',carbs:'',fat:'',fiber:'',sodium:''};
+  return '<div class="qf-grid">'+
+    '<div class="f" style="grid-column:1/-1;"><label>Name</label><input type="text" id="cf-name" value="'+escapeHtml(f.name)+'"></div>'+
+    '<div class="f" style="grid-column:1/-1;"><label>Serving (e.g. "1 cup", "100 g")</label><input type="text" id="cf-serving" value="'+escapeHtml(f.serving)+'"></div>'+
+    '<div class="f"><label>Calories</label><input type="number" id="cf-cal" value="'+(f.cal??'')+'"></div>'+
+    '<div class="f"><label>Protein (g)</label><input type="number" step="0.1" id="cf-protein" value="'+(f.protein??'')+'"></div>'+
+    '<div class="f"><label>Carbs (g)</label><input type="number" step="0.1" id="cf-carbs" value="'+(f.carbs??'')+'"></div>'+
+    '<div class="f"><label>Fat (g)</label><input type="number" step="0.1" id="cf-fat" value="'+(f.fat??'')+'"></div>'+
+    '<div class="f"><label>Fiber (g)</label><input type="number" step="0.1" id="cf-fiber" value="'+(f.fiber??'')+'"></div>'+
+    '<div class="f"><label>Sodium (mg)</label><input type="number" id="cf-sodium" value="'+(f.sodium??'')+'"></div>'+
+  '</div>';
+}
+function readCreateFoodForm(){
+  const num = function(id){ const v = document.getElementById(id).value; return v===''?null:parseFloat(v); };
+  return {
+    name: document.getElementById('cf-name').value.trim(),
+    serving: document.getElementById('cf-serving').value.trim() || '1 serving',
+    cal: num('cf-cal')||0, protein: num('cf-protein')||0,
+    carbs: num('cf-carbs'), fat: num('cf-fat'), fiber: num('cf-fiber'), sodium: num('cf-sodium')
+  };
+}
+function openCreateFoodSheet(mealSlot){
+  const mount = document.getElementById('modal-mount');
+  mount.innerHTML = '<div class="search-overlay" id="create-overlay"><div class="search-sheet qty-sheet">'+
+    '<h3>New raw ingredient</h3>'+createFoodFormHtml()+
+    '<div class="sheet-actions"><button class="btn-mini primary" id="cf-save-btn">Save & add to diary</button><button class="btn-mini ghost" id="cf-cancel-btn">Cancel</button></div>'+
+  '</div></div>';
+  document.getElementById('cf-save-btn').addEventListener('click', async function(){
+    const data = readCreateFoodForm();
+    if(!data.name){ document.getElementById('cf-name').style.outline='2px solid var(--danger)'; return; }
+    const newFood = Object.assign({id:'food-'+Date.now()+'-'+Math.floor(Math.random()*1000)}, data);
+    foods.push(newFood);
+    await saveFoods();
+    if(mealSlot){ openQuantitySheet('food', newFood.id, mealSlot); }
+    else { closeModal(); renderFoods(); }
+  });
+  document.getElementById('cf-cancel-btn').addEventListener('click', closeModal);
+  document.getElementById('create-overlay').addEventListener('click', function(e){ if(e.target.id==='create-overlay') closeModal(); });
+}
+
+/* =====================================================================
+   RECIPE BUILDER — combine raw ingredients (with quantities) plus real
+   cooking instructions into a named dish, saved to the recipes list.
+   Macros are computed live from ingredients, never stored, so editing
+   an ingredient food keeps every recipe using it accurate automatically.
+===================================================================== */
+let recipeIngredients = [];
+function openRecipeBuilder(mealSlot, existingRecipe){
+  recipeIngredients = existingRecipe ? existingRecipe.ingredients.slice() : [];
+  const mount = document.getElementById('modal-mount');
+  mount.innerHTML = '<div class="search-overlay" id="recipe-overlay"><div class="search-sheet qty-sheet">'+
+    '<h3>'+(existingRecipe?'Edit recipe':'Build a recipe')+'</h3>'+
+    '<div class="qf-grid"><div class="f" style="grid-column:1/-1;"><label>Recipe name</label><input type="text" id="rc-name" value="'+(existingRecipe?escapeHtml(existingRecipe.name):'')+'" placeholder="e.g. Boiled Eggs, 2 whole + 4 whites"></div>'+
+    '<div class="f"><label>Makes how many servings</label><input type="number" id="rc-servings" value="'+(existingRecipe?existingRecipe.recipeServings:1)+'" min="1" step="0.5"></div></div>'+
+    '<div class="qf-grid"><div class="f" style="grid-column:1/-1;"><label>Instructions (what you\'ll read while cooking)</label><textarea id="rc-instructions" rows="3" placeholder="e.g. Boil 6 eggs. Eat 2 whole. Discard yolks from the other 4, eat only the whites.">'+(existingRecipe?escapeHtml(existingRecipe.instructions||''):'')+'</textarea></div></div>'+
+    '<div class="rp-label" style="margin:10px 0 6px;font-size:11px;color:var(--text-faint);font-weight:700;text-transform:uppercase;">Ingredients</div>'+
+    '<div id="recipe-ing-list" style="margin-bottom:8px;"></div>'+
+    '<input type="text" id="recipe-ing-search" placeholder="Search raw ingredients to add…">'+
+    '<div id="recipe-ing-results"></div>'+
+    '<div id="recipe-totals" style="margin-top:10px;font-size:12.5px;color:var(--text-soft);"></div>'+
+    '<div class="sheet-actions"><button class="btn-mini primary" id="rc-save-btn">Save recipe</button><button class="btn-mini ghost" id="rc-cancel-btn">Cancel</button></div>'+
+  '</div></div>';
+
+  function renderIngList(){
+    const listEl = document.getElementById('recipe-ing-list');
+    listEl.innerHTML = recipeIngredients.length ? recipeIngredients.map(function(ing, i){
+      const f = foodById(ing.foodId);
+      if(!f) return '';
+      return '<div class="food-entry-row"><div><div class="fe-name">'+escapeHtml(f.name)+'</div><div class="fe-serving">'+ing.servings+'× '+escapeHtml(f.serving)+'</div></div>'+
+        '<button class="fe-remove" data-rmving="'+i+'">✕</button></div>';
+    }).join('') : '<div class="empty-meal">No ingredients yet — search below to add some.</div>';
+    listEl.querySelectorAll('[data-rmving]').forEach(function(btn){
+      btn.addEventListener('click', function(){ recipeIngredients.splice(Number(btn.dataset.rmving),1); renderIngList(); updateTotals(); });
+    });
+    updateTotals();
+  }
+  function updateTotals(){
+    const t = totalsFor(recipeIngredients.map(function(ing){ return {sourceType:'food', sourceId:ing.foodId, servings:ing.servings}; }));
+    const servings = parseFloat(document.getElementById('rc-servings').value)||1;
+    document.getElementById('recipe-totals').innerHTML =
+      '<b>Batch total:</b> '+Math.round(t.cal)+' kcal, '+n2(t.protein)+'g protein<br>'+
+      '<b>Per serving (÷'+servings+'):</b> '+Math.round(t.cal/servings)+' kcal, '+n2(t.protein/servings)+'g protein';
+  }
+  function renderIngResults(q){
+    const query = (q||'').toLowerCase().trim();
+    const matches = query ? foods.filter(function(f){ return f.name.toLowerCase().indexOf(query)!==-1; }) : [];
+    document.getElementById('recipe-ing-results').innerHTML = matches.map(function(f){
+      return '<div class="search-result-item" data-addving="'+f.id+'"><div><div class="sri-name">'+escapeHtml(f.name)+'</div><div class="sri-meta">'+escapeHtml(f.serving)+'</div></div><div class="sri-cal">'+f.cal+' kcal</div></div>';
+    }).join('');
+    document.getElementById('recipe-ing-results').querySelectorAll('[data-addving]').forEach(function(row){
+      row.addEventListener('click', function(){
+        recipeIngredients.push({foodId: row.dataset.addving, servings: 1});
+        document.getElementById('recipe-ing-search').value = '';
+        document.getElementById('recipe-ing-results').innerHTML = '';
+        renderIngList();
+      });
+    });
+  }
+  document.getElementById('recipe-ing-search').addEventListener('input', function(e){ renderIngResults(e.target.value); });
+  document.getElementById('rc-servings').addEventListener('input', updateTotals);
+  renderIngList();
+
+  document.getElementById('rc-save-btn').addEventListener('click', async function(){
+    const name = document.getElementById('rc-name').value.trim();
+    if(!name){ document.getElementById('rc-name').style.outline='2px solid var(--danger)'; return; }
+    if(!recipeIngredients.length) return;
+    const servings = parseFloat(document.getElementById('rc-servings').value)||1;
+    const instructions = document.getElementById('rc-instructions').value.trim();
+    let saved;
+    if(existingRecipe){
+      existingRecipe.name = name; existingRecipe.instructions = instructions;
+      existingRecipe.ingredients = recipeIngredients.slice(); existingRecipe.recipeServings = servings;
+      saved = existingRecipe;
+    } else {
+      saved = { id:'recipe-'+Date.now()+'-'+Math.floor(Math.random()*1000), name:name, instructions:instructions, ingredients:recipeIngredients.slice(), recipeServings:servings };
+      recipes.push(saved);
+    }
+    await saveRecipes();
+    if(mealSlot){ openQuantitySheet('recipe', saved.id, mealSlot); }
+    else { closeModal(); renderRecipes(); }
+  });
+  document.getElementById('rc-cancel-btn').addEventListener('click', closeModal);
+  document.getElementById('recipe-overlay').addEventListener('click', function(e){ if(e.target.id==='recipe-overlay') closeModal(); });
+}
+
+/* =====================================================================
+   FOODS TAB
+===================================================================== */
+function renderFoods(){
+  const el = document.getElementById('foods-view');
+  const sorted = foods.slice().sort(function(a,b){ return a.name.localeCompare(b.name); });
+  el.innerHTML =
+    '<p style="font-size:12px;color:var(--text-faint);margin:0 0 12px;">Raw ingredients only. Combine these into dishes in the Recipes tab.</p>'+
+    '<div style="margin-bottom:12px;"><button class="btn-mini primary" id="foods-add-btn">+ Add a raw ingredient</button></div>'+
+    sorted.map(function(f){
+      return '<div class="foods-list-row" data-foodrow="'+f.id+'"><div class="flr-top" data-toggle="'+f.id+'">'+
+        '<div><div class="flr-name">'+escapeHtml(f.name)+'</div><div class="flr-macros">'+escapeHtml(f.serving)+' · '+f.cal+' kcal · '+f.protein+'g protein'+(f.carbs!=null?' · '+f.carbs+'g carbs':'')+(f.fat!=null?' · '+f.fat+'g fat':'')+'</div></div>'+
+        '<span>✎</span></div>'+
+        '<div class="food-edit" id="food-edit-'+f.id+'">'+createFoodFormHtml(f)+
+          '<div class="sheet-actions"><button class="btn-mini primary" data-savefood="'+f.id+'">Save</button><button class="btn-mini ghost" data-delfood="'+f.id+'">Delete</button></div>'+
+        '</div></div>';
+    }).join('');
+  document.getElementById('foods-add-btn').addEventListener('click', function(){ openCreateFoodSheet(null); });
+  el.querySelectorAll('[data-toggle]').forEach(function(row){
+    row.addEventListener('click', function(){ document.getElementById('food-edit-'+row.dataset.toggle).classList.toggle('open'); });
+  });
+  el.querySelectorAll('[data-savefood]').forEach(function(btn){
+    btn.addEventListener('click', async function(e){
+      e.stopPropagation();
+      const f = foodById(btn.dataset.savefood);
+      const box = btn.closest('.food-edit');
+      const num = function(sel){ const v = box.querySelector(sel).value; return v===''?null:parseFloat(v); };
+      f.name = box.querySelector('#cf-name').value.trim() || f.name;
+      f.serving = box.querySelector('#cf-serving').value.trim() || f.serving;
+      f.cal = num('#cf-cal')||0; f.protein = num('#cf-protein')||0;
+      f.carbs = num('#cf-carbs'); f.fat = num('#cf-fat'); f.fiber = num('#cf-fiber'); f.sodium = num('#cf-sodium');
+      await saveFoods();
+      renderFoods();
+    });
+  });
+  el.querySelectorAll('[data-delfood]').forEach(function(btn){
+    btn.addEventListener('click', async function(e){
+      e.stopPropagation();
+      if(!confirm('Delete this food from your database?')) return;
+      foods = foods.filter(function(f){ return f.id!==btn.dataset.delfood; });
+      await saveFoods();
+      renderFoods();
+    });
+  });
+}
+
+/* =====================================================================
+   RECIPES TAB — dishes built from raw ingredients, with real cooking
+   instructions. Macros shown here are always computed live.
+===================================================================== */
+function renderRecipes(){
+  const el = document.getElementById('recipes-view');
+  const sorted = recipes.slice().sort(function(a,b){ return a.name.localeCompare(b.name); });
+  el.innerHTML =
+    '<p style="font-size:12px;color:var(--text-faint);margin:0 0 12px;">Dishes built from your raw ingredients, with the actual steps to cook them. Group these into a full meal in the Meals tab.</p>'+
+    '<div style="margin-bottom:12px;"><button class="btn-mini primary" id="recipes-add-btn">🍳 Build a new recipe</button></div>'+
+    (sorted.length ? sorted.map(function(r){
+      const m = recipeMacros(r);
+      const ingList = r.ingredients.map(function(ing){ const f = foodById(ing.foodId); return f ? (ing.servings+'× '+f.name) : ''; }).filter(Boolean).join(', ');
+      return '<div class="foods-list-row" data-reciperow="'+r.id+'"><div class="flr-top" data-toggler="'+r.id+'">'+
+        '<div><div class="flr-name">'+escapeHtml(r.name)+'</div><div class="flr-macros">'+m.cal+' kcal · '+m.protein+'g protein per serving (makes '+r.recipeServings+')</div></div>'+
+        '<span>▾</span></div>'+
+        '<div class="food-edit" id="recipe-detail-'+r.id+'">'+
+          (r.instructions ? '<p style="font-size:12.5px;color:var(--text-soft);white-space:pre-wrap;margin:0 0 8px;">'+escapeHtml(r.instructions)+'</p>' : '')+
+          '<p style="font-size:11.5px;color:var(--text-faint);margin:0 0 10px;"><b>Ingredients:</b> '+escapeHtml(ingList)+'</p>'+
+          '<div class="sheet-actions"><button class="btn-mini primary" data-editrecipe="'+r.id+'">Edit recipe</button><button class="btn-mini ghost" data-delrecipe="'+r.id+'">Delete</button></div>'+
+        '</div></div>';
+    }).join('') : '<div class="empty-note">No recipes yet — build one above.</div>');
+  document.getElementById('recipes-add-btn').addEventListener('click', function(){ openRecipeBuilder(null); });
+  el.querySelectorAll('[data-toggler]').forEach(function(row){
+    row.addEventListener('click', function(){ document.getElementById('recipe-detail-'+row.dataset.toggler).classList.toggle('open'); });
+  });
+  el.querySelectorAll('[data-editrecipe]').forEach(function(btn){
+    btn.addEventListener('click', function(e){ e.stopPropagation(); openRecipeBuilder(null, recipeById(btn.dataset.editrecipe)); });
+  });
+  el.querySelectorAll('[data-delrecipe]').forEach(function(btn){
+    btn.addEventListener('click', async function(e){
+      e.stopPropagation();
+      const usedByMeals = meals.filter(function(m){ return m.components.some(function(c){ return c.type==='recipe' && c.id===btn.dataset.delrecipe; }); });
+      const warn = usedByMeals.length ? ' It\'s used in '+usedByMeals.length+' meal(s) — those will keep the reference but it\'ll show as missing until you edit them.' : '';
+      if(!confirm('Delete this recipe?'+warn)) return;
+      recipes = recipes.filter(function(r){ return r.id!==btn.dataset.delrecipe; });
+      await saveRecipes();
+      renderRecipes();
+    });
+  });
+}
+
+/* =====================================================================
+   MEALS TAB — groups recipes (and/or raw foods) into a full meal slot,
+   loggable as one action from either here or the Diary.
+===================================================================== */
+let mealComponents = [];
+function renderMeals(){
+  const el = document.getElementById('meals-view');
+  el.innerHTML =
+    '<p style="font-size:12px;color:var(--text-faint);margin:0 0 12px;">A full meal made of one or more recipes (or raw foods). Log the whole thing in one tap from the Diary.</p>'+
+    '<div style="margin-bottom:12px;"><button class="btn-mini primary" id="meals-add-btn">+ Build a new meal</button></div>'+
+    (meals.length ? meals.map(function(m){
+      const mm = mealMacros(m);
+      const compList = m.components.map(function(c){ const item = c.type==='recipe'?recipeById(c.id):foodById(c.id); return item ? ((c.servings!==1?c.servings+'× ':'')+item.name) : ''; }).filter(Boolean).join(', ');
+      return '<div class="foods-list-row" data-mealrow="'+m.id+'"><div class="flr-top" data-togglem="'+m.id+'">'+
+        '<div><div class="flr-name">'+escapeHtml(m.name)+' <span style="font-weight:400;color:var(--text-faint);font-size:11px;">('+m.mealSlot+')</span></div><div class="flr-macros">'+Math.round(mm.cal)+' kcal · '+n2(mm.protein)+'g protein · '+escapeHtml(compList)+'</div></div>'+
+        '<span>▾</span></div>'+
+        '<div class="food-edit" id="meal-detail-'+m.id+'">'+
+          '<div class="sheet-actions"><button class="btn-mini primary" data-editmeal="'+m.id+'">Edit meal</button><button class="btn-mini ghost" data-delmeal="'+m.id+'">Delete</button></div>'+
+        '</div></div>';
+    }).join('') : '<div class="empty-note">No meals yet — build one above.</div>');
+  document.getElementById('meals-add-btn').addEventListener('click', function(){ openMealBuilder(null); });
+  el.querySelectorAll('[data-togglem]').forEach(function(row){
+    row.addEventListener('click', function(){ document.getElementById('meal-detail-'+row.dataset.togglem).classList.toggle('open'); });
+  });
+  el.querySelectorAll('[data-editmeal]').forEach(function(btn){
+    btn.addEventListener('click', function(e){ e.stopPropagation(); openMealBuilder(mealById(btn.dataset.editmeal)); });
+  });
+  el.querySelectorAll('[data-delmeal]').forEach(function(btn){
+    btn.addEventListener('click', async function(e){
+      e.stopPropagation();
+      if(!confirm('Delete this meal?')) return;
+      meals = meals.filter(function(m){ return m.id!==btn.dataset.delmeal; });
+      await saveMeals();
+      renderMeals();
+    });
+  });
+}
+function openMealBuilder(existingMeal){
+  mealComponents = existingMeal ? existingMeal.components.slice() : [];
+  const mount = document.getElementById('modal-mount');
+  mount.innerHTML = '<div class="search-overlay" id="meal-build-overlay"><div class="search-sheet qty-sheet">'+
+    '<h3>'+(existingMeal?'Edit meal':'Build a meal')+'</h3>'+
+    '<div class="qf-grid"><div class="f" style="grid-column:1/-1;"><label>Meal name</label><input type="text" id="mb-name" value="'+(existingMeal?escapeHtml(existingMeal.name):'')+'" placeholder="e.g. Breakfast"></div>'+
+    '<div class="f" style="grid-column:1/-1;"><label>Which slot does this belong to?</label><select id="mb-slot">'+
+      MEAL_SLOTS.map(function(s){ return '<option value="'+s.key+'" '+(existingMeal&&existingMeal.mealSlot===s.key?'selected':'')+'>'+s.label+'</option>'; }).join('')+
+    '</select></div></div>'+
+    '<div class="rp-label" style="margin:10px 0 6px;font-size:11px;color:var(--text-faint);font-weight:700;text-transform:uppercase;">Components</div>'+
+    '<div id="meal-comp-list" style="margin-bottom:8px;"></div>'+
+    '<input type="text" id="meal-comp-search" placeholder="Search recipes and raw foods to add…">'+
+    '<div id="meal-comp-results"></div>'+
+    '<div id="meal-totals" style="margin-top:10px;font-size:12.5px;color:var(--text-soft);"></div>'+
+    '<div class="sheet-actions"><button class="btn-mini primary" id="mb-save-btn">Save meal</button><button class="btn-mini ghost" id="mb-cancel-btn">Cancel</button></div>'+
+  '</div></div>';
+
+  function renderCompList(){
+    const listEl = document.getElementById('meal-comp-list');
+    listEl.innerHTML = mealComponents.length ? mealComponents.map(function(c, i){
+      const item = c.type==='recipe' ? recipeById(c.id) : foodById(c.id);
+      if(!item) return '';
+      return '<div class="food-entry-row"><div><div class="fe-name">'+(c.type==='recipe'?'🍳 ':'')+escapeHtml(item.name)+'</div><div class="fe-serving">'+(c.servings||1)+'×</div></div>'+
+        '<button class="fe-remove" data-rmcomp="'+i+'">✕</button></div>';
+    }).join('') : '<div class="empty-meal">No components yet — search below to add some.</div>';
+    listEl.querySelectorAll('[data-rmcomp]').forEach(function(btn){
+      btn.addEventListener('click', function(){ mealComponents.splice(Number(btn.dataset.rmcomp),1); renderCompList(); updateMealTotals(); });
+    });
+    updateMealTotals();
+  }
+  function updateMealTotals(){
+    const t = totalsFor(mealComponents.map(function(c){ return {sourceType:c.type, sourceId:c.id, servings:c.servings||1}; }));
+    document.getElementById('meal-totals').innerHTML = '<b>Whole meal total:</b> '+Math.round(t.cal)+' kcal, '+n2(t.protein)+'g protein';
+  }
+  function renderCompResults(q){
+    const query = (q||'').toLowerCase().trim();
+    if(!query){ document.getElementById('meal-comp-results').innerHTML = ''; return; }
+    const recipeMatches = recipes.filter(function(r){ return r.name.toLowerCase().indexOf(query)!==-1; }).map(function(r){ return {type:'recipe', id:r.id, name:'🍳 '+r.name}; });
+    const foodMatches = foods.filter(function(f){ return f.name.toLowerCase().indexOf(query)!==-1; }).map(function(f){ return {type:'food', id:f.id, name:f.name}; });
+    const matches = recipeMatches.concat(foodMatches);
+    document.getElementById('meal-comp-results').innerHTML = matches.map(function(m){
+      return '<div class="search-result-item" data-addcomp-type="'+m.type+'" data-addcomp-id="'+m.id+'"><div class="sri-name">'+escapeHtml(m.name)+'</div></div>';
+    }).join('');
+    document.getElementById('meal-comp-results').querySelectorAll('[data-addcomp-id]').forEach(function(row){
+      row.addEventListener('click', function(){
+        mealComponents.push({type: row.dataset.addcompType, id: row.dataset.addcompId, servings: 1});
+        document.getElementById('meal-comp-search').value = '';
+        document.getElementById('meal-comp-results').innerHTML = '';
+        renderCompList();
+      });
+    });
+  }
+  document.getElementById('meal-comp-search').addEventListener('input', function(e){ renderCompResults(e.target.value); });
+  renderCompList();
+
+  document.getElementById('mb-save-btn').addEventListener('click', async function(){
+    const name = document.getElementById('mb-name').value.trim();
+    if(!name){ document.getElementById('mb-name').style.outline='2px solid var(--danger)'; return; }
+    if(!mealComponents.length) return;
+    const slot = document.getElementById('mb-slot').value;
+    if(existingMeal){
+      existingMeal.name = name; existingMeal.mealSlot = slot; existingMeal.components = mealComponents.slice();
+    } else {
+      meals.push({ id:'meal-'+Date.now()+'-'+Math.floor(Math.random()*1000), name:name, mealSlot:slot, components:mealComponents.slice() });
+    }
+    await saveMeals();
+    closeModal();
+    renderMeals();
+  });
+  document.getElementById('mb-cancel-btn').addEventListener('click', closeModal);
+  document.getElementById('meal-build-overlay').addEventListener('click', function(e){ if(e.target.id==='meal-build-overlay') closeModal(); });
+}
+
+/* =====================================================================
+   TARGETS TAB
+===================================================================== */
+function renderTargets(){
+  const el = document.getElementById('targets-view');
+  el.innerHTML =
+    '<div class="targets-card"><h3>Daily nutrition targets</h3><p>Fully editable — these came from your current diet plan as a starting point.</p>'+
+    '<div class="targets-grid">'+
+      '<div class="f"><label>Calories</label><input type="number" id="tg-cal" value="'+(targets.cal||'')+'"></div>'+
+      '<div class="f"><label>Protein (g)</label><input type="number" id="tg-protein" value="'+(targets.protein||'')+'"></div>'+
+      '<div class="f"><label>Carbs (g)</label><input type="number" id="tg-carbs" value="'+(targets.carbs||'')+'"></div>'+
+      '<div class="f"><label>Fat (g)</label><input type="number" id="tg-fat" value="'+(targets.fat||'')+'"></div>'+
+      '<div class="f"><label>Fiber (g)</label><input type="number" id="tg-fiber" value="'+(targets.fiber||'')+'"></div>'+
+      '<div class="f"><label>Sodium (mg)</label><input type="number" id="tg-sodium" value="'+(targets.sodium||'')+'"></div>'+
+    '</div>'+
+    '<div class="sheet-actions"><button class="btn-mini primary" id="save-targets-btn">Save targets</button></div>'+
+    '</div>'+
+    '<div class="targets-card"><h3>Weight goal & height</h3><p>Weight itself is read from Gym automatically — this is just the goal, height, age, and sex, used for BMI and your daily calorie target.</p>'+
+    '<div class="targets-grid">'+
+      '<div class="f"><label>Start weight (kg)</label><input type="number" step="0.1" id="wg-start" value="'+(weightGoal.startWeight||'')+'"></div>'+
+      '<div class="f"><label>Target weight (kg)</label><input type="number" step="0.1" id="wg-target" value="'+(weightGoal.targetWeight||'')+'"></div>'+
+      '<div class="f"><label>Height (cm)</label><input type="number" id="wg-height" value="'+(weightGoal.height||'')+'"></div>'+
+      '<div class="f"><label>Age</label><input type="number" id="wg-age" value="'+(weightGoal.age||'')+'"></div>'+
+      '<div class="f"><label>Sex</label><select id="wg-sex"><option value="male" '+(weightGoal.sex==='male'?'selected':'')+'>Male</option><option value="female" '+(weightGoal.sex==='female'?'selected':'')+'>Female</option></select></div>'+
+    '</div>'+
+    '<div class="sheet-actions"><button class="btn-mini primary" id="save-weightgoal-btn">Save</button></div>'+
+    '</div>';
+  document.getElementById('save-targets-btn').addEventListener('click', async function(){
+    targets = {
+      cal: parseFloat(document.getElementById('tg-cal').value)||0,
+      protein: parseFloat(document.getElementById('tg-protein').value)||0,
+      carbs: parseFloat(document.getElementById('tg-carbs').value)||0,
+      fat: parseFloat(document.getElementById('tg-fat').value)||0,
+      fiber: parseFloat(document.getElementById('tg-fiber').value)||0,
+      sodium: parseFloat(document.getElementById('tg-sodium').value)||0
+    };
+    await saveTargets();
+    renderTargets();
+  });
+  document.getElementById('save-weightgoal-btn').addEventListener('click', async function(){
+    weightGoal = {
+      startWeight: parseFloat(document.getElementById('wg-start').value)||weightGoal.startWeight,
+      targetWeight: parseFloat(document.getElementById('wg-target').value)||weightGoal.targetWeight,
+      height: document.getElementById('wg-height').value ? parseFloat(document.getElementById('wg-height').value) : null,
+      age: document.getElementById('wg-age').value ? parseInt(document.getElementById('wg-age').value,10) : null,
+      sex: document.getElementById('wg-sex').value
+    };
+    await saveWeightGoal();
+    renderTargets();
+    renderToday();
+  });
+}
+
+/* =====================================================================
+   HISTORY TAB
+===================================================================== */
+async function renderHistoryTab(){
+  const el = document.getElementById('history-view');
+  el.innerHTML = '<div class="empty-note">Loading…</div>';
+  const dates = await loadRecentLogs(14);
+  const trendDates = dates.slice(0,7).reverse(); // last 7 days, oldest first for left-to-right bars
+
+  const calVals = trendDates.map(function(d){ return totalsFor(logs[d]||[]).cal; });
+  const proVals = trendDates.map(function(d){ return totalsFor(logs[d]||[]).protein; });
+  const maxCal = Math.max(1, targets.cal||0, Math.max.apply(null, calVals));
+  const maxPro = Math.max(1, targets.protein||0, Math.max.apply(null, proVals));
+
+  const daysWithData = trendDates.filter(function(d){ return (logs[d]||[]).length; });
+  const avgCal = daysWithData.length ? daysWithData.reduce(function(s,d){ return s+totalsFor(logs[d]).cal; },0)/daysWithData.length : 0;
+  const avgPro = daysWithData.length ? daysWithData.reduce(function(s,d){ return s+totalsFor(logs[d]).protein; },0)/daysWithData.length : 0;
+  const daysOnTarget = daysWithData.filter(function(d){ const c=totalsFor(logs[d]).cal; return targets.cal && Math.abs(c-targets.cal)<=targets.cal*0.1; }).length;
+
+  function barsHtml(vals, max, color, dates, target){
+    return '<div class="macro-bars" style="align-items:flex-end;height:90px;margin:8px 0 4px;">'+
+      vals.map(function(v,i){
+        const h = Math.max(3, Math.round(100*v/max));
+        const hit = target && Math.abs(v-target)<=target*0.15;
+        return '<div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;height:100%;">'+
+          '<div title="'+Math.round(v)+'" style="width:70%;height:'+h+'%;border-radius:4px 4px 0 0;background:'+(hit?'var(--green)':color)+';"></div></div>';
+      }).join('')+
+    '</div><div class="macro-bars">'+dates.map(function(d){ return '<div style="flex:1;text-align:center;font-size:9.5px;color:var(--text-faint);">'+fmtHuman(d).slice(0,3)+'</div>'; }).join('')+'</div>';
+  }
+
+  el.innerHTML =
+    '<div class="targets-card"><h3>Weekly trends</h3><p>Last 7 days · green bar means within 10–15% of target that day.</p>'+
+      '<div class="stat-strip-row" style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:14px;">'+
+        '<div class="targets-grid" style="grid-template-columns:1fr;text-align:center;"><div><label style="display:block;">Avg calories</label><div style="font-family:\'Manrope\',sans-serif;font-weight:800;font-size:17px;">'+Math.round(avgCal)+'</div></div></div>'+
+        '<div class="targets-grid" style="grid-template-columns:1fr;text-align:center;"><div><label style="display:block;">Avg protein</label><div style="font-family:\'Manrope\',sans-serif;font-weight:800;font-size:17px;">'+n2(avgPro)+'g</div></div></div>'+
+        '<div class="targets-grid" style="grid-template-columns:1fr;text-align:center;"><div><label style="display:block;">Days on target</label><div style="font-family:\'Manrope\',sans-serif;font-weight:800;font-size:17px;">'+daysOnTarget+'/'+daysWithData.length+'</div></div></div>'+
+      '</div>'+
+      '<div style="font-size:11.5px;color:var(--text-soft);margin-bottom:2px;font-weight:700;">Calories</div>'+
+      barsHtml(calVals, maxCal, '#FF7A45', trendDates, targets.cal)+
+      '<div style="font-size:11.5px;color:var(--text-soft);margin:14px 0 2px;font-weight:700;">Protein</div>'+
+      barsHtml(proVals, maxPro, '#3D8BFD', trendDates, targets.protein)+
+    '</div>'+
+    dates.map(function(d){
+      const entries = logs[d]||[];
+      const t = totalsFor(entries);
+      const hitCal = targets.cal ? Math.abs(t.cal-targets.cal) <= targets.cal*0.1 : false;
+      return '<div class="history-row"><div class="hr-date">'+fmtHuman(d)+'</div>'+
+        '<div class="hr-nums"><span class="'+(entries.length ? (hitCal?'hr-hit':'hr-miss') : '')+'">'+Math.round(t.cal)+' kcal</span> · '+n2(t.protein)+'g protein</div></div>';
+    }).join('');
+}
+
+} // end firebase-available guard
+</script>
+</body>
+</html>
