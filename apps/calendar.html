@@ -1,0 +1,976 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Calendar</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<style>
+  :root{
+    --bg:#F5F6FB; --surface:#FFFFFF; --surface-alt:#EFF1F8;
+    --border:#E3E6F2; --border-soft:#ECEEF6;
+    --text:#181A29; --text-soft:#5C6079; --text-faint:#9599B0;
+    --accent:#5B5CE8; --accent-soft:#E9E9FD; --accent-deep:#4241C9;
+    --today-ring:#FF7A45;
+    --amavasya:#3A3D52; --amavasya-soft:#E7E7ED;
+    --purnima:#F5B942; --purnima-soft:#FDF1D6;
+    --todo:#5B8DEF; --todo-soft:#E4ECFC;
+    --gym:#E8502F; --gym-soft:#FDE4DC;
+    --chores:#16A37A; --chores-soft:#DDF4EC;
+    --schedule:#A855F7; --schedule-soft:#F2E4FE;
+    --skin:#EC3B87; --skin-soft:#FDE7F1;
+    --radius-lg:18px; --radius-md:13px; --radius-sm:9px;
+    --shadow:0 1px 2px rgba(20,20,50,0.04), 0 12px 26px -16px rgba(20,20,50,0.16);
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;padding:16px 12px 70px;-webkit-font-smoothing:antialiased;}
+  .wrap{max-width:920px;margin:0 auto;}
+  h1,h2,h3{font-family:'Manrope',sans-serif;}
+  button,input,select{font-family:inherit;}
+  button{transition:transform .12s cubic-bezier(.34,1.56,.64,1);cursor:pointer;}
+  button:active{transform:scale(0.96);}
+
+  .loading-gate{position:fixed;inset:0;z-index:200;background:var(--bg);display:flex;align-items:center;justify-content:center;color:var(--text-soft);}
+
+  .topbar{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;}
+  .topbar a{font-size:12.5px;color:var(--text-soft);text-decoration:none;}
+  header.app-head{text-align:center;margin-bottom:14px;}
+  header.app-head h1{font-size:22px;font-weight:800;margin:0 0 2px;letter-spacing:-0.02em;background:linear-gradient(135deg,var(--accent-deep),var(--purnima));-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;}
+  header.app-head p{margin:0;color:var(--text-soft);font-size:12.5px;}
+
+  .segmented{max-width:420px;margin:0 auto 14px;background:var(--surface-alt);border-radius:999px;padding:4px;display:flex;gap:2px;}
+  .segmented button{flex:1;border:none;background:transparent;border-radius:999px;padding:8px 4px;font-size:12.5px;font-weight:700;color:var(--text-soft);}
+  .segmented button.active{background:var(--surface);color:var(--text);box-shadow:var(--shadow);}
+
+  .date-nav{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;gap:10px;}
+  .date-nav .nav-btns{display:flex;gap:6px;}
+  .date-nav button.nav-arrow{background:var(--surface);border:1px solid var(--border);border-radius:50%;width:32px;height:32px;font-size:14px;box-shadow:var(--shadow);}
+  .date-nav .nav-today{background:var(--accent-soft);color:var(--accent-deep);border:none;border-radius:999px;padding:7px 14px;font-size:12px;font-weight:700;}
+  .date-nav .date-title{font-family:'Manrope',sans-serif;font-weight:800;font-size:16px;}
+
+  .legend{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:12px;justify-content:center;}
+  .legend{display:flex;flex-wrap:wrap;gap:10px;margin-bottom:14px;justify-content:center;align-items:center;}
+  .filter-toggle{display:flex;flex-direction:column;align-items:center;gap:4px;background:none;border:none;padding:0;}
+  .filter-toggle .ft-circle{width:34px;height:34px;border-radius:50%;border:2.5px solid var(--border);background:var(--surface);display:flex;align-items:center;justify-content:center;font-size:14px;transition:all .18s cubic-bezier(.34,1.7,.64,1);}
+  .filter-toggle.active .ft-circle{border-color:transparent;box-shadow:0 3px 10px -3px rgba(20,20,50,0.35);}
+  .filter-toggle .ft-label{font-size:9px;color:var(--text-faint);font-weight:700;}
+  .filter-toggle.active .ft-label{color:var(--text);}
+  .filter-selectall{font-size:11px;font-weight:700;color:var(--text-soft);background:var(--surface-alt);border:none;border-radius:999px;padding:6px 12px;align-self:center;}
+
+  .bday-overlay{position:fixed;inset:0;z-index:190;background:rgba(20,20,40,0.4);display:flex;align-items:center;justify-content:center;padding:20px;}
+  .bday-modal{background:var(--surface);border-radius:20px;padding:20px 18px;width:100%;max-width:400px;max-height:80vh;overflow-y:auto;box-shadow:0 20px 50px rgba(0,0,0,0.25);}
+  .bday-modal h3{margin:0 0 14px;font-size:16px;}
+  .bday-add-row{display:flex;gap:6px;margin-bottom:14px;}
+  .bday-add-row input[type=text]{flex:2;font-size:13px;padding:9px 10px;border-radius:9px;border:1px solid var(--border);}
+  .bday-add-row input[type=number]{flex:1;font-size:13px;padding:9px 8px;border-radius:9px;border:1px solid var(--border);width:0;}
+  .bday-add-row button{background:linear-gradient(135deg,var(--accent),var(--accent-deep));color:#fff;border:none;border-radius:9px;padding:0 14px;font-size:13px;font-weight:700;}
+  .bday-row{display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-top:1px solid var(--border-soft);}
+
+  #birthday-banner{background:linear-gradient(135deg,#FFD3E0,#FFB8CE);border-radius:14px;padding:12px 16px;margin-bottom:14px;text-align:center;font-weight:800;font-size:14px;color:#8A2E4A;box-shadow:0 6px 18px -8px rgba(224,86,126,0.5);animation:bday-pop .4s ease;}
+  @keyframes bday-pop{0%{transform:scale(0.92);opacity:0;}100%{transform:scale(1);opacity:1;}}
+  .bday-row:first-of-type{border-top:none;}
+  .bday-row .bd-name{font-size:13.5px;font-weight:600;}
+  .bday-row .bd-date{font-size:11.5px;color:var(--text-faint);}
+  .bday-row button{background:var(--danger-soft,#FCE1E5);color:var(--danger,#F0596B);border:none;border-radius:8px;width:26px;height:26px;font-size:12px;}
+  .bday-close-btn{width:100%;margin-top:14px;padding:10px;background:var(--surface-alt);border:none;border-radius:10px;font-size:13px;font-weight:700;color:var(--text-soft);}
+
+  /* MONTH VIEW */
+  .month-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:5px;}
+  .month-weekday{text-align:center;font-size:10px;font-weight:700;color:var(--text-faint);text-transform:uppercase;letter-spacing:0.04em;padding-bottom:4px;}
+  .month-cell{background:var(--surface);border:1px solid var(--border-soft);border-radius:var(--radius-sm);min-height:78px;padding:5px 5px 4px;cursor:pointer;position:relative;overflow:hidden;transition:box-shadow .15s ease;}
+  .month-cell:hover{box-shadow:var(--shadow);}
+  .month-cell.other-month{opacity:0.35;}
+  .month-cell.is-today{border:2px solid var(--today-ring);}
+  .month-cell .cell-date{font-size:12px;font-weight:700;}
+  .month-cell.is-tithi-mark .cell-date{display:inline-flex;}
+  .tithi-badge{display:inline-block;width:6px;height:6px;border-radius:50%;margin-left:3px;vertical-align:middle;}
+  .tithi-badge.amavasya{background:var(--amavasya);}
+  .tithi-badge.purnima{background:var(--purnima);}
+  .cell-festival{font-size:9.5px;color:#8A6200;background:var(--purnima-soft);border-radius:4px;padding:1px 3px;font-weight:800;line-height:1.2;margin-top:2px;display:block;}
+  .cell-events{margin-top:2px;display:flex;flex-direction:column;gap:1px;}
+  .cell-pill{font-size:8px;padding:1px 4px;border-radius:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-weight:600;}
+  .cell-more{font-size:8px;color:var(--text-faint);}
+
+  /* WEEK VIEW */
+  .week-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:6px;}
+  .week-col{background:var(--surface);border:1px solid var(--border-soft);border-radius:var(--radius-md);padding:8px 6px;min-height:220px;}
+  .week-col.is-today{border:2px solid var(--today-ring);}
+  .week-col-head{text-align:center;margin-bottom:6px;}
+  .week-col-head .wd{font-size:9.5px;color:var(--text-faint);font-weight:700;text-transform:uppercase;}
+  .week-col-head .dn{font-size:15px;font-weight:800;}
+  .week-tithi{text-align:center;font-size:8px;color:var(--text-faint);margin-bottom:4px;}
+  .week-event{font-size:9.5px;padding:3px 5px;border-radius:6px;margin-bottom:3px;font-weight:600;line-height:1.25;}
+
+  /* DAY / AGENDA VIEW */
+  .day-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:16px 18px;margin-bottom:12px;box-shadow:var(--shadow);}
+  .day-card h3{font-size:14px;margin:0 0 8px;}
+  .panchang-box{background:var(--amavasya-soft);border-radius:var(--radius-md);padding:10px 13px;font-size:12px;color:var(--text-soft);margin-bottom:12px;}
+  .panchang-prominent{background:linear-gradient(135deg,var(--purnima-soft),var(--amavasya-soft));border:1px solid var(--purnima);padding:14px 16px;}
+  .panchang-tithi{font-size:15px;font-weight:800;color:var(--text);font-family:'Manrope',sans-serif;}
+  .panchang-anchor{font-size:12px;color:var(--text-soft);margin-top:2px;}
+  .panchang-festival{font-size:13.5px;font-weight:700;color:#B8860B;margin-top:6px;}
+  .panchang-box b{color:var(--text);}
+  .agenda-row{display:flex;gap:10px;align-items:flex-start;padding:9px 0;border-top:1px solid var(--border-soft);}
+  .agenda-row:first-child{border-top:none;}
+  .agenda-dot{width:9px;height:9px;border-radius:50%;margin-top:4px;flex:none;}
+  .agenda-title{font-size:13.5px;font-weight:600;}
+  .agenda-meta{font-size:11px;color:var(--text-faint);}
+  .empty-note{color:var(--text-faint);font-style:italic;font-size:13px;padding:16px;text-align:center;}
+
+  .agenda-daygroup{font-family:'Manrope',sans-serif;font-weight:800;font-size:13px;margin:16px 0 6px;color:var(--text-soft);}
+  .agenda-daygroup:first-child{margin-top:0;}
+</style>
+</head>
+<body>
+
+<div id="loading-gate" class="loading-gate">Loading…</div>
+
+<div class="wrap" id="app-wrap" style="display:none;">
+  <div class="topbar"><a href="../index.html">← All apps</a></div>
+  <header class="app-head">
+    <h1>Calendar</h1>
+    <p>Everything, in one place — plus the Hindu Panchang</p>
+  </header>
+
+  <div id="birthday-banner" style="display:none;"></div>
+
+  <div class="segmented">
+    <button id="view-month-btn" class="active">Month</button>
+    <button id="view-week-btn">Week</button>
+    <button id="view-day-btn">Day</button>
+    <button id="view-agenda-btn">Agenda</button>
+  </div>
+
+  <div class="date-nav">
+    <button class="nav-arrow" id="nav-prev">‹</button>
+    <div class="date-title" id="date-title"></div>
+    <div class="nav-btns"><button class="nav-today" id="nav-today-btn">Today</button><button class="nav-arrow" id="nav-next">›</button></div>
+  </div>
+
+  <div class="legend" id="filter-toggles"></div>
+  <div style="text-align:center;margin:-6px 0 14px;"><button type="button" id="manage-birthdays-btn" style="background:none;border:none;color:var(--text-faint);font-size:11.5px;text-decoration:underline;">🎂 Manage birthdays</button></div>
+  <div style="text-align:center;margin:-8px 0 14px;font-size:11px;color:var(--text-faint);">Schedule shown for: <button type="button" id="cal-profile-switch-btn" style="background:var(--surface-alt);border:none;border-radius:999px;padding:3px 10px;font-size:11px;font-weight:700;color:var(--text);"></button></div>
+
+  <div id="view-mount"></div>
+</div>
+
+<div id="modal-mount"></div>
+
+<script>
+window.addEventListener('error', function(e){
+  const gate = document.getElementById('loading-gate');
+  if(gate && gate.style.display !== 'none') gate.textContent = 'Something went wrong: ' + (e.message||'unknown error') + '. Try a hard refresh.';
+});
+if(typeof firebase === 'undefined'){
+  document.getElementById('loading-gate').textContent = "Couldn't load — check your internet connection and refresh.";
+} else {
+
+const FIREBASE_CONFIG = {
+  apiKey: "AIzaSyBe01eR2RZwSbU_aoJMeh_2MMJ5mqkVuKk",
+  authDomain: "iron-log-bfc55.firebaseapp.com",
+  projectId: "iron-log-bfc55",
+  storageBucket: "iron-log-bfc55.firebasestorage.app",
+  messagingSenderId: "106586808946",
+  appId: "1:106586808946:web:f4736554ba9fc82c6fd8eb"
+};
+firebase.initializeApp(FIREBASE_CONFIG);
+const auth = firebase.auth();
+const db = firebase.firestore();
+try{ db.enablePersistence({synchronizeTabs:true}).catch(function(){}); }catch(e){}
+let currentUser = null;
+// Which profile's PERSONAL data (specifically Schedule, which is inherently
+// one person's routine) should show — read from the hub link, same pattern
+// as every other app, so viewing Calendar as Bhargav shows Bhargav's
+// schedule, not both schedules merged together.
+let activeCalendarProfile = 'Bhargav';
+function detectActiveProfile(){
+  const params = new URLSearchParams(window.location.search);
+  const fromUrl = params.get('profile');
+  if(fromUrl === 'Bhargav' || fromUrl === 'Anusha'){ activeCalendarProfile = fromUrl; return; }
+  try{ const fromHub = localStorage.getItem('hub-active-profile'); if(fromHub==='Bhargav'||fromHub==='Anusha') activeCalendarProfile = fromHub; }catch(e){}
+}
+
+function pad2(n){ return String(n).padStart(2,'0'); }
+function todayStr(){ const d = new Date(); return d.getFullYear()+'-'+pad2(d.getMonth()+1)+'-'+pad2(d.getDate()); }
+function addDays(dateStr, n){ const d = new Date(dateStr+'T00:00:00'); d.setDate(d.getDate()+n); return d.getFullYear()+'-'+pad2(d.getMonth()+1)+'-'+pad2(d.getDate()); }
+function ymd(y,m,d){ return y+'-'+pad2(m)+'-'+pad2(d); }
+function daysBetween(a,b){ return Math.round((new Date(b+'T00:00:00') - new Date(a+'T00:00:00')) / 86400000); }
+function escapeHtml(s){ return String(s==null?'':s).replace(/[&<>"']/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); }
+const WEEKDAY_NAMES = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+const MONTH_NAMES = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+
+/* =====================================================================
+   PANCHANG (tithi) ENGINE
+   2026 anchor dates (Amavasya/Purnima) are read directly from the
+   user's own Kalnirnay 2026 calendar — the authoritative source
+   wherever it differs from generic web panchang estimates.
+   2027 anchor dates are cross-verified across multiple independent
+   panchang sources (drikpanchang, shrimahalaxmicalendar, panchangbodh)
+   since no Kalnirnay 2027 copy was available.
+   Between anchors, tithi is computed by standard linear interpolation
+   (the same method real panchang tools use for day-to-day display) —
+   accurate for "which tithi is today," not a substitute for a local
+   panchang when exact-to-the-minute timing matters (e.g. muhurat).
+===================================================================== */
+// tithi: 0 = Amavasya (new moon), 15 = Purnima (full moon)
+const TITHI_ANCHORS_2026 = [
+  {date:'2026-01-03', tithi:15, name:'Paush Purnima'},
+  {date:'2026-01-18', tithi:0, name:'Magha Amavasya (Mauni Amavasya)'},
+  {date:'2026-02-01', tithi:15, name:'Magha Purnima'},
+  {date:'2026-02-17', tithi:0, name:'Phalguna Amavasya'},
+  {date:'2026-03-03', tithi:15, name:'Phalguna Purnima (Holi)'},
+  {date:'2026-03-18', tithi:0, name:'Chaitra Amavasya'},
+  {date:'2026-04-02', tithi:15, name:'Chaitra Purnima (Hanuman Jayanti)'},
+  {date:'2026-04-17', tithi:0, name:'Vaishakha Amavasya'},
+  {date:'2026-05-01', tithi:15, name:'Vaishakha Purnima (Buddha Purnima)'},
+  {date:'2026-05-16', tithi:0, name:'Jyeshtha Amavasya'},
+  {date:'2026-05-31', tithi:15, name:'Adhik Jyeshtha Purnima'},
+  {date:'2026-06-14', tithi:0, name:'Adhik Jyeshtha Amavasya'},
+  {date:'2026-06-29', tithi:15, name:'Jyeshtha Purnima (Vat Purnima)'},
+  {date:'2026-07-13', tithi:0, name:'Ashadha Amavasya'},
+  {date:'2026-07-29', tithi:15, name:'Ashadha Purnima (Guru Purnima)'},
+  {date:'2026-08-12', tithi:0, name:'Shravana Amavasya'},
+  {date:'2026-08-27', tithi:15, name:'Shravana Purnima (Raksha Bandhan)'},
+  {date:'2026-09-10', tithi:0, name:'Bhadrapada Amavasya (Pithori)'},
+  {date:'2026-09-25', tithi:15, name:'Bhadrapada Purnima'},
+  {date:'2026-10-10', tithi:0, name:'Ashwina Amavasya'},
+  {date:'2026-10-25', tithi:15, name:'Ashwina Purnima (Kojagari/Sharad Purnima)'},
+  {date:'2026-11-09', tithi:0, name:'Kartika Amavasya (Diwali Lakshmi Pujan Nov 8)'},
+  {date:'2026-11-24', tithi:15, name:'Kartika Purnima (Guru Nanak Jayanti)'},
+  {date:'2026-12-07', tithi:0, name:'Margashirsha Amavasya'},
+  {date:'2026-12-23', tithi:15, name:'Margashirsha Purnima'},
+  {date:'2027-01-07', tithi:0, name:'Pausha Amavasya'}
+];
+const TITHI_ANCHORS_2027 = [
+  {date:'2027-01-07', tithi:0, name:'Pausha Amavasya'},
+  {date:'2027-01-22', tithi:15, name:'Pausha Purnima'},
+  {date:'2027-02-06', tithi:0, name:'Magha Amavasya'},
+  {date:'2027-02-20', tithi:15, name:'Magha Purnima'},
+  {date:'2027-03-08', tithi:0, name:'Phalguna Amavasya'},
+  {date:'2027-03-22', tithi:15, name:'Phalguna Purnima (Holi)'},
+  {date:'2027-04-06', tithi:0, name:'Chaitra Amavasya'},
+  {date:'2027-04-20', tithi:15, name:'Chaitra Purnima'},
+  {date:'2027-05-06', tithi:0, name:'Vaishakha Amavasya'},
+  {date:'2027-05-20', tithi:15, name:'Vaishakha Purnima (Buddha Purnima)'},
+  {date:'2027-06-04', tithi:0, name:'Jyeshtha Amavasya'},
+  {date:'2027-06-18', tithi:15, name:'Jyeshtha Purnima (Vat Purnima)'},
+  {date:'2027-07-04', tithi:0, name:'Ashadha Amavasya'},
+  {date:'2027-07-18', tithi:15, name:'Ashadha Purnima (Guru Purnima)'},
+  {date:'2027-08-02', tithi:0, name:'Shravana Amavasya'},
+  {date:'2027-08-17', tithi:15, name:'Shravana Purnima (Raksha Bandhan)'},
+  {date:'2027-08-31', tithi:0, name:'Bhadrapada Amavasya'},
+  {date:'2027-09-15', tithi:15, name:'Bhadrapada Purnima'},
+  {date:'2027-09-30', tithi:0, name:'Ashwina Amavasya'},
+  {date:'2027-10-15', tithi:15, name:'Ashwina Purnima (Sharad Purnima)'},
+  {date:'2027-10-29', tithi:0, name:'Kartika Amavasya (Diwali)'},
+  {date:'2027-11-14', tithi:15, name:'Kartika Purnima'},
+  {date:'2027-11-28', tithi:0, name:'Margashirsha Amavasya'},
+  {date:'2027-12-13', tithi:15, name:'Margashirsha Purnima'},
+  {date:'2027-12-27', tithi:0, name:'Pausha Amavasya'}
+];
+const ALL_ANCHORS = TITHI_ANCHORS_2026.concat(TITHI_ANCHORS_2027.slice(1)); // avoid duplicate Jan 7 2027 anchor
+const TITHI_NAMES_SHUKLA = ['Pratipada','Dwitiya','Tritiya','Chaturthi','Panchami','Shashthi','Saptami','Ashtami','Navami','Dashami','Ekadashi','Dwadashi','Trayodashi','Chaturdashi','Purnima'];
+const TITHI_NAMES_KRISHNA = ['Pratipada','Dwitiya','Tritiya','Chaturthi','Panchami','Shashthi','Saptami','Ashtami','Navami','Dashami','Ekadashi','Dwadashi','Trayodashi','Chaturdashi','Amavasya'];
+
+// Interpolates the tithi (1-15 within its paksha) for any date between
+// two verified anchors. Returns null outside the 2026-2027 range.
+function getTithiInfo(dateStr){
+  let before = null, after = null;
+  for(let i=0;i<ALL_ANCHORS.length-1;i++){
+    if(ALL_ANCHORS[i].date<=dateStr && ALL_ANCHORS[i+1].date>=dateStr){ before = ALL_ANCHORS[i]; after = ALL_ANCHORS[i+1]; break; }
+  }
+  if(!before || !after) return null;
+  if(dateStr===before.date) return { paksha: before.tithi===0?'Krishna':'Shukla', tithiNum: 15, name: before.tithi===0?'Amavasya':'Purnima', isAnchor:true, anchorName: before.name };
+  const span = daysBetween(before.date, after.date) || 1;
+  const pos = daysBetween(before.date, dateStr);
+  const frac = pos/span; // 0..1 across the half-lunar-month
+  const tithiNum = Math.min(15, Math.max(1, Math.round(frac*15)+ (before.tithi===0?0:0) ));
+  const paksha = before.tithi===0 ? 'Shukla' : 'Krishna'; // after Amavasya = waxing(Shukla); after Purnima = waning(Krishna)
+  const names = paksha==='Shukla' ? TITHI_NAMES_SHUKLA : TITHI_NAMES_KRISHNA;
+  const isAnchorDay = tithiNum===15 && dateStr===after.date;
+  return { paksha: paksha, tithiNum: tithiNum, name: names[tithiNum-1], isAnchor:isAnchorDay, anchorName: isAnchorDay?after.name:null };
+}
+
+// Major named festivals (from the Kalnirnay 2026 pages read directly, and
+// cross-referenced sources for 2027) — not exhaustive, the headline ones.
+// Detailed daily observances for 2026, read directly from the user's
+// Kalnirnay 2026 PDF (all 12 months) — not just headline festivals, but
+// every specifically-named vrat/tithi observance Kalnirnay marks (Ekadashi,
+// Sankashti Chaturthi, Pradosh, jayanti/punyatithi days, etc.). Days with
+// no specific named observance are Kalnirnay's generic "shubh divas" —
+// ordinary good days with no restriction, not shown individually since
+// that's most days and isn't itself a distinct event.
+// 2027 has only headline festivals since no Kalnirnay 2027 copy was available.
+const FESTIVALS = {
+  '2026-01-01':['Pradosh','New Year 2026 begins'],
+  '2026-01-03':['Paush Purnima','Savitribai Phule Jayanti','Mahila Mukti Din'],
+  '2026-01-06':['Angarak Sankashti Chaturthi'],
+  '2026-01-09':['Swami Vivekananda Jayanti (tithi)'],
+  '2026-01-10':['National Youth Day','Siddheshwar Yatra begins (Solapur)'],
+  '2026-01-12':['Bhogi'],
+  '2026-01-13':['Shattila Ekadashi'],
+  '2026-01-14':['Makar Sankranti'],
+  '2026-01-18':['Amavasya (Magha)','Mauni Amavasya (Jain)'],
+  '2026-01-26':['Republic Day'],
+  '2026-02-01':['Magha Purnima','Guru Ravidas Jayanti'],
+  '2026-02-02':['Guru Pratipada','Gangapur Yatra'],
+  '2026-02-05':['Sankashti Chaturthi'],
+  '2026-02-09':['Kalashtami'],
+  '2026-02-10':['Shri Ramdas Navami'],
+  '2026-02-12':['Vijaya Ekadashi'],
+  '2026-02-14':['Shani Pradosh'],
+  '2026-02-15':['Maha Shivratri'],
+  '2026-02-16':['Somvati Amavasya begins'],
+  '2026-02-17':['Amavasya (Magha)'],
+  '2026-02-19':['Chhatrapati Shivaji Maharaj Jayanti (by tithi)'],
+  '2026-02-24':['Durgashtami'],
+  '2026-02-26':['Swatantryaveer Savarkar Punyatithi'],
+  '2026-02-27':['Amalki Ekadashi','Marathi Bhasha Gaurav Din'],
+  '2026-03-02':['Holika Dahan'],
+  '2026-03-03':['Phalguna Purnima','Holi'],
+  '2026-03-04':['Rangapanchami','Shri Eknath Shashthi'],
+  '2026-03-05':['Kalashtami'],
+  '2026-03-06':['Papmochani Ekadashi'],
+  '2026-03-07':['Shivratri (monthly)'],
+  '2026-03-08':['Sant Tukaram Beej'],
+  '2026-03-10':['Sankashti Chaturthi','Chhatrapati Shivaji Maharaj Jayanti (by tithi)'],
+  '2026-03-11':['Somapradosh'],
+  '2026-03-17':['Chhatrapati Shivaji Maharaj Jayanti (by date)'],
+  '2026-03-18':['Amavasya (Chaitra)'],
+  '2026-03-19':['Gudi Padwa','Chaitra Navratri begins','Dr. Hedgewar Jayanti'],
+  '2026-03-21':['Durgashtami','Shri Ramdas Swami Jayanti','Ram Navami'],
+  '2026-03-22':['Vinayak Chaturthi'],
+  '2026-03-23':['Swaminarayan Jayanti','Chaitra Navratri Samapti'],
+  '2026-03-24':['Ramzan Eid','Gauri Tritiya (Teej)'],
+  '2026-03-26':['Kamda Ekadashi'],
+  '2026-03-28':['Damanaka Chaturdashi','Bhagwan Mahavir Janma Kalyanak'],
+  '2026-04-01':['Sankashti Chaturthi','Easter Sunday'],
+  '2026-04-02':['Chaitra Purnima','Hanuman Jayanti'],
+  '2026-04-03':['Chhatrapati Shivaji Maharaj Punyatithi (by date)'],
+  '2026-04-07':['Kalashtami'],
+  '2026-04-08':['Gangasaptami','Gangapujan'],
+  '2026-04-12':['Dr. Babasaheb Ambedkar Jayanti'],
+  '2026-04-13':['Pradosh','Shivratri'],
+  '2026-04-14':['Mahatma Jotiba Phule Jayanti'],
+  '2026-04-17':['Amavasya (Chaitra)'],
+  '2026-04-18':['Durgashtami'],
+  '2026-04-19':['Varuthini Ekadashi'],
+  '2026-04-20':['Vinayak Chaturthi'],
+  '2026-04-21':['Akshaya Tritiya','Shri Parashuram Jayanti'],
+  '2026-04-22':['Shri Adi Shankaracharya Jayanti','Vaishakh month begins'],
+  '2026-04-23':['Shri Nrusinha Jayanti'],
+  '2026-04-26':['Sita Navami'],
+  '2026-04-27':['Mohini Ekadashi'],
+  '2026-05-01':['Vaishakh Purnima','Buddha Purnima','Maharashtra Din'],
+  '2026-05-04':['Sankashti Chaturthi (Angarak yoga)'],
+  '2026-05-06':['Gangadashara Prarambh'],
+  '2026-05-07':['Pradosh','Dharmveer Chhatrapati Sambhaji Maharaj Jayanti (by date)'],
+  '2026-05-09':['Kalashtami'],
+  '2026-05-11':['Apara Ekadashi'],
+  '2026-05-13':['Maharana Pratap Jayanti'],
+  '2026-05-14':['Shivratri'],
+  '2026-05-16':['Amavasya (Vaishakh)','Shanishwar Jayanti'],
+  '2026-05-18':['Ganga Dussehra'],
+  '2026-05-20':['Vinayak Chaturthi (Angarak yoga)'],
+  '2026-05-23':['Kamla Ekadashi'],
+  '2026-05-24':['Bakri Eid'],
+  '2026-05-27':['Pradosh','Swatantryaveer Savarkar Jayanti'],
+  '2026-05-31':['Adhik Jyeshtha Purnima','Ahilyabai Holkar Jayanti (by date)'],
+  '2026-06-03':['Sankashti Chaturthi'],
+  '2026-06-04':['Kamla Ekadashi'],
+  '2026-06-05':['World Environment Day'],
+  '2026-06-06':['Shivaji Rajyabhishek Sohala — Fort Raigad'],
+  '2026-06-07':['Kalashtami'],
+  '2026-06-10':['Maharana Pratap Jayanti (by tithi)'],
+  '2026-06-11':['Pradosh'],
+  '2026-06-12':['Shivratri'],
+  '2026-06-14':['Amavasya (Adhik Jyeshtha)'],
+  '2026-06-21':['International Yoga Day'],
+  '2026-06-24':['Guru Arjundev Shahid Din'],
+  '2026-06-25':['Nirjala Ekadashi'],
+  '2026-06-26':['Pradosh','Shivratri'],
+  '2026-06-28':['Chhatrapati Shahu Maharaj Jayanti','Moharram (Tajiya)'],
+  '2026-06-29':['Nija Jyeshtha Purnima','Vat Purnima','Kabir Jayanti'],
+  '2026-07-01':['Vasantrao Naik Jayanti'],
+  '2026-07-02':['Rajmata Jijausaheb Bhosle Punyatithi (by tithi)'],
+  '2026-07-03':['Sankashti Chaturthi'],
+  '2026-07-04':['Bhagavat Ekadashi'],
+  '2026-07-05':['Pradosh','Shivratri'],
+  '2026-07-07':['Kalashtami'],
+  '2026-07-09':['Rathyatra'],
+  '2026-07-10':['Yogini Smart Ekadashi','Sant Nivruttinath Yatra — Trimbakeshwar'],
+  '2026-07-11':['Kumar Shashthi'],
+  '2026-07-12':['Pradosh'],
+  '2026-07-13':['Amavasya (Nij Jyeshtha)'],
+  '2026-07-16':['Vinayak Chaturthi'],
+  '2026-07-18':['Devshayani Ashadhi Ekadashi (Pandharpur Yatra)','Chaturmas begins'],
+  '2026-07-25':['Saibaba Utsav Samapti — Shirdi'],
+  '2026-07-26':['Vamanpujan','Pradosh'],
+  '2026-07-27':['Maharashtra Bendur'],
+  '2026-07-29':['Ashadha Purnima','Guru Purnima','Vyasapuja'],
+  '2026-08-01':['Sankashti Chaturthi'],
+  '2026-08-02':['Lokmanya Bal Gangadhar Tilak Punyatithi'],
+  '2026-08-04':['Kamika Ekadashi'],
+  '2026-08-06':['Kalashtami'],
+  '2026-08-08':['Somapradosh'],
+  '2026-08-09':['Vinayak Chaturthi','Nag Chaturthi','Jyeshthagauri Avahan'],
+  '2026-08-10':['Shivratri','Sant Savata Mali Punyatithi'],
+  '2026-08-11':['Karnika Ekadashi','World Adivasi Din'],
+  '2026-08-12':['Amavasya (Shravan)'],
+  '2026-08-15':['Independence Day','Parsi Farvardin Nutan Varsh'],
+  '2026-08-17':['Nagpanchami'],
+  '2026-08-18':['Durgashtami'],
+  '2026-08-21':['Bhaumpradosh','Mangalagauri Pujan'],
+  '2026-08-27':['Shravan Purnima','Raksha Bandhan'],
+  '2027-01-26':['Republic Day'], '2027-03-22':['Holi'],
+  '2027-08-15':['Independence Day'], '2027-10-29':['Diwali'], '2027-12-25':['Christmas'],
+  '2026-09-01':["Mangala Gauri worship"],
+  '2026-09-04':["Kalashtami","Jara-Jivantika worship","fasting for Shri Krishna Jayanti","Pant Maharaj Balekundri Janmashtami","Shri Dnyaneshwar Maharaj Jayanti at Apegaon"],
+  '2026-09-05':["Gopalkala","Akshar Bharati worship","Teachers Day"],
+  '2026-09-07':["Aja Ekadashi (auspicious after 06:40)","beginning of Jain Paryushan","Shravan Monday Shiva worship","Umaji Naik Jayanti"],
+  '2026-09-08':["Bhauma Pradosh (auspicious until 14:43)","Jain Paryushan begins (Panchami Paksha)","Sant Sena Maharaj death anniversary","Mangala Gauri worship"],
+  '2026-09-09':["monthly Shivratri"],
+  '2026-09-10':["Darsha Amavasya","Pithori Amavasya","Pola","Matru Din","Ahilyabai Holkar death anniversary"],
+  '2026-09-11':["Jara-Jivantika worship","Shravan Amavasya ends"],
+  '2026-09-12':["Bhadrapada begins","first sighting of the waxing Moon","Jewish Rosh Hashanah"],
+  '2026-09-13':["Varaha Jayanti","Islamic month Rabi al-Awwal begins"],
+  '2026-09-14':["Hartalika Tritiya","Shri Ganesh Chaturthi"],
+  '2026-09-15':["Rishi Panchami","Gajanan Maharaj death anniversary at Shegaon","Jain Samvatsari"],
+  '2026-09-16':["Beginning of Digambar Jain Paryushan (auspicious after 17:29)"],
+  '2026-09-17':["Surya Shashthi (auspicious until 19:52)","Jyeshtha Gauri invocation"],
+  '2026-09-18':["Jyeshtha Gauri worship"],
+  '2026-09-19':["Durgashtami","Jyeshtha Gauri immersion"],
+  '2026-09-20':["Aduhkha Navami","beginning of Bhagavata Saptah"],
+  '2026-09-21':["Jewish Yom Kippur"],
+  '2026-09-22':["Parivartini Ekadashi (auspicious until 08:45)"],
+  '2026-09-23':["Vamana Jayanti","equinox day"],
+  '2026-09-24':["Pradosh"],
+  '2026-09-25':["Anant Chaturdashi","conclusion of Digambar Jain Paryushan"],
+  '2026-09-26':["Proshthapadi Purnima","conclusion of Bhagavata Saptah","Jewish Sukkot"],
+  '2026-09-27':["Beginning of Mahalaya/Pitru Paksha","Pratipada Shraddha"],
+  '2026-09-28':["Dwitiya Shraddha"],
+  '2026-09-29':["Angarak Sankashti Chaturthi"],
+  '2026-09-30':["Chaturthi Shraddha and Panchami Shraddha"],
+  '2026-10-01':["Shashthi Shraddha"],
+  '2026-10-02':["Mahatma Gandhi Jayanti","Lal Bahadur Shastri Jayanti"],
+  '2026-10-03':["Marathi Classical Language Pride Day","Kalashtami"],
+  '2026-10-04':["Avidhava Navami","Jewish Simchat Torah"],
+  '2026-10-05':["Dashami Shraddha (auspicious until 14:55)"],
+  '2026-10-06':["Indira Ekadashi"],
+  '2026-10-07':["Mahalaya for ascetics","Magha Nakshatra Shraddha"],
+  '2026-10-08':["Pradosh","monthly Shivratri"],
+  '2026-10-09':["Shraddha for ancestors who died by weapons"],
+  '2026-10-10':["Sarvapitri Amavasya","Gajachhaya Yoga"],
+  '2026-10-11':["Ghatasthapana","Sharadiya Navratri begins","Maharaja Agrasen Jayanti"],
+  '2026-10-12':["First sighting of the waxing Moon"],
+  '2026-10-13':["Islamic month Jumada al-Awwal begins"],
+  '2026-10-14':["Vinayak Chaturthi (auspicious until 12:16)"],
+  '2026-10-15':["Lalita Panchami","World Blind Awareness Day"],
+  '2026-10-16':["Saraswati invocation"],
+  '2026-10-17':["Saraswati worship"],
+  '2026-10-18':["Bhanu Saptami","Mahalakshmi worship","Jain Ayambil Oli begins"],
+  '2026-10-19':["Durgashtami","Mahashtami fast","Saraswati immersion"],
+  '2026-10-20':["Mahanavami","Dussehra/Vijayadashami","Ayudha Puja","Saibaba festival at Shirdi"],
+  '2026-10-21':["Pant Maharaj Balekundri festival begins"],
+  '2026-10-22':["Pashankusha Ekadashi (auspicious after 14:47)"],
+  '2026-10-23':["Pradosh","Shri Gorakshanath manifestation day"],
+  '2026-10-24':["Sun enters Swati Nakshatra"],
+  '2026-10-25':["Kojagiri Purnima (auspicious until 11:56)","Sharad Purnima"],
+  '2026-10-26':["Maharshi Valmiki Jayanti","Kartik ritual bathing begins","Jain Ayambil Oli ends"],
+  '2026-10-29':["Sankashti Chaturthi"],
+  '2026-10-30':["Rashtrasant Tukdoji Maharaj death anniversary"],
+  '2026-10-31':["Sardar Vallabhbhai Patel Jayanti"],
+  '2026-11-01':["Bhanu Saptami","Kalashtami","Karashtami"],
+  '2026-11-02':["Industrial Safety Day"],
+  '2026-11-04':["Vasudev Balwant Phadke birth anniversary"],
+  '2026-11-05':["Rama Ekadashi","Govatsa Dwadashi","Vasubaras"],
+  '2026-11-06':["Pradosh","Dhantrayodashi/Dhanteras","Dhanvantari Jayanti"],
+  '2026-11-07':["Monthly Shivratri"],
+  '2026-11-08':["Narak Chaturdashi","Darsha Amavasya","Lakshmi Puja 18:00-20:33","Jain Mahavir Nirvana"],
+  '2026-11-09':["Somvati Amavasya"],
+  '2026-11-10':["Balipratipada","Diwali Padwa","Vikram Samvat 2083 begins","Govardhan Puja"],
+  '2026-11-11':["Islamic month Jumada al-Akhirah begins"],
+  '2026-11-12':["Bhau Beej","Yama Dwitiya"],
+  '2026-11-13':["Vinayak Chaturthi"],
+  '2026-11-14':["Pandav Panchami","Jawaharlal Nehru Jayanti","Children's Day"],
+  '2026-11-15':["Birsa Munda Jayanti"],
+  '2026-11-16':["Jalaram Jayanti"],
+  '2026-11-17':["Durgashtami (auspicious after 17:16)","Gopashtami","Lala Lajpat Rai death anniversary"],
+  '2026-11-18':["Kushmanda Navami"],
+  '2026-11-20':["Prabodhini Smarta Ekadashi","Sant Namdev Maharaj Jayanti"],
+  '2026-11-21':["Bhagavata Ekadashi","Tulsi Vivah begins","Pandharpur Yatra","Chaturmas ends"],
+  '2026-11-22':["Pradosh","Vaikuntha Chaturdashi fast"],
+  '2026-11-23':["Vaikuntha Chaturdashi"],
+  '2026-11-24':["Guru Nanak Jayanti","Tripurari Purnima","Guru Tegh Bahadur Martyrdom Day"],
+  '2026-11-26':["Constitution Day of India"],
+  '2026-11-27':["Sankashti Chaturthi"],
+  '2026-11-28':["Mahatma Jyotirao Phule death anniversary"],
+  '2026-12-01':["Kalashtami","Kalabhairav Jayanti"],
+  '2026-12-03':["International Day of Persons with Disabilities (auspicious until 10:43)"],
+  '2026-12-04':["Utpatti Ekadashi","Alandi Yatra"],
+  '2026-12-05':["Jewish Hanukkah"],
+  '2026-12-06':["Dr. B. R. Ambedkar Mahaparinirvan Day","Dnyaneshwar Maharaj Samadhi festival at Alandi","Pradosh"],
+  '2026-12-07':["Monthly Shivratri"],
+  '2026-12-08':["Darsha Amavasya","Santaji Maharaj Jagnade Jayanti"],
+  '2026-12-09':["Margashirsha begins","Martand Bhairav Ghatasthapana","Dev Deepavali"],
+  '2026-12-10':["First sighting of the waxing Moon"],
+  '2026-12-11':["Islamic month Rajab begins"],
+  '2026-12-13':["Vinayak Chaturthi (auspicious after 16:47)"],
+  '2026-12-15':["Champa Shashthi","Skanda Shashthi"],
+  '2026-12-17':["Durgashtami","Dhanurmas begins"],
+  '2026-12-20':["Mokshada Ekadashi","Bhagavad Gita Jayanti","Sant Gadge Maharaj death anniversary"],
+  '2026-12-21':["Soma Pradosh","Uttarayan transition"],
+  '2026-12-22':["Indian Paush period begins (auspicious until 10:05)"],
+  '2026-12-23':["Shri Datta Jayanti","Hazrat Ali birthday"],
+  '2026-12-24':["Sane Guruji Jayanti","National Consumer Day"],
+  '2026-12-25':["Christmas"],
+  '2026-12-26':["Sankashti Chaturthi"],
+  '2026-12-29':["Morya Gosavi Sanjeevan Samadhi at Chinchwad, Pune"],
+  '2026-12-31':["Kalashtami"]
+};
+
+/* =====================================================================
+   FILTER TOGGLES — one circular toggle per source, persisted, applied
+   uniformly across Month/Week/Day/Agenda. Panchang and Birthdays are
+   their own toggleable categories alongside the five apps.
+===================================================================== */
+const FILTER_KEY = 'calendar-active-filters';
+const FILTER_DEFS = [
+  {key:'todo', label:'Todo', icon:'✓', color:'var(--todo)'},
+  {key:'gym', label:'Gym', icon:'🏋', color:'var(--gym)'},
+  {key:'chores', label:'Chores', icon:'🧹', color:'var(--chores)'},
+  {key:'schedule', label:'Schedule', icon:'📋', color:'var(--schedule)'},
+  {key:'hindu', label:'Panchang', icon:'🪔', color:'var(--purnima)'},
+  {key:'birthdays', label:'Birthdays', icon:'🎂', color:'#E0567E'}
+];
+let activeFilters = new Set(FILTER_DEFS.map(function(f){ return f.key; }));
+function loadFilters(){
+  try{
+    const saved = JSON.parse(localStorage.getItem(FILTER_KEY));
+    if(saved && Array.isArray(saved)) activeFilters = new Set(saved);
+  }catch(e){}
+}
+function saveFilters(){ try{ localStorage.setItem(FILTER_KEY, JSON.stringify([...activeFilters])); }catch(e){} }
+function renderFilterToggles(){
+  const mount = document.getElementById('filter-toggles');
+  const allOn = activeFilters.size === FILTER_DEFS.length;
+  mount.innerHTML = FILTER_DEFS.map(function(f){
+    const isActive = activeFilters.has(f.key);
+    return '<button type="button" class="filter-toggle '+(isActive?'active':'')+'" data-filtertoggle="'+f.key+'">'+
+      '<div class="ft-circle" style="'+(isActive?'background:'+f.color+';color:#fff;':'color:var(--text-faint);')+'">'+f.icon+'</div>'+
+      '<div class="ft-label">'+f.label+'</div></button>';
+  }).join('') + '<button type="button" class="filter-selectall" id="filter-selectall-btn">'+(allOn?'Clear all':'Show all')+'</button>';
+  mount.querySelectorAll('[data-filtertoggle]').forEach(function(btn){
+    btn.addEventListener('click', function(){
+      const key = btn.dataset.filtertoggle;
+      if(activeFilters.has(key)) activeFilters.delete(key); else activeFilters.add(key);
+      saveFilters(); renderFilterToggles(); render();
+    });
+  });
+  document.getElementById('filter-selectall-btn').addEventListener('click', function(){
+    if(activeFilters.size===FILTER_DEFS.length) activeFilters.clear();
+    else FILTER_DEFS.forEach(function(f){ activeFilters.add(f.key); });
+    saveFilters(); renderFilterToggles(); render();
+  });
+}
+
+/* =====================================================================
+   CROSS-APP EVENT AGGREGATION — reads directly from each app's own
+   Firestore data (read-only from here), same account, no duplication.
+===================================================================== */
+let eventsByDate = {}; // 'YYYY-MM-DD' -> [{title, source, color, person, time}]
+function addEvent(dateStr, title, source, color, person, time, link){
+  if(!dateStr) return;
+  if(!eventsByDate[dateStr]) eventsByDate[dateStr] = [];
+  eventsByDate[dateStr].push({title:title, source:source, color:color, person:person||'', time:time||'', link:link||null});
+}
+function jdoc(path){ return db.doc(path); }
+
+async function loadTodoEvents(){
+  const profiles = ['Bhargav','Anusha'];
+  for(const p of profiles){
+    try{
+      const doc = await jdoc('users/'+currentUser.uid+'/todo-profiles/'+p+'/data/tasks').get();
+      const tasks = (doc.exists && doc.data().json) ? JSON.parse(doc.data().json) : [];
+      tasks.forEach(function(t){ if(!t.done && t.due) addEvent(t.due, t.title, 'Todo', 'var(--todo)', p, t.dueTime, 'todo.html?task='+encodeURIComponent(t.id)+'&profile='+encodeURIComponent(p)); });
+    }catch(e){}
+  }
+  try{
+    const doc = await jdoc('users/'+currentUser.uid+'/todo-shared/tasks').get();
+    const tasks = (doc.exists && doc.data().json) ? JSON.parse(doc.data().json) : [];
+    tasks.forEach(function(t){ if(!t.done && t.due) addEvent(t.due, t.title, 'Todo', 'var(--todo)', 'Shared', t.dueTime, 'todo.html?task='+encodeURIComponent(t.id)+'&profile=Bhargav'); });
+  }catch(e){}
+}
+
+async function loadGymEvents(){
+  const profiles = [{id:'bhargav',label:'Bhargav'},{id:'anusha',label:'Anusha'}];
+  const today = todayStr();
+  const rangeEnd = addDays(today, 60);
+  for(const p of profiles){
+    try{
+      const snap = await db.collection('users/'+currentUser.uid+'/profiles/'+p.id+'/dailyLogs').get();
+      snap.forEach(function(d){
+        const data = d.data();
+        if(data.weight != null && data.weight !== '') addEvent(data.date, 'Weigh-in: '+data.weight+' kg', 'Gym', 'var(--gym)', p.label);
+      });
+    }catch(e){}
+    try{
+      const snap = await db.collection('users/'+currentUser.uid+'/profiles/'+p.id+'/liftLogs').get();
+      snap.forEach(function(d){
+        const data = d.data();
+        if(data.date) addEvent(data.date, 'Workout logged', 'Gym', 'var(--gym)', p.label);
+      });
+    }catch(e){}
+  }
+}
+
+async function loadChoresEvents(){
+  try{
+    const doc = await jdoc('users/'+currentUser.uid+'/apps/chores/data/chores').get();
+    const chores = (doc.exists && doc.data().json) ? JSON.parse(doc.data().json) : [];
+    const today = todayStr();
+    chores.forEach(function(c){
+      if(c.freqType==='asNeeded') return;
+      let due = null;
+      if(!c.lastCompleted && c.dueOverride) due = c.dueOverride;
+      else if(c.freqType==='daily') due = c.lastCompleted ? addDays(c.lastCompleted,1) : today;
+      else if(c.freqType==='everyNDays') due = c.lastCompleted ? addDays(c.lastCompleted, c.freqDays) : today;
+      else if(c.freqType==='specificDays'){
+        const start = c.lastCompleted ? addDays(c.lastCompleted,1) : today;
+        for(let i=0;i<14;i++){ const dd = addDays(start,i); if(c.days && c.days.indexOf(WEEKDAY_NAMES[new Date(dd+'T00:00:00').getDay()])!==-1){ due = dd; break; } }
+      }
+      if(due) addEvent(due, c.name, 'Chores', 'var(--chores)', '', '', 'chores.html?chore='+encodeURIComponent(c.id));
+    });
+  }catch(e){}
+}
+
+async function loadScheduleEvents(){
+  // Schedule is a weekly recurring template, not fixed calendar dates —
+  // shown by mapping each weekday's items onto every matching date in the
+  // visible range at render time (see eventsForRecurringWeekday below).
+  const profiles = ['Bhargav','Anusha'];
+  window.scheduleTemplates = {};
+  for(const p of profiles){
+    try{
+      const doc = await jdoc('users/'+currentUser.uid+'/schedule-profiles/'+p+'/data/dayTemplates').get();
+      window.scheduleTemplates[p] = (doc.exists && doc.data().json) ? JSON.parse(doc.data().json) : {};
+    }catch(e){ window.scheduleTemplates[p] = {}; }
+  }
+}
+function eventsForRecurringWeekday(dateStr){
+  const out = [];
+  const wd = WEEKDAY_NAMES[new Date(dateStr+'T00:00:00').getDay()];
+  // Schedule is inherently personal — only the active profile's routine
+  // shows, not both people's schedules merged into one list.
+  const dayItems = ((window.scheduleTemplates||{})[activeCalendarProfile]||{})[wd];
+  if(Array.isArray(dayItems)){
+    dayItems.slice(0,8).forEach(function(item){
+      const label = item.activity || item.title || item.name || item.label || (typeof item==='string'?item:null);
+      if(label) out.push({title:label, source:'Schedule', color:'var(--schedule)', person:activeCalendarProfile});
+    });
+  }
+  return out;
+}
+
+async function loadAllEvents(){
+  eventsByDate = {};
+  await Promise.all([loadTodoEvents(), loadGymEvents(), loadChoresEvents(), loadScheduleEvents()]);
+}
+
+/* =====================================================================
+   INIT / NAV
+===================================================================== */
+let activeView = 'month';
+let activeDate = todayStr();
+
+auth.onAuthStateChanged(async function(user){
+  currentUser = user;
+  if(!user){ window.location.href = '../index.html'; return; }
+  detectActiveProfile();
+  loadFilters();
+  await loadAllEvents();
+  await loadBirthdays();
+  renderBirthdayBanner();
+  document.getElementById('loading-gate').style.display = 'none';
+  document.getElementById('app-wrap').style.display = 'block';
+  renderFilterToggles();
+  document.getElementById('view-month-btn').onclick = function(){ showView('month'); };
+  document.getElementById('view-week-btn').onclick = function(){ showView('week'); };
+  document.getElementById('view-day-btn').onclick = function(){ showView('day'); };
+  document.getElementById('view-agenda-btn').onclick = function(){ showView('agenda'); };
+  document.getElementById('nav-prev').onclick = function(){ navigate(-1); };
+  document.getElementById('nav-next').onclick = function(){ navigate(1); };
+  document.getElementById('nav-today-btn').onclick = function(){ activeDate = todayStr(); render(); };
+  document.getElementById('manage-birthdays-btn').onclick = openBirthdaysPanel;
+  document.getElementById('cal-profile-switch-btn').textContent = activeCalendarProfile;
+  document.getElementById('cal-profile-switch-btn').onclick = function(){
+    activeCalendarProfile = activeCalendarProfile==='Bhargav' ? 'Anusha' : 'Bhargav';
+    try{ localStorage.setItem('hub-active-profile', activeCalendarProfile); }catch(e){}
+    document.getElementById('cal-profile-switch-btn').textContent = activeCalendarProfile;
+    render();
+  };
+  render();
+});
+function showView(v){ activeView = v; ['month','week','day','agenda'].forEach(function(x){ document.getElementById('view-'+x+'-btn').classList.toggle('active', x===v); }); render(); }
+function navigate(dir){
+  if(activeView==='month'){ const d = new Date(activeDate+'T00:00:00'); d.setMonth(d.getMonth()+dir); activeDate = ymd(d.getFullYear(), d.getMonth()+1, 1); }
+  else if(activeView==='week'){ activeDate = addDays(activeDate, dir*7); }
+  else { activeDate = addDays(activeDate, dir); }
+  render();
+}
+function render(){
+  const mount = document.getElementById('view-mount');
+  const d = new Date(activeDate+'T00:00:00');
+  if(activeView==='month'){
+    document.getElementById('date-title').textContent = MONTH_NAMES[d.getMonth()]+' '+d.getFullYear();
+    mount.innerHTML = ''; mount.appendChild(renderMonthView(d.getFullYear(), d.getMonth()));
+  } else if(activeView==='week'){
+    const weekStart = addDays(activeDate, -d.getDay());
+    const weekEnd = addDays(weekStart, 6);
+    document.getElementById('date-title').textContent = fmtShort(weekStart)+' – '+fmtShort(weekEnd);
+    mount.innerHTML = ''; mount.appendChild(renderWeekView(weekStart));
+  } else if(activeView==='day'){
+    document.getElementById('date-title').textContent = fmtLong(activeDate);
+    mount.innerHTML = renderDayView(activeDate);
+  } else {
+    document.getElementById('date-title').textContent = 'Next 30 days';
+    mount.innerHTML = renderAgendaView();
+  }
+}
+function fmtShort(dateStr){ const d = new Date(dateStr+'T00:00:00'); return MONTH_NAMES[d.getMonth()].slice(0,3)+' '+d.getDate(); }
+function fmtLong(dateStr){ const d = new Date(dateStr+'T00:00:00'); return WEEKDAY_NAMES[d.getDay()]+', '+MONTH_NAMES[d.getMonth()]+' '+d.getDate()+', '+d.getFullYear(); }
+
+function festivalLabel(dateStr){
+  const f = FESTIVALS[dateStr];
+  if(!f) return null;
+  return Array.isArray(f) ? f.join(', ') : f;
+}
+// Birthdays — stored in Calendar's own data, month/day only so they recur
+// every year automatically.
+let birthdays = [];
+async function loadBirthdays(){
+  try{
+    const doc = await db.collection('users').doc(currentUser.uid).collection('apps').doc('calendar').collection('data').doc('birthdays').get();
+    birthdays = (doc.exists && doc.data().json) ? JSON.parse(doc.data().json) : [];
+  }catch(e){ birthdays = []; }
+}
+async function saveBirthdays(){
+  try{ await db.collection('users').doc(currentUser.uid).collection('apps').doc('calendar').collection('data').doc('birthdays').set({json: JSON.stringify(birthdays)}); }catch(e){}
+}
+function birthdayEventsFor(dateStr){
+  const mm = dateStr.slice(5,7), dd = dateStr.slice(8,10);
+  return birthdays.filter(function(b){ return b.month===mm && b.day===dd; })
+    .map(function(b){ return { title: b.name+"'s Birthday 🎂", source:'Birthdays', color:'#E0567E', person:'', time:'' }; });
+}
+// All-day banner — shown regardless of which view/date you're looking at,
+// for as long as today is actually someone's birthday.
+function renderBirthdayBanner(){
+  const el = document.getElementById('birthday-banner');
+  const todays = birthdayEventsFor(todayStr());
+  if(!todays.length){ el.style.display = 'none'; el.innerHTML=''; return; }
+  const names = birthdays.filter(function(b){ const t=todayStr(); return b.month===t.slice(5,7) && b.day===t.slice(8,10); }).map(function(b){ return b.name; });
+  el.innerHTML = '🎉 Happy Birthday, '+names.map(escapeHtml).join(' & ')+'! 🎂';
+  el.style.display = 'block';
+}
+let editingBdayId = null;
+function openBirthdaysPanel(){
+  const mount = document.getElementById('modal-mount') || (function(){ const m = document.createElement('div'); m.id='modal-mount'; document.body.appendChild(m); return m; })();
+  function draw(){
+    mount.innerHTML = '<div class="bday-overlay" id="bday-overlay"><div class="bday-modal">'+
+      '<h3>🎂 Birthdays</h3>'+
+      '<div class="bday-add-row"><input type="text" id="bday-name-input" placeholder="Name"><input type="number" id="bday-month-input" placeholder="MM" min="1" max="12"><input type="number" id="bday-day-input" placeholder="DD" min="1" max="31"><button type="button" id="bday-add-btn">Add</button></div>'+
+      (birthdays.length ? birthdays.slice().sort(function(a,b){ return (a.month+a.day)<(b.month+b.day)?-1:1; }).map(bdayRowHtml).join('') : '<p style="color:var(--text-faint);font-size:12.5px;text-align:center;">No birthdays added yet.</p>')+
+      '<button type="button" class="bday-close-btn" id="bday-close-btn">Done</button>'+
+    '</div></div>';
+    document.getElementById('bday-add-btn').addEventListener('click', async function(){
+      const name = document.getElementById('bday-name-input').value.trim();
+      const month = parseInt(document.getElementById('bday-month-input').value,10);
+      const day = parseInt(document.getElementById('bday-day-input').value,10);
+      if(!name || !month || !day || month<1 || month>12 || day<1 || day>31) return;
+      birthdays.push({ id:'bday-'+Date.now(), name:name, month:String(month).padStart(2,'0'), day:String(day).padStart(2,'0') });
+      await saveBirthdays();
+      draw(); render(); renderBirthdayBanner();
+    });
+    mount.querySelectorAll('[data-delbday]').forEach(function(btn){
+      btn.addEventListener('click', async function(){
+        birthdays = birthdays.filter(function(b){ return b.id!==btn.dataset.delbday; });
+        await saveBirthdays();
+        draw(); render(); renderBirthdayBanner();
+      });
+    });
+    mount.querySelectorAll('[data-editbday]').forEach(function(btn){
+      btn.addEventListener('click', function(){
+        editingBdayId = editingBdayId===btn.dataset.editbday ? null : btn.dataset.editbday;
+        draw();
+      });
+    });
+    mount.querySelectorAll('[data-savebday]').forEach(function(btn){
+      btn.addEventListener('click', async function(){
+        const b = birthdays.find(function(x){ return x.id===btn.dataset.savebday; });
+        const row = mount.querySelector('[data-bdayeditrow="'+b.id+'"]');
+        const name = row.querySelector('.be-name').value.trim();
+        const month = parseInt(row.querySelector('.be-month').value,10);
+        const day = parseInt(row.querySelector('.be-day').value,10);
+        if(!name || !month || !day || month<1 || month>12 || day<1 || day>31) return;
+        b.name = name; b.month = String(month).padStart(2,'0'); b.day = String(day).padStart(2,'0');
+        editingBdayId = null;
+        await saveBirthdays();
+        draw(); render(); renderBirthdayBanner();
+      });
+    });
+    document.getElementById('bday-close-btn').addEventListener('click', function(){ mount.innerHTML=''; editingBdayId=null; });
+    document.getElementById('bday-overlay').addEventListener('click', function(e){ if(e.target.id==='bday-overlay'){ mount.innerHTML=''; editingBdayId=null; } });
+  }
+  draw();
+}
+function bdayRowHtml(b){
+  if(editingBdayId===b.id){
+    return '<div class="bday-row" data-bdayeditrow="'+b.id+'" style="flex-direction:column;align-items:stretch;gap:6px;">'+
+      '<div style="display:flex;gap:6px;"><input type="text" class="be-name" value="'+escapeHtml(b.name)+'" style="flex:2;font-size:12.5px;padding:6px 8px;border-radius:7px;border:1px solid var(--border);">'+
+      '<input type="number" class="be-month" value="'+parseInt(b.month,10)+'" min="1" max="12" style="flex:1;font-size:12.5px;padding:6px 6px;border-radius:7px;border:1px solid var(--border);">'+
+      '<input type="number" class="be-day" value="'+parseInt(b.day,10)+'" min="1" max="31" style="flex:1;font-size:12.5px;padding:6px 6px;border-radius:7px;border:1px solid var(--border);"></div>'+
+      '<div style="display:flex;gap:6px;"><button type="button" class="btn-mini primary" style="flex:1;" data-savebday="'+b.id+'">Save</button><button type="button" class="btn-mini ghost" style="flex:1;" data-editbday="'+b.id+'">Cancel</button></div>'+
+    '</div>';
+  }
+  return '<div class="bday-row"><div><div class="bd-name">'+escapeHtml(b.name)+'</div><div class="bd-date">'+parseInt(b.month,10)+'/'+parseInt(b.day,10)+' every year</div></div>'+
+    '<div style="display:flex;gap:5px;"><button type="button" data-editbday="'+b.id+'" style="background:var(--surface-alt);color:var(--text-soft);">✎</button><button type="button" data-delbday="'+b.id+'">✕</button></div></div>';
+}
+// Every event source, filtered down to whichever circles are currently on.
+function eventsFor(dateStr){
+  let out = (eventsByDate[dateStr]||[]).filter(function(e){ return activeFilters.has((e.source||'').toLowerCase()); });
+  if(activeFilters.has('schedule')) out = out.concat(eventsForRecurringWeekday(dateStr));
+  if(activeFilters.has('birthdays')) out = out.concat(birthdayEventsFor(dateStr));
+  return out;
+}
+
+/* ---- MONTH VIEW ---- */
+function renderMonthView(year, month){
+  const el = document.createElement('div');
+  const first = new Date(year, month, 1);
+  const startOffset = first.getDay();
+  const daysInMonth = new Date(year, month+1, 0).getDate();
+  const prevDaysInMonth = new Date(year, month, 0).getDate();
+  const today = todayStr();
+
+  let cellsHtml = WEEKDAY_NAMES.map(function(w){ return '<div class="month-weekday">'+w.slice(0,3)+'</div>'; }).join('');
+  for(let i=0;i<startOffset;i++){
+    const dnum = prevDaysInMonth-startOffset+i+1;
+    const pm = month===0?11:month-1, py = month===0?year-1:year;
+    cellsHtml += monthCellHtml(ymd(py,pm+1,dnum), dnum, true, today);
+  }
+  for(let dnum=1;dnum<=daysInMonth;dnum++){
+    cellsHtml += monthCellHtml(ymd(year,month+1,dnum), dnum, false, today);
+  }
+  const totalCells = startOffset+daysInMonth;
+  const trailing = (7 - (totalCells % 7)) % 7;
+  for(let i=1;i<=trailing;i++){
+    const nm = month===11?0:month+1, ny = month===11?year+1:year;
+    cellsHtml += monthCellHtml(ymd(ny,nm+1,i), i, true, today);
+  }
+  el.innerHTML = '<div class="month-grid">'+cellsHtml+'</div>';
+  el.querySelectorAll('[data-daycell]').forEach(function(cell){
+    cell.addEventListener('click', function(){ activeDate = cell.dataset.daycell; showView('day'); });
+  });
+  return el;
+}
+function monthCellHtml(dateStr, dnum, otherMonth, today){
+  const showHindu = activeFilters.has('hindu');
+  const tithi = showHindu ? getTithiInfo(dateStr) : null;
+  const fest = showHindu ? festivalLabel(dateStr) : null;
+  const evs = eventsFor(dateStr);
+  const badge = tithi && tithi.isAnchor ? '<span class="tithi-badge '+(tithi.name==='Amavasya'?'amavasya':'purnima')+'"></span>' : '';
+  const pills = evs.slice(0,3).map(function(e){
+    const tag = e.link ? 'a' : 'div';
+    const attrs = e.link ? ' href="'+escapeHtml(e.link)+'" target="_blank" rel="noopener" onclick="event.stopPropagation()"' : '';
+    return '<'+tag+' class="cell-pill" style="background:'+e.color+'22;color:'+e.color+';display:block;text-decoration:none;"'+attrs+'>'+escapeHtml(e.title)+'</'+tag+'>';
+  }).join('');
+  const more = evs.length>3 ? '<div class="cell-more">+'+(evs.length-3)+' more</div>' : '';
+  return '<div class="month-cell '+(otherMonth?'other-month':'')+' '+(dateStr===today?'is-today':'')+'" data-daycell="'+dateStr+'">'+
+    '<div class="cell-date">'+dnum+badge+'</div>'+
+    (fest ? '<div class="cell-festival">🪔 '+escapeHtml(fest)+'</div>' : '')+
+    '<div class="cell-events">'+pills+more+'</div>'+
+  '</div>';
+}
+
+/* ---- WEEK VIEW ---- */
+function renderWeekView(weekStart){
+  const el = document.createElement('div');
+  const today = todayStr();
+  let html = '<div class="week-grid">';
+  for(let i=0;i<7;i++){
+    const dateStr = addDays(weekStart, i);
+    const d = new Date(dateStr+'T00:00:00');
+    const tithi = activeFilters.has('hindu') ? getTithiInfo(dateStr) : null;
+    const evs = eventsFor(dateStr);
+    html += '<div class="week-col '+(dateStr===today?'is-today':'')+'" data-daycell="'+dateStr+'">'+
+      '<div class="week-col-head"><div class="wd">'+WEEKDAY_NAMES[d.getDay()].slice(0,3)+'</div><div class="dn">'+d.getDate()+'</div></div>'+
+      (tithi ? '<div class="week-tithi">'+(tithi.isAnchor?tithi.name:tithi.paksha.slice(0,1)+' '+tithi.tithiNum)+'</div>' : '')+
+      evs.map(function(e){
+        const tag = e.link ? 'a' : 'div';
+        const attrs = e.link ? ' href="'+escapeHtml(e.link)+'" target="_blank" rel="noopener" onclick="event.stopPropagation()"' : '';
+        return '<'+tag+' class="week-event" style="background:'+e.color+'22;color:'+e.color+';display:block;text-decoration:none;"'+attrs+'>'+escapeHtml(e.title)+'</'+tag+'>';
+      }).join('')+
+    '</div>';
+  }
+  html += '</div>';
+  el.innerHTML = html;
+  el.querySelectorAll('[data-daycell]').forEach(function(cell){
+    cell.addEventListener('click', function(){ activeDate = cell.dataset.daycell; showView('day'); });
+  });
+  return el;
+}
+
+function agendaRowHtml(e){
+  const tag = e.link ? 'a' : 'div';
+  const attrs = e.link ? ' href="'+escapeHtml(e.link)+'" target="_blank" rel="noopener"' : '';
+  return '<'+tag+' class="agenda-row" style="text-decoration:none;color:inherit;"'+attrs+'><div class="agenda-dot" style="background:'+e.color+';"></div>'+
+    '<div><div class="agenda-title">'+escapeHtml(e.title)+(e.link?' ↗':'')+'</div><div class="agenda-meta">'+e.source+(e.person?' · '+e.person:'')+(e.time?' · '+e.time:'')+'</div></div></'+tag+'>';
+}
+/* ---- DAY VIEW ---- */
+function renderDayView(dateStr){
+  const tithi = getTithiInfo(dateStr);
+  const fest = festivalLabel(dateStr);
+  const evs = eventsFor(dateStr);
+  let panchangHtml = '';
+  if(activeFilters.has('hindu') && (tithi || fest)){
+    panchangHtml += '<div class="panchang-box panchang-prominent">';
+    if(tithi){
+      panchangHtml += '<div class="panchang-tithi">🪔 '+tithi.paksha+' Paksha — '+tithi.name+'</div>'+(tithi.anchorName?'<div class="panchang-anchor">'+escapeHtml(tithi.anchorName)+'</div>':'');
+    }
+    if(fest) panchangHtml += '<div class="panchang-festival">'+escapeHtml(fest)+'</div>';
+    panchangHtml += '</div>';
+  }
+
+  const evsHtml = evs.length ? evs.map(agendaRowHtml).join('') : '<div class="empty-note">Nothing scheduled — or everything\'s filtered out above.</div>';
+
+  return '<div class="day-card">'+panchangHtml+evsHtml+'</div>';
+}
+
+/* ---- AGENDA VIEW ---- */
+function renderAgendaView(){
+  let html = '';
+  let anyEvents = false;
+  const showHindu = activeFilters.has('hindu');
+  for(let i=0;i<30;i++){
+    const dateStr = addDays(todayStr(), i);
+    const evs = eventsFor(dateStr);
+    const tithi = showHindu ? getTithiInfo(dateStr) : null;
+    const fest = showHindu ? festivalLabel(dateStr) : null;
+    if(!evs.length && !fest && !(tithi && tithi.isAnchor)) continue;
+    anyEvents = true;
+    html += '<div class="agenda-daygroup">'+fmtLong(dateStr)+'</div>';
+    if(fest) html += '<div class="agenda-row"><div class="agenda-dot" style="background:var(--purnima);"></div><div><div class="agenda-title">🪔 '+escapeHtml(fest)+'</div><div class="agenda-meta">Festival</div></div></div>';
+    if(tithi && tithi.isAnchor) html += '<div class="agenda-row"><div class="agenda-dot" style="background:var(--amavasya);"></div><div><div class="agenda-title">'+escapeHtml(tithi.anchorName||tithi.name)+'</div><div class="agenda-meta">Panchang</div></div></div>';
+    evs.forEach(function(e){ html += agendaRowHtml(e); });
+  }
+  return anyEvents ? html : '<div class="empty-note">Nothing in the next 30 days.</div>';
+}
+
+} // end firebase-available guard
+</script>
+</body>
+</html>
