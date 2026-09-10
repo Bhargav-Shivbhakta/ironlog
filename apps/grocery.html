@@ -1,0 +1,655 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Grocery</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<style>
+  :root{
+    --bg:#F6F7FB; --surface:#FFFFFF; --surface-alt:#EEF0F8;
+    --border:#E4E6F1; --border-soft:#EDEFF7;
+    --text:#191A2B; --text-soft:#5B5F78; --text-faint:#9599B2;
+    --accent:#22A06B; --accent-soft:#DFF5EA; --accent-deep:#178152;
+    --link-blue:#3D7BF5; --link-soft:#E5EDFE;
+    --gold:#B8860B; --gold-soft:#FBF0D9;
+    --danger:#F0596B; --danger-soft:#FCE1E5;
+    --radius-lg:18px; --radius-md:13px; --radius-sm:9px;
+    --shadow:0 1px 2px rgba(20,20,50,0.04), 0 12px 26px -16px rgba(20,20,50,0.16);
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;padding:16px 14px 80px;-webkit-font-smoothing:antialiased;}
+  .wrap{max-width:640px;margin:0 auto;}
+  h1,h2,h3{font-family:'Manrope',sans-serif;}
+  button,input,select,textarea{font-family:inherit;}
+  button{cursor:pointer;transition:transform .12s cubic-bezier(.34,1.56,.64,1);}
+  button:active{transform:scale(0.96);}
+
+  .loading-gate{position:fixed;inset:0;z-index:200;background:var(--bg);display:flex;align-items:center;justify-content:center;color:var(--text-soft);}
+
+  .topbar{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;}
+  .topbar a{font-size:12.5px;color:var(--text-soft);text-decoration:none;}
+  header.app-head{text-align:center;margin-bottom:14px;}
+  header.app-head h1{font-size:23px;font-weight:800;margin:0 0 2px;letter-spacing:-0.02em;background:linear-gradient(135deg,var(--accent-deep),var(--accent));-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;}
+  header.app-head p{margin:0;color:var(--text-soft);font-size:12.5px;}
+
+  .segmented{max-width:320px;margin:0 auto 14px;background:var(--surface-alt);border-radius:999px;padding:4px;display:flex;gap:2px;}
+  .segmented button{flex:1;border:none;background:transparent;border-radius:999px;padding:9px 4px;font-size:12.5px;font-weight:700;color:var(--text-soft);}
+  .segmented button.active{background:var(--surface);color:var(--text);box-shadow:var(--shadow);}
+
+  /* WEEK TABS */
+  .week-tabs{display:flex;gap:6px;overflow-x:auto;padding-bottom:6px;margin-bottom:14px;-webkit-overflow-scrolling:touch;}
+  .week-tabs::-webkit-scrollbar{height:4px;}
+  .week-tab{flex:none;border:none;background:var(--surface);border:1px solid var(--border);border-radius:999px;padding:9px 16px;font-size:13px;font-weight:700;color:var(--text-soft);white-space:nowrap;}
+  .week-tab.active{background:linear-gradient(135deg,var(--accent),var(--accent-deep));color:#fff;border-color:transparent;}
+  .week-tab .wt-check{font-size:10px;margin-left:4px;opacity:0.8;}
+
+  .checkin-banner{display:flex;align-items:center;gap:12px;background:linear-gradient(135deg,#FFF4DC,#FFE8B8);border:1px solid #F5A623;border-radius:var(--radius-lg);padding:12px 14px;margin-bottom:14px;}
+  .cb-icon{font-size:22px;flex:none;}
+  .cb-body{flex:1;min-width:0;}
+  .cb-title{font-size:13px;font-weight:800;color:#8A5D00;}
+  .cb-sub{font-size:11px;color:#8A5D00;opacity:0.85;margin-top:1px;}
+  #checkin-start-btn{flex:none;background:#8A5D00;color:#fff;border:none;border-radius:999px;padding:8px 14px;font-size:12px;font-weight:700;}
+  .skipped-section{margin-bottom:16px;background:var(--surface);border:1px dashed var(--border);border-radius:var(--radius-lg);padding:10px 14px;}
+  .skipped-section summary{font-size:12.5px;font-weight:700;color:var(--text-faint);cursor:pointer;}
+  .skipped-row{display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-top:1px solid var(--border-soft);font-size:13px;}
+  .add-back-btn{background:var(--accent-soft);color:var(--accent-deep);border:none;border-radius:8px;padding:5px 10px;font-size:11px;font-weight:700;}
+  .checkin-item-row{display:flex;justify-content:space-between;align-items:center;padding:9px 0;border-top:1px solid var(--border-soft);font-size:13.5px;gap:10px;}
+  .checkin-toggle{display:flex;gap:5px;flex:none;}
+  .ci-btn{border:1px solid var(--border);background:var(--surface);color:var(--text-soft);border-radius:999px;padding:5px 10px;font-size:11px;font-weight:700;}
+  .ci-btn.active{background:var(--accent);color:#fff;border-color:transparent;}
+  .week-progress-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:14px 16px;margin-bottom:14px;box-shadow:var(--shadow);}
+  .week-progress-top{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;}
+  .week-progress-top h2{font-size:15px;margin:0;}
+  .week-progress-spent{font-size:13px;color:var(--gold);font-weight:700;}
+  .week-bar-track{height:8px;border-radius:20px;background:var(--surface-alt);overflow:hidden;}
+  .week-bar-fill{height:100%;border-radius:20px;background:linear-gradient(90deg,var(--accent),var(--gold));transition:width .4s ease;}
+
+  .store-group{margin-bottom:16px;}
+  .store-head{display:flex;align-items:center;gap:8px;margin-bottom:7px;padding-left:2px;}
+  .store-head h3{font-size:12.5px;text-transform:uppercase;letter-spacing:0.05em;color:var(--text-faint);font-weight:800;margin:0;}
+  .store-head .count{font-size:11px;color:var(--text-faint);background:var(--surface-alt);border-radius:20px;padding:1px 8px;}
+
+  .item-row{background:var(--surface);border:1px solid var(--border-soft);border-radius:var(--radius-md);padding:11px 12px;margin-bottom:7px;box-shadow:var(--shadow);display:flex;align-items:flex-start;gap:10px;transition:opacity .3s ease;}
+  .item-row.done{opacity:0.55;}
+  .item-chk{appearance:none;width:22px;height:22px;border-radius:7px;border:2px solid var(--border);flex:none;margin-top:1px;cursor:pointer;position:relative;background:var(--surface);transition:all .18s cubic-bezier(.34,1.7,.64,1);}
+  .item-chk:hover{border-color:var(--accent);}
+  .item-chk:checked{background:linear-gradient(135deg,var(--accent),var(--accent-deep));border-color:transparent;}
+  .item-chk:checked::after{content:'';position:absolute;left:6.5px;top:2.5px;width:5px;height:10px;border:solid #fff;border-width:0 2.5px 2.5px 0;transform:rotate(45deg);}
+  .item-body{flex:1;min-width:0;}
+  .item-name{font-size:14.5px;font-weight:600;word-break:break-word;}
+  .item-row.done .item-name{text-decoration:line-through;color:var(--text-faint);}
+  .item-note{font-size:12px;color:var(--text-soft);margin-top:1px;}
+  .item-price{font-size:11.5px;color:var(--gold);font-weight:700;margin-top:2px;}
+  .item-actions{display:flex;gap:4px;flex:none;align-items:center;}
+  .icon-btn{background:var(--surface-alt);border:none;border-radius:8px;width:30px;height:30px;font-size:13px;flex:none;color:var(--text-soft);}
+  .icon-btn.link-btn{background:var(--link-soft);color:var(--link-blue);text-decoration:none;display:flex;align-items:center;justify-content:center;}
+  .icon-btn.link-btn:hover{background:var(--link-blue);color:#fff;}
+  .icon-btn.del-btn{background:var(--danger-soft);color:var(--danger);}
+  .icon-btn.del-btn:hover{background:var(--danger);color:#fff;}
+  .icon-btn.edit-btn:hover{background:var(--accent-soft);color:var(--accent-deep);}
+
+  .edit-panel{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-md);padding:12px;margin:-3px 0 7px;box-shadow:var(--shadow);}
+  .edit-panel .ef{display:flex;flex-direction:column;gap:3px;margin-bottom:8px;}
+  .edit-panel label{font-size:10px;color:var(--text-faint);font-weight:700;text-transform:uppercase;letter-spacing:0.03em;}
+  .edit-panel input{font-size:13.5px;padding:8px 10px;border-radius:var(--radius-sm);border:1px solid var(--border);}
+  .edit-actions{display:flex;gap:8px;margin-top:4px;}
+  .btn-mini{font-size:12px;font-weight:700;border:none;border-radius:var(--radius-sm);padding:8px 14px;}
+  .btn-mini.primary{background:linear-gradient(135deg,var(--accent),var(--accent-deep));color:#fff;}
+  .btn-mini.ghost{background:var(--surface-alt);color:var(--text-soft);}
+
+  .add-extra-card{background:var(--surface);border:1px dashed var(--border);border-radius:var(--radius-lg);padding:12px 14px;margin-bottom:16px;}
+  .add-extra-row{display:flex;gap:8px;}
+  .add-extra-row input{flex:1;font-size:13.5px;padding:9px 11px;border-radius:var(--radius-md);border:1px solid var(--border);}
+  .add-extra-row button{background:var(--surface-alt);color:var(--text-soft);border:none;border-radius:var(--radius-md);padding:0 14px;font-size:13px;font-weight:700;}
+
+  .empty-note{color:var(--text-faint);font-style:italic;font-size:13.5px;padding:30px 10px;text-align:center;}
+
+  /* PRICE PROMPT SHEET */
+  .price-overlay{position:fixed;inset:0;z-index:180;background:rgba(20,20,40,0.4);display:flex;align-items:flex-end;justify-content:center;}
+  .price-sheet{background:var(--surface);width:100%;max-width:420px;border-radius:20px 20px 0 0;padding:20px 18px 26px;box-shadow:0 -10px 40px rgba(0,0,0,0.2);}
+  .price-sheet h3{margin:0 0 4px;font-size:16px;}
+  .price-sheet p{margin:0 0 14px;font-size:12.5px;color:var(--text-soft);}
+  .price-sheet .pf{display:flex;align-items:center;gap:8px;margin-bottom:14px;}
+  .price-sheet .pf span{font-size:20px;font-weight:700;color:var(--text-faint);}
+  .price-sheet input{flex:1;font-size:22px;font-weight:700;padding:10px 12px;border-radius:var(--radius-md);border:1px solid var(--border);}
+  .price-sheet .sheet-actions{display:flex;gap:8px;}
+  .price-sheet .sheet-actions button{flex:1;padding:11px;font-size:13.5px;}
+
+  /* BUDGET VIEW */
+  .period-select-row{display:flex;justify-content:center;margin-bottom:14px;}
+  .period-select-row select{font-size:13px;padding:9px 14px;border-radius:999px;border:1px solid var(--border);background:var(--surface);font-weight:700;color:var(--text);}
+  .budget-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:18px;margin-bottom:16px;box-shadow:var(--shadow);}
+  .budget-top{display:flex;justify-content:space-between;align-items:flex-end;margin-bottom:10px;}
+  .budget-spent{font-family:'Manrope',sans-serif;font-weight:800;font-size:28px;letter-spacing:-0.02em;}
+  .budget-target{font-size:12.5px;color:var(--text-faint);}
+  .budget-target input{width:70px;font-size:12.5px;padding:4px 7px;border-radius:7px;border:1px solid var(--border);}
+  .budget-bar-track{height:9px;border-radius:20px;background:var(--surface-alt);overflow:hidden;margin-bottom:4px;}
+  .budget-bar-fill{height:100%;border-radius:20px;background:linear-gradient(90deg,var(--accent),var(--gold));transition:width .5s ease;}
+  .budget-note{font-size:11.5px;color:var(--text-faint);}
+  .history-row{display:flex;justify-content:space-between;align-items:center;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-md);padding:11px 14px;margin-bottom:7px;box-shadow:var(--shadow);}
+  .history-row .hr-name{font-size:13.5px;font-weight:600;}
+  .history-row .hr-meta{font-size:11px;color:var(--text-faint);}
+  .history-row .hr-price{font-family:'Manrope',sans-serif;font-weight:800;font-size:15px;color:var(--gold);}
+</style>
+</head>
+<body>
+
+<div id="loading-gate" class="loading-gate">Loading…</div>
+
+<div class="wrap" id="app-wrap" style="display:none;">
+  <div class="topbar"><a href="../index.html">← All apps</a></div>
+  <header class="app-head">
+    <h1>Grocery</h1>
+    <p>Your real 8-week schedule, one week at a time.</p>
+  </header>
+
+  <div class="segmented">
+    <button id="view-list-btn" class="active">Shopping List</button>
+    <button id="view-budget-btn">Budget</button>
+  </div>
+
+  <div id="list-view">
+    <div class="week-tabs" id="week-tabs"></div>
+    <div id="startdate-row" style="text-align:center;margin:-6px 0 14px;font-size:11px;color:var(--text-faint);">
+      Week 1 started <span id="startdate-display"></span>
+      <button type="button" id="startdate-edit-btn" style="background:none;border:none;color:var(--text-faint);text-decoration:underline;font-size:11px;">✎ edit</button>
+      <input type="date" id="startdate-input" style="display:none;font-size:11px;">
+    </div>
+    <div id="week-mount"></div>
+  </div>
+
+  <div id="budget-view" style="display:none;"></div>
+</div>
+
+<div id="modal-mount"></div>
+
+<script>
+window.addEventListener('error', function(e){
+  const gate = document.getElementById('loading-gate');
+  if(gate && gate.style.display !== 'none') gate.textContent = 'Something went wrong: ' + (e.message||'unknown error') + '. Try a hard refresh.';
+});
+if(typeof firebase === 'undefined'){
+  document.getElementById('loading-gate').textContent = "Couldn't load — check your internet connection and refresh.";
+} else {
+
+const FIREBASE_CONFIG = {
+  apiKey: "AIzaSyBe01eR2RZwSbU_aoJMeh_2MMJ5mqkVuKk",
+  authDomain: "iron-log-bfc55.firebaseapp.com",
+  projectId: "iron-log-bfc55",
+  storageBucket: "iron-log-bfc55.firebasestorage.app",
+  messagingSenderId: "106586808946",
+  appId: "1:106586808946:web:f4736554ba9fc82c6fd8eb"
+};
+firebase.initializeApp(FIREBASE_CONFIG);
+const auth = firebase.auth();
+const db = firebase.firestore();
+try{ db.enablePersistence({synchronizeTabs:true}).catch(function(){}); }catch(e){}
+let currentUser = null;
+
+/* =====================================================================
+   PRODUCT MASTER LIST — same 17 products, same sourced prices and real
+   Costco item-number links as before. Editable per-product (name, note,
+   link, price) from the ✎ button on any row.
+===================================================================== */
+const PRODUCTS_SEED = [
+  { id:'costco-eggs', name:'Kirkland Signature Large Eggs (60 ct)', store:'Costco', note:'60 shell eggs', price:9.18, link:'https://www.costco.com/CatalogSearch?keyword=1025795' },
+  { id:'costco-whey', name:'ON Gold Standard Whey, Chocolate (5.64 lb)', store:'Costco', note:'80 servings', price:85.11, link:'https://www.costco.com/CatalogSearch?keyword=1243880' },
+  { id:'costco-paneer', name:'Verka Paneer Indian Cheese (32 oz)', store:'Costco', note:'', price:12.02, link:'https://www.costco.com/CatalogSearch?keyword=505987' },
+  { id:'costco-milk', name:'Kirkland 2% Milk (2×1 gallon)', store:'Costco', note:'No item # given in your plan, so no link yet', price:8.16, link:'' },
+  { id:'costco-yogurt', name:'Kirkland Nonfat Plain Greek Yogurt (48 oz)', store:'Costco', note:'', price:5.55, link:'https://www.costco.com/CatalogSearch?keyword=1956023' },
+  { id:'costco-oats', name:'Quaker Old-Fashioned Rolled Oats (10 lb)', store:'Costco', note:'', price:8.96, link:'https://www.costco.com/CatalogSearch?keyword=446586' },
+  { id:'costco-flax', name:"Bob's Red Mill Organic Golden Flaxseed Meal (64 oz)", store:'Costco', note:'', price:9.59, link:'https://www.costco.com/CatalogSearch?keyword=9467' },
+  { id:'costco-rice', name:'Royal Basmati Rice (20 lb)', store:'Costco', note:'', price:22.69, link:'https://www.costco.com/CatalogSearch?keyword=132666' },
+  { id:'costco-dal', name:'Khazana Organic Masoor Dal (7 lb)', store:'Costco', note:'Item # in your plan was marked "approximately," so no link yet', price:13.79, link:'' },
+  { id:'costco-mandarin', name:'Dole Mandarin Oranges in Juice (16 ct)', store:'Costco', note:'', price:11.11, link:'https://www.costco.com/CatalogSearch?keyword=46586' },
+  { id:'costco-banana', name:'Costco Bananas (3 lb)', store:'Costco', note:'', price:1.69, link:'https://www.costco.com/CatalogSearch?keyword=30669' },
+  { id:'costco-ghee', name:'Kirkland Signature Organic Ghee (27 oz)', store:'Costco', note:'', price:24.96, link:'https://www.costco.com/CatalogSearch?keyword=1582922' },
+  { id:'costco-lemon', name:'Costco Lemons (5 lb)', store:'Costco', note:'', price:6.80, link:'https://www.costco.com/CatalogSearch?keyword=83345' },
+  { id:'costco-water', name:'Kirkland Purified Water (40×500ml)', store:'Costco', note:'per case', price:4.53, link:'https://www.costco.com/CatalogSearch?keyword=782796' },
+  { id:'tj-lunchsalad', name:"Trader Joe's Organic Baby Lettuce Mix (5 oz)", store:"Trader Joe's", note:'per bag', price:2.79, link:'' },
+  { id:'tj-dinnersalad', name:"Trader Joe's Organic Herb Salad Mix (5 oz)", store:"Trader Joe's", note:'per bag', price:2.79, link:'' },
+  { id:'tj-fruit', name:"Trader Joe's Fresh-Cut Fruit", store:"Trader Joe's", note:'~1.4kg/week total', price:3.99, link:'' }
+];
+
+// Your actual week-by-week Costco buying schedule, straight from the plan
+// document's section 7. Trader Joe's stays identical every week (7 lunch
+// salads, 7 dinner salads, ~1.4kg fruit) so it's applied to all 8 weeks
+// automatically rather than repeated here.
+const WEEKLY_SCHEDULE = {
+  1: [['costco-eggs',2],['costco-whey',2],['costco-paneer',2],['costco-milk',1],['costco-yogurt',2],['costco-oats',1],['costco-flax',1],['costco-rice',1],['costco-dal',1],['costco-mandarin',1],['costco-banana',1],['costco-ghee',1],['costco-lemon',1],['costco-water',3]],
+  2: [['costco-eggs',1],['costco-paneer',1],['costco-yogurt',2],['costco-banana',1],['costco-lemon',1],['costco-water',2]],
+  3: [['costco-eggs',1],['costco-paneer',1],['costco-yogurt',1],['costco-mandarin',1],['costco-banana',1],['costco-lemon',1],['costco-water',3]],
+  4: [['costco-eggs',1],['costco-paneer',1],['costco-milk',1],['costco-yogurt',2],['costco-banana',1],['costco-lemon',1],['costco-water',2]],
+  5: [['costco-eggs',1],['costco-paneer',2],['costco-yogurt',1],['costco-dal',1],['costco-mandarin',1],['costco-banana',1],['costco-lemon',1],['costco-water',3]],
+  6: [['costco-eggs',1],['costco-paneer',1],['costco-yogurt',2],['costco-banana',1],['costco-lemon',1],['costco-water',2]],
+  7: [['costco-eggs',1],['costco-whey',1],['costco-paneer',1],['costco-milk',1],['costco-yogurt',1],['costco-mandarin',1],['costco-banana',1],['costco-lemon',1],['costco-water',3]],
+  8: [['costco-eggs',1],['costco-paneer',1],['costco-yogurt',2],['costco-banana',1],['costco-lemon',1],['costco-water',2]]
+};
+const TJ_WEEKLY = [['tj-lunchsalad',7],['tj-dinnersalad',7],['tj-fruit',1]];
+
+function escapeHtml(s){ return String(s==null?'':s).replace(/[&<>"']/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); }
+function groceryDoc(key){ return db.collection('users').doc(currentUser.uid).collection('apps').doc('grocery-v4').collection('data').doc(key); }
+function fmtMoney(n){ return '$'+Number(n||0).toFixed(2); }
+function todayStr(){ const d=new Date(); return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
+
+let products = [];
+let purchases = {}; // key `${week}:${productId}` -> {done, price}
+let extras = {}; // key `week${n}` -> [{id,name,done,price}]
+let priceLog = []; // {id, key, name, price, date} — one upserted entry per key
+let budgetTarget = 150;
+let activeWeek = 1;
+let groceryStartDate = '2026-09-08'; // Week 1 start — editable in the UI
+let activeView = 'list';
+let budgetPeriod = 'week1';
+let editingProductId = null;
+
+async function loadAll(){
+  try{
+    const doc = await groceryDoc('products').get();
+    products = (doc.exists && doc.data().json) ? JSON.parse(doc.data().json) : JSON.parse(JSON.stringify(PRODUCTS_SEED));
+    if(!doc.exists) await saveProducts();
+  }catch(e){ products = JSON.parse(JSON.stringify(PRODUCTS_SEED)); }
+  try{ const d = await groceryDoc('purchases').get(); purchases = (d.exists && d.data().json) ? JSON.parse(d.data().json) : {}; }catch(e){ purchases = {}; }
+  try{ const d = await groceryDoc('extras').get(); extras = (d.exists && d.data().json) ? JSON.parse(d.data().json) : {}; }catch(e){ extras = {}; }
+  try{ const d = await groceryDoc('priceLog').get(); priceLog = (d.exists && d.data().json) ? JSON.parse(d.data().json) : []; }catch(e){ priceLog = []; }
+  try{ const d = await groceryDoc('budget').get(); budgetTarget = (d.exists && d.data().json) ? JSON.parse(d.data().json).weekly : 150; }catch(e){ budgetTarget = 150; }
+  await loadGroceryStartDate();
+  await loadCheckins();
+  activeWeek = currentWeekFromDate();
+}
+async function saveProducts(){ try{ await groceryDoc('products').set({json: JSON.stringify(products)}); }catch(e){ console.error(e); } }
+async function savePurchases(){ try{ await groceryDoc('purchases').set({json: JSON.stringify(purchases)}); }catch(e){ console.error(e); } }
+async function saveExtras(){ try{ await groceryDoc('extras').set({json: JSON.stringify(extras)}); }catch(e){ console.error(e); } }
+async function savePriceLog(){ try{ await groceryDoc('priceLog').set({json: JSON.stringify(priceLog)}); }catch(e){ console.error(e); } }
+async function saveBudget(){ try{ await groceryDoc('budget').set({json: JSON.stringify({weekly: budgetTarget})}); }catch(e){ console.error(e); } }
+
+/* =====================================================================
+   WEEKLY CHECK-IN — before shopping for whichever week is actually
+   current (by real date), a reminder to check what's already at home so
+   you're not buying more of something you don't need yet.
+===================================================================== */
+let checkins = {}; // { [week]: { done:true, skipped:[productId,...] } }
+async function loadGroceryStartDate(){
+  try{ const d = await groceryDoc('startDate').get(); if(d.exists && d.data().value) groceryStartDate = d.data().value; }catch(e){}
+}
+async function saveGroceryStartDate(v){ groceryStartDate = v; try{ await groceryDoc('startDate').set({value:v}); }catch(e){} }
+async function loadCheckins(){
+  try{ const d = await groceryDoc('checkins').get(); checkins = (d.exists && d.data().json) ? JSON.parse(d.data().json) : {}; }catch(e){ checkins = {}; }
+}
+async function saveCheckins(){ try{ await groceryDoc('checkins').set({json: JSON.stringify(checkins)}); }catch(e){} }
+function currentWeekFromDate(){
+  const start = new Date(groceryStartDate+'T00:00:00');
+  const today = new Date(); today.setHours(0,0,0,0);
+  const diffDays = Math.floor((today-start)/86400000);
+  const week = Math.floor(diffDays/7)+1;
+  return Math.min(8, Math.max(1, week));
+}
+
+function productById(id){ return products.find(function(p){ return p.id===id; }); }
+
+auth.onAuthStateChanged(async function(user){
+  currentUser = user;
+  if(!user){ window.location.href = '../index.html'; return; }
+  await loadAll();
+  document.getElementById('loading-gate').style.display = 'none';
+  document.getElementById('app-wrap').style.display = 'block';
+  wireControls();
+  renderWeekTabs();
+  renderStartDateRow();
+  render();
+});
+
+function wireControls(){
+  document.getElementById('view-list-btn').addEventListener('click', function(){ showView('list'); });
+  document.getElementById('view-budget-btn').addEventListener('click', function(){ showView('budget'); });
+}
+function showView(v){
+  activeView = v;
+  document.getElementById('view-list-btn').classList.toggle('active', v==='list');
+  document.getElementById('view-budget-btn').classList.toggle('active', v==='budget');
+  document.getElementById('list-view').style.display = v==='list' ? 'block':'none';
+  document.getElementById('budget-view').style.display = v==='budget' ? 'block':'none';
+  if(v==='budget') renderBudget();
+}
+
+function renderWeekTabs(){
+  const mount = document.getElementById('week-tabs');
+  let html = '';
+  for(let w=1; w<=8; w++){
+    const list = weekItemList(w);
+    const doneCount = list.filter(function(i){ return i.done; }).length;
+    const allDone = list.length>0 && doneCount===list.length;
+    html += '<button type="button" class="week-tab '+(w===activeWeek?'active':'')+'" data-weektab="'+w+'">Week '+w+(allDone?' <span class="wt-check">✓</span>':'')+'</button>';
+  }
+  mount.innerHTML = html;
+  mount.querySelectorAll('[data-weektab]').forEach(function(btn){
+    btn.addEventListener('click', function(){ activeWeek = parseInt(btn.dataset.weektab,10); renderWeekTabs(); renderWeek(); });
+  });
+}
+
+function fmtStartDate(dstr){
+  const d = new Date(dstr+'T00:00:00');
+  return d.toLocaleDateString('en-US', {month:'short', day:'numeric'});
+}
+function renderStartDateRow(){
+  document.getElementById('startdate-display').textContent = fmtStartDate(groceryStartDate);
+  document.getElementById('startdate-input').value = groceryStartDate;
+  document.getElementById('startdate-edit-btn').onclick = function(){
+    const input = document.getElementById('startdate-input');
+    input.style.display = input.style.display !== 'none' ? 'none' : 'inline-block';
+  };
+  document.getElementById('startdate-input').onchange = async function(e){
+    await saveGroceryStartDate(e.target.value);
+    activeWeek = currentWeekFromDate();
+    renderStartDateRow(); renderWeekTabs(); renderWeek();
+  };
+}
+function weekItemList(week){
+  const skipped = (checkins[week] && checkins[week].skipped) || [];
+  const scheduled = (WEEKLY_SCHEDULE[week]||[]).concat(TJ_WEEKLY).map(function(pair){
+    const key = week+':'+pair[0];
+    const p = productById(pair[0]);
+    if(!p) return null;
+    const purchase = purchases[key] || {};
+    return { key:key, id:pair[0], name:p.name, store:p.store, note:p.note, link:p.link, qty:pair[1], price: purchase.price!=null?purchase.price:p.price, done: !!purchase.done, extra:false, skippedThisWeek: skipped.indexOf(pair[0])!==-1 };
+  }).filter(Boolean);
+  const extraList = (extras[week]||[]).map(function(x){ return Object.assign({extra:true, store:x.store||'Extra items', skippedThisWeek:false}, x); });
+  return scheduled.concat(extraList);
+}
+
+function render(){ renderWeek(); }
+
+/* =====================================================================
+   WEEK VIEW
+===================================================================== */
+function renderWeek(){
+  const mount = document.getElementById('week-mount');
+  const fullList = weekItemList(activeWeek);
+  const list = fullList.filter(function(i){ return !i.skippedThisWeek; });
+  const skippedList = fullList.filter(function(i){ return i.skippedThisWeek; });
+  const spent = list.filter(function(i){ return i.done; }).reduce(function(s,i){ return s+(i.price||0)*(i.extra?1:i.qty); }, 0);
+  const pct = budgetTarget ? Math.min(100, Math.round(100*spent/budgetTarget)) : 0;
+
+  let html = '';
+  const isCurrentWeek = activeWeek === currentWeekFromDate();
+  const checkedIn = checkins[activeWeek] && checkins[activeWeek].done;
+  if(isCurrentWeek && !checkedIn){
+    html += '<div class="checkin-banner"><div class="cb-icon">🔔</div><div class="cb-body"><div class="cb-title">Check what\'s remaining before you shop</div><div class="cb-sub">Quick pass through this week\'s list — skip anything you already have plenty of.</div></div><button type="button" id="checkin-start-btn">Check now</button></div>';
+  }
+
+  html += '<div class="week-progress-card"><div class="week-progress-top"><h2>Week '+activeWeek+'</h2><div class="week-progress-spent">'+fmtMoney(spent)+' of '+fmtMoney(budgetTarget)+'</div></div>'+
+    '<div class="week-bar-track"><div class="week-bar-fill" style="width:'+pct+'%;'+(spent>budgetTarget?'background:var(--danger);':'')+'"></div></div></div>';
+
+  const groups = {};
+  const order = [];
+  list.forEach(function(i){ const g = i.store||'Extra items'; if(!groups[g]){ groups[g]=[]; order.push(g); } groups[g].push(i); });
+  order.sort(function(a,b){ if(a==='Extra items') return 1; if(b==='Extra items') return -1; return a.localeCompare(b); });
+
+  html += order.map(function(g){
+    const rows = groups[g];
+    const left = rows.filter(function(i){ return !i.done; }).length;
+    return '<div class="store-group"><div class="store-head"><h3>'+escapeHtml(g)+'</h3><span class="count">'+left+' left</span></div>'+
+      rows.map(weekItemRowHtml).join('') + '</div>';
+  }).join('');
+
+  if(skippedList.length){
+    html += '<details class="skipped-section"><summary>Skipped this week — already had it ('+skippedList.length+')</summary>'+
+      skippedList.map(function(i){
+        return '<div class="skipped-row"><span>'+escapeHtml(i.name)+'</span><button type="button" class="add-back-btn" data-addback="'+i.id+'">+ Add back</button></div>';
+      }).join('')+
+    '</details>';
+  }
+
+  html += '<div class="add-extra-card"><div class="add-extra-row">'+
+    '<input type="text" id="extra-name-input" placeholder="Something else for this week…">'+
+    '<button type="button" id="extra-add-btn">Add</button></div></div>';
+
+  mount.innerHTML = html;
+  attachWeekHandlers();
+  if(isCurrentWeek && !checkedIn){
+    document.getElementById('checkin-start-btn').addEventListener('click', openCheckinFlow);
+  }
+  mount.querySelectorAll('[data-addback]').forEach(function(btn){
+    btn.addEventListener('click', async function(){
+      const list2 = checkins[activeWeek] && checkins[activeWeek].skipped || [];
+      checkins[activeWeek].skipped = list2.filter(function(id){ return id!==btn.dataset.addback; });
+      await saveCheckins();
+      renderWeek();
+    });
+  });
+}
+function openCheckinFlow(){
+  const items = (WEEKLY_SCHEDULE[activeWeek]||[]).map(function(pair){ const p = productById(pair[0]); return p ? {id:pair[0], name:p.name} : null; }).filter(Boolean);
+  const mount = document.getElementById('modal-mount');
+  const currentSkipped = new Set((checkins[activeWeek] && checkins[activeWeek].skipped) || []);
+  function draw(){
+    mount.innerHTML = '<div class="price-overlay" id="checkin-overlay"><div class="price-sheet" style="max-height:80vh;overflow-y:auto;">'+
+      '<h3>Quick stock check — Week '+activeWeek+'</h3>'+
+      '<p>For each item, mark whether you still have some at home.</p>'+
+      items.map(function(it){
+        const skipped = currentSkipped.has(it.id);
+        return '<div class="checkin-item-row"><span>'+escapeHtml(it.name)+'</span><div class="checkin-toggle">'+
+          '<button type="button" class="ci-btn '+(!skipped?'active':'')+'" data-cineed="'+it.id+'">Need it</button>'+
+          '<button type="button" class="ci-btn '+(skipped?'active':'')+'" data-cihave="'+it.id+'">Have some</button>'+
+        '</div></div>';
+      }).join('')+
+      '<div class="sheet-actions"><button class="btn-mini primary" id="checkin-done-btn" style="flex:1;">Done</button></div>'+
+    '</div></div>';
+    mount.querySelectorAll('[data-cihave]').forEach(function(btn){ btn.addEventListener('click', function(){ currentSkipped.add(btn.dataset.cihave); draw(); }); });
+    mount.querySelectorAll('[data-cineed]').forEach(function(btn){ btn.addEventListener('click', function(){ currentSkipped.delete(btn.dataset.cineed); draw(); }); });
+    document.getElementById('checkin-done-btn').addEventListener('click', async function(){
+      checkins[activeWeek] = { done:true, skipped:[...currentSkipped] };
+      await saveCheckins();
+      mount.innerHTML = '';
+      renderWeek(); renderWeekTabs();
+    });
+  }
+  draw();
+}
+
+function weekItemRowHtml(item){
+  const qtyLabel = item.extra ? '' : (item.qty>1 ? item.qty+'× ' : '');
+  return '<div class="item-row '+(item.done?'done':'')+'" data-itemkey="'+item.key+'">'+
+    '<input type="checkbox" class="item-chk" data-toggle="'+item.key+'" '+(item.done?'checked':'')+'>'+
+    '<div class="item-body">'+
+      '<div class="item-name">'+qtyLabel+escapeHtml(item.name)+'</div>'+
+      (item.note ? '<div class="item-note">'+escapeHtml(item.note)+'</div>' : '')+
+      (item.done && item.price!=null ? '<div class="item-price">Paid '+fmtMoney(item.price)+'</div>' : '')+
+    '</div>'+
+    '<div class="item-actions">'+
+      (item.link ? '<a class="icon-btn link-btn" href="'+escapeHtml(item.link)+'" target="_blank" rel="noopener" title="Open product link">🔗</a>' : '')+
+      (item.extra ? '<button type="button" class="icon-btn del-btn" data-delextra="'+item.key+'" title="Remove">✕</button>' : '<button type="button" class="icon-btn edit-btn" data-editproduct="'+item.id+'" title="Edit product">✎</button>')+
+    '</div>'+
+  '</div>'+
+  (editingProductId===item.id ? productEditPanelHtml(productById(item.id)) : '');
+}
+
+function productEditPanelHtml(p){
+  return '<div class="edit-panel">'+
+    '<div class="ef"><label>Name</label><input type="text" class="pe-name" value="'+escapeHtml(p.name)+'"></div>'+
+    '<div class="ef"><label>Note</label><input type="text" class="pe-note" value="'+escapeHtml(p.note||'')+'"></div>'+
+    '<div class="ef"><label>Link to the product</label><input type="url" class="pe-link" value="'+escapeHtml(p.link||'')+'"></div>'+
+    '<div class="ef"><label>Reference price</label><input type="number" step="0.01" class="pe-price" value="'+p.price+'"></div>'+
+    '<div class="edit-actions"><button type="button" class="btn-mini primary" data-saveproduct="'+p.id+'">Save</button><button type="button" class="btn-mini ghost" data-canceledit>Cancel</button></div>'+
+  '</div>';
+}
+
+function attachWeekHandlers(){
+  document.querySelectorAll('[data-toggle]').forEach(function(cb){
+    cb.addEventListener('change', function(){
+      const key = cb.dataset.toggle;
+      if(cb.checked) openPricePrompt(key);
+      else undoPurchase(key);
+    });
+  });
+  document.querySelectorAll('[data-editproduct]').forEach(function(btn){
+    btn.addEventListener('click', function(){ editingProductId = editingProductId===btn.dataset.editproduct ? null : btn.dataset.editproduct; renderWeek(); });
+  });
+  document.querySelectorAll('[data-canceledit]').forEach(function(btn){ btn.addEventListener('click', function(){ editingProductId=null; renderWeek(); }); });
+  document.querySelectorAll('[data-saveproduct]').forEach(function(btn){
+    btn.addEventListener('click', async function(){
+      const p = productById(btn.dataset.saveproduct);
+      const panel = btn.closest('.edit-panel');
+      p.name = panel.querySelector('.pe-name').value.trim() || p.name;
+      p.note = panel.querySelector('.pe-note').value.trim();
+      let link = panel.querySelector('.pe-link').value.trim();
+      if(link && !/^https?:\/\//i.test(link)) link = 'https://'+link;
+      p.link = link;
+      p.price = parseFloat(panel.querySelector('.pe-price').value) || p.price;
+      editingProductId = null;
+      await saveProducts();
+      renderWeek();
+    });
+  });
+  document.querySelectorAll('[data-delextra]').forEach(function(btn){
+    btn.addEventListener('click', async function(){
+      const key = btn.dataset.delextra;
+      const list = extras[activeWeek]||[];
+      extras[activeWeek] = list.filter(function(x){ return x.key!==key; });
+      priceLog = priceLog.filter(function(l){ return l.key!==key; });
+      await saveExtras(); await savePriceLog();
+      renderWeek(); renderWeekTabs();
+    });
+  });
+  document.getElementById('extra-add-btn').addEventListener('click', addExtra);
+  document.getElementById('extra-name-input').addEventListener('keydown', function(e){ if(e.key==='Enter') addExtra(); });
+}
+
+async function addExtra(){
+  const input = document.getElementById('extra-name-input');
+  const name = input.value.trim();
+  if(!name) return;
+  const key = activeWeek+':extra-'+Date.now();
+  if(!extras[activeWeek]) extras[activeWeek] = [];
+  extras[activeWeek].push({ key:key, name:name, done:false, price:null });
+  await saveExtras();
+  input.value = '';
+  renderWeek();
+}
+
+/* =====================================================================
+   PRICE PROMPT — checking something off asks what you paid (pre-filled
+   with the reference/last price), and unchecking it removes that exact
+   log entry again so the budget always matches what's actually ticked.
+===================================================================== */
+function openPricePrompt(key){
+  let name, refPrice;
+  if(key.indexOf('extra-')!==-1 || key.split(':')[1].indexOf('extra-')===0){
+    const week = key.split(':')[0];
+    const item = (extras[week]||[]).find(function(x){ return x.key===key; });
+    name = item.name; refPrice = item.price;
+  } else {
+    const productId = key.split(':')[1];
+    const p = productById(productId);
+    name = p.name; refPrice = p.price;
+  }
+  const mount = document.getElementById('modal-mount');
+  mount.innerHTML = '<div class="price-overlay" id="price-overlay"><div class="price-sheet">'+
+    '<h3>What did '+escapeHtml(name)+' cost?</h3>'+
+    '<p>'+(refPrice!=null ? 'Reference: '+fmtMoney(refPrice) : 'No reference price yet.')+'</p>'+
+    '<div class="pf"><span>$</span><input type="number" step="0.01" id="price-input" value="'+(refPrice!=null?refPrice:'')+'" autofocus></div>'+
+    '<div class="sheet-actions"><button class="btn-mini primary" id="price-confirm-btn">Log it & check off</button><button class="btn-mini ghost" id="price-skip-btn">Just check off</button></div>'+
+  '</div></div>';
+  document.getElementById('price-input').focus();
+  document.getElementById('price-confirm-btn').addEventListener('click', async function(){
+    const val = parseFloat(document.getElementById('price-input').value);
+    await confirmPurchase(key, name, isNaN(val)?null:val);
+    closePriceModal();
+  });
+  document.getElementById('price-skip-btn').addEventListener('click', async function(){
+    await confirmPurchase(key, name, null);
+    closePriceModal();
+  });
+  document.getElementById('price-overlay').addEventListener('click', function(e){
+    if(e.target.id==='price-overlay') closePriceModal(); // dismiss without checking off
+  });
+}
+function closePriceModal(){ document.getElementById('modal-mount').innerHTML = ''; }
+
+async function confirmPurchase(key, name, price){
+  const isExtra = key.split(':')[1] && key.split(':')[1].indexOf('extra-')===0;
+  if(isExtra){
+    const week = key.split(':')[0];
+    const item = (extras[week]||[]).find(function(x){ return x.key===key; });
+    item.done = true; item.price = price;
+    await saveExtras();
+  } else {
+    purchases[key] = { done:true, price: price };
+    await savePurchases();
+    if(price!=null){ const productId = key.split(':')[1]; const p = productById(productId); if(p){ p.price = price; await saveProducts(); } }
+  }
+  // Upsert — at most one log entry per key, so re-checking updates rather than duplicates.
+  priceLog = priceLog.filter(function(l){ return l.key!==key; });
+  if(price!=null) priceLog.push({ id:'log-'+Date.now()+'-'+Math.floor(Math.random()*10000), key:key, name:name, price:price, date:todayStr() });
+  await savePriceLog();
+  renderWeek(); renderWeekTabs();
+}
+// Unticking reverses the purchase entirely — the whole point of keeping
+// the budget honest against whatever's actually ticked right now.
+async function undoPurchase(key){
+  const isExtra = key.split(':')[1] && key.split(':')[1].indexOf('extra-')===0;
+  if(isExtra){
+    const week = key.split(':')[0];
+    const item = (extras[week]||[]).find(function(x){ return x.key===key; });
+    if(item){ item.done = false; }
+    await saveExtras();
+  } else {
+    purchases[key] = { done:false, price:null };
+    await savePurchases();
+  }
+  priceLog = priceLog.filter(function(l){ return l.key!==key; });
+  await savePriceLog();
+  renderWeek(); renderWeekTabs();
+}
+
+/* =====================================================================
+   BUDGET VIEW — you choose the period: any single week of the 8, or all
+   of them combined. Spend is only ever what's currently ticked, since
+   unticking already removed its log entry.
+===================================================================== */
+function renderBudget(){
+  const mount = document.getElementById('budget-view');
+  let options = '';
+  for(let w=1; w<=8; w++) options += '<option value="week'+w+'" '+(budgetPeriod==='week'+w?'selected':'')+'>Week '+w+'</option>';
+  options += '<option value="all" '+(budgetPeriod==='all'?'selected':'')+'>All 8 weeks</option>';
+
+  const relevantLogs = budgetPeriod==='all' ? priceLog : priceLog.filter(function(l){ return l.key.split(':')[0]===budgetPeriod.replace('week',''); });
+  const spent = relevantLogs.reduce(function(s,l){ return s+l.price; }, 0);
+  const target = budgetPeriod==='all' ? budgetTarget*8 : budgetTarget;
+  const pct = target ? Math.min(100, Math.round(100*spent/target)) : 0;
+  const overBudget = spent > target;
+
+  let html = '<div class="period-select-row"><select id="period-select">'+options+'</select></div>';
+  html += '<div class="budget-card">'+
+    '<div class="budget-top"><div><div class="budget-spent" style="'+(overBudget?'color:var(--danger);':'')+'">'+fmtMoney(spent)+'</div><div class="budget-note">spent, '+(budgetPeriod==='all'?'across all 8 weeks':'this week')+'</div></div>'+
+    '<div class="budget-target">weekly target $<input type="number" id="budget-target-input" value="'+budgetTarget+'"></div></div>'+
+    '<div class="budget-bar-track"><div class="budget-bar-fill" style="width:'+pct+'%;'+(overBudget?'background:var(--danger);':'')+'"></div></div>'+
+    '<div class="budget-note">'+pct+'% of '+fmtMoney(target)+' target'+(overBudget?' — over budget':'')+'</div>'+
+  '</div>';
+
+  if(!relevantLogs.length){
+    html += '<div class="empty-note">Nothing logged for this period yet.</div>';
+  } else {
+    html += relevantLogs.slice().sort(function(a,b){ return a.date<b.date?1:-1; }).map(function(l){
+      return '<div class="history-row"><div><div class="hr-name">'+escapeHtml(l.name)+'</div><div class="hr-meta">'+l.date+(budgetPeriod==='all'?' · Week '+l.key.split(':')[0]:'')+'</div></div><div class="hr-price">'+fmtMoney(l.price)+'</div></div>';
+    }).join('');
+  }
+
+  mount.innerHTML = html;
+  document.getElementById('period-select').addEventListener('change', function(e){ budgetPeriod = e.target.value; renderBudget(); });
+  document.getElementById('budget-target-input').addEventListener('change', async function(e){
+    budgetTarget = parseFloat(e.target.value) || 0;
+    await saveBudget();
+    renderBudget();
+  });
+}
+
+} // end firebase-available guard
+</script>
+</body>
+</html>
