@@ -453,9 +453,9 @@ function startHubClock(){
   widget.href = 'apps/clock.html' + (activeProfile ? '?profile='+encodeURIComponent(activeProfile) : '');
   function tick(){
     const now = new Date();
-    let h = now.getHours(); const m = now.getMinutes();
+    let h = now.getHours(); const m = now.getMinutes(); const s = now.getSeconds();
     const ampm = h>=12 ? 'PM' : 'AM'; h = h%12; if(h===0) h=12;
-    document.getElementById('hcw-time').textContent = h+':'+String(m).padStart(2,'0')+' '+ampm;
+    document.getElementById('hcw-time').textContent = h+':'+String(m).padStart(2,'0')+':'+String(s).padStart(2,'0')+' '+ampm;
   }
   tick();
   clearInterval(startHubClock._t);
