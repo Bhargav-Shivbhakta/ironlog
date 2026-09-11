@@ -1,0 +1,735 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Clock</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,340;9..144,440;9..144,600&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<style>
+  :root{
+    --ink:#0F1219; --ink-2:#161B25; --ink-3:#1D2330;
+    --line:#2A3140; --line-soft:#232937;
+    --paper:#F2EFE6;
+    --text:#EDEAE0; --text-dim:#9AA1B4; --text-faint:#5F6678;
+    --brass:#C9A15A; --brass-soft:#3A331F; --brass-dim:#8A6F3A;
+    --teal:#4FAE9E; --teal-soft:#16302C;
+    --danger:#E0687A;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;font-family:'Inter',sans-serif;background:var(--ink);color:var(--text);min-height:100vh;-webkit-font-smoothing:antialiased;transition:background 2s ease;}
+  .serif{font-family:'Fraunces',serif;}
+  button{font-family:inherit;cursor:pointer;}
+  input,select{font-family:inherit;}
+
+  .loading-gate{position:fixed;inset:0;z-index:200;background:var(--ink);display:flex;align-items:center;justify-content:center;color:var(--text-dim);}
+
+  /* AUTH / PROFILE (standard pattern) */
+  .auth-overlay,.profile-overlay{position:fixed;inset:0;z-index:150;background:var(--ink);display:flex;align-items:center;justify-content:center;padding:20px;}
+  .auth-box{background:var(--ink-2);border:1px solid var(--line-soft);border-radius:20px;padding:32px 28px;max-width:360px;width:100%;text-align:center;}
+  .auth-box h2{font-family:'Fraunces',serif;font-size:24px;margin:0 0 4px;color:var(--text);}
+  .auth-box p{color:var(--text-dim);font-size:13px;margin:0 0 20px;}
+  .auth-box input{width:100%;padding:12px 14px;margin-bottom:10px;border-radius:10px;border:1px solid var(--line);background:var(--ink-3);color:var(--text);font-size:14px;}
+  .auth-box button[type=submit]{width:100%;padding:12px;border-radius:10px;border:none;background:var(--brass);color:#1A1508;font-weight:700;font-size:14px;margin-top:6px;}
+  .auth-error{color:var(--danger);font-size:12px;min-height:16px;margin-top:8px;}
+  .auth-toggle{font-size:12.5px;color:var(--text-dim);margin-top:14px;}
+  .auth-toggle button{background:none;border:none;color:var(--brass);font-weight:700;text-decoration:underline;}
+  .profile-grid{display:flex;gap:16px;}
+  .profile-card{background:var(--ink-3);border:1px solid var(--line);border-radius:16px;padding:22px 26px;text-align:center;color:var(--text);}
+  .profile-card:hover{border-color:var(--brass-dim);}
+  .profile-avatar{width:48px;height:48px;border-radius:50%;background:var(--brass-soft);color:var(--brass);display:flex;align-items:center;justify-content:center;font-family:'Fraunces',serif;font-size:20px;margin:0 auto 10px;}
+  .profile-name{font-weight:700;font-size:14px;}
+
+  .topbar{max-width:640px;margin:0 auto;display:flex;justify-content:space-between;align-items:center;padding:16px 18px 0;}
+  .topbar a{color:var(--text-faint);text-decoration:none;font-size:12.5px;}
+  .topbar-right{display:flex;align-items:center;gap:10px;font-size:12px;color:var(--text-faint);}
+  .topbar-right button{background:none;border:1px solid var(--line);color:var(--text-dim);border-radius:999px;padding:5px 12px;font-size:11.5px;}
+
+  .wrap{max-width:640px;margin:0 auto;padding:8px 18px 60px;}
+
+  /* TAB NAV — thin underline style, not pill segmented, to feel like an instrument panel */
+  .tabnav{display:flex;gap:22px;justify-content:center;margin:22px 0 34px;border-bottom:1px solid var(--line-soft);overflow-x:auto;}
+  .tabnav button{background:none;border:none;color:var(--text-faint);font-size:13px;font-weight:600;padding:0 2px 12px;white-space:nowrap;border-bottom:2px solid transparent;letter-spacing:0.01em;}
+  .tabnav button.active{color:var(--brass);border-bottom-color:var(--brass);}
+
+  /* HERO CLOCK */
+  .hero{display:flex;flex-direction:column;align-items:center;padding:10px 0 30px;}
+  .hero-ring-wrap{position:relative;width:min(78vw,300px);height:min(78vw,300px);margin-bottom:22px;}
+  .hero-ring-wrap svg{width:100%;height:100%;transform:rotate(-90deg);}
+  .hero-ring-track{fill:none;stroke:var(--line-soft);stroke-width:2;}
+  .hero-ring-sweep{fill:none;stroke:var(--brass);stroke-width:2;stroke-linecap:round;transition:stroke-dashoffset 0.9s linear;}
+  .hero-center{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;}
+  .hero-time{font-family:'Fraunces',serif;font-weight:440;font-size:clamp(40px,11vw,58px);font-variant-numeric:tabular-nums;letter-spacing:-0.01em;color:var(--text);line-height:1;}
+  .hero-ampm{font-size:13px;color:var(--brass);font-weight:600;letter-spacing:0.08em;margin-top:6px;}
+  .hero-date{font-family:'Fraunces',serif;font-style:italic;font-size:15px;color:var(--text-dim);margin-top:2px;}
+  .hero-toggle-row{display:flex;gap:8px;margin-top:4px;}
+  .hero-toggle{background:none;border:1px solid var(--line);color:var(--text-faint);border-radius:999px;padding:6px 14px;font-size:11.5px;font-weight:600;}
+  .hero-toggle.active{border-color:var(--brass-dim);color:var(--brass);}
+
+  /* SHARED SECTION STYLES */
+  .section-title{font-family:'Fraunces',serif;font-size:16px;color:var(--text);margin:0 0 4px;}
+  .section-sub{font-size:12px;color:var(--text-faint);margin:0 0 18px;}
+  .list-row{display:flex;align-items:center;justify-content:space-between;padding:16px 2px;border-top:1px solid var(--line-soft);}
+  .list-row:first-of-type{border-top:none;}
+  .row-main{flex:1;min-width:0;}
+  .row-title{font-size:14.5px;font-weight:600;color:var(--text);}
+  .row-sub{font-size:11.5px;color:var(--text-faint);margin-top:3px;}
+  .row-actions{display:flex;align-items:center;gap:10px;flex:none;}
+  .icon-btn{background:none;border:none;color:var(--text-faint);font-size:15px;padding:4px;}
+  .icon-btn:hover{color:var(--danger);}
+
+  /* Toggle switch */
+  .toggle-sw{position:relative;width:42px;height:24px;border-radius:999px;background:var(--line);border:none;flex:none;}
+  .toggle-sw.on{background:var(--brass-dim);}
+  .toggle-sw::after{content:'';position:absolute;top:3px;left:3px;width:18px;height:18px;border-radius:50%;background:var(--text);transition:transform .2s ease;}
+  .toggle-sw.on::after{transform:translateX(18px);background:var(--brass);}
+
+  .add-btn{width:100%;background:var(--ink-3);border:1px dashed var(--line);color:var(--text-dim);border-radius:14px;padding:14px;font-size:13px;font-weight:600;margin-top:16px;}
+  .add-btn:hover{border-color:var(--brass-dim);color:var(--brass);}
+
+  .empty-note{color:var(--text-faint);font-style:italic;font-size:13px;text-align:center;padding:34px 10px;}
+
+  /* WORLD CLOCK */
+  .wc-row{display:flex;align-items:center;justify-content:space-between;padding:16px 2px;border-top:1px solid var(--line-soft);}
+  .wc-row:first-of-type{border-top:none;}
+  .wc-city{font-size:14.5px;font-weight:600;}
+  .wc-tz{font-size:11px;color:var(--text-faint);margin-top:2px;}
+  .wc-time{font-family:'Fraunces',serif;font-size:22px;font-variant-numeric:tabular-nums;}
+  .wc-daynight{font-size:10.5px;color:var(--text-faint);text-align:right;margin-top:2px;}
+  .wc-dot{display:inline-block;width:6px;height:6px;border-radius:50%;margin-right:4px;}
+
+  /* ALARM ROW EXTRAS */
+  .alarm-time{font-family:'Fraunces',serif;font-size:26px;font-variant-numeric:tabular-nums;color:var(--text);}
+  .alarm-time.off{color:var(--text-faint);}
+  .alarm-days{display:flex;gap:4px;margin-top:6px;}
+  .alarm-day-chip{width:20px;height:20px;border-radius:50%;background:var(--ink-3);color:var(--text-faint);font-size:9px;display:flex;align-items:center;justify-content:center;font-weight:700;}
+  .alarm-day-chip.on{background:var(--brass-soft);color:var(--brass);}
+
+  /* TIMER */
+  .timer-presets{display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin-bottom:22px;}
+  .timer-preset-btn{background:var(--ink-3);border:1px solid var(--line);color:var(--text-dim);border-radius:999px;padding:8px 16px;font-size:12.5px;font-weight:600;}
+  .timer-custom-row{display:flex;gap:8px;justify-content:center;align-items:center;margin-bottom:26px;}
+  .timer-custom-row input{width:56px;text-align:center;background:var(--ink-3);border:1px solid var(--line);color:var(--text);border-radius:8px;padding:8px 4px;font-size:14px;font-variant-numeric:tabular-nums;}
+  .timer-custom-row span{color:var(--text-faint);font-size:12px;}
+  .control-row{display:flex;gap:10px;justify-content:center;margin-top:24px;}
+  .ctrl-btn{border:none;border-radius:999px;padding:13px 28px;font-size:13.5px;font-weight:700;}
+  .ctrl-btn.primary{background:var(--brass);color:#1A1508;}
+  .ctrl-btn.ghost{background:var(--ink-3);color:var(--text-dim);border:1px solid var(--line);}
+  .ctrl-btn.danger{background:var(--danger);color:#2A0F14;}
+
+  /* STOPWATCH */
+  .sw-display{font-family:'Fraunces',serif;font-size:clamp(38px,10vw,52px);font-variant-numeric:tabular-nums;text-align:center;margin:20px 0 10px;}
+  .lap-row{display:flex;justify-content:space-between;padding:11px 2px;border-top:1px solid var(--line-soft);font-size:13px;font-variant-numeric:tabular-nums;}
+  .lap-row:first-of-type{border-top:none;}
+  .lap-num{color:var(--text-faint);}
+
+  /* Alarm firing banner */
+  .fire-overlay{position:fixed;inset:0;z-index:250;background:rgba(15,18,25,0.92);display:flex;align-items:center;justify-content:center;padding:20px;}
+  .fire-box{text-align:center;}
+  .fire-box .fb-label{font-family:'Fraunces',serif;font-size:15px;color:var(--brass);margin-bottom:6px;}
+  .fire-box .fb-time{font-family:'Fraunces',serif;font-size:56px;margin-bottom:24px;}
+  .fire-box button{background:var(--brass);color:#1A1508;border:none;border-radius:999px;padding:14px 34px;font-size:14px;font-weight:700;}
+
+  /* Simple modal for add-alarm / add-city */
+  .modal-overlay{position:fixed;inset:0;z-index:190;background:rgba(0,0,0,0.5);display:flex;align-items:flex-end;justify-content:center;}
+  .modal-sheet{background:var(--ink-2);width:100%;max-width:420px;border-radius:20px 20px 0 0;padding:22px 20px 28px;border-top:1px solid var(--line);}
+  .modal-sheet h3{font-family:'Fraunces',serif;margin:0 0 16px;font-size:17px;}
+  .m-field{margin-bottom:14px;}
+  .m-field label{display:block;font-size:11px;color:var(--text-faint);margin-bottom:5px;text-transform:none;}
+  .m-field input,.m-field select{width:100%;padding:11px 12px;border-radius:10px;border:1px solid var(--line);background:var(--ink-3);color:var(--text);font-size:14px;}
+  .day-picker{display:flex;gap:6px;}
+  .day-picker button{flex:1;background:var(--ink-3);border:1px solid var(--line);color:var(--text-faint);border-radius:8px;padding:8px 0;font-size:11px;font-weight:700;}
+  .day-picker button.on{background:var(--brass-soft);color:var(--brass);border-color:var(--brass-dim);}
+  .modal-actions{display:flex;gap:10px;margin-top:18px;}
+  .modal-actions button{flex:1;padding:12px;border-radius:10px;border:none;font-size:13.5px;font-weight:700;}
+  .modal-actions .m-save{background:var(--brass);color:#1A1508;}
+  .modal-actions .m-cancel{background:var(--ink-3);color:var(--text-dim);}
+</style>
+</head>
+<body>
+
+<div id="loading-gate" class="loading-gate">Loading…</div>
+
+<div class="auth-overlay" id="auth-overlay" style="display:none;">
+  <div class="auth-box">
+    <h2>Clock</h2>
+    <p id="auth-sub">Sign in to sync alarms across devices.</p>
+    <form id="auth-form">
+      <input type="email" id="auth-email" placeholder="Email" required>
+      <input type="password" id="auth-password" placeholder="Password" required>
+      <button type="submit" id="auth-submit">Sign in</button>
+    </form>
+    <div class="auth-error" id="auth-error"></div>
+    <div class="auth-toggle">New here? <button type="button" id="auth-toggle-btn">Create an account</button></div>
+  </div>
+</div>
+
+<div class="profile-overlay" id="profile-overlay" style="display:none;">
+  <div class="auth-box" style="max-width:340px;">
+    <h2>Who's this?</h2>
+    <p>&nbsp;</p>
+    <div class="profile-grid">
+      <div class="profile-card" data-pickprofile="Bhargav"><div class="profile-avatar">B</div><div class="profile-name">Bhargav</div></div>
+      <div class="profile-card" data-pickprofile="Anusha"><div class="profile-avatar">A</div><div class="profile-name">Anusha</div></div>
+    </div>
+  </div>
+</div>
+
+<div id="app-wrap" style="display:none;">
+  <div class="topbar">
+    <a href="../index.html">← All apps</a>
+    <div class="topbar-right"><span id="who-label"></span><button type="button" id="switch-profile-btn"></button></div>
+  </div>
+
+  <div class="wrap">
+    <div class="tabnav" id="tabnav">
+      <button data-tab="clock" class="active">Clock</button>
+      <button data-tab="world">World</button>
+      <button data-tab="alarms">Alarms</button>
+      <button data-tab="timer">Timer</button>
+      <button data-tab="stopwatch">Stopwatch</button>
+    </div>
+
+    <div id="tab-clock"></div>
+    <div id="tab-world" style="display:none;"></div>
+    <div id="tab-alarms" style="display:none;"></div>
+    <div id="tab-timer" style="display:none;"></div>
+    <div id="tab-stopwatch" style="display:none;"></div>
+  </div>
+</div>
+
+<div id="modal-mount"></div>
+<div id="fire-mount"></div>
+
+<script>
+window.addEventListener('error', function(e){
+  const gate = document.getElementById('loading-gate');
+  if(gate && gate.style.display !== 'none') gate.textContent = 'Something went wrong: ' + (e.message||'unknown error') + '. Try a hard refresh.';
+});
+if(typeof firebase === 'undefined'){
+  document.getElementById('loading-gate').textContent = "Couldn't load — check your internet connection and refresh.";
+} else {
+
+const FIREBASE_CONFIG = {
+  apiKey: "AIzaSyBe01eR2RZwSbU_aoJMeh_2MMJ5mqkVuKk",
+  authDomain: "iron-log-bfc55.firebaseapp.com",
+  projectId: "iron-log-bfc55",
+  storageBucket: "iron-log-bfc55.firebasestorage.app",
+  messagingSenderId: "106586808946",
+  appId: "1:106586808946:web:f4736554ba9fc82c6fd8eb"
+};
+firebase.initializeApp(FIREBASE_CONFIG);
+const auth = firebase.auth();
+const db = firebase.firestore();
+try{ db.enablePersistence({synchronizeTabs:true}).catch(function(){}); }catch(e){}
+
+let currentUser = null;
+let activeProfile = null;
+function profileDoc(key){ return db.collection('users').doc(currentUser.uid).collection('clock-profiles').doc(activeProfile).collection('data').doc(key); }
+
+function escapeHtml(s){ return String(s==null?'':s).replace(/[&<>"']/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); }
+function pad2(n){ return String(n).padStart(2,'0'); }
+
+/* =====================================================================
+   AUTH / PROFILE — standard pattern: hub deep-link first, then last
+   known profile, then the picker.
+===================================================================== */
+let authMode = 'signin';
+document.getElementById('auth-toggle-btn').addEventListener('click', function(){
+  authMode = authMode==='signin' ? 'signup' : 'signin';
+  document.getElementById('auth-submit').textContent = authMode==='signin' ? 'Sign in' : 'Create account';
+  document.getElementById('auth-toggle-btn').textContent = authMode==='signin' ? 'Create an account' : 'Sign in instead';
+  document.getElementById('auth-toggle-btn').previousSibling.textContent = authMode==='signin' ? 'New here? ' : 'Have an account? ';
+});
+document.getElementById('auth-form').addEventListener('submit', async function(e){
+  e.preventDefault();
+  const email = document.getElementById('auth-email').value.trim();
+  const password = document.getElementById('auth-password').value;
+  const errEl = document.getElementById('auth-error');
+  errEl.textContent = '';
+  try{ auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL); }catch(e){}
+  try{
+    if(authMode==='signin') await auth.signInWithEmailAndPassword(email, password);
+    else await auth.createUserWithEmailAndPassword(email, password);
+  }catch(err){ errEl.textContent = err.message.replace('Firebase: ',''); }
+});
+
+function showProfilePicker(){
+  document.getElementById('auth-overlay').style.display = 'none';
+  document.getElementById('app-wrap').style.display = 'none';
+  document.getElementById('profile-overlay').style.display = 'flex';
+  document.getElementById('loading-gate').style.display = 'none';
+  document.querySelectorAll('[data-pickprofile]').forEach(function(card){
+    card.onclick = function(){ enterProfile(card.dataset.pickprofile); };
+  });
+}
+async function enterProfile(profileId){
+  activeProfile = profileId;
+  try{ localStorage.setItem('hub-active-profile', profileId); }catch(e){}
+  document.getElementById('loading-gate').style.display = 'none';
+  document.getElementById('auth-overlay').style.display = 'none';
+  document.getElementById('profile-overlay').style.display = 'none';
+  document.getElementById('app-wrap').style.display = 'block';
+  document.getElementById('who-label').textContent = profileId;
+  const otherProfile = profileId==='Bhargav' ? 'Anusha' : 'Bhargav';
+  document.getElementById('switch-profile-btn').textContent = 'Switch to '+otherProfile;
+  document.getElementById('switch-profile-btn').onclick = function(){ enterProfile(otherProfile); };
+  await loadAlarms();
+  await loadWorldCities();
+  wireTabs();
+  showTab('clock');
+  startClockLoop();
+}
+
+auth.onAuthStateChanged(async function(user){
+  currentUser = user;
+  if(!user){
+    document.getElementById('loading-gate').style.display = 'none';
+    document.getElementById('auth-overlay').style.display = 'flex';
+    return;
+  }
+  const params = new URLSearchParams(window.location.search);
+  const fromUrl = params.get('profile');
+  if(fromUrl === 'Bhargav' || fromUrl === 'Anusha'){ enterProfile(fromUrl); return; }
+  let last = null;
+  try{ last = localStorage.getItem('hub-active-profile'); }catch(e){}
+  if(last === 'Bhargav' || last === 'Anusha') enterProfile(last);
+  else showProfilePicker();
+});
+
+/* =====================================================================
+   TABS
+===================================================================== */
+let activeTab = 'clock';
+function wireTabs(){
+  document.querySelectorAll('#tabnav button').forEach(function(btn){
+    btn.addEventListener('click', function(){ showTab(btn.dataset.tab); });
+  });
+}
+function showTab(name){
+  activeTab = name;
+  ['clock','world','alarms','timer','stopwatch'].forEach(function(t){
+    document.getElementById('tab-'+t).style.display = t===name ? 'block' : 'none';
+  });
+  document.querySelectorAll('#tabnav button').forEach(function(b){ b.classList.toggle('active', b.dataset.tab===name); });
+  if(name==='clock') renderClockTab();
+  if(name==='world') renderWorldTab();
+  if(name==='alarms') renderAlarmsTab();
+  if(name==='timer' && !timerRunning) renderTimerTab();
+  if(name==='stopwatch') renderStopwatchTab();
+}
+
+/* =====================================================================
+   AUDIO — a simple two-tone chime generated with the Web Audio API, no
+   external file needed.
+===================================================================== */
+let audioCtx = null;
+function playChime(){
+  try{
+    if(!audioCtx) audioCtx = new (window.AudioContext||window.webkitAudioContext)();
+    [880, 1108].forEach(function(freq, i){
+      const osc = audioCtx.createOscillator();
+      const gain = audioCtx.createGain();
+      osc.type = 'sine'; osc.frequency.value = freq;
+      osc.connect(gain); gain.connect(audioCtx.destination);
+      const start = audioCtx.currentTime + i*0.22;
+      gain.gain.setValueAtTime(0.0001, start);
+      gain.gain.exponentialRampToValueAtTime(0.22, start+0.02);
+      gain.gain.exponentialRampToValueAtTime(0.0001, start+0.5);
+      osc.start(start); osc.stop(start+0.55);
+    });
+  }catch(e){}
+}
+let notifPermission = (typeof Notification !== 'undefined') ? Notification.permission : 'unsupported';
+function notify(title, body){
+  playChime();
+  if(notifPermission==='granted'){
+    try{ new Notification(title, {body: body}); }catch(e){}
+  }
+}
+
+/* =====================================================================
+   CLOCK TAB — the hero. Big serif time, a thin brass arc sweeping once
+   per minute like a slow second hand, date, 12/24h toggle.
+===================================================================== */
+let use24h = false;
+function renderClockTab(){
+  const el = document.getElementById('tab-clock');
+  el.innerHTML =
+    '<div class="hero">'+
+      '<div class="hero-ring-wrap"><svg viewBox="0 0 120 120">'+
+        '<circle class="hero-ring-track" cx="60" cy="60" r="54"></circle>'+
+        '<circle class="hero-ring-sweep" id="ring-sweep" cx="60" cy="60" r="54" stroke-dasharray="339.3" stroke-dashoffset="339.3"></circle>'+
+      '</svg><div class="hero-center">'+
+        '<div class="hero-time" id="hero-time">--:--</div>'+
+        '<div class="hero-ampm" id="hero-ampm"></div>'+
+        '<div class="hero-date serif" id="hero-date"></div>'+
+      '</div></div>'+
+      '<div class="hero-toggle-row">'+
+        '<button type="button" class="hero-toggle '+(!use24h?'active':'')+'" data-hourmode="12">12-hour</button>'+
+        '<button type="button" class="hero-toggle '+(use24h?'active':'')+'" data-hourmode="24">24-hour</button>'+
+      '</div>'+
+    '</div>';
+  el.querySelectorAll('[data-hourmode]').forEach(function(btn){
+    btn.addEventListener('click', function(){ use24h = btn.dataset.hourmode==='24'; renderClockTab(); tickClock(); });
+  });
+  tickClock();
+}
+function tickClock(){
+  if(activeTab!=='clock') return;
+  const now = new Date();
+  let h = now.getHours();
+  const m = now.getMinutes(), s = now.getSeconds();
+  const ampm = h>=12 ? 'PM' : 'AM';
+  if(!use24h){ h = h%12; if(h===0) h=12; }
+  const timeEl = document.getElementById('hero-time');
+  if(timeEl) timeEl.textContent = pad2(h)+':'+pad2(m)+':'+pad2(s);
+  const ampmEl = document.getElementById('hero-ampm');
+  if(ampmEl) ampmEl.textContent = use24h ? '' : ampm;
+  const dateEl = document.getElementById('hero-date');
+  if(dateEl) dateEl.textContent = now.toLocaleDateString('en-US', {weekday:'long', month:'long', day:'numeric'});
+  const ring = document.getElementById('ring-sweep');
+  if(ring){
+    const circumference = 339.3;
+    const frac = (s + now.getMilliseconds()/1000)/60;
+    ring.style.strokeDashoffset = circumference*(1-frac);
+  }
+}
+
+/* =====================================================================
+   WORLD CLOCK
+===================================================================== */
+let worldCities = []; // [{id, label, tz}]
+const COMMON_TZ = [
+  {label:'New York', tz:'America/New_York'}, {label:'Los Angeles', tz:'America/Los_Angeles'},
+  {label:'Chicago', tz:'America/Chicago'}, {label:'London', tz:'Europe/London'},
+  {label:'Paris', tz:'Europe/Paris'}, {label:'Mumbai', tz:'Asia/Kolkata'},
+  {label:'Dubai', tz:'Asia/Dubai'}, {label:'Singapore', tz:'Asia/Singapore'},
+  {label:'Tokyo', tz:'Asia/Tokyo'}, {label:'Sydney', tz:'Australia/Sydney'},
+  {label:'São Paulo', tz:'America/Sao_Paulo'}, {label:'Toronto', tz:'America/Toronto'}
+];
+async function loadWorldCities(){
+  try{ const d = await profileDoc('worldCities').get(); worldCities = (d.exists && d.data().json) ? JSON.parse(d.data().json) : []; }catch(e){ worldCities = []; }
+}
+async function saveWorldCities(){ try{ await profileDoc('worldCities').set({json: JSON.stringify(worldCities)}); }catch(e){} }
+function renderWorldTab(){
+  const el = document.getElementById('tab-world');
+  let html = '<div class="section-title serif">World clock</div><div class="section-sub">Add anywhere you want a quick read on the time.</div>';
+  if(!worldCities.length){
+    html += '<div class="empty-note">No cities added yet.</div>';
+  } else {
+    html += worldCities.map(worldRowHtml).join('');
+  }
+  html += '<button type="button" class="add-btn" id="add-city-btn">+ Add a city</button>';
+  el.innerHTML = html;
+  el.querySelectorAll('[data-delcity]').forEach(function(btn){
+    btn.addEventListener('click', async function(){
+      worldCities = worldCities.filter(function(c){ return c.id!==btn.dataset.delcity; });
+      await saveWorldCities();
+      renderWorldTab();
+    });
+  });
+  document.getElementById('add-city-btn').addEventListener('click', openAddCityModal);
+  tickWorld();
+}
+function worldRowHtml(c){
+  return '<div class="wc-row" data-cityrow="'+c.id+'"><div><div class="wc-city">'+escapeHtml(c.label)+'</div><div class="wc-tz" id="wc-date-'+c.id+'"></div></div>'+
+    '<div style="display:flex;align-items:center;gap:12px;"><div style="text-align:right;"><div class="wc-time" id="wc-time-'+c.id+'"></div><div class="wc-daynight" id="wc-dn-'+c.id+'"></div></div>'+
+    '<button type="button" class="icon-btn" data-delcity="'+c.id+'">✕</button></div></div>';
+}
+function tickWorld(){
+  if(activeTab!=='world') return;
+  worldCities.forEach(function(c){
+    const now = new Date();
+    let parts;
+    try{ parts = new Intl.DateTimeFormat('en-US', {timeZone:c.tz, hour:'2-digit', minute:'2-digit', hour12:true, hour:'numeric'}).formatToParts(now); }catch(e){ return; }
+    const hourStr = now.toLocaleTimeString('en-US', {timeZone:c.tz, hour:'2-digit', minute:'2-digit', hour12:true});
+    const dateStr = now.toLocaleDateString('en-US', {timeZone:c.tz, weekday:'short', month:'short', day:'numeric'});
+    const hour24 = parseInt(now.toLocaleTimeString('en-US', {timeZone:c.tz, hour12:false, hour:'2-digit'}),10);
+    const isNight = hour24 < 6 || hour24 >= 20;
+    const timeEl = document.getElementById('wc-time-'+c.id);
+    const dateEl = document.getElementById('wc-date-'+c.id);
+    const dnEl = document.getElementById('wc-dn-'+c.id);
+    if(timeEl) timeEl.textContent = hourStr;
+    if(dateEl) dateEl.textContent = dateStr;
+    if(dnEl) dnEl.innerHTML = '<span class="wc-dot" style="background:'+(isNight?'var(--text-faint)':'var(--teal)')+';"></span>'+(isNight?'Night':'Day');
+  });
+}
+function openAddCityModal(){
+  const mount = document.getElementById('modal-mount');
+  mount.innerHTML = '<div class="modal-overlay" id="addcity-overlay"><div class="modal-sheet">'+
+    '<h3>Add a city</h3>'+
+    '<div class="m-field"><label>City</label><select id="city-select">'+COMMON_TZ.map(function(c){ return '<option value="'+c.tz+'" data-label="'+escapeHtml(c.label)+'">'+escapeHtml(c.label)+'</option>'; }).join('')+'</select></div>'+
+    '<div class="modal-actions"><button type="button" class="m-cancel" id="addcity-cancel">Cancel</button><button type="button" class="m-save" id="addcity-save">Add</button></div>'+
+  '</div></div>';
+  document.getElementById('addcity-cancel').addEventListener('click', function(){ mount.innerHTML=''; });
+  document.getElementById('addcity-overlay').addEventListener('click', function(e){ if(e.target.id==='addcity-overlay') mount.innerHTML=''; });
+  document.getElementById('addcity-save').addEventListener('click', async function(){
+    const sel = document.getElementById('city-select');
+    const opt = sel.options[sel.selectedIndex];
+    worldCities.push({ id:'city-'+Date.now(), label: opt.dataset.label, tz: opt.value });
+    await saveWorldCities();
+    mount.innerHTML = '';
+    renderWorldTab();
+  });
+}
+
+/* =====================================================================
+   ALARMS — checked once a second while this tab/app is open; fires a
+   chime, notification, and full-screen banner. Browser tabs can't wake
+   themselves up in the true background, so this only works while the
+   app is open somewhere — the same honest limitation every browser-based
+   alarm has.
+===================================================================== */
+let alarms = [];
+let firedToday = {};
+async function loadAlarms(){
+  try{ const d = await profileDoc('alarms').get(); alarms = (d.exists && d.data().json) ? JSON.parse(d.data().json) : []; }catch(e){ alarms = []; }
+}
+async function saveAlarms(){ try{ await profileDoc('alarms').set({json: JSON.stringify(alarms)}); }catch(e){} }
+const DAY_LETTERS = ['S','M','T','W','T','F','S'];
+function renderAlarmsTab(){
+  const el = document.getElementById('tab-alarms');
+  let html = '<div class="section-title serif">Alarms</div><div class="section-sub">Rings while this is open in a tab — like any browser alarm, it can\'t wake a fully closed app.</div>';
+  if(!alarms.length){
+    html += '<div class="empty-note">No alarms set.</div>';
+  } else {
+    html += alarms.slice().sort(function(a,b){ return a.time<b.time?-1:1; }).map(alarmRowHtml).join('');
+  }
+  html += '<button type="button" class="add-btn" id="add-alarm-btn">+ Add alarm</button>';
+  if(notifPermission==='default'){
+    html += '<p style="text-align:center;font-size:11.5px;color:var(--text-faint);margin-top:14px;"><button type="button" id="enable-notif-btn" style="background:none;border:none;color:var(--brass);text-decoration:underline;">Enable notifications</button> so alarms show even if you\'re on another tab.</p>';
+  }
+  el.innerHTML = html;
+  el.querySelectorAll('[data-togglealarm]').forEach(function(btn){
+    btn.addEventListener('click', async function(){
+      const a = alarms.find(function(x){ return x.id===btn.dataset.togglealarm; });
+      a.on = !a.on;
+      await saveAlarms();
+      renderAlarmsTab();
+    });
+  });
+  el.querySelectorAll('[data-delalarm]').forEach(function(btn){
+    btn.addEventListener('click', async function(){
+      alarms = alarms.filter(function(a){ return a.id!==btn.dataset.delalarm; });
+      await saveAlarms();
+      renderAlarmsTab();
+    });
+  });
+  document.getElementById('add-alarm-btn').addEventListener('click', function(){ openAlarmModal(null); });
+  el.querySelectorAll('[data-editalarm]').forEach(function(row){
+    row.addEventListener('click', function(e){
+      if(e.target.closest('[data-togglealarm]') || e.target.closest('[data-delalarm]')) return;
+      openAlarmModal(alarms.find(function(a){ return a.id===row.dataset.editalarm; }));
+    });
+  });
+  const notifBtn = document.getElementById('enable-notif-btn');
+  if(notifBtn) notifBtn.addEventListener('click', async function(){ try{ notifPermission = await Notification.requestPermission(); renderAlarmsTab(); }catch(e){} });
+}
+function alarmRowHtml(a){
+  const [hh,mm] = a.time.split(':').map(Number);
+  const ampm = hh>=12?'PM':'AM'; const h12 = hh%12===0?12:hh%12;
+  return '<div class="list-row" data-editalarm="'+a.id+'" style="cursor:pointer;"><div class="row-main">'+
+    '<div class="alarm-time '+(!a.on?'off':'')+'">'+h12+':'+pad2(mm)+' '+ampm+'</div>'+
+    (a.label ? '<div class="row-sub">'+escapeHtml(a.label)+'</div>' : '')+
+    '<div class="alarm-days">'+DAY_LETTERS.map(function(d,i){ return '<span class="alarm-day-chip '+((a.days||[]).indexOf(i)!==-1?'on':'')+'">'+d+'</span>'; }).join('')+'</div>'+
+    '</div><div class="row-actions">'+
+    '<button type="button" class="toggle-sw '+(a.on?'on':'')+'" data-togglealarm="'+a.id+'"></button>'+
+    '<button type="button" class="icon-btn" data-delalarm="'+a.id+'">✕</button></div></div>';
+}
+function openAlarmModal(existing){
+  const mount = document.getElementById('modal-mount');
+  const days = existing ? (existing.days||[]).slice() : [1,2,3,4,5];
+  mount.innerHTML = '<div class="modal-overlay" id="alarm-overlay"><div class="modal-sheet">'+
+    '<h3>'+(existing?'Edit alarm':'New alarm')+'</h3>'+
+    '<div class="m-field"><label>Time</label><input type="time" id="alarm-time-input" value="'+(existing?existing.time:'07:00')+'"></div>'+
+    '<div class="m-field"><label>Label</label><input type="text" id="alarm-label-input" placeholder="e.g. Wake up" value="'+(existing?escapeHtml(existing.label||''):'')+'"></div>'+
+    '<div class="m-field"><label>Repeats</label><div class="day-picker" id="alarm-day-picker">'+DAY_LETTERS.map(function(d,i){ return '<button type="button" data-day="'+i+'" class="'+(days.indexOf(i)!==-1?'on':'')+'">'+d+'</button>'; }).join('')+'</div></div>'+
+    '<div class="modal-actions">'+(existing?'<button type="button" class="m-cancel" id="alarm-delete">Delete</button>':'<button type="button" class="m-cancel" id="alarm-cancel">Cancel</button>')+'<button type="button" class="m-save" id="alarm-save">Save</button></div>'+
+  '</div></div>';
+  let selectedDays = days;
+  mount.querySelectorAll('[data-day]').forEach(function(btn){
+    btn.addEventListener('click', function(){
+      const d = parseInt(btn.dataset.day,10);
+      const idx = selectedDays.indexOf(d);
+      if(idx!==-1) selectedDays.splice(idx,1); else selectedDays.push(d);
+      btn.classList.toggle('on');
+    });
+  });
+  function close(){ mount.innerHTML = ''; }
+  const cancelBtn = document.getElementById('alarm-cancel') || document.getElementById('alarm-delete');
+  if(document.getElementById('alarm-cancel')) document.getElementById('alarm-cancel').addEventListener('click', close);
+  if(document.getElementById('alarm-delete')) document.getElementById('alarm-delete').addEventListener('click', async function(){
+    alarms = alarms.filter(function(a){ return a.id!==existing.id; });
+    await saveAlarms(); close(); renderAlarmsTab();
+  });
+  document.getElementById('alarm-overlay').addEventListener('click', function(e){ if(e.target.id==='alarm-overlay') close(); });
+  document.getElementById('alarm-save').addEventListener('click', async function(){
+    const time = document.getElementById('alarm-time-input').value;
+    const label = document.getElementById('alarm-label-input').value.trim();
+    if(!time) return;
+    if(existing){ existing.time=time; existing.label=label; existing.days=selectedDays; }
+    else alarms.push({ id:'alarm-'+Date.now(), time:time, label:label, days:selectedDays, on:true });
+    await saveAlarms();
+    close();
+    renderAlarmsTab();
+  });
+}
+function checkAlarms(){
+  const now = new Date();
+  const hhmm = pad2(now.getHours())+':'+pad2(now.getMinutes());
+  const dow = now.getDay();
+  const todayKey = now.toDateString();
+  alarms.forEach(function(a){
+    if(!a.on) return;
+    if(a.days && a.days.length && a.days.indexOf(dow)===-1) return;
+    if(a.time !== hhmm) return;
+    const fireKey = a.id+':'+todayKey+':'+hhmm;
+    if(firedToday[fireKey]) return;
+    firedToday[fireKey] = true;
+    fireAlarm(a);
+  });
+}
+function fireAlarm(a){
+  notify('Alarm'+(a.label?' — '+a.label:''), 'It\'s '+a.time+'.');
+  const mount = document.getElementById('fire-mount');
+  mount.innerHTML = '<div class="fire-overlay"><div class="fire-box">'+
+    '<div class="fb-label serif">'+(a.label?escapeHtml(a.label):'Alarm')+'</div>'+
+    '<div class="fb-time serif">'+a.time+'</div>'+
+    '<button type="button" id="dismiss-alarm-btn">Dismiss</button>'+
+  '</div></div>';
+  document.getElementById('dismiss-alarm-btn').addEventListener('click', function(){ mount.innerHTML = ''; });
+}
+
+/* =====================================================================
+   TIMER
+===================================================================== */
+let timerTotalSeconds = 0, timerRemaining = 0, timerRunning = false, timerInterval = null;
+function renderTimerTab(){
+  const el = document.getElementById('tab-timer');
+  const mins = Math.floor(timerRemaining/60), secs = timerRemaining%60;
+  el.innerHTML =
+    '<div class="hero" style="padding-top:6px;">'+
+      '<div class="hero-ring-wrap"><svg viewBox="0 0 120 120">'+
+        '<circle class="hero-ring-track" cx="60" cy="60" r="54"></circle>'+
+        '<circle class="hero-ring-sweep" id="timer-ring" cx="60" cy="60" r="54" stroke-dasharray="339.3" stroke-dashoffset="0"></circle>'+
+      '</svg><div class="hero-center"><div class="hero-time" id="timer-display">'+pad2(mins)+':'+pad2(secs)+'</div></div></div>'+
+    '</div>'+
+    (timerRunning||timerRemaining>0 ? '' : '<div class="timer-presets">'+
+      [1,5,10,15,20].map(function(m){ return '<button type="button" class="timer-preset-btn" data-preset="'+(m*60)+'">'+m+' min</button>'; }).join('')+
+    '</div>'+
+    '<div class="timer-custom-row"><input type="number" id="timer-h" placeholder="00" min="0" max="23"><span>h</span>'+
+      '<input type="number" id="timer-m" placeholder="05" min="0" max="59"><span>m</span>'+
+      '<input type="number" id="timer-s" placeholder="00" min="0" max="59"><span>s</span></div>')+
+    '<div class="control-row" id="timer-controls"></div>';
+
+  if(!timerRunning && timerRemaining===0){
+    el.querySelectorAll('[data-preset]').forEach(function(btn){
+      btn.addEventListener('click', function(){ startTimer(parseInt(btn.dataset.preset,10)); });
+    });
+    document.getElementById('timer-controls').innerHTML = '<button type="button" class="ctrl-btn primary" id="timer-start-custom">Start</button>';
+    document.getElementById('timer-start-custom').addEventListener('click', function(){
+      const h = parseInt(document.getElementById('timer-h').value,10)||0;
+      const m = parseInt(document.getElementById('timer-m').value,10)||0;
+      const s = parseInt(document.getElementById('timer-s').value,10)||0;
+      const total = h*3600+m*60+s;
+      if(total>0) startTimer(total);
+    });
+  } else {
+    document.getElementById('timer-controls').innerHTML =
+      (timerRunning ? '<button type="button" class="ctrl-btn ghost" id="timer-pause">Pause</button>' : '<button type="button" class="ctrl-btn primary" id="timer-resume">Resume</button>')+
+      '<button type="button" class="ctrl-btn danger" id="timer-reset">Reset</button>';
+    if(timerRunning) document.getElementById('timer-pause').addEventListener('click', pauseTimer);
+    else document.getElementById('timer-resume').addEventListener('click', resumeTimer);
+    document.getElementById('timer-reset').addEventListener('click', resetTimer);
+  }
+}
+function startTimer(totalSeconds){
+  timerTotalSeconds = totalSeconds;
+  timerRemaining = totalSeconds;
+  timerRunning = true;
+  renderTimerTab();
+  runTimerInterval();
+}
+function runTimerInterval(){
+  clearInterval(timerInterval);
+  timerInterval = setInterval(function(){
+    if(!timerRunning) return;
+    timerRemaining--;
+    updateTimerDisplay();
+    if(timerRemaining<=0){
+      clearInterval(timerInterval);
+      timerRunning = false;
+      notify('Timer done', 'Your timer has finished.');
+      renderTimerTab();
+    }
+  }, 1000);
+}
+function updateTimerDisplay(){
+  const disp = document.getElementById('timer-display');
+  if(disp){ const mins=Math.floor(Math.max(0,timerRemaining)/60), secs=Math.max(0,timerRemaining)%60; disp.textContent = pad2(mins)+':'+pad2(secs); }
+  const ring = document.getElementById('timer-ring');
+  if(ring){ const frac = timerTotalSeconds ? (timerTotalSeconds-timerRemaining)/timerTotalSeconds : 0; ring.style.strokeDashoffset = 339.3*(1-frac); }
+}
+function pauseTimer(){ timerRunning = false; renderTimerTab(); }
+function resumeTimer(){ timerRunning = true; renderTimerTab(); runTimerInterval(); }
+function resetTimer(){ timerRunning = false; timerRemaining = 0; timerTotalSeconds = 0; clearInterval(timerInterval); renderTimerTab(); }
+
+/* =====================================================================
+   STOPWATCH
+===================================================================== */
+let swElapsedMs = 0, swRunning = false, swStartTs = 0, swInterval = null, swLaps = [];
+function fmtStopwatch(ms){
+  const totalCs = Math.floor(ms/10);
+  const cs = totalCs%100, s = Math.floor(totalCs/100)%60, m = Math.floor(totalCs/6000);
+  return pad2(m)+':'+pad2(s)+'.'+pad2(cs);
+}
+function renderStopwatchTab(){
+  const el = document.getElementById('tab-stopwatch');
+  el.innerHTML =
+    '<div class="sw-display serif" id="sw-display">'+fmtStopwatch(swElapsedMs)+'</div>'+
+    '<div class="control-row">'+
+      (swRunning ? '<button type="button" class="ctrl-btn ghost" id="sw-lap">Lap</button><button type="button" class="ctrl-btn danger" id="sw-stop">Stop</button>' :
+        (swElapsedMs>0 ? '<button type="button" class="ctrl-btn ghost" id="sw-reset">Reset</button><button type="button" class="ctrl-btn primary" id="sw-resume">Resume</button>' :
+        '<button type="button" class="ctrl-btn primary" id="sw-start">Start</button>'))+
+    '</div>'+
+    (swLaps.length ? '<div style="margin-top:28px;">'+swLaps.slice().reverse().map(function(l,i){ return '<div class="lap-row"><span class="lap-num">Lap '+(swLaps.length-i)+'</span><span>'+fmtStopwatch(l)+'</span></div>'; }).join('')+'</div>' : '');
+  if(document.getElementById('sw-start')) document.getElementById('sw-start').addEventListener('click', startStopwatch);
+  if(document.getElementById('sw-resume')) document.getElementById('sw-resume').addEventListener('click', startStopwatch);
+  if(document.getElementById('sw-stop')) document.getElementById('sw-stop').addEventListener('click', stopStopwatch);
+  if(document.getElementById('sw-lap')) document.getElementById('sw-lap').addEventListener('click', function(){ swLaps.push(swElapsedMs); renderStopwatchTab(); });
+  if(document.getElementById('sw-reset')) document.getElementById('sw-reset').addEventListener('click', function(){ swElapsedMs=0; swLaps=[]; renderStopwatchTab(); });
+}
+function startStopwatch(){
+  swRunning = true;
+  swStartTs = Date.now() - swElapsedMs;
+  renderStopwatchTab();
+  clearInterval(swInterval);
+  swInterval = setInterval(function(){
+    if(!swRunning) return;
+    swElapsedMs = Date.now() - swStartTs;
+    const disp = document.getElementById('sw-display');
+    if(disp) disp.textContent = fmtStopwatch(swElapsedMs);
+  }, 30);
+}
+function stopStopwatch(){ swRunning = false; clearInterval(swInterval); renderStopwatchTab(); }
+
+/* =====================================================================
+   MAIN LOOP — one shared 1s tick drives the clock face, world clock,
+   and alarm checking, whichever tab is open.
+===================================================================== */
+function startClockLoop(){
+  setInterval(function(){
+    if(activeTab==='clock') tickClock();
+    if(activeTab==='world') tickWorld();
+    checkAlarms();
+  }, 1000);
+}
+
+} // end firebase-available guard
+</script>
+</body>
+</html>
