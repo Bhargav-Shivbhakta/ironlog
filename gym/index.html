@@ -1745,10 +1745,13 @@ async function renderDiet(){
     document.getElementById('day-total-wrap').style.display = 'none';
   } else {
     let grandCal = 0, grandProtein = 0;
-    MEAL_SLOT_ORDER.forEach(function(slotKey){
-      const slotMeals = dietMealsLive.filter(function(m){ return m.mealSlot===slotKey; });
-      if(!slotMeals.length) return;
-      slotMeals.forEach(function(m){
+    // Render meals in the order Diet actually lists them, not grouped by
+    // slot — a slot like "snacks" can happen twice in one day (a post-gym
+    // shake first thing, then a real mid-afternoon snack between lunch
+    // and dinner), so grouping by slot wrongly lumped both at the end of
+    // the day. The authored order in Diet is already the true chronology.
+    dietMealsLive.forEach(function(m){
+      const slotKey = m.mealSlot;
         const items = m.components.map(function(c){
           if(c.type==='recipe'){
             const r = liveRecipeById(c.id); if(!r) return null;
@@ -1794,7 +1797,6 @@ async function renderDiet(){
           <div class="meal-sub"><span>Subtotal</span><span>${calSub} kcal · ${proSub.toFixed(1)}g protein</span></div>
         `;
         wrap.appendChild(block);
-      });
     });
     document.getElementById('day-total-wrap').style.display = 'flex';
     document.getElementById('day-total-vals').textContent = `${Math.round(grandCal)} kcal · ${grandProtein.toFixed(1)}g protein`;
