@@ -204,7 +204,15 @@
   .rest-display{font-family:var(--font-mono);font-size:12px;color:var(--accent-b);}
 
   .meal-block{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:14px 18px;margin-bottom:12px;}
-  .meal-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;}
+  .meal-head{display:flex;justify-content:flex-start;align-items:center;gap:8px;margin-bottom:8px;}
+  .meal-head .m-time{margin-left:auto;}
+  .drag-handle{cursor:grab;color:var(--text-dim,#888);font-size:15px;line-height:1;flex:none;user-select:none;touch-action:none;}
+  .drag-handle:active{cursor:grabbing;}
+  .meal-block{transition:transform .15s ease, opacity .15s ease;}
+  .meal-block.dragging{opacity:0.4;}
+  .meal-block.drag-over-top{border-top:2px solid var(--accent-a,#4f7cff);}
+  .meal-block.drag-over-bottom{border-bottom:2px solid var(--accent-a,#4f7cff);}
+  .meal-reorder-msg{text-align:center;font-size:11.5px;color:var(--text-dim,#888);margin:-4px 0 12px;min-height:16px;}
   .meal-head .m-name{font-family:var(--font-display);font-size:16px;text-transform:uppercase;font-weight:600;}
   body.theme-glow .meal-head .m-name{text-transform:none;}
   .meal-head .m-time{font-family:var(--font-mono);font-size:11px;color:var(--text-faint);}
@@ -1720,6 +1728,64 @@ function liveRecipeMacros(r){
 const MEAL_SLOT_ORDER = ['breakfast','lunch','dinner','snacks'];
 const MEAL_SLOT_LABEL = {breakfast:'Breakfast', lunch:'Lunch', dinner:'Dinner', snacks:'Snacks'};
 
+function wireMealDragDrop(){
+  const wrap = document.getElementById('diet-meals');
+  let draggedId = null;
+  wrap.querySelectorAll('.meal-block').forEach(function(block){
+    block.addEventListener('dragstart', function(e){
+      draggedId = block.dataset.mealid;
+      block.classList.add('dragging');
+      try{ e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('text/plain', draggedId); }catch(err){}
+    });
+    block.addEventListener('dragend', function(){
+      block.classList.remove('dragging');
+      wrap.querySelectorAll('.meal-block').forEach(function(b){ b.classList.remove('drag-over-top','drag-over-bottom'); });
+    });
+    block.addEventListener('dragover', function(e){
+      e.preventDefault();
+      if(block.dataset.mealid === draggedId) return;
+      const rect = block.getBoundingClientRect();
+      const isTopHalf = (e.clientY - rect.top) < rect.height/2;
+      wrap.querySelectorAll('.meal-block').forEach(function(b){ if(b!==block) b.classList.remove('drag-over-top','drag-over-bottom'); });
+      block.classList.toggle('drag-over-top', isTopHalf);
+      block.classList.toggle('drag-over-bottom', !isTopHalf);
+    });
+    block.addEventListener('drop', async function(e){
+      e.preventDefault();
+      const targetId = block.dataset.mealid;
+      wrap.querySelectorAll('.meal-block').forEach(function(b){ b.classList.remove('drag-over-top','drag-over-bottom'); });
+      if(targetId === draggedId || !draggedId) return;
+      const rect = block.getBoundingClientRect();
+      const isTopHalf = (e.clientY - rect.top) < rect.height/2;
+      await reorderMeals(draggedId, targetId, isTopHalf);
+    });
+  });
+}
+// Reordering here writes straight back to the same Diet data Gym is
+// reading live — so the new order shows up in the Diet app too, not just
+// on this screen.
+async function reorderMeals(draggedId, targetId, insertBefore){
+  const draggedIdx = dietMealsLive.findIndex(function(m){ return m.id===draggedId; });
+  if(draggedIdx===-1) return;
+  const [draggedMeal] = dietMealsLive.splice(draggedIdx,1);
+  let targetIdx = dietMealsLive.findIndex(function(m){ return m.id===targetId; });
+  if(targetIdx===-1) targetIdx = dietMealsLive.length;
+  dietMealsLive.splice(insertBefore ? targetIdx : targetIdx+1, 0, draggedMeal);
+  // Render first so the new order shows immediately, then save — saving
+  // first would show the confirmation message right before renderDiet()
+  // rebuilds that same element and wipes it out.
+  await renderDiet();
+  await saveDietMealsOrder();
+}
+async function saveDietMealsOrder(){
+  const msg = document.getElementById('meal-reorder-msg');
+  try{
+    await dietProfileDoc('meals').set({json: JSON.stringify(dietMealsLive)});
+    if(msg){ msg.textContent = 'Order saved ✓'; setTimeout(function(){ if(document.getElementById('meal-reorder-msg')) document.getElementById('meal-reorder-msg').textContent=''; }, 2200); }
+  }catch(e){
+    if(msg) msg.textContent = 'Could not save the new order — try again.';
+  }
+}
 async function renderDiet(){
   const p = activeProfile;
   document.getElementById('diet-title').textContent = p.id === 'bhargav' ? 'Phase 1 Diet' : 'Daily Diet Plan';
@@ -1736,6 +1802,10 @@ async function renderDiet(){
   editLink.style.cssText = 'display:inline-block;margin-bottom:14px;font-size:12.5px;color:var(--accent,#4f7cff);text-decoration:none;font-weight:600;';
   wrap.innerHTML='';
   wrap.appendChild(editLink);
+  const reorderMsg = document.createElement('div');
+  reorderMsg.id = 'meal-reorder-msg';
+  reorderMsg.className = 'meal-reorder-msg';
+  wrap.appendChild(reorderMsg);
 
   if(!dietMealsLive || !dietRecipesLive || !dietFoodsLive || !dietMealsLive.length){
     const empty = document.createElement('div');
@@ -1776,8 +1846,10 @@ async function renderDiet(){
         grandCal += calSub; grandProtein += proSub;
         const block = document.createElement('div');
         block.className='meal-block';
+        block.draggable = true;
+        block.dataset.mealid = m.id;
         block.innerHTML = `
-          <div class="meal-head"><div class="m-name">${m.name}</div><div class="m-time">${MEAL_SLOT_LABEL[slotKey]}</div></div>
+          <div class="meal-head"><div class="drag-handle" title="Drag to reorder">⠿</div><div class="m-name">${m.name}</div><div class="m-time">${MEAL_SLOT_LABEL[slotKey]}</div></div>
           ${items.map(i=> i.isRecipe ? `
             <details class="recipe-detail">
               <summary class="food-row" style="cursor:pointer;">
@@ -1798,6 +1870,7 @@ async function renderDiet(){
         `;
         wrap.appendChild(block);
     });
+    wireMealDragDrop();
     document.getElementById('day-total-wrap').style.display = 'flex';
     document.getElementById('day-total-vals').textContent = `${Math.round(grandCal)} kcal · ${grandProtein.toFixed(1)}g protein`;
   }
