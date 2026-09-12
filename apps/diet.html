@@ -281,8 +281,8 @@ const RECIPES_SEED_BHARGAV = [
 const RECIPES_SEED_ANUSHA = [
   { id:'r-whey-shake-a', name:'Half Whey Shake', instructions:'Mix half a scoop of whey protein with water. If you mix this into your oat bowl instead, skip this separate shake — it\'s a replacement, not an extra half scoop.',
     ingredients:[{foodId:'a-whey',servings:0.5}], recipeServings:1 },
-  { id:'r-oat-bowl-a', name:'Oat Bowl', instructions:'Combine 35g oats and 150ml milk in a microwave-safe bowl. Microwave ~90 seconds, stirring until the right consistency. Stir in the flaxseed. Add the sliced half banana. (Your after-gym half-scoop whey can be mixed in here instead of taken separately — just don\'t do both.)',
-    ingredients:[{foodId:'a-oats',servings:1},{foodId:'a-milk',servings:1},{foodId:'a-flax',servings:1},{foodId:'a-banana',servings:1}], recipeServings:1 },
+  { id:'r-oat-bowl-a', name:'Oat Bowl', instructions:'Combine 35g oats and 150ml milk in a microwave-safe bowl. Microwave ~90 seconds, stirring until the right consistency. Let cool slightly, then stir in the flaxseed and the half scoop of whey — do not add whey while still hot. Top with the sliced half banana.',
+    ingredients:[{foodId:'a-oats',servings:1},{foodId:'a-milk',servings:1},{foodId:'a-flax',servings:1},{foodId:'a-whey',servings:0.5},{foodId:'a-banana',servings:1}], recipeServings:1 },
   { id:'r-boiled-eggs-a', name:'Boiled Eggs — 1 whole + 2 whites', instructions:'Boil 3 eggs. Eat 1 whole egg. For the remaining 2, discard the yolks and eat only the whites. Served separately from the oat bowl, not mixed in.',
     ingredients:[{foodId:'a-egg-whole',servings:1},{foodId:'a-egg-white',servings:2}], recipeServings:1 },
   { id:'r-rice-yogurt-a', name:'Rice & Yogurt Bowl', instructions:'Measure 125g cooked rice and let it cool until warm. Add the yogurt and mix until evenly combined. No milk in this bowl — that would change your diet.',
@@ -616,6 +616,21 @@ async function migrateSplitEggsFromOatBowl(){
   await saveRecipes();
   await saveMeals();
 }
+// Anusha's Oat Bowl was always meant to include the half-scoop of whey
+// (the recipe's own instructions said so), but the ingredient itself was
+// missing from the actual recipe — so it never counted toward her
+// calories/macros. This adds it to any already-saved Oat Bowl that's
+// missing it, without touching anything else about the recipe.
+async function migrateAddWheyToOatBowl(){
+  if(activeProfile!=='Anusha') return;
+  const oatBowl = recipes.find(function(r){ return r.id==='r-oat-bowl-a'; });
+  if(!oatBowl) return;
+  const hasWhey = oatBowl.ingredients.some(function(ing){ return ing.foodId==='a-whey'; });
+  if(hasWhey) return;
+  oatBowl.ingredients.push({foodId:'a-whey', servings:0.5});
+  oatBowl.instructions = RECIPES_SEED_ANUSHA.find(function(r){ return r.id==='r-oat-bowl-a'; }).instructions;
+  await saveRecipes();
+}
 
 async function loadTargets(){
   try{
@@ -734,6 +749,7 @@ async function init(){
   await loadRecipes();
   await loadMeals();
   await migrateSplitEggsFromOatBowl();
+  await migrateAddWheyToOatBowl();
   await loadTargets();
   await loadWeightGoal();
   await loadGymWeight();
@@ -745,6 +761,13 @@ async function init(){
   document.getElementById('tab-targets-btn').onclick = function(){ showTab('targets'); };
   document.getElementById('tab-history-btn').onclick = function(){ showTab('history'); };
   showTab('today');
+  // Arriving from Gym's per-meal edit pencil — jump straight into editing
+  // that meal instead of landing on the diary.
+  const editMealId = new URLSearchParams(window.location.search).get('editmeal');
+  if(editMealId){
+    const target = mealById(editMealId);
+    if(target){ showTab('meals'); openMealBuilder(target); }
+  }
 }
 function showTab(name){
   activeTab = name;
