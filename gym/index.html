@@ -194,6 +194,8 @@
   .ex-head{display:flex;justify-content:space-between;align-items:flex-start;gap:14px;flex-wrap:wrap;margin-bottom:10px;}
   .ex-name{font-family:var(--font-display);font-size:17px;font-weight:600;}
   .ex-meta{font-family:var(--font-mono);font-size:11px;color:var(--text-dim);margin-top:4px;}
+  .cardio-entry-row{display:flex;justify-content:space-between;align-items:flex-start;gap:10px;padding:10px 0;border-bottom:1px solid var(--border,#e3e3e3);font-size:13px;}
+  .cardio-entry-row:last-child{border-bottom:none;}
   .ex-cue{font-size:12px;color:var(--accent-b);margin-top:5px;font-style:italic;}
   .ex-number{font-family:var(--font-mono);font-size:11px;color:var(--text-faint);border:1px solid var(--border);border-radius:5px;padding:2px 7px;flex-shrink:0;}
   .sets-table{width:100%;border-collapse:collapse;margin-top:8px;}
@@ -505,6 +507,7 @@
         </div>
         <div class="ex-number" id="cardio-status">Not logged</div>
       </div>
+      <div id="cardio-list"></div>
       <table class="sets-table">
         <thead><tr><th>Machine</th><th>Duration</th><th>Speed</th><th>Incline</th></tr></thead>
         <tbody>
@@ -529,8 +532,23 @@
         <input type="text" id="cardio-notes" placeholder="Notes — distance, calories, how it felt…" style="width:100%;">
       </div>
       <div class="ex-actions">
-        <button class="btn small primary" id="save-cardio">Save cardio</button>
+        <button class="btn small primary" id="save-cardio">+ Add cardio session</button>
       </div>
+    </div>
+
+    <div class="ex-card" id="steps-summary-card">
+      <div class="ex-head">
+        <div>
+          <div class="ex-name">👣 Steps breakdown</div>
+          <div class="ex-meta">Uses the Steps field above — cardio steps are subtracted here so nothing gets counted twice</div>
+        </div>
+      </div>
+      <div class="ex-meta" id="steps-breakdown"></div>
+    </div>
+
+    <div class="day-total" id="active-cal-total" style="display:none;">
+      <div class="dt-label">Active calories today</div>
+      <div class="dt-vals" id="active-cal-vals"></div>
     </div>
 
     <div id="exercise-list"></div>
@@ -1140,8 +1158,8 @@ async function removeCustomExercise(dayKey, exId){
 }
 
 /* ---------------- Cardio log (one entry per calendar date) ---------------- */
-async function getCardio(date){ try{ const doc = await userCol('cardioLogs').doc(date).get(); return doc.exists ? doc.data() : null; }catch(e){ return null; } }
-async function setCardio(date, obj){ try{ await userCol('cardioLogs').doc(date).set(obj); return true; }catch(e){ console.error(e); return null; } }
+async function getCardio(date){ try{ const doc = await userCol('cardioLogs').doc(date).get(); if(!doc.exists) return []; const data = doc.data(); return Array.isArray(data.entries) ? data.entries : (data.machine ? [data] : []); }catch(e){ return []; } }
+async function saveCardioEntries(date, entries){ try{ await userCol('cardioLogs').doc(date).set({date, entries}); return true; }catch(e){ console.error(e); return null; } }
 
 /* =====================================================================
    UTIL
@@ -1541,7 +1559,16 @@ function estimateCardioKcal(machine, duration, speed, incline){
   }
   const weight = (activeProfile.program && activeProfile.program.startWeight) || 80; // reasonable fallback
   const raw = mets * weight * (duration/60);
-  return Math.round(raw * 0.95); // same conservative 5% margin used throughout
+  return { gross: Math.round(raw * 0.95), active: Math.round((mets-1) * weight * (duration/60) * 0.95) }; // active = net of resting metabolism, so it doesn't double-count against BMR
+}
+// Treadmill sessions correspond to real steps — this estimates how many,
+// so they can be subtracted from a whole-day step count and never get
+// counted twice toward calorie burn.
+function estimateCardioSteps(machine, duration, speed){
+  if(!duration || !(machine||'').toLowerCase().includes('treadmill')) return 0;
+  const strideFt = 2.5; // average stride length
+  const feet = (speed||0) * 5280 * (duration/60);
+  return Math.round(feet / strideFt);
 }
 function updateCardioKcalEstimate(){
   const machine = document.getElementById('cardio-machine').value;
@@ -1549,7 +1576,7 @@ function updateCardioKcalEstimate(){
   const speed = parseFloat(document.getElementById('cardio-speed').value) || null;
   const incline = parseFloat(document.getElementById('cardio-incline').value) || null;
   const kcal = estimateCardioKcal(machine, duration, speed, incline);
-  document.getElementById('cardio-kcal-estimate').textContent = kcal!=null ? '≈'+kcal+' kcal estimated (conservative)' : '';
+  document.getElementById('cardio-kcal-estimate').textContent = kcal!=null ? '≈'+kcal.gross+' kcal gross (≈'+kcal.active+' active, above resting)' : '';
 }
 ['cardio-machine','cardio-duration','cardio-speed','cardio-incline'].forEach(function(id){
   document.getElementById(id).addEventListener('input', updateCardioKcalEstimate);
@@ -1562,28 +1589,91 @@ function renderCardio(date, dayKey){
     : (schedule ? schedule.cardio : '');
   document.getElementById('cardio-target').textContent = targetText ? 'Planned: '+targetText : 'No cardio target set for this day';
 
-  getCardio(date).then(existing=>{
-    document.getElementById('cardio-status').textContent = existing ? 'Logged ✓' : 'Not logged';
-    document.getElementById('cardio-machine').value = existing?.machine || 'Treadmill';
-    document.getElementById('cardio-duration').value = existing?.duration ?? '';
-    document.getElementById('cardio-speed').value = existing?.speed ?? '';
-    document.getElementById('cardio-incline').value = existing?.incline ?? '';
-    document.getElementById('cardio-notes').value = existing?.notes ?? '';
+  getCardio(date).then(entries=>{
+    renderCardioList(date, entries);
+    document.getElementById('cardio-status').textContent = entries.length ? entries.length+' session'+(entries.length===1?'':'s')+' logged ✓' : 'Not logged';
+    document.getElementById('cardio-machine').value = 'Treadmill';
+    document.getElementById('cardio-duration').value = '';
+    document.getElementById('cardio-speed').value = '';
+    document.getElementById('cardio-incline').value = '';
+    document.getElementById('cardio-notes').value = '';
     updateCardioKcalEstimate();
+    renderStepsBreakdown(date, entries);
   });
+}
+function renderCardioList(date, entries){
+  const wrap = document.getElementById('cardio-list');
+  if(!entries.length){ wrap.innerHTML = ''; return; }
+  wrap.innerHTML = entries.map(function(e, i){
+    const kcal = estimateCardioKcal(e.machine, e.duration, e.speed, e.incline);
+    return '<div class="cardio-entry-row"><div><b>'+e.machine+'</b> — '+(e.duration||'—')+' min'+(e.speed?', '+e.speed+' mph':'')+(e.incline?', '+e.incline+'% incline':'')+
+      (e.notes?'<div class="ex-meta">'+e.notes+'</div>':'')+'</div>'+
+      '<div style="display:flex;align-items:center;gap:8px;"><span class="ex-meta">'+(kcal?'≈'+kcal.gross+' kcal':'')+'</span>'+
+      '<button type="button" class="icon-btn" data-delcardio="'+i+'" title="Remove">✕</button></div></div>';
+  }).join('');
+  wrap.querySelectorAll('[data-delcardio]').forEach(function(btn){
+    btn.addEventListener('click', async function(){
+      const idx = parseInt(btn.dataset.delcardio,10);
+      const updated = entries.slice(); updated.splice(idx,1);
+      await saveCardioEntries(date, updated);
+      renderCardio(date, currentLiftDay);
+    });
+  });
+}
+// Whole-day steps minus whatever's already attributed to a logged
+// treadmill session — so a morning cardio walk doesn't get counted once
+// as cardio and again as part of the day's total steps. Reads the same
+// Steps field already in the daily numbers section above, rather than
+// duplicating it.
+function renderStepsBreakdown(date, entries){
+  const totalStepsInput = document.getElementById('f-steps');
+  const cardioSteps = entries.reduce(function(s,e){ return s + estimateCardioSteps(e.machine, e.duration, e.speed); }, 0);
+  const cardioActiveKcal = entries.reduce(function(s,e){ const k = estimateCardioKcal(e.machine, e.duration, e.speed, e.incline); return s + (k ? k.active : 0); }, 0);
+  function update(){
+    const total = parseInt(totalStepsInput.value,10) || 0;
+    const remaining = Math.max(0, total - cardioSteps);
+    const weight = (activeProfile.program && activeProfile.program.startWeight) || 80;
+    const remainingKcal = Math.round(remaining * weight * 0.0005 * 0.95); // conservative active-calorie estimate, same margin used elsewhere
+    const breakdown = document.getElementById('steps-breakdown');
+    if(breakdown){
+      if(cardioSteps>0 && total>0) breakdown.textContent = '≈'+cardioSteps+' steps already counted in cardio above · '+remaining+' remaining steps ≈'+remainingKcal+' active kcal';
+      else if(cardioSteps>0) breakdown.textContent = '≈'+cardioSteps+' steps estimated from cardio above (enter total daily steps in the field above to see the rest)';
+      else if(total>0) breakdown.textContent = '≈'+remainingKcal+' active kcal from steps';
+      else breakdown.textContent = '';
+    }
+    // The combined total that actually answers "what about the rest of
+    // the day's walking" — cardio's active calories plus whatever's left
+    // over from total steps once the cardio portion is removed, so daily
+    // walking outside the gym counts toward something visible.
+    const totalWrap = document.getElementById('active-cal-total');
+    const totalVals = document.getElementById('active-cal-vals');
+    if(cardioActiveKcal>0 || remainingKcal>0){
+      const grandTotal = cardioActiveKcal + remainingKcal;
+      totalVals.textContent = grandTotal+' kcal  (cardio '+cardioActiveKcal+' + rest-of-day steps '+remainingKcal+')';
+      totalWrap.style.display = 'flex';
+    } else {
+      totalWrap.style.display = 'none';
+    }
+  }
+  update();
+  totalStepsInput.oninput = update;
 }
 document.getElementById('save-cardio').addEventListener('click', async ()=>{
   const date = document.getElementById('lift-date').value || todayStr();
-  const obj = {
-    date,
-    machine: document.getElementById('cardio-machine').value,
-    duration: parseFloat(document.getElementById('cardio-duration').value) || null,
+  const machine = document.getElementById('cardio-machine').value;
+  const duration = parseFloat(document.getElementById('cardio-duration').value) || null;
+  if(!duration) return;
+  const entry = {
+    machine,
+    duration,
     speed: parseFloat(document.getElementById('cardio-speed').value) || null,
     incline: parseFloat(document.getElementById('cardio-incline').value) || null,
     notes: document.getElementById('cardio-notes').value.trim()
   };
-  await setCardio(date, obj);
-  document.getElementById('cardio-status').textContent = 'Logged ✓';
+  const existing = await getCardio(date);
+  const updated = existing.concat([entry]);
+  await saveCardioEntries(date, updated);
+  renderCardio(date, currentLiftDay);
 });
 document.getElementById('add-exercise-btn').addEventListener('click', async ()=>{
   const name = document.getElementById('newex-name').value.trim();
