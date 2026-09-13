@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Diet Tracker</title>
+<title>Nourish Duo — Integrated Diet System</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
@@ -208,6 +208,8 @@
   .hr-miss{color:var(--danger);}
 
   .empty-note{color:var(--text-faint);font-style:italic;font-size:13px;padding:18px 6px;text-align:center;}
+  .integration-links{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:9px}.integration-links a{color:#eef7f1;border:1px solid #4a735e;border-radius:8px;padding:7px;text-align:center;text-decoration:none;font-size:11px}.feature-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px}.week-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:8px}.week-day{background:var(--surface);border:1px solid var(--border);border-radius:15px;padding:12px;min-height:138px;text-align:left;cursor:pointer}.week-day.active{border:2px solid var(--green);background:#f3faf5}.wd-name{font-size:10px;color:var(--text-faint);text-transform:uppercase;font-weight:700}.wd-num{font-size:22px;font-weight:800;margin:2px 0 12px}.wd-meta{font-size:10.5px;color:var(--text-faint);line-height:1.55}.wd-dot{width:8px;height:8px;border-radius:50%;background:#cbd6ce;display:inline-block}.wd-dot.done{background:var(--green)}.wd-dot.partial{background:var(--orange)}.prep-row{display:grid;grid-template-columns:auto 1fr auto;gap:10px;align-items:center;background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:11px;margin-bottom:7px}.prep-row.done{opacity:.55;text-decoration:line-through}.yield-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:9px}.yield-result{background:var(--sidebar-bg);color:#fff;border-radius:14px;padding:14px;margin-top:11px}.yield-result b{font-size:22px}.micro-grid{display:grid;grid-template-columns:1fr 1fr;gap:9px}.micro-card{background:var(--surface-alt);border-radius:12px;padding:12px}.micro-head{display:flex;justify-content:space-between;gap:8px;font-size:12px}.score-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:15px}.score-card{background:var(--surface);border:1px solid var(--border);border-radius:15px;padding:14px}.score-card b{display:block;font-size:24px}.score-card span{font-size:11px;color:var(--text-faint)}.adherence-row{display:grid;grid-template-columns:120px 1fr auto;gap:9px;align-items:center;padding:8px 0}.app-chip{display:inline-flex;align-items:center;gap:6px;background:var(--green-soft);color:var(--green);padding:7px 10px;border-radius:10px;text-decoration:none;font-weight:700;font-size:12px}.main{max-width:1380px}.brand{font-size:20px}.brandmark{background:var(--lime)}
+  @media(max-width:1000px){.week-grid{grid-template-columns:repeat(2,1fr)}.feature-grid{grid-template-columns:1fr}.score-grid{grid-template-columns:1fr 1fr}.yield-grid{grid-template-columns:1fr}.micro-grid{grid-template-columns:1fr}}
 </style>
 </head>
 <body>
@@ -223,19 +225,23 @@
 
 <div class="app" id="app-wrap" style="display:none;">
   <aside class="sidebar">
-    <div class="brand"><span class="brandmark">D</span> Diet</div>
+    <div class="brand"><span class="brandmark">N</span> Nourish Duo</div>
     <a href="../index.html" class="back-link">← All apps</a>
     <nav class="nav" id="nav">
       <button id="tab-today-btn" class="active" data-navicon="◫">Diary</button>
       <button id="tab-meals-btn" data-navicon="▦">Meal plan</button>
+      <button id="tab-week-btn" data-navicon="▦">Week</button>
+      <button id="tab-prep-btn" data-navicon="◷">Meal prep</button>
       <button id="tab-foods-btn" data-navicon="◉">Ingredients</button>
       <button id="tab-recipes-btn" data-navicon="▤">Recipes</button>
       <button id="tab-pantry-btn" data-navicon="▣">Pantry</button>
       <button id="tab-progress-btn" data-navicon="↗">Progress</button>
+      <button id="tab-nutrition-btn" data-navicon="◎">Nutrition</button>
+      <button id="tab-adherence-btn" data-navicon="◈">Adherence</button>
       <button id="tab-targets-btn" data-navicon="⚙">Targets</button>
       <button id="tab-history-btn" data-navicon="◈">History</button>
     </nav>
-    <div class="side-note"><strong id="app-sub"></strong><button class="switch-btn" id="switch-profile-btn">Switch profile</button></div>
+    <div class="side-note"><strong id="app-sub"></strong><button class="switch-btn" id="switch-profile-btn">Switch profile</button><div class="integration-links"><a href="grocery.html">Grocery</a><a href="../gym/index.html">Gym</a></div></div>
   </aside>
 
   <main class="main">
@@ -244,8 +250,12 @@
     <section class="page" id="foods-view" style="display:none;"></section>
     <section class="page" id="recipes-view" style="display:none;"></section>
     <section class="page" id="meals-view" style="display:none;"></section>
+    <section class="page" id="week-view" style="display:none;"></section>
+    <section class="page" id="prep-view" style="display:none;"></section>
     <section class="page" id="pantry-view" style="display:none;"></section>
     <section class="page" id="progress-view" style="display:none;"></section>
+    <section class="page" id="nutrition-view" style="display:none;"></section>
+    <section class="page" id="adherence-view" style="display:none;"></section>
     <section class="page" id="targets-view" style="display:none;"></section>
     <section class="page" id="history-view" style="display:none;"></section>
   </main>
@@ -314,20 +324,20 @@ const GROCERY_PRODUCTS_REFERENCE = [
 const FOODS_SEED_BHARGAV = [
   {id:'b-whey', name:'Whey protein powder', unit:'each', perAmount:1, cal:120, protein:24, carbs:3, fat:1.5, fiber:0, sodium:null, defaultQty:1, label:'1 scoop (30 g)'},
   {id:'b-oats', name:'Oats, dry', unit:'g', perAmount:100, cal:375, protein:12.5, carbs:67.5, fat:7.5, fiber:10, sodium:null, defaultQty:40},
-  {id:'b-milk', name:'Milk, 2%', unit:'ml', perAmount:100, cal:52.5, protein:3.5, carbs:5, fat:2.1, fiber:0, sodium:null, defaultQty:200},
+  {id:'b-milk', name:'Kirkland 2% milk', unit:'ml', perAmount:100, cal:50, protein:3.3, carbs:4.8, fat:2, fiber:0, sodium:47, defaultQty:150},
   {id:'b-banana', name:'Banana', unit:'each', perAmount:1, cal:50, protein:0.6, carbs:12.5, fat:0.2, fiber:1.4, sodium:null, defaultQty:1, label:'55 g (about half)'},
   {id:'b-flax', name:'Ground flaxseed', unit:'g', perAmount:100, cal:550, protein:20, carbs:31, fat:35, fiber:27, sodium:null, defaultQty:10},
   {id:'b-egg-whole', name:'Egg, whole', unit:'each', perAmount:1, cal:72, protein:6.3, carbs:0.4, fat:5, fiber:0, sodium:71, defaultQty:1, label:'1 large egg'},
   {id:'b-egg-white', name:'Egg white', unit:'each', perAmount:1, cal:17, protein:3.6, carbs:0.2, fat:0.1, fiber:0, sodium:55, defaultQty:1, label:'1 large egg white'},
-  {id:'b-rice', name:'White rice, cooked', unit:'g', perAmount:100, cal:130, protein:2.5, carbs:28, fat:0.3, fiber:0.4, sodium:null, defaultQty:200},
-  {id:'b-yogurt', name:'Greek yogurt, plain nonfat', unit:'g', perAmount:100, cal:60, protein:10, carbs:4.1, fat:0, fiber:0, sodium:null, defaultQty:200},
-  {id:'b-salad', name:'Trader Joe\'s salad mix', unit:'g', perAmount:100, cal:23.33, protein:1.33, carbs:3.33, fat:0.2, fiber:1.33, sodium:null, defaultQty:150},
+  {id:'b-rice', name:'White rice, cooked', unit:'g', perAmount:100, cal:130, protein:2.7, carbs:28.2, fat:0.3, fiber:0.4, sodium:1, defaultQty:150},
+  {id:'b-yogurt', name:'Greek yogurt, plain nonfat', unit:'g', perAmount:100, cal:59, protein:10.3, carbs:3.6, fat:0.4, fiber:0, sodium:36, defaultQty:150},
+  {id:'b-salad', name:'Trader Joe\'s salad mix', unit:'g', perAmount:100, cal:20, protein:2, carbs:3, fat:0.3, fiber:2, sodium:30, defaultQty:71},
   {id:'b-lemon', name:'Lemon, salt, chilli powder', unit:'each', perAmount:1, cal:5, protein:0, carbs:1, fat:0, fiber:0.3, sodium:null, defaultQty:1, label:'1 serving'},
   {id:'b-mandarin', name:'Dole mandarin fruit bowl', unit:'each', perAmount:1, cal:70, protein:0, carbs:15.5, fat:0, fiber:0.5, sodium:null, defaultQty:1, label:'1 cup'},
   {id:'b-paneer', name:'Paneer', unit:'g', perAmount:100, cal:321.25, protein:25, carbs:3.75, fat:25, fiber:0, sodium:null, defaultQty:80},
   {id:'b-dal', name:'Moong/masoor dal, cooked', unit:'g', perAmount:100, cal:113.33, protein:8, carbs:16.67, fat:0.33, fiber:2.67, sodium:null, defaultQty:150},
-  {id:'b-ghee', name:'Ghee', unit:'g', perAmount:100, cal:900, protein:0, carbs:0, fat:100, fiber:0, sodium:0, defaultQty:10},
-  {id:'b-veg', name:'Salad or vegetables', unit:'g', perAmount:100, cal:28, protein:1.6, carbs:3.2, fat:0.24, fiber:1.6, sodium:null, defaultQty:125}
+  {id:'b-ghee', name:'Kirkland Organic Ghee', unit:'g', perAmount:100, cal:900, protein:0, carbs:0, fat:100, fiber:0, sodium:0, defaultQty:5},
+  {id:'b-veg', name:'Trader Joe\'s dinner salad mix', unit:'g', perAmount:100, cal:20, protein:2, carbs:3, fat:0.3, fiber:2, sodium:30, defaultQty:71}
 ];
 const FOODS_SEED_ANUSHA = [  {id:'a-whey', name:'Whey protein powder', unit:'each', perAmount:1, cal:120, protein:24, carbs:3, fat:1.5, fiber:0, sodium:null, defaultQty:1, label:'1 scoop (30 g)'},
   {id:'a-oats', name:'Oats, dry', unit:'g', perAmount:100, cal:374.29, protein:12.57, carbs:67.43, fat:7.43, fiber:10, sodium:null, defaultQty:35},
@@ -338,13 +348,13 @@ const FOODS_SEED_ANUSHA = [  {id:'a-whey', name:'Whey protein powder', unit:'eac
   {id:'a-egg-white', name:'Egg white', unit:'each', perAmount:1, cal:17, protein:3.6, carbs:0.2, fat:0.1, fiber:0, sodium:55, defaultQty:1, label:'1 large egg white'},
   {id:'a-rice', name:'White rice, cooked', unit:'g', perAmount:100, cal:130.4, protein:2.48, carbs:28, fat:0.32, fiber:0.4, sodium:null, defaultQty:125},
   {id:'a-yogurt', name:'Greek yogurt, plain nonfat', unit:'g', perAmount:100, cal:60, protein:10, carbs:4, fat:0, fiber:0, sodium:null, defaultQty:150},
-  {id:'a-salad', name:'Large salad', unit:'each', perAmount:1, cal:40, protein:2, carbs:5, fat:0.3, fiber:2, sodium:null, defaultQty:1, label:'1 salad'},
+  {id:'a-salad', name:'Trader Joe\'s salad mix', unit:'g', perAmount:100, cal:20, protein:2, carbs:3, fat:0.3, fiber:2, sodium:30, defaultQty:71},
   {id:'a-lemon', name:'Lemon, salt, spices', unit:'each', perAmount:1, cal:5, protein:0, carbs:1, fat:0, fiber:0.3, sodium:null, defaultQty:1, label:'1 serving'},
-  {id:'a-fruit', name:'Fruit (apple/orange/berries/banana)', unit:'each', perAmount:1, cal:75, protein:0, carbs:19, fat:0.3, fiber:2.5, sodium:null, defaultQty:1, label:'1 piece/cup'},
+  {id:'a-fruit', name:'Trader Joe\'s fresh-cut fruit', unit:'g', perAmount:100, cal:45, protein:0.7, carbs:11, fat:0.2, fiber:1.2, sodium:2, defaultQty:200},
   {id:'a-paneer', name:'Paneer', unit:'g', perAmount:100, cal:321.79, protein:25, carbs:3.59, fat:25, fiber:0, sodium:null, defaultQty:78},
   {id:'a-rice-dinner', name:'White rice, cooked', unit:'g', perAmount:100, cal:130.67, protein:2.53, carbs:28, fat:0.27, fiber:0.4, sodium:null, defaultQty:75},
   {id:'a-dal', name:'Dal, cooked', unit:'g', perAmount:100, cal:113.6, protein:8, carbs:16.8, fat:0.32, fiber:2.64, sodium:null, defaultQty:125},
-  {id:'a-veg', name:'Vegetables/salad', unit:'g', perAmount:100, cal:28, protein:1.6, carbs:3.14, fat:0.23, fiber:1.6, sodium:null, defaultQty:175},
+  {id:'a-veg', name:'Trader Joe\'s dinner salad mix', unit:'g', perAmount:100, cal:20, protein:2, carbs:3, fat:0.3, fiber:2, sodium:30, defaultQty:71},
   {id:'a-ghee', name:'Ghee', unit:'g', perAmount:100, cal:900, protein:0, carbs:0, fat:100, fiber:0, sodium:0, defaultQty:5}
 ];
 
@@ -353,41 +363,41 @@ const RECIPES_SEED_BHARGAV = [
   { id:'r-whey-shake-b', name:'Whey Shake', instructions:'Mix 1 scoop whey protein with water. Shake or stir well.',
     ingredients:[{foodId:'b-whey',quantity:1}], recipeServings:1 },
   { id:'r-oat-bowl-b', name:'Protein Oat Bowl', instructions:'Place 40g oats and 150ml milk in a microwave-safe bowl. Microwave ~90 seconds, stirring and continuing in 20–30 second bursts until the right consistency. Let cool 1–2 minutes. Stir in the flaxseed. Stir in the half scoop of whey — do not add whey while the mixture is still boiling. Top with the sliced half banana.',
-    ingredients:[{foodId:'b-oats',quantity:40},{foodId:'b-milk',quantity:200},{foodId:'b-flax',quantity:10},{foodId:'b-whey',quantity:0.5},{foodId:'b-banana',quantity:1}], recipeServings:1 },
+    ingredients:[{foodId:'b-oats',quantity:40},{foodId:'b-milk',quantity:150},{foodId:'b-flax',quantity:10},{foodId:'b-whey',quantity:0.5},{foodId:'b-banana',quantity:1}], recipeServings:1 },
   { id:'r-boiled-eggs-b', name:'Boiled Eggs — 2 whole + 4 whites', instructions:'Boil 6 eggs. Eat 2 whole eggs. For the remaining 4, discard the yolks and eat only the whites. Served separately from the oat bowl, not mixed in.',
     ingredients:[{foodId:'b-egg-whole',quantity:2},{foodId:'b-egg-white',quantity:4}], recipeServings:1 },
   { id:'r-rice-yogurt-b', name:'Creamy Rice & Yogurt Bowl', instructions:'Measure 150g cooked rice and let it cool until warm rather than steaming. Add the yogurt and the milk. Mix until creamy. Do not add ghee or cooking oil. Keep the salad separate so it stays crisp.',
-    ingredients:[{foodId:'b-rice',quantity:200},{foodId:'b-yogurt',quantity:200},{foodId:'b-milk',quantity:20}], recipeServings:1 },
+    ingredients:[{foodId:'b-rice',quantity:150},{foodId:'b-yogurt',quantity:150},{foodId:'b-milk',quantity:20}], recipeServings:1 },
   { id:'r-lunch-salad-b', name:'Lunch Salad (your half)', instructions:'Divide the Trader Joe\'s Organic Baby Lettuce Mix bag evenly between two bowls — this is your half. Squeeze half a lemon over it. Add the measured salt and chilli powder. Toss immediately before eating. No oil, mayonnaise, or sugary dressing.',
-    ingredients:[{foodId:'b-salad',quantity:150},{foodId:'b-lemon',quantity:1}], recipeServings:1 },
+    ingredients:[{foodId:'b-salad',quantity:71},{foodId:'b-lemon',quantity:1}], recipeServings:1 },
   { id:'r-mandarin-b', name:'Mandarin Cup', instructions:'Open and eat one Dole mandarin fruit bowl. Fresh fruit may replace this, but not be added alongside it.',
     ingredients:[{foodId:'b-mandarin',quantity:1}], recipeServings:1 },
   { id:'r-paneer-b', name:'Measured Paneer', instructions:'Weigh exactly 80g paneer, cut into cubes, and heat in a nonstick pan. Season with salt, chilli powder, turmeric, cumin, coriander, black pepper, garlic powder or garam masala as desired. No extra ghee or oil — your 5g ghee is reserved for the dal bowl.',
     ingredients:[{foodId:'b-paneer',quantity:80}], recipeServings:1 },
   { id:'r-dal-bowl-b', name:'Cooked Dal Bowl', instructions:'Measure 150g cooked dal and heat it. Stir in exactly 5g ghee. Season as desired. (No rice at dinner — adding it would change your diet.)',
-    ingredients:[{foodId:'b-dal',quantity:150},{foodId:'b-ghee',quantity:10}], recipeServings:1 },
+    ingredients:[{foodId:'b-dal',quantity:150},{foodId:'b-ghee',quantity:5}], recipeServings:1 },
   { id:'r-dinner-salad-b', name:'Dinner Salad (your half)', instructions:'Divide the Trader Joe\'s Organic Herb Salad Mix bag evenly between two bowls — this is your half. Add half a lemon, the measured salt, and chilli powder. Toss immediately before eating.',
-    ingredients:[{foodId:'b-veg',quantity:125},{foodId:'b-lemon',quantity:1}], recipeServings:1 }
+    ingredients:[{foodId:'b-veg',quantity:71},{foodId:'b-lemon',quantity:1}], recipeServings:1 }
 ];
 const RECIPES_SEED_ANUSHA = [
   { id:'r-whey-shake-a', name:'Half Whey Shake', instructions:'Mix half a scoop of whey protein with water. If you mix this into your oat bowl instead, skip this separate shake — it\'s a replacement, not an extra half scoop.',
     ingredients:[{foodId:'a-whey',quantity:0.5}], recipeServings:1 },
-  { id:'r-oat-bowl-a', name:'Oat Bowl', instructions:'Combine 35g oats and 150ml milk in a microwave-safe bowl. Microwave ~90 seconds, stirring until the right consistency. Let cool slightly, then stir in the flaxseed and the half scoop of whey — do not add whey while still hot. Top with the sliced half banana.',
-    ingredients:[{foodId:'a-oats',quantity:35},{foodId:'a-milk',quantity:150},{foodId:'a-flax',quantity:10},{foodId:'a-whey',quantity:0.5},{foodId:'a-banana',quantity:1}], recipeServings:1 },
+  { id:'r-oat-bowl-a', name:'Oat Bowl', instructions:'Combine 35g oats and 150ml milk in a microwave-safe bowl. Microwave ~90 seconds, stirring until the right consistency. Let cool slightly, stir in the flaxseed, and top with the sliced half banana. If the scheduled post-workout half scoop is moved into this bowl, stir it in after cooling and skip the separate after-gym shake.',
+    ingredients:[{foodId:'a-oats',quantity:35},{foodId:'a-milk',quantity:150},{foodId:'a-flax',quantity:10},{foodId:'a-banana',quantity:1}], recipeServings:1 },
   { id:'r-boiled-eggs-a', name:'Boiled Eggs — 1 whole + 2 whites', instructions:'Boil 3 eggs. Eat 1 whole egg. For the remaining 2, discard the yolks and eat only the whites. Served separately from the oat bowl, not mixed in.',
     ingredients:[{foodId:'a-egg-whole',quantity:1},{foodId:'a-egg-white',quantity:2}], recipeServings:1 },
   { id:'r-rice-yogurt-a', name:'Rice & Yogurt Bowl', instructions:'Measure 125g cooked rice and let it cool until warm. Add the yogurt and mix until evenly combined. No milk in this bowl — that would change your diet.',
     ingredients:[{foodId:'a-rice',quantity:125},{foodId:'a-yogurt',quantity:150}], recipeServings:1 },
   { id:'r-lunch-salad-a', name:'Lunch Salad (your half)', instructions:'Divide the Trader Joe\'s Organic Baby Lettuce Mix bag evenly between two bowls — this is your half. Squeeze half a lemon over it, add the measured salt and chilli powder, and toss immediately before eating.',
-    ingredients:[{foodId:'a-salad',quantity:1},{foodId:'a-lemon',quantity:1}], recipeServings:1 },
+    ingredients:[{foodId:'a-salad',quantity:71},{foodId:'a-lemon',quantity:1}], recipeServings:1 },
   { id:'r-fruit-whey-a', name:'Fruit + Half Whey', instructions:'Pick one fruit — apple, orange, berries, or banana. Mix half a scoop of whey with water. (If you already used your half-scoop in the oat bowl, don\'t repeat it here — under the original diet this snack and the after-gym shake are two separate half-scoops.)',
-    ingredients:[{foodId:'a-fruit',quantity:1},{foodId:'a-whey',quantity:0.5}], recipeServings:1 },
+    ingredients:[{foodId:'a-fruit',quantity:200},{foodId:'a-whey',quantity:0.5}], recipeServings:1 },
   { id:'r-paneer-a', name:'Measured Paneer', instructions:'Weigh 75–80g paneer, cut into cubes, and heat in a nonstick pan. Add measured spices. No extra oil or ghee.',
     ingredients:[{foodId:'a-paneer',quantity:78}], recipeServings:1 },
   { id:'r-ricedal-bowl-a', name:'Cooked Rice & Dal Bowl', instructions:'Measure 125g cooked dal and 75g cooked rice. Combine and heat. Stir in exactly 5g ghee. Add measured spices.',
     ingredients:[{foodId:'a-rice-dinner',quantity:75},{foodId:'a-dal',quantity:125},{foodId:'a-ghee',quantity:5}], recipeServings:1 },
   { id:'r-dinner-salad-a', name:'Dinner Salad (your half)', instructions:'Divide the Trader Joe\'s Organic Herb Salad Mix bag evenly between two bowls — this is your half. Add half a lemon, measured salt, and chilli powder. Toss immediately before eating.',
-    ingredients:[{foodId:'a-veg',quantity:175},{foodId:'a-lemon',quantity:1}], recipeServings:1 }
+    ingredients:[{foodId:'a-veg',quantity:71},{foodId:'a-lemon',quantity:1}], recipeServings:1 }
 ];
 
 // ===== MEALS: group recipes (and/or raw foods) into a full meal slot =====
@@ -409,8 +419,8 @@ const MEALS_SEED_ANUSHA = [
 // FDA reference Daily Values used only as editable starting defaults for
 // fiber/sodium (not personalized — clearly labeled and changeable).
 const TARGETS_SEED = {
-  bhargav: { cal:2000, protein:155, carbs:181, fat:57, fiber:28, sodium:2300 },
-  anusha: { cal:1500, protein:100, carbs:145, fat:50, fiber:28, sodium:2300 }
+  bhargav: { cal:1720, protein:154, carbs:175, fat:60, fiber:28, sodium:2300 },
+  anusha: { cal:1450, protein:103, carbs:165, fat:50, fiber:28, sodium:2300 }
 };
 // Same weight-goal figures already used in the Gym app, so both apps agree.
 const WEIGHT_GOAL_SEED = {
@@ -727,22 +737,6 @@ async function migrateSplitEggsFromOatBowl(){
   await saveRecipes();
   await saveMeals();
 }
-// Anusha's Oat Bowl was always meant to include the half-scoop of whey
-// (the recipe's own instructions said so), but the ingredient itself was
-// missing from the actual recipe — so it never counted toward her
-// calories/macros. This adds it to any already-saved Oat Bowl that's
-// missing it, without touching anything else about the recipe.
-async function migrateAddWheyToOatBowl(){
-  if(activeProfile!=='Anusha') return;
-  const oatBowl = recipes.find(function(r){ return r.id==='r-oat-bowl-a'; });
-  if(!oatBowl) return;
-  const hasWhey = oatBowl.ingredients.some(function(ing){ return ing.foodId==='a-whey'; });
-  if(hasWhey) return;
-  oatBowl.ingredients.push({foodId:'a-whey', servings:0.5});
-  oatBowl.instructions = RECIPES_SEED_ANUSHA.find(function(r){ return r.id==='r-oat-bowl-a'; }).instructions;
-  await saveRecipes();
-}
-
 async function loadTargets(){
   try{
     const doc = await dietDoc('targets').get();
@@ -757,6 +751,33 @@ async function loadTargets(){
   if(!targets.carbs){ targets.carbs = seedTargets.carbs; fixed = true; }
   if(!targets.fat){ targets.fat = seedTargets.fat; fixed = true; }
   if(fixed) await saveTargets();
+}
+
+// One-time migration to Bhargav and Anusha's approved final plan.
+// Preserves custom foods/recipes while correcting every known plan item.
+async function migrateNourishFinalPlan(){
+  try{
+    const marker = await dietDoc('nourish-integrated-v1').get();
+    if(marker.exists) return;
+    const foodSeed = activeProfile==='Bhargav' ? FOODS_SEED_BHARGAV : FOODS_SEED_ANUSHA;
+    const recipeSeed = activeProfile==='Bhargav' ? RECIPES_SEED_BHARGAV : RECIPES_SEED_ANUSHA;
+    const mealSeed = activeProfile==='Bhargav' ? MEALS_SEED_BHARGAV : MEALS_SEED_ANUSHA;
+    foodSeed.forEach(function(sf){
+      const i=foods.findIndex(function(f){return f.id===sf.id;});
+      if(i>=0) foods[i]=JSON.parse(JSON.stringify(sf)); else foods.push(JSON.parse(JSON.stringify(sf)));
+    });
+    recipeSeed.forEach(function(sr){
+      const i=recipes.findIndex(function(r){return r.id===sr.id;});
+      if(i>=0) recipes[i]=JSON.parse(JSON.stringify(sr)); else recipes.push(JSON.parse(JSON.stringify(sr)));
+    });
+    mealSeed.forEach(function(sm){
+      const i=meals.findIndex(function(m){return m.id===sm.id;});
+      if(i>=0) meals[i]=JSON.parse(JSON.stringify(sm)); else meals.push(JSON.parse(JSON.stringify(sm)));
+    });
+    targets=JSON.parse(JSON.stringify(TARGETS_SEED[activeProfile.toLowerCase()]));
+    await Promise.all([saveFoods(),saveRecipes(),saveMeals(),saveTargets()]);
+    await dietDoc('nourish-integrated-v1').set({completed:true,completedAt:new Date().toISOString()});
+  }catch(e){ console.error('Final-plan migration failed',e); }
 }
 async function saveTargets(){ try{ await dietDoc('targets').set({json: JSON.stringify(targets)}); }catch(e){ console.error(e); } }
 
@@ -887,8 +908,8 @@ async function init(){
   await loadRecipes();
   await loadMeals();
   await migrateSplitEggsFromOatBowl();
-  await migrateAddWheyToOatBowl();
   await loadTargets();
+  await migrateNourishFinalPlan();
   await loadWeightGoal();
   await loadGymWeight();
   await loadLogForDate(activeDate);
@@ -896,8 +917,12 @@ async function init(){
   document.getElementById('tab-foods-btn').onclick = function(){ showTab('foods'); };
   document.getElementById('tab-recipes-btn').onclick = function(){ showTab('recipes'); };
   document.getElementById('tab-meals-btn').onclick = function(){ showTab('meals'); };
+  document.getElementById('tab-week-btn').onclick = function(){ showTab('week'); };
+  document.getElementById('tab-prep-btn').onclick = function(){ showTab('prep'); };
   document.getElementById('tab-pantry-btn').onclick = function(){ showTab('pantry'); };
   document.getElementById('tab-progress-btn').onclick = function(){ showTab('progress'); };
+  document.getElementById('tab-nutrition-btn').onclick = function(){ showTab('nutrition'); };
+  document.getElementById('tab-adherence-btn').onclick = function(){ showTab('adherence'); };
   document.getElementById('tab-targets-btn').onclick = function(){ showTab('targets'); };
   document.getElementById('tab-history-btn').onclick = function(){ showTab('history'); };
   showTab('today');
@@ -911,9 +936,9 @@ async function init(){
 }
 function showTab(name){
   activeTab = name;
-  const titles = {today:'Diary', foods:'Ingredients', recipes:'Recipes', meals:'Meal plan', pantry:'Pantry', progress:'Progress', targets:'Targets', history:'History'};
+  const titles = {today:'Today', foods:'Ingredients', recipes:'Recipes', meals:'Meal plan', week:'Weekly calendar', prep:'Meal preparation', pantry:'Pantry', progress:'Progress', nutrition:'Expanded nutrition', adherence:'Adherence', targets:'Targets', history:'History'};
   document.getElementById('page-title').textContent = titles[name] || name;
-  ['today','foods','recipes','meals','pantry','progress','targets','history'].forEach(function(t){
+  ['today','foods','recipes','meals','week','prep','pantry','progress','nutrition','adherence','targets','history'].forEach(function(t){
     document.getElementById('tab-'+t+'-btn').classList.toggle('active', t===name);
     document.getElementById(t+'-view').style.display = t===name ? 'block':'none';
   });
@@ -921,8 +946,12 @@ function showTab(name){
   if(name==='foods') renderFoods();
   if(name==='recipes') renderRecipes();
   if(name==='meals') renderMeals();
+  if(name==='week') renderWeek();
+  if(name==='prep') renderPrepPlanner();
   if(name==='pantry') renderPantry();
   if(name==='progress') renderProgress();
+  if(name==='nutrition') renderExpandedNutrition();
+  if(name==='adherence') renderAdherence();
   if(name==='targets') renderTargets();
   if(name==='history') renderHistoryTab();
 }
@@ -1992,6 +2021,66 @@ async function renderHistoryTab(){
       return '<div class="history-row"><div class="hr-date">'+fmtHuman(d)+'</div>'+
         '<div class="hr-nums"><span class="'+(entries.length ? (hitCal?'hr-hit':'hr-miss') : '')+'">'+Math.round(t.cal)+' kcal</span> · '+n2(t.protein)+'g protein</div></div>';
     }).join('');
+}
+
+/* ===== NOURISH DUO CONNECTED FEATURES ===== */
+function weekStart(dateStr){ const d=new Date(dateStr+'T12:00:00'); return addDays(dateStr,-((d.getDay()+6)%7)); }
+async function renderWeek(){
+  const el=document.getElementById('week-view'); el.innerHTML='<div class="pantry-loading">Loading your cloud diary…</div>';
+  const start=weekStart(activeDate), days=Array.from({length:7},function(_,i){return addDays(start,i);});
+  await Promise.all(days.map(function(d){return loadLogForDate(d);}));
+  el.innerHTML='<div class="section-head"><div><h2>'+fmtHuman(start)+' – '+fmtHuman(days[6])+'</h2><div class="subtle">Seven-day calorie, protein, and logging view</div></div><div><button class="btn ghost" id="week-prev">← Previous</button> <button class="btn secondary" id="week-today">Today</button> <button class="btn ghost" id="week-next">Next →</button></div></div><div class="week-grid">'+days.map(function(d){const entries=logs[d]||[],t=totalsFor(entries),ratio=targets.cal?t.cal/targets.cal:0,status=entries.length?(ratio>=.85&&ratio<=1.15?'done':'partial'):'';return '<button class="week-day '+(d===activeDate?'active':'')+'" data-weekdate="'+d+'"><span class="wd-dot '+status+'"></span><div class="wd-name">'+new Date(d+'T12:00:00').toLocaleDateString(undefined,{weekday:'short'})+'</div><div class="wd-num">'+new Date(d+'T12:00:00').getDate()+'</div><div class="wd-meta"><b>'+entries.length+' logged item'+(entries.length===1?'':'s')+'</b><br>'+Math.round(t.cal)+' kcal<br>'+n2(t.protein)+' g protein</div></button>';}).join('')+'</div><div class="card" style="margin-top:16px"><b>Connected history</b><p class="subtle" style="margin-bottom:0">Selecting a day opens the same cloud diary used throughout your app suite.</p></div>';
+  el.querySelectorAll('[data-weekdate]').forEach(function(b){b.onclick=function(){activeDate=b.dataset.weekdate;showTab('today');};});
+  document.getElementById('week-prev').onclick=function(){activeDate=addDays(start,-7);renderWeek();}; document.getElementById('week-next').onclick=function(){activeDate=addDays(start,7);renderWeek();}; document.getElementById('week-today').onclick=function(){activeDate=todayStr();renderWeek();};
+}
+function profileDataDoc(profile,key){return db.collection('users').doc(currentUser.uid).collection('diet-profiles').doc(profile).collection('data').doc(key);}
+async function connectedPlan(profile){
+  const ff=profile==='Bhargav'?FOODS_SEED_BHARGAV:FOODS_SEED_ANUSHA, rr=profile==='Bhargav'?RECIPES_SEED_BHARGAV:RECIPES_SEED_ANUSHA, mm=profile==='Bhargav'?MEALS_SEED_BHARGAV:MEALS_SEED_ANUSHA;
+  try{const docs=await Promise.all(['foods','recipes','meals'].map(function(k){return profileDataDoc(profile,k).get();}));return{foods:docs[0].exists?JSON.parse(docs[0].data().json):ff,recipes:docs[1].exists?JSON.parse(docs[1].data().json):rr,meals:docs[2].exists?JSON.parse(docs[2].data().json):mm};}catch(e){return{foods:ff,recipes:rr,meals:mm};}
+}
+async function prepTotals(scope,days){
+  const profiles=scope==='both'?['Bhargav','Anusha']:[activeProfile],packs=await Promise.all(profiles.map(connectedPlan)),result={};
+  packs.forEach(function(pack){const fBy=function(id){return pack.foods.find(function(f){return f.id===id;});},rBy=function(id){return pack.recipes.find(function(r){return r.id===id;});};pack.meals.forEach(function(m){m.components.forEach(function(c){if(c.type!=='recipe')return;const r=rBy(c.id);if(!r)return;r.ingredients.forEach(function(ing){const f=fBy(ing.foodId);if(!f)return;const key=(f.name+'|'+f.unit).toLowerCase();if(!result[key])result[key]={name:f.name,unit:f.unit,qty:0};result[key].qty+=(ing.quantity||0)*(c.servings||1)/(r.recipeServings||1)*days;});});});});
+  return Object.values(result).sort(function(a,b){return a.name.localeCompare(b.name);});
+}
+async function renderPrepPlanner(){
+  const el=document.getElementById('prep-view'); el.innerHTML='<div class="pantry-loading">Calculating both meal plans…</div>';
+  const scope=(document.getElementById('prep-scope')||{}).value||'both',days=parseInt((document.getElementById('prep-days')||{}).value||'7',10),rows=await prepTotals(scope,days);
+  el.innerHTML='<div class="feature-grid"><div class="card"><div class="section-head"><div><h2>Combined meal preparation</h2><div class="subtle">Exact quantities derived from saved cloud recipes</div></div><div><select id="prep-scope"><option value="both" '+(scope==='both'?'selected':'')+'>Both profiles</option><option value="current" '+(scope==='current'?'selected':'')+'>Current profile</option></select> <select id="prep-days"><option value="3" '+(days===3?'selected':'')+'>3 days</option><option value="7" '+(days===7?'selected':'')+'>7 days</option><option value="14" '+(days===14?'selected':'')+'>14 days</option></select></div></div>'+rows.filter(function(x){return !/salt|chilli|water/i.test(x.name);}).map(function(x){return '<label class="prep-row"><input type="checkbox" data-prepcheck><span><b>'+escapeHtml(x.name)+'</b><br><small class="subtle">Measure, cook, or confirm inventory</small></span><b>'+n2(x.qty)+' '+x.unit+'</b></label>';}).join('')+'<a class="btn secondary" href="grocery.html" style="margin-top:10px">Open connected Grocery inventory</a></div><div class="card"><h2>Cooking-yield calculator</h2><p class="subtle">Convert raw or dry batches into accurate cooked portions.</p><div class="f"><label>Recipe</label><select id="yield-recipe">'+recipes.map(function(r){return '<option value="'+r.id+'">'+escapeHtml(r.name)+'</option>';}).join('')+'</select></div><div class="yield-grid" style="margin-top:10px"><div class="f"><label>Dry/raw (g)</label><input id="yield-raw" type="number" value="300"></div><div class="f"><label>Cooked yield (g)</label><input id="yield-cooked" type="number" value="825"></div><div class="f"><label>Cooked portion (g)</label><input id="yield-portion" type="number" value="150"></div></div><div class="yield-result"><b id="yield-answer">54.5 g</b><div>dry/raw equivalent for this portion</div></div><div class="sheet-actions"><button class="btn-mini primary" id="yield-save">Save to recipe</button></div></div></div>';
+  document.getElementById('prep-scope').onchange=renderPrepPlanner; document.getElementById('prep-days').onchange=renderPrepPlanner;
+  function calc(){const raw=+document.getElementById('yield-raw').value||0,cooked=+document.getElementById('yield-cooked').value||0,portion=+document.getElementById('yield-portion').value||0;document.getElementById('yield-answer').textContent=(cooked?n2(raw*portion/cooked):0)+' g';}
+  ['yield-raw','yield-cooked','yield-portion'].forEach(function(id){document.getElementById(id).oninput=calc;});
+  document.getElementById('yield-save').onclick=async function(){const r=recipeById(document.getElementById('yield-recipe').value);if(!r)return;r.cookingYield={raw:+document.getElementById('yield-raw').value||0,cooked:+document.getElementById('yield-cooked').value||0,portion:+document.getElementById('yield-portion').value||0};await saveRecipes();this.textContent='Saved ✓';};
+  document.querySelectorAll('[data-prepcheck]').forEach(function(c){c.onchange=function(){c.closest('.prep-row').classList.toggle('done',c.checked);};});
+}
+
+async function renderExpandedNutrition(){
+  const el=document.getElementById('nutrition-view');
+  el.innerHTML='<div class="pantry-loading">Calculating today\'s complete nutrition…</div>';
+  await loadLogForDate(activeDate);
+  const entries=logs[activeDate]||[], t=totalsFor(entries);
+  const nutrients=[
+    {name:'Fiber',value:t.fiber||0,target:targets.fiber||28,unit:'g',color:'var(--green)'},
+    {name:'Sodium',value:t.sodium||0,target:targets.sodium||2300,unit:'mg',color:'var(--orange)'},
+    {name:'Sugar',value:t.sugar||0,target:50,unit:'g',color:'#7c6fd1',reference:true},
+    {name:'Saturated fat',value:t.satFat||0,target:20,unit:'g',color:'#d06464',reference:true}
+  ];
+  el.innerHTML='<div class="feature-grid"><div class="card"><div class="section-head"><div><h2>Expanded nutrition</h2><div class="subtle">'+fmtHuman(activeDate)+' · calculated from the exact amounts you logged</div></div><button class="btn secondary" id="nutrition-foods">Edit ingredient nutrition</button></div><div class="micro-grid">'+nutrients.map(function(n){const pct=n.target?Math.min(100,Math.round(n.value/n.target*100)):0;return '<div class="micro-card"><div class="micro-head"><b>'+n.name+'</b><span>'+n2(n.value)+' / '+n.target+' '+n.unit+'</span></div><div class="macro-track" style="margin-top:9px"><div style="width:'+pct+'%;background:'+n.color+'"></div></div><div class="subtle" style="margin-top:7px">'+(n.reference?'General reference limit; personalize with a professional.':pct+'% of your saved target')+'</div></div>';}).join('')+'</div></div><div class="card"><h2>Data quality</h2><p class="subtle">Calories, protein, carbs, fat, and fiber are populated for the plan foods. Sodium, sugar, and saturated fat only total values entered on each ingredient label.</p><div class="yield-result"><b>'+entries.length+'</b><div>items included in today\'s calculation</div></div><p class="subtle">For packaged foods such as whey, paneer, milk, yogurt, and fruit cups, copy the current label into Ingredients for the most accurate result.</p></div></div>';
+  document.getElementById('nutrition-foods').onclick=function(){showTab('foods');};
+}
+
+async function renderAdherence(){
+  const el=document.getElementById('adherence-view');
+  el.innerHTML='<div class="pantry-loading">Building your seven-day scorecard…</div>';
+  const dates=[]; for(let i=6;i>=0;i--) dates.push(addDays(activeDate,-i));
+  await Promise.all(dates.map(function(d){return loadLogForDate(d);}));
+  const days=dates.map(function(d){const entries=logs[d]||[],t=totalsFor(entries);return{date:d,entries:entries.length,total:t,calHit:entries.length&&targets.cal&&Math.abs(t.cal-targets.cal)<=targets.cal*.1,proteinHit:entries.length&&targets.protein&&t.protein>=targets.protein*.9};});
+  const used=days.filter(function(d){return d.entries;});
+  const avgCal=used.length?used.reduce(function(s,d){return s+d.total.cal;},0)/used.length:0;
+  const avgProtein=used.length?used.reduce(function(s,d){return s+d.total.protein;},0)/used.length:0;
+  const calHits=used.filter(function(d){return d.calHit;}).length, proteinHits=used.filter(function(d){return d.proteinHit;}).length;
+  const score=used.length?Math.round(50*calHits/used.length+50*proteinHits/used.length):0;
+  el.innerHTML='<div class="score-grid"><div class="score-card"><b>'+score+'%</b><span>balanced adherence</span></div><div class="score-card"><b>'+used.length+'/7</b><span>days logged</span></div><div class="score-card"><b>'+Math.round(avgCal)+'</b><span>average calories</span></div><div class="score-card"><b>'+n2(avgProtein)+' g</b><span>average protein</span></div></div><div class="feature-grid"><div class="card"><h2>Daily consistency</h2>'+days.map(function(d){const calPct=targets.cal?Math.min(100,Math.round(d.total.cal/targets.cal*100)):0;return '<div class="adherence-row"><b>'+fmtHuman(d.date)+'</b><div class="macro-track"><div style="width:'+calPct+'%;background:'+(d.calHit?'var(--green)':'var(--orange)')+'"></div></div><span class="subtle">'+(d.entries?(Math.round(d.total.cal)+' kcal · '+n2(d.total.protein)+'g P'):'Not logged')+'</span></div>';}).join('')+'</div><div class="card"><h2>How the score works</h2><p class="subtle">Half of the score is earned for calories within 10% of your saved target. Half is earned for reaching at least 90% of your protein target. Only logged days are scored.</p><div class="yield-result"><b>'+calHits+' calorie days · '+proteinHits+' protein days</b><div>among '+used.length+' logged day'+(used.length===1?'':'s')+'</div></div><p class="subtle">This is a consistency aid, not a medical grade. One unusual day should not drive food restriction or compensation.</p></div></div>';
 }
 
 } // end firebase-available guard
