@@ -1,1223 +1,454 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Grocery</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
-<style>
-  :root{
-    --bg:#F6F7FB; --surface:#FFFFFF; --surface-alt:#EEF0F8;
-    --border:#E4E6F1; --border-soft:#EDEFF7;
-    --text:#191A2B; --text-soft:#5B5F78; --text-faint:#9599B2;
-    --accent:#22A06B; --accent-soft:#DFF5EA; --accent-deep:#178152;
-    --link-blue:#3D7BF5; --link-soft:#E5EDFE;
-    --gold:#B8860B; --gold-soft:#FBF0D9;
-    --danger:#F0596B; --danger-soft:#FCE1E5;
-    --radius-lg:18px; --radius-md:13px; --radius-sm:9px;
-    --shadow:0 1px 2px rgba(20,20,50,0.04), 0 12px 26px -16px rgba(20,20,50,0.16);
-  }
-  *{box-sizing:border-box;}
-  body{margin:0;font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;padding:16px 14px 80px;-webkit-font-smoothing:antialiased;}
-  .wrap{max-width:640px;margin:0 auto;}
-  h1,h2,h3{font-family:'Manrope',sans-serif;}
-  button,input,select,textarea{font-family:inherit;}
-  button{cursor:pointer;transition:transform .12s cubic-bezier(.34,1.56,.64,1);}
-  button:active{transform:scale(0.96);}
-
-  .loading-gate{position:fixed;inset:0;z-index:200;background:var(--bg);display:flex;align-items:center;justify-content:center;color:var(--text-soft);}
-
-  .topbar{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;}
-  .topbar a{font-size:12.5px;color:var(--text-soft);text-decoration:none;}
-  header.app-head{text-align:center;margin-bottom:14px;}
-  header.app-head h1{font-size:23px;font-weight:800;margin:0 0 2px;letter-spacing:-0.02em;background:linear-gradient(135deg,var(--accent-deep),var(--accent));-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;}
-  header.app-head p{margin:0;color:var(--text-soft);font-size:12.5px;}
-
-  .segmented{max-width:460px;margin:0 auto 14px;background:var(--surface-alt);border-radius:999px;padding:4px;display:flex;gap:2px;overflow-x:auto;-webkit-overflow-scrolling:touch;}
-  .segmented button{flex:none;border:none;background:transparent;border-radius:999px;padding:9px 10px;font-size:12px;font-weight:700;color:var(--text-soft);white-space:nowrap;}
-  .segmented button.active{background:var(--surface);color:var(--text);box-shadow:var(--shadow);}
-
-  /* WEEK SELECTOR */
-  .week-tabs{display:flex;gap:8px;margin-bottom:14px;}
-  .week-select{flex:1;min-width:0;border:1px solid var(--border);background:var(--surface);border-radius:12px;padding:11px 12px;font-size:13.5px;font-weight:700;color:var(--text);}
-  .week-today-btn{flex:none;border:none;background:var(--surface-alt);color:var(--text-soft);border-radius:12px;padding:0 14px;font-size:12.5px;font-weight:700;}
-
-  .checkin-banner{display:flex;align-items:center;gap:12px;background:linear-gradient(135deg,#FFF4DC,#FFE8B8);border:1px solid #F5A623;border-radius:var(--radius-lg);padding:12px 14px;margin-bottom:14px;}
-  .cb-icon{font-size:22px;flex:none;}
-  .cb-body{flex:1;min-width:0;}
-  .cb-title{font-size:13px;font-weight:800;color:#8A5D00;}
-  .cb-sub{font-size:11px;color:#8A5D00;opacity:0.85;margin-top:1px;}
-  #checkin-start-btn{flex:none;background:#8A5D00;color:#fff;border:none;border-radius:999px;padding:8px 14px;font-size:12px;font-weight:700;}
-  .skipped-section{margin-bottom:16px;background:var(--surface);border:1px dashed var(--border);border-radius:var(--radius-lg);padding:10px 14px;}
-  .skipped-section summary{font-size:12.5px;font-weight:700;color:var(--text-faint);cursor:pointer;}
-  .skipped-row{display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-top:1px solid var(--border-soft);font-size:13px;}
-  .add-back-btn{background:var(--accent-soft);color:var(--accent-deep);border:none;border-radius:8px;padding:5px 10px;font-size:11px;font-weight:700;}
-  .checkin-item-row{display:flex;justify-content:space-between;align-items:center;padding:9px 0;border-top:1px solid var(--border-soft);font-size:13.5px;gap:10px;}
-  .checkin-toggle{display:flex;gap:5px;flex:none;}
-  .ci-btn{border:1px solid var(--border);background:var(--surface);color:var(--text-soft);border-radius:999px;padding:5px 10px;font-size:11px;font-weight:700;}
-  .ci-btn.active{background:var(--accent);color:#fff;border-color:transparent;}
-  .week-progress-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:14px 16px;margin-bottom:14px;box-shadow:var(--shadow);}
-  .week-progress-top{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;}
-  .week-daterange{font-size:11.5px;color:var(--text-faint);margin:-4px 0 8px;}
-  .week-progress-top h2{font-size:15px;margin:0;}
-  .week-progress-spent{font-size:13px;color:var(--gold);font-weight:700;}
-  .week-bar-track{height:8px;border-radius:20px;background:var(--surface-alt);overflow:hidden;}
-  .week-bar-fill{height:100%;border-radius:20px;background:linear-gradient(90deg,var(--accent),var(--gold));transition:width .4s ease;}
-
-  .store-group{margin-bottom:16px;}
-  .inv-intro{font-size:12.5px;color:var(--text-faint);margin:0 0 14px;text-align:center;}
-  .inv-row{background:var(--surface);border:1px solid var(--border-soft);border-radius:var(--radius-md);padding:11px 12px;margin-bottom:7px;box-shadow:var(--shadow);}
-  .inv-row-top{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:8px;gap:8px;}
-  .inv-name{font-size:14px;font-weight:600;}
-  .inv-meta{font-size:10.5px;color:var(--text-faint);flex:none;}
-  .inv-status-row{display:flex;gap:4px;flex-wrap:wrap;}
-  .inv-stock-btn{flex:1;min-width:44px;border:1px solid var(--border);background:var(--surface-alt);color:var(--text-soft);border-radius:8px;padding:6px 2px;font-size:10.5px;font-weight:700;}
-  .inv-stock-btn.active{background:var(--accent);color:#fff;border-color:transparent;}
-  .inv-addlist-btn{width:100%;margin-top:8px;background:var(--gold-soft);color:#8A5D00;border:none;border-radius:8px;padding:7px;font-size:11.5px;font-weight:700;}
-
-  .shop-header{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:16px;margin-bottom:16px;box-shadow:var(--shadow);}
-  .shop-title{font-size:14px;font-weight:800;margin-bottom:10px;}
-  .shop-total-row{display:flex;gap:20px;margin-bottom:10px;}
-  .shop-total-num{font-family:'Manrope',sans-serif;font-weight:800;font-size:24px;}
-  .shop-total-label{font-size:10.5px;color:var(--text-faint);}
-  .shop-remaining{border-left:1px solid var(--border-soft);padding-left:20px;}
-  .shop-budget-sub{font-size:11px;color:var(--text-faint);margin-top:6px;}
-  .shop-row{display:flex;align-items:center;gap:12px;background:var(--surface);border:1px solid var(--border-soft);border-radius:var(--radius-md);padding:13px 14px;margin-bottom:8px;box-shadow:var(--shadow);}
-  .shop-row.done{opacity:0.5;}
-  .shop-chk{width:26px;height:26px;flex:none;accent-color:var(--accent);}
-  .shop-item-body{flex:1;min-width:0;}
-  .shop-item-name{font-size:15px;font-weight:600;}
-  .shop-row.done .shop-item-name{text-decoration:line-through;}
-  .shop-item-price{font-size:11.5px;color:var(--gold);font-weight:700;margin-top:2px;}
-  .complete-trip-btn{width:100%;margin-top:12px;background:linear-gradient(135deg,var(--accent),var(--accent-deep));color:#fff;border:none;border-radius:14px;padding:14px;font-size:14px;font-weight:800;}
-  .trip-summary-row{display:flex;justify-content:space-between;font-size:13.5px;padding:7px 0;border-top:1px solid var(--border-soft);}
-  .trip-summary-row:first-of-type{border-top:none;}
-  .trip-warning{background:var(--danger-soft,#FCE1E5);color:#B23A4E;border-radius:10px;padding:10px 12px;font-size:12px;font-weight:700;margin-top:10px;}
-  .trip-warning button{display:block;margin-top:6px;background:#B23A4E;color:#fff;border:none;border-radius:7px;padding:6px 10px;font-size:11px;font-weight:700;}
-  .gr-toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%) translateY(20px);background:var(--text,#191A2B);color:#fff;padding:11px 18px;border-radius:999px;font-size:13px;font-weight:600;opacity:0;pointer-events:none;transition:all .25s ease;z-index:300;box-shadow:0 8px 24px rgba(0,0,0,0.25);}
-  .gr-toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
-  .week-locked-banner{background:var(--surface-alt);border:1px solid var(--border);border-radius:var(--radius-lg);padding:14px 16px;margin-bottom:14px;text-align:center;}
-  .week-locked-banner .wl-title{font-size:13.5px;font-weight:800;margin-bottom:4px;}
-  .week-locked-banner .wl-sub{font-size:11.5px;color:var(--text-faint);margin-bottom:10px;}
-  .week-locked-banner button{background:var(--surface);border:1px solid var(--border);color:var(--text-soft);border-radius:999px;padding:8px 16px;font-size:12px;font-weight:700;}
-  .store-head{display:flex;align-items:center;gap:8px;margin-bottom:7px;padding-left:2px;}
-  .store-head h3{font-size:12.5px;text-transform:uppercase;letter-spacing:0.05em;color:var(--text-faint);font-weight:800;margin:0;}
-  .store-head .count{font-size:11px;color:var(--text-faint);background:var(--surface-alt);border-radius:20px;padding:1px 8px;}
-
-  .item-row{background:var(--surface);border:1px solid var(--border-soft);border-radius:var(--radius-md);padding:11px 12px;margin-bottom:7px;box-shadow:var(--shadow);display:flex;align-items:flex-start;gap:10px;transition:opacity .3s ease;}
-  .item-row.done{opacity:0.55;}
-  .item-chk{appearance:none;width:22px;height:22px;border-radius:7px;border:2px solid var(--border);flex:none;margin-top:1px;cursor:pointer;position:relative;background:var(--surface);transition:all .18s cubic-bezier(.34,1.7,.64,1);}
-  .item-chk:hover{border-color:var(--accent);}
-  .item-chk:checked{background:linear-gradient(135deg,var(--accent),var(--accent-deep));border-color:transparent;}
-  .item-chk:checked::after{content:'';position:absolute;left:6.5px;top:2.5px;width:5px;height:10px;border:solid #fff;border-width:0 2.5px 2.5px 0;transform:rotate(45deg);}
-  .item-body{flex:1;min-width:0;}
-  .item-name{font-size:14.5px;font-weight:600;word-break:break-word;}
-  .item-row.done .item-name{text-decoration:line-through;color:var(--text-faint);}
-  .item-note{font-size:12px;color:var(--text-soft);margin-top:1px;}
-  .item-price{font-size:11.5px;color:var(--gold);font-weight:700;margin-top:2px;}
-  .item-actions{display:flex;gap:4px;flex:none;align-items:center;}
-  .icon-btn{background:var(--surface-alt);border:none;border-radius:8px;width:30px;height:30px;font-size:13px;flex:none;color:var(--text-soft);}
-  .icon-btn.link-btn{background:var(--link-soft);color:var(--link-blue);text-decoration:none;display:flex;align-items:center;justify-content:center;}
-  .icon-btn.link-btn:hover{background:var(--link-blue);color:#fff;}
-  .icon-btn.del-btn{background:var(--danger-soft);color:var(--danger);}
-  .icon-btn.del-btn:hover{background:var(--danger);color:#fff;}
-  .icon-btn.edit-btn:hover{background:var(--accent-soft);color:var(--accent-deep);}
-  .icon-btn.move-btn:hover{background:var(--gold-soft);color:#8A5D00;}
-
-  .edit-panel{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-md);padding:12px;margin:-3px 0 7px;box-shadow:var(--shadow);}
-  .edit-panel .ef{display:flex;flex-direction:column;gap:3px;margin-bottom:8px;}
-  .edit-panel label{font-size:10px;color:var(--text-faint);font-weight:700;text-transform:uppercase;letter-spacing:0.03em;}
-  .edit-panel input{font-size:13.5px;padding:8px 10px;border-radius:var(--radius-sm);border:1px solid var(--border);}
-  .edit-actions{display:flex;gap:8px;margin-top:4px;}
-  .btn-mini{font-size:12px;font-weight:700;border:none;border-radius:var(--radius-sm);padding:8px 14px;}
-  .btn-mini.primary{background:linear-gradient(135deg,var(--accent),var(--accent-deep));color:#fff;}
-  .btn-mini.ghost{background:var(--surface-alt);color:var(--text-soft);}
-
-  .add-extra-card{background:var(--surface);border:1px dashed var(--border);border-radius:var(--radius-lg);padding:12px 14px;margin-bottom:16px;}
-  .add-extra-row{display:flex;gap:8px;}
-  .extra-full-btn{width:100%;margin-top:8px;background:none;border:none;color:var(--text-faint);font-size:11.5px;text-decoration:underline;text-align:center;}
-  .ff-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
-  .ff-f{display:flex;flex-direction:column;gap:3px;}
-  .ff-f.ff-wide{grid-column:1/-1;}
-  .ff-f label{font-size:10px;font-weight:700;color:var(--text-faint);text-transform:uppercase;letter-spacing:0.03em;}
-  .ff-f input,.ff-f select{font-size:13px;padding:8px 9px;border-radius:8px;border:1px solid var(--border);}
-  .add-extra-row input{flex:1;font-size:13.5px;padding:9px 11px;border-radius:var(--radius-md);border:1px solid var(--border);}
-  .add-extra-row button{background:var(--surface-alt);color:var(--text-soft);border:none;border-radius:var(--radius-md);padding:0 14px;font-size:13px;font-weight:700;}
-
-  .empty-note{color:var(--text-faint);font-style:italic;font-size:13.5px;padding:30px 10px;text-align:center;}
-
-  /* PRICE PROMPT SHEET */
-  .price-overlay{position:fixed;inset:0;z-index:180;background:rgba(20,20,40,0.4);display:flex;align-items:flex-end;justify-content:center;}
-  .price-sheet{background:var(--surface);width:100%;max-width:420px;border-radius:20px 20px 0 0;padding:20px 18px 26px;box-shadow:0 -10px 40px rgba(0,0,0,0.2);}
-  .price-sheet h3{margin:0 0 4px;font-size:16px;}
-  .price-sheet p{margin:0 0 14px;font-size:12.5px;color:var(--text-soft);}
-  .price-sheet .pf{display:flex;align-items:center;gap:8px;margin-bottom:14px;}
-  .price-mode-row{display:flex;gap:6px;margin-bottom:10px;}
-  .pm-btn{flex:1;border:1px solid var(--border);background:var(--surface);color:var(--text-soft);border-radius:9px;padding:8px 4px;font-size:11.5px;font-weight:700;}
-  .pm-btn.active{background:var(--accent);color:#fff;border-color:transparent;}
-  .price-line-total{font-size:13px;font-weight:700;color:var(--gold);margin:-8px 0 14px;}
-  .price-sheet .pf span{font-size:20px;font-weight:700;color:var(--text-faint);}
-  .price-sheet input{flex:1;font-size:22px;font-weight:700;padding:10px 12px;border-radius:var(--radius-md);border:1px solid var(--border);}
-  .price-sheet .sheet-actions{display:flex;gap:8px;}
-  .price-sheet .sheet-actions button{flex:1;padding:11px;font-size:13.5px;}
-
-  /* BUDGET VIEW */
-  .period-select-row{display:flex;justify-content:center;margin-bottom:14px;}
-  .period-select-row select{font-size:13px;padding:9px 14px;border-radius:999px;border:1px solid var(--border);background:var(--surface);font-weight:700;color:var(--text);}
-  .pva-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:16px;margin-bottom:14px;box-shadow:var(--shadow);}
-  .pva-card h3{margin:0 0 12px;font-size:14px;}
-  .pva-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
-  .pva-cell{background:var(--surface-alt);border-radius:10px;padding:10px;}
-  .pva-cell.pva-wide{grid-column:1/-1;}
-  .pva-label{font-size:10px;color:var(--text-faint);font-weight:700;text-transform:uppercase;letter-spacing:0.03em;}
-  .pva-val{font-family:'Manrope',sans-serif;font-weight:800;font-size:17px;margin-top:2px;}
-  .pva-weeks{margin-bottom:16px;}
-  .pva-week-row{background:var(--surface);border:1px solid var(--border-soft);border-radius:10px;padding:9px 12px;margin-bottom:6px;font-size:12px;}
-  .pva-week-row.current{border-color:var(--accent);background:var(--accent-soft);}
-  .pva-week-label{font-weight:700;margin-bottom:3px;}
-  .pva-week-nums{display:flex;gap:12px;color:var(--text-soft);flex-wrap:wrap;}
-  .budget-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:18px;margin-bottom:16px;box-shadow:var(--shadow);}
-  .budget-top{display:flex;justify-content:space-between;align-items:flex-end;margin-bottom:10px;}
-  .budget-spent{font-family:'Manrope',sans-serif;font-weight:800;font-size:28px;letter-spacing:-0.02em;}
-  .budget-target{font-size:12.5px;color:var(--text-faint);}
-  .budget-target input{width:70px;font-size:12.5px;padding:4px 7px;border-radius:7px;border:1px solid var(--border);}
-  .budget-bar-track{height:9px;border-radius:20px;background:var(--surface-alt);overflow:hidden;margin-bottom:4px;}
-  .budget-bar-fill{height:100%;border-radius:20px;background:linear-gradient(90deg,var(--accent),var(--gold));transition:width .5s ease;}
-  .budget-note{font-size:11.5px;color:var(--text-faint);}
-  .history-row{display:flex;justify-content:space-between;align-items:center;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-md);padding:11px 14px;margin-bottom:7px;box-shadow:var(--shadow);}
-  .hist-section-title{font-size:13px;font-weight:800;color:var(--text-soft);margin:18px 0 10px;}
-  .hist-section-title:first-child{margin-top:0;}
-  .hist-cycle-group{margin-bottom:14px;}
-  .hist-cycle-label{font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:0.04em;color:var(--text-faint);margin-bottom:6px;}
-  .hist-trip-row{display:flex;justify-content:space-between;align-items:center;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-md);padding:11px 14px;margin-bottom:7px;box-shadow:var(--shadow);}
-  .hist-trip-week{font-size:13.5px;font-weight:700;}
-  .hist-trip-meta{font-size:11px;color:var(--text-faint);margin-top:2px;}
-  .hist-trip-cost{text-align:right;font-weight:700;font-size:13.5px;}
-  .hist-trip-diff{font-size:11px;font-weight:700;}
-  .history-row .hr-name{font-size:13.5px;font-weight:600;}
-  .history-row .hr-meta{font-size:11px;color:var(--text-faint);}
-  .history-row .hr-price{font-family:'Manrope',sans-serif;font-weight:800;font-size:15px;color:var(--gold);}
-</style>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Nourish Duo — Integrated Diet & Recipe Planner</title>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+  <style>
+    :root{--bg:#f5f4ef;--panel:#fff;--ink:#1d2821;--muted:#718078;--line:#e3e8e3;--green:#236b4c;--green2:#dcefe4;--lime:#b9d763;--orange:#e59b53;--blue:#618ca8;--red:#bd5b52;--shadow:0 18px 45px rgba(35,55,43,.08)}
+    *{box-sizing:border-box} body{margin:0;background:var(--bg);color:var(--ink);font:14px/1.45 Inter,ui-sans-serif,system-ui,-apple-system,Segoe UI,sans-serif}
+    button,input,select{font:inherit} button{cursor:pointer}.app{min-height:100vh;display:grid;grid-template-columns:230px 1fr}.sidebar{background:#173d2d;color:#eef7f1;padding:28px 18px;position:sticky;top:0;height:100vh}.brand{display:flex;align-items:center;gap:11px;font-size:20px;font-weight:800;padding:0 10px 28px}.brandmark{width:34px;height:34px;border-radius:12px;display:grid;place-items:center;background:var(--lime);color:#173d2d;font-size:20px}.nav{display:grid;gap:7px}.nav button{border:0;color:#bdd0c5;background:transparent;border-radius:12px;padding:12px 13px;text-align:left;font-weight:650;display:flex;gap:10px;align-items:center}.nav button.active,.nav button:hover{background:#285541;color:white}.side-note{position:absolute;bottom:24px;left:18px;right:18px;background:#204b38;border:1px solid #36614d;padding:14px;border-radius:14px;color:#c9d9d0;font-size:12px}.side-note strong{color:white;display:block;margin-bottom:4px}.main{padding:28px 34px 50px;max-width:1440px;width:100%;margin:auto}.topbar{display:flex;justify-content:space-between;align-items:center;margin-bottom:24px}.eyebrow{text-transform:uppercase;letter-spacing:.12em;font-size:11px;color:var(--green);font-weight:800}.topbar h1{font-size:28px;margin:3px 0}.date-pill{background:white;border:1px solid var(--line);border-radius:99px;padding:9px 14px;color:var(--muted)}
+    .page{display:none}.page.active{display:block}.grid{display:grid;grid-template-columns:1.35fr .65fr;gap:20px}.card{background:var(--panel);border:1px solid var(--line);border-radius:20px;padding:20px;box-shadow:0 3px 14px rgba(35,55,43,.025)}.card h2,.card h3{margin:0}.section-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:17px}.subtle{color:var(--muted);font-size:13px}.btn{border:0;border-radius:11px;padding:10px 14px;font-weight:750;background:var(--green);color:white}.btn.secondary{background:var(--green2);color:var(--green)}.btn.ghost{background:transparent;color:var(--green);border:1px solid var(--line)}.btn.danger{background:#f9e7e5;color:#9a3d35}.btn.small{padding:7px 10px;font-size:12px}.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:20px}.stat{background:white;border:1px solid var(--line);border-radius:17px;padding:16px}.stat-top{display:flex;justify-content:space-between;color:var(--muted);font-size:12px}.stat b{font-size:23px;display:block;margin-top:7px}.bar{height:7px;background:#edf0ed;border-radius:10px;margin-top:10px;overflow:hidden}.bar i{display:block;height:100%;border-radius:10px;background:var(--green);transition:width .25s}.stat:nth-child(2) .bar i{background:var(--orange)}.stat:nth-child(3) .bar i{background:var(--blue)}.stat:nth-child(4) .bar i{background:var(--lime)}
+    .meal{display:grid;grid-template-columns:42px 1fr auto auto;align-items:center;gap:12px;padding:13px 0;border-bottom:1px solid var(--line)}.meal:last-child{border:0}.meal-icon{width:42px;height:42px;border-radius:13px;background:#eff4ef;display:grid;place-items:center;font-size:19px}.meal-name{font-weight:750}.macro-mini{color:var(--muted);font-size:12px}.kcal{font-weight:800}.icon-btn{border:0;background:transparent;color:#9aa59f;font-size:19px;padding:6px}.empty{text-align:center;padding:40px 12px;color:var(--muted)}.empty .orb{width:66px;height:66px;border-radius:22px;background:var(--green2);display:grid;place-items:center;margin:0 auto 12px;font-size:28px}
+    .ring-wrap{display:grid;place-items:center;padding:10px}.ring{width:190px;height:190px;border-radius:50%;display:grid;place-items:center;background:conic-gradient(var(--green) 0deg,var(--green) var(--angle),#e8eee9 var(--angle));position:relative}.ring:after{content:"";position:absolute;inset:17px;background:white;border-radius:50%}.ring-center{position:relative;z-index:1;text-align:center}.ring-center b{display:block;font-size:30px}.ring-center span{color:var(--muted)}.tip{background:#f4f7ee;border-left:4px solid var(--lime);padding:13px;border-radius:4px 12px 12px 4px;margin-top:18px;color:#536158}
+    .builder{display:grid;grid-template-columns:minmax(0,1fr) 340px;gap:20px}.field{display:grid;gap:6px}.field label{font-size:12px;color:var(--muted);font-weight:700}.input,select{width:100%;border:1px solid #dce3dd;background:#fff;border-radius:10px;padding:10px 11px;color:var(--ink);outline:none}.input:focus,select:focus{border-color:var(--green);box-shadow:0 0 0 3px rgba(35,107,76,.1)}.form-row{display:grid;grid-template-columns:2fr .65fr 1fr auto;gap:10px;align-items:end}.recipe-title-row{display:grid;grid-template-columns:2fr .6fr;gap:12px;margin-bottom:18px}.ingredients{margin-top:16px;border-top:1px solid var(--line)}.ing-row{display:grid;grid-template-columns:1.5fr .55fr .6fr 1fr auto;align-items:center;gap:9px;padding:11px 0;border-bottom:1px solid var(--line)}.ing-row input,.ing-row select{padding:8px}.ing-macros{color:var(--muted);font-size:11px}.totals{background:#173d2d;color:white;border-radius:20px;padding:20px;position:sticky;top:25px}.totals h3{color:#d5e3da}.big-cal{font-size:41px;font-weight:850;line-height:1;margin:20px 0 4px}.totals .subtle{color:#acc2b5}.macro-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin:20px 0}.macro-box{background:#244b3a;border:1px solid #37604c;border-radius:13px;padding:12px}.macro-box span{font-size:11px;color:#b9cbbf;display:block}.macro-box b{font-size:18px}.per-serving{border-top:1px solid #3a5c4c;padding-top:15px;display:grid;gap:7px}.per-line{display:flex;justify-content:space-between}.total-actions{display:grid;gap:9px;margin-top:18px}.total-actions .btn{background:var(--lime);color:#173d2d}.total-actions .secondary{background:#2b5843;color:white;border:1px solid #4a735e}
+    .library-tools{display:flex;gap:9px;flex-wrap:wrap}.search{position:relative;min-width:250px}.search input{padding-left:35px}.search span{position:absolute;left:12px;top:9px;color:var(--muted)}.food-table{width:100%;border-collapse:collapse}.food-table th{text-align:left;color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:.05em;padding:10px;border-bottom:1px solid var(--line)}.food-table td{padding:12px 10px;border-bottom:1px solid var(--line)}.food-table tr:hover td{background:#fafbf8}.food-name{font-weight:750}.tag{display:inline-block;border-radius:99px;padding:3px 8px;font-size:11px;background:#eef3ef;color:#536158}.num{text-align:right;font-variant-numeric:tabular-nums}.modal-backdrop{display:none;position:fixed;inset:0;background:rgba(10,25,18,.5);z-index:20;place-items:center;padding:20px}.modal-backdrop.open{display:grid}.modal{background:white;border-radius:22px;padding:22px;width:min(620px,100%);box-shadow:var(--shadow);max-height:90vh;overflow:auto}.modal-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:13px}.modal-actions{display:flex;justify-content:flex-end;gap:9px;margin-top:20px}.notice{position:fixed;right:24px;bottom:24px;background:#173d2d;color:white;padding:12px 16px;border-radius:12px;box-shadow:var(--shadow);opacity:0;transform:translateY(12px);pointer-events:none;transition:.2s;z-index:50}.notice.show{opacity:1;transform:none}.mobile-head{display:none}.method{margin-top:16px}.method textarea{min-height:110px;resize:vertical}.saved-recipe{display:grid;grid-template-columns:1fr auto;gap:12px;padding:14px 0;border-bottom:1px solid var(--line)}.saved-recipe h4{margin:0 0 3px}.two-col{display:grid;grid-template-columns:1fr 1fr;gap:20px}.goal-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:12px}.why-list{display:grid;gap:13px}.why{display:grid;grid-template-columns:36px 1fr;gap:12px}.why i{width:36px;height:36px;border-radius:11px;background:var(--green2);display:grid;place-items:center;font-style:normal}.why b{display:block}.why span{color:var(--muted);font-size:12px}
+    .meal-modal{width:min(820px,100%)}.customize-head{display:grid;grid-template-columns:1fr 150px;gap:14px;margin-bottom:14px}.custom-row{display:grid;grid-template-columns:1.45fr 138px 90px 112px auto;gap:8px;align-items:center;padding:10px 0;border-bottom:1px solid var(--line)}.stepper{display:grid;grid-template-columns:32px 1fr 32px;align-items:center;border:1px solid #dce3dd;border-radius:10px;overflow:hidden}.stepper button{height:36px;border:0;background:#f2f6f2;color:var(--green);font-size:18px}.stepper input{width:100%;min-width:0;height:36px;border:0;text-align:center;outline:none}.custom-total{margin-top:15px;background:#eff6f1;border-radius:14px;padding:13px 15px;display:flex;justify-content:space-between;align-items:center}.custom-total b{font-size:20px}.checkline{display:flex;gap:9px;align-items:flex-start;margin-top:15px;color:var(--muted)}.checkline input{margin-top:3px}.add-custom-row{display:grid;grid-template-columns:1fr 110px 90px auto;gap:8px;align-items:end;margin-top:15px;padding-top:15px;border-top:1px dashed var(--line)}
+    .profile-box{background:#204b38;border:1px solid #37614c;border-radius:14px;padding:9px;margin-bottom:18px}.profile-box small{display:block;color:#adc3b6;margin:0 4px 6px}.profile-buttons{display:grid;grid-template-columns:1fr 1fr;gap:5px}.profile-buttons button{border:0;border-radius:9px;background:transparent;color:#c6d7ce;padding:8px 4px;font-weight:750}.profile-buttons button.active{background:var(--lime);color:#173d2d}.profile-label{color:var(--muted);font-size:12px;margin-top:3px}.meal-plan-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:16px}.plan-card .plan-top{display:flex;justify-content:space-between;gap:12px}.plan-time{color:var(--green);font-weight:800}.plan-name{font-size:19px;font-weight:850;margin:3px 0 12px}.recipe-chip{display:flex;justify-content:space-between;align-items:center;background:#f5f8f5;border-radius:11px;padding:9px 10px;margin:6px 0}.plan-total{display:flex;justify-content:space-between;border-top:1px solid var(--line);padding-top:11px;margin-top:11px}.plan-actions{display:flex;gap:8px;margin-top:12px}.plan-add{display:grid;grid-template-columns:1fr auto;gap:7px;margin-top:11px}.bundle-part{border:1px solid var(--line);border-radius:14px;padding:12px;margin:10px 0}.bundle-head{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:5px}.bundle-head h4{margin:0}.bundle-modal{width:min(930px,100%)}.bundle-rule{background:#fff5df;border-left:4px solid var(--orange);border-radius:4px 11px 11px 4px;padding:10px 12px;margin:10px 0;color:#6b583b}
+    .weekbar{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:14px}.week-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:9px}.day-card{background:#fff;border:1px solid var(--line);border-radius:15px;padding:13px;min-height:145px;text-align:left;color:var(--ink)}.day-card.active{border:2px solid var(--green);background:#f3faf5}.day-card .daynum{font-size:22px;font-weight:850}.day-card .dayname{color:var(--muted);font-size:11px;text-transform:uppercase}.day-card .daymacro{margin-top:13px;font-size:11px;color:var(--muted)}.status-dot{width:8px;height:8px;border-radius:50%;display:inline-block;background:#cfd8d1}.status-dot.done{background:var(--green)}.status-dot.partial{background:var(--orange)}.date-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:14px}.feature-grid{display:grid;grid-template-columns:1fr 1fr;gap:17px}.metric-row{display:grid;grid-template-columns:150px 1fr auto;gap:10px;align-items:center;padding:9px 0}.metric-row .bar{margin:0}.pantry-row{display:grid;grid-template-columns:1.35fr .55fr .55fr .8fr auto;gap:9px;align-items:end;padding:11px 0;border-bottom:1px solid var(--line)}.stock-low{color:var(--red);font-weight:800}.stock-good{color:var(--green);font-weight:800}.prep-list{display:grid;gap:8px}.prep-item{display:grid;grid-template-columns:auto 1fr auto;gap:10px;align-items:center;padding:11px;background:#f7f9f6;border-radius:11px}.prep-item.done{text-decoration:line-through;opacity:.62}.yield-box{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}.result-box{background:#173d2d;color:#fff;border-radius:14px;padding:15px;margin-top:12px}.result-box b{font-size:22px}.progress-form{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}.history-table{width:100%;border-collapse:collapse}.history-table th,.history-table td{text-align:left;padding:10px;border-bottom:1px solid var(--line)}.trend{height:160px;display:flex;align-items:flex-end;gap:8px;padding-top:20px}.trend-col{flex:1;display:grid;justify-items:center;gap:5px}.trend-bar{width:100%;max-width:42px;background:var(--green);border-radius:7px 7px 2px 2px;min-height:5px}.adherence-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:11px;margin-bottom:17px}.score{background:#fff;border:1px solid var(--line);border-radius:16px;padding:15px}.score b{font-size:25px;display:block}.score span{color:var(--muted);font-size:12px}.diary-controls{display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-top:5px}.diary-controls select{width:auto;padding:5px 7px}.note-input{padding:5px 7px!important;max-width:210px}.micro-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:8px}.micro-card{background:#f7f9f6;border-radius:12px;padding:12px}.micro-card-top{display:flex;justify-content:space-between}.meal .meal-main{min-width:0}
+    .loading-gate{position:fixed;inset:0;z-index:100;background:var(--bg);display:grid;place-items:center;text-align:center;padding:24px}.loading-card{background:#fff;border:1px solid var(--line);border-radius:20px;padding:28px;box-shadow:var(--shadow);max-width:420px}.loading-card b{display:block;font-size:19px;margin-bottom:7px}.hub-link{display:block;color:#bdd0c5;text-decoration:none;font-size:12px;padding:0 10px;margin:-17px 0 15px}.integration-links{display:grid;grid-template-columns:1fr 1fr;gap:7px;margin:12px 0 16px}.integration-links a{color:#eef7f1;border:1px solid #4a735e;border-radius:9px;padding:8px;text-align:center;text-decoration:none;font-size:11px;font-weight:700}.cloud-state{display:flex;align-items:center;gap:7px;font-size:11px;color:var(--muted);margin-top:4px}.cloud-dot{width:8px;height:8px;border-radius:50%;background:#c5cec7}.cloud-dot.ready{background:#4caf75}.live-row{display:grid;grid-template-columns:1.4fr .6fr .8fr;gap:12px;align-items:center;padding:12px 0;border-bottom:1px solid var(--line)}.live-row:last-child{border:0}.integration-banner{background:#eef6f0;border:1px solid #d9e9dd;border-radius:14px;padding:13px 15px;margin-bottom:16px;display:flex;justify-content:space-between;gap:12px;align-items:center}.integration-banner b{display:block}.integration-banner span{font-size:12px;color:var(--muted)}
+    @media(max-width:900px){.app{grid-template-columns:1fr}.sidebar{height:auto;position:static;padding:14px 18px}.brand{padding:0}.nav{display:none}.side-note{display:none}.profile-box{margin-top:12px;margin-bottom:7px}.mobile-head{display:flex;gap:6px;overflow:auto;padding-top:12px}.mobile-head button{white-space:nowrap}.main{padding:20px 15px}.grid,.builder,.two-col,.feature-grid{grid-template-columns:1fr}.meal-plan-grid{grid-template-columns:1fr}.week-grid{grid-template-columns:repeat(2,1fr)}.stats,.adherence-grid{grid-template-columns:1fr 1fr}.totals{position:static}.topbar{align-items:flex-start}.date-pill{display:none}.form-row{grid-template-columns:1fr 1fr}.form-row .field:first-child{grid-column:1/-1}.ing-row{grid-template-columns:1fr .5fr .6fr auto}.ing-macros{grid-column:1/-1}.food-table{min-width:720px}.table-scroll{overflow:auto}.recipe-title-row{grid-template-columns:1fr}.goal-grid,.progress-form,.yield-box{grid-template-columns:1fr 1fr}.customize-head{grid-template-columns:1fr}.custom-row{grid-template-columns:1fr 120px 85px auto}.custom-row .ing-macros{grid-column:1/-1;grid-row:2}.add-custom-row{grid-template-columns:1fr 1fr}.add-custom-row .field:first-child{grid-column:1/-1}.pantry-row{grid-template-columns:1fr 1fr}.pantry-row .field:first-child{grid-column:1/-1}.integration-banner,.live-row{grid-template-columns:1fr;display:grid}}
+  </style>
 </head>
 <body>
+<div class="loading-gate" id="loadingGate"><div class="loading-card"><b>Opening Nourish Duo</b><span class="subtle" id="loadingText">Connecting your profile and cloud diet…</span></div></div>
+<div class="app" id="appShell" style="visibility:hidden">
+  <aside class="sidebar">
+    <div class="brand"><span class="brandmark">N</span> Nourish Duo</div>
+    <a class="hub-link" href="../index.html">← Home hub</a>
+    <div class="integration-links"><a href="grocery.html">Grocery ↗</a><a href="../gym/index.html">Gym ↗</a></div>
+    <div class="profile-box"><small>Active profile</small><div class="profile-buttons"><button id="profileBhargav" onclick="setProfile('bhargav')">Bhargav</button><button id="profileAnusha" onclick="setProfile('anusha')">Anusha</button></div></div>
+    <nav class="nav" id="nav">
+      <button class="active" data-page="dashboard">◫ Today</button>
+      <button data-page="mealplan">▦ Meal plan</button>
+      <button data-page="calendar">▦ Week</button>
+      <button data-page="prep">◷ Meal prep</button>
+      <button data-page="pantry">▣ Pantry</button>
+      <button data-page="progress">↗ Progress</button>
+      <button data-page="nutrition">◎ Nutrition</button>
+      <button data-page="insights">◈ Adherence</button>
+      <button data-page="builder">＋ Recipe builder</button>
+      <button data-page="recipes">▤ My recipes</button>
+      <button data-page="foods">◉ Ingredients</button>
+      <button data-page="settings">⚙ Goals & settings</button>
+    </nav>
+    <div class="mobile-head" id="mobileNav"></div>
+    <div class="side-note"><strong>Connected and private</strong>Your recipes, editable meal logs, goals, and history sync to your signed-in account.</div>
+  </aside>
 
-<div id="loading-gate" class="loading-gate">Loading…</div>
+  <main class="main">
+    <header class="topbar"><div><div class="eyebrow" id="eyebrow">Daily nutrition</div><h1 id="pageTitle">Today</h1><div class="profile-label" id="profileLabel"></div><div class="cloud-state"><span class="cloud-dot" id="cloudDot"></span><span id="cloudLabel">Connecting…</span></div></div><div class="date-pill" id="todayDate"></div></header>
 
-<div class="wrap" id="app-wrap" style="display:none;">
-  <div class="topbar"><a href="../index.html">← All apps</a></div>
-  <header class="app-head">
-    <h1>Grocery</h1>
-    <p>Your real 8-week schedule, one week at a time.</p>
-  </header>
+    <section class="page active" id="dashboard">
+      <div class="stats" id="stats"></div>
+      <div class="grid">
+        <div class="card"><div class="section-head"><div><h2>Today’s meals</h2><div class="subtle">Every meal opens for ingredient-by-ingredient editing before it is added</div></div><button class="btn secondary" onclick="go('mealplan')">+ Add editable meal</button></div><div id="mealList"></div></div>
+        <div class="card"><div class="section-head"><div><h2>Daily energy</h2><div class="subtle">Calories consumed</div></div></div><div class="ring-wrap"><div class="ring" id="calRing"><div class="ring-center"><b id="ringValue">0</b><span id="ringGoal">of 2,000 kcal</span></div></div></div><div class="tip" id="dailyTip">Build a recipe or add a saved meal to begin tracking.</div></div>
+      </div>
+    </section>
 
-  <div class="segmented">
-    <button id="view-list-btn" class="active">Plan</button>
-    <button id="view-shop-btn">Shop</button>
-    <button id="view-inventory-btn">Inventory</button>
-    <button id="view-budget-btn">Budget</button>
-    <button id="view-history-btn">History</button>
-  </div>
+    <section class="page" id="mealplan">
+      <div class="section-head"><div><h2 id="planTitle">Daily meal plan</h2><div class="subtle">Choose Review & log meal to change every recipe, ingredient, amount, and unit before saving</div></div><button class="btn ghost" onclick="logFullDay()">Quick-log unchanged full day</button></div>
+      <div class="meal-plan-grid" id="mealPlanGrid"></div>
+    </section>
 
-  <div id="list-view">
-    <div class="week-tabs" id="week-tabs"></div>
-    <div id="startdate-row" style="text-align:center;margin:-6px 0 14px;font-size:11px;color:var(--text-faint);">
-      Week 1 started <span id="startdate-display"></span>
-      <button type="button" id="startdate-edit-btn" style="background:none;border:none;color:var(--text-faint);text-decoration:underline;font-size:11px;">✎ edit</button>
-      <input type="date" id="startdate-input" style="display:none;font-size:11px;">
-    </div>
-    <div id="week-mount"></div>
-  </div>
+    <section class="page" id="calendar"><div class="weekbar"><div><h2 style="margin:0" id="weekTitle">This week</h2><div class="subtle">Select a date to view or log meals</div></div><div class="library-tools"><button class="btn ghost small" onclick="moveWeek(-7)">← Previous</button><button class="btn secondary small" onclick="selectToday()">Today</button><button class="btn ghost small" onclick="moveWeek(7)">Next →</button></div></div><div class="week-grid" id="weekGrid"></div><div class="date-actions"><button class="btn" onclick="openSelectedDay()">Open selected day</button><button class="btn secondary" onclick="copyPreviousDay()">Copy previous day</button><button class="btn ghost" onclick="logPlanForSelectedDay()">Log standard plan</button></div></section>
 
-  <div id="shop-view" style="display:none;"></div>
-  <div id="inventory-view" style="display:none;"></div>
-  <div id="budget-view" style="display:none;"></div>
-  <div id="history-view" style="display:none;"></div>
+    <section class="page" id="prep"><div class="feature-grid"><div class="card"><div class="section-head"><div><h2>Meal-prep planner</h2><div class="subtle">Combined quantities from the meal plans</div></div><div class="library-tools"><select id="prepScope" onchange="renderPrep()"><option value="both">Both profiles</option><option value="current">Current profile</option></select><select id="prepDays" onchange="renderPrep()"><option value="3">3 days</option><option value="7" selected>7 days</option><option value="14">14 days</option></select></div></div><div class="prep-list" id="prepList"></div></div><div class="card"><div class="section-head"><div><h2>Cooking-yield calculator</h2><div class="subtle">Convert dry/raw batches into cooked portions</div></div></div><div class="field"><label>Recipe</label><select id="yieldRecipe" onchange="loadYield()"></select></div><div class="yield-box" style="margin-top:12px"><div class="field"><label>Dry/raw weight (g)</label><input class="input" id="yieldRaw" type="number" value="300" oninput="calculateYield()"></div><div class="field"><label>Cooked yield (g)</label><input class="input" id="yieldCooked" type="number" value="825" oninput="calculateYield()"></div><div class="field"><label>Desired cooked portion (g)</label><input class="input" id="yieldPortion" type="number" value="150" oninput="calculateYield()"></div><div class="field"><label>Number of portions</label><input class="input" id="yieldPortions" type="number" value="5.5" readonly></div></div><div class="result-box"><b id="yieldResult">54.5 g</b><div>dry/raw equivalent for the selected cooked portion</div></div><button class="btn secondary" style="margin-top:10px" onclick="saveYield()">Save yield to recipe</button></div></div></section>
+
+    <section class="page" id="pantry"><div class="integration-banner"><div><b>Live Grocery connection</b><span>Stock levels come from the Grocery app so there is only one inventory.</span></div><a class="btn secondary" href="grocery.html">Manage in Grocery</a></div><div class="card"><div class="section-head"><div><h2>Pantry inventory</h2><div class="subtle">Current product status from your connected Grocery app</div></div><button class="btn ghost small" onclick="renderPantry()">Refresh</button></div><div id="pantryList"></div></div></section>
+
+    <section class="page" id="progress"><div hidden><input id="prDate"><input id="prWeight"><input id="prWaist"><input id="prSteps"><input id="prSleep"><input id="prWater"><select id="prWorkout"><option value="yes">yes</option></select><input id="prNotes"></div><div class="integration-banner"><div><b>Live Gym connection</b><span>Measurements and completed workouts come directly from the active profile in Gym.</span></div><a class="btn secondary" href="../gym/index.html">Log in Gym</a></div><div class="feature-grid"><div class="card"><div class="section-head"><div><h2>Latest measurements</h2><div class="subtle" id="progressProfile"></div></div><button class="btn ghost small" onclick="renderProgress()">Refresh</button></div><div id="latestProgress"></div></div><div class="card"><h2>Weight trend</h2><div class="trend" id="weightTrend"></div></div></div><div class="card" style="margin-top:17px"><div class="table-wrap"><table class="history-table"><thead><tr><th>Date</th><th>Weight</th><th>Waist</th><th>Steps</th><th>Sleep</th><th>Water</th><th>Workout</th><th>Notes</th></tr></thead><tbody id="progressRows"></tbody></table></div></div></section>
+
+    <section class="page" id="nutrition"><div class="feature-grid"><div class="card"><div class="section-head"><div><h2>Expanded nutrition</h2><div class="subtle" id="nutritionDate"></div></div></div><div class="micro-grid" id="microGrid"></div></div><div class="card"><h2>How to improve accuracy</h2><div class="why-list" style="margin-top:15px"><div class="why"><i>1</i><div><b>Use package labels</b><span>Edit whey, paneer, yogurt, milk, ghee, and fruit values to match your exact products.</span></div></div><div class="why"><i>2</i><div><b>Track limits and minimums differently</b><span>Sodium, sugar, and saturated fat are ceilings; calcium, iron, potassium, and vitamin D are minimum targets.</span></div></div><div class="why"><i>3</i><div><b>Do not treat estimates as medical measurements</b><span>Micronutrient values vary by brand and preparation method.</span></div></div></div></div></div></section>
+
+    <section class="page" id="insights"><div class="adherence-grid" id="adherenceScores"></div><div class="feature-grid"><div class="card"><h2>Last 7 days</h2><div id="adherenceDays"></div></div><div class="card"><h2>Useful patterns</h2><div id="adherencePatterns" class="why-list" style="margin-top:15px"></div></div></div></section>
+
+    <section class="page" id="builder">
+      <div class="builder">
+        <div class="card">
+          <div class="section-head"><div><h2>Create a recipe</h2><div class="subtle">Nutrition recalculates instantly as amounts change</div></div><button class="btn ghost small" onclick="clearRecipe()">Clear</button></div>
+          <div class="recipe-title-row"><div class="field"><label for="recipeName">Recipe name</label><input class="input" id="recipeName" value="Power oat bowl"></div><div class="field"><label for="servings">Servings</label><input class="input" id="servings" type="number" min="0.25" step="0.25" value="1"></div></div>
+          <div class="form-row">
+            <div class="field"><label for="foodSelect">Ingredient</label><select id="foodSelect"></select></div>
+            <div class="field"><label for="foodQty">Amount</label><input class="input" id="foodQty" type="number" min="0.01" step="0.1" value="40"></div>
+            <div class="field"><label for="foodUnit">Unit</label><select id="foodUnit"></select></div>
+            <button class="btn" onclick="addIngredient()">Add</button>
+          </div>
+          <div class="ingredients" id="builderRows"></div>
+          <div class="field method"><label for="method">Preparation notes (optional)</label><textarea class="input" id="method" placeholder="Add preparation instructions, cooking time, or substitutions…"></textarea></div>
+        </div>
+        <aside class="totals"><div class="eyebrow" style="color:#b9d763">Live nutrition</div><div class="big-cal"><span id="totalCalories">0</span> <small style="font-size:14px">kcal</small></div><div class="subtle">whole recipe</div><div class="macro-grid" id="recipeMacros"></div><div class="per-serving" id="perServing"></div><div class="total-actions"><button class="btn" onclick="saveRecipe()">Save recipe</button><button class="btn secondary" onclick="saveAndLog()">Save & add to today</button></div></aside>
+      </div>
+    </section>
+
+    <section class="page" id="recipes">
+      <div class="card"><div class="section-head"><div><h2>My recipes</h2><div class="subtle">Add any serving amount to today’s diary</div></div><button class="btn" onclick="go('builder')">+ New recipe</button></div><div id="recipeList"></div></div>
+    </section>
+
+    <section class="page" id="foods">
+      <div class="card"><div class="section-head"><div><h2>Ingredient library</h2><div class="subtle">Values are stored per basis amount and scaled automatically</div></div><div class="library-tools"><div class="search"><span>⌕</span><input class="input" id="foodSearch" placeholder="Search ingredients…" oninput="renderFoods()"></div><button class="btn" onclick="openFoodModal()">+ Custom ingredient</button></div></div><div class="table-scroll"><table class="food-table"><thead><tr><th>Ingredient</th><th>Reference</th><th class="num">Calories</th><th class="num">Protein</th><th class="num">Carbs</th><th class="num">Fat</th><th class="num">Fiber</th><th></th></tr></thead><tbody id="foodRows"></tbody></table></div></div>
+    </section>
+
+    <section class="page" id="settings">
+      <div class="two-col"><div class="card"><div class="section-head"><div><h2>Daily goals</h2><div class="subtle">Set targets that fit your plan</div></div></div><div class="goal-grid"><div class="field"><label>Calories (kcal)</label><input class="input goal" id="goalCalories" type="number"></div><div class="field"><label>Protein (g)</label><input class="input goal" id="goalProtein" type="number"></div><div class="field"><label>Carbohydrates (g)</label><input class="input goal" id="goalCarbs" type="number"></div><div class="field"><label>Fat (g)</label><input class="input goal" id="goalFat" type="number"></div></div><button class="btn" style="margin-top:16px" onclick="saveGoals()">Save goals</button></div><div class="card"><div class="section-head"><div><h2>Data controls</h2><div class="subtle">Export a backup, import one, or restore the approved starting plan</div></div></div><div style="display:grid;gap:10px"><button class="btn secondary" onclick="exportData()">Export all data (.json)</button><label class="btn ghost" style="text-align:center">Import data<input type="file" accept="application/json" hidden onchange="importData(event)"></label><button class="btn danger" onclick="resetData()">Restore original plans</button></div></div></div>
+      <div class="card" style="margin-top:20px"><div class="section-head"><div><h2>How accurate nutrition tracking works</h2><div class="subtle">The model behind the interface</div></div></div><div class="why-list"><div class="why"><i>1</i><div><b>One standardized nutrition basis</b><span>Every food stores nutrients for a known reference amount such as 100 g, 100 ml, or one item.</span></div></div><div class="why"><i>2</i><div><b>Unit-aware conversion</b><span>Grams, ounces, cups, tablespoons, teaspoons, pieces, and servings convert through the ingredient’s density or unit weight.</span></div></div><div class="why"><i>3</i><div><b>Recipe scaling</b><span>Ingredient totals are summed, then divided by the recipe’s serving count. A logged half-serving is multiplied by 0.5.</span></div></div><div class="why"><i>4</i><div><b>Editable source data</b><span>Labels and brands vary. Custom foods let you enter the exact package values you use.</span></div></div></div></div>
+    </section>
+  </main>
 </div>
 
-<div id="modal-mount"></div>
+<div class="modal-backdrop" id="foodModal"><div class="modal"><div class="section-head"><div><h2 id="modalTitle">Add custom ingredient</h2><div class="subtle">Use values from the nutrition label</div></div><button class="icon-btn" onclick="closeFoodModal()">×</button></div><div class="modal-grid"><div class="field" style="grid-column:1/-1"><label>Name</label><input class="input" id="fName" placeholder="e.g., Your brand protein powder"></div><div class="field"><label>Basis amount</label><input class="input" id="fBasis" type="number" value="100"></div><div class="field"><label>Basis unit</label><select id="fUnit"><option>g</option><option>oz</option><option>ml</option><option>cup</option><option>tbsp</option><option>tsp</option><option>piece</option><option>serving</option><option>scoop</option></select></div><div class="field"><label>Calories (kcal)</label><input class="input" id="fCalories" type="number" value="0"></div><div class="field"><label>Protein (g)</label><input class="input" id="fProtein" type="number" value="0"></div><div class="field"><label>Carbs (g)</label><input class="input" id="fCarbs" type="number" value="0"></div><div class="field"><label>Fat (g)</label><input class="input" id="fFat" type="number" value="0"></div><div class="field"><label>Fiber (g)</label><input class="input" id="fFiber" type="number" value="0"></div><div class="field"><label>Saturated fat (g)</label><input class="input" id="fSatFat" type="number" value="0"></div><div class="field"><label>Sugar (g)</label><input class="input" id="fSugar" type="number" value="0"></div><div class="field"><label>Sodium (mg)</label><input class="input" id="fSodium" type="number" value="0"></div><div class="field"><label>Calcium (mg)</label><input class="input" id="fCalcium" type="number" value="0"></div><div class="field"><label>Iron (mg)</label><input class="input" id="fIron" type="number" value="0"></div><div class="field"><label>Potassium (mg)</label><input class="input" id="fPotassium" type="number" value="0"></div><div class="field"><label>Vitamin D (mcg)</label><input class="input" id="fVitaminD" type="number" value="0"></div><div class="field"><label>Grams per piece/serving (optional)</label><input class="input" id="fPieceG" type="number" placeholder="e.g., 50"></div><div class="field"><label>Density g/ml (optional)</label><input class="input" id="fDensity" type="number" step="0.01" placeholder="e.g., 1.03"></div></div><div class="modal-actions"><button class="btn ghost" onclick="closeFoodModal()">Cancel</button><button class="btn" onclick="saveFood()">Save ingredient</button></div></div></div>
+<div class="modal-backdrop" id="logModal"><div class="modal meal-modal"><div class="section-head"><div><div class="eyebrow">Add to today</div><h2>Customize this meal</h2><div class="subtle">Increase, decrease, replace, add, or remove ingredients before logging</div></div><button class="icon-btn" onclick="closeLogModal()">×</button></div><div class="customize-head"><div class="field"><label>Meal name</label><input class="input" id="logName"></div><div class="field"><label>Servings eaten</label><input class="input" id="logServings" type="number" min=".25" step=".25" value="1" oninput="renderLogEditor()"></div></div><div id="logItems"></div><div class="add-custom-row"><div class="field"><label>Add another ingredient</label><select id="logFoodSelect" onchange="fillLogUnits()"></select></div><div class="field"><label>Amount</label><input class="input" id="logFoodQty" type="number" min=".01" step=".1" value="10"></div><div class="field"><label>Unit</label><select id="logFoodUnit"></select></div><button class="btn secondary" onclick="addLogItem()">+ Add</button></div><div class="custom-total"><span><b id="logCalories">0 kcal</b><br><span class="subtle" id="logMacroLine"></span></span><span class="tag">Amount being logged</span></div><label class="checkline"><input type="checkbox" id="updateMaster"><span><b style="color:var(--ink)">Also update my saved recipe</b><br>Leave this unchecked to keep the original recipe unchanged.</span></label><div class="modal-actions"><button class="btn ghost" onclick="closeLogModal()">Cancel</button><button class="btn" onclick="confirmLog()">Add customized meal</button></div></div></div>
+<div class="modal-backdrop" id="bundleModal"><div class="modal bundle-modal"><div class="section-head"><div><div class="eyebrow">Review complete meal</div><h2 id="bundleTitle"></h2><div class="subtle">Select recipes and customize every ingredient before logging</div></div><button class="icon-btn" onclick="closeBundle()">×</button></div><div id="bundleRule"></div><div id="bundleParts"></div><div class="custom-total"><span><b id="bundleCalories">0 kcal</b><br><span class="subtle" id="bundleMacros"></span></span><span class="tag">Meal total</span></div><label class="checkline"><input type="checkbox" id="bundleUpdate"><span><b style="color:var(--ink)">Also update the saved recipes</b><br>Leave unchecked for a one-time change today.</span></label><div class="modal-actions"><button class="btn ghost" onclick="closeBundle()">Cancel</button><button class="btn" onclick="confirmBundle()">Add meal to today</button></div></div></div>
+<div class="notice" id="notice"></div>
 
 <script>
-window.addEventListener('error', function(e){
-  const gate = document.getElementById('loading-gate');
-  if(gate && gate.style.display !== 'none') gate.textContent = 'Something went wrong: ' + (e.message||'unknown error') + '. Try a hard refresh.';
-});
-if(typeof firebase === 'undefined'){
-  document.getElementById('loading-gate').textContent = "Couldn't load — check your internet connection and refresh.";
-} else {
-
-const FIREBASE_CONFIG = {
-  apiKey: "AIzaSyBe01eR2RZwSbU_aoJMeh_2MMJ5mqkVuKk",
-  authDomain: "iron-log-bfc55.firebaseapp.com",
-  projectId: "iron-log-bfc55",
-  storageBucket: "iron-log-bfc55.firebasestorage.app",
-  messagingSenderId: "106586808946",
-  appId: "1:106586808946:web:f4736554ba9fc82c6fd8eb"
-};
-firebase.initializeApp(FIREBASE_CONFIG);
-const auth = firebase.auth();
-const db = firebase.firestore();
-try{ db.enablePersistence({synchronizeTabs:true}).catch(function(){}); }catch(e){}
-let currentUser = null;
-
-/* =====================================================================
-   PRODUCT MASTER LIST — same 17 products, same sourced prices and real
-   Costco item-number links as before. Editable per-product (name, note,
-   link, price) from the ✎ button on any row.
-===================================================================== */
-const PRODUCTS_SEED = [
-  { id:'costco-eggs', name:'Kirkland Signature Large Eggs (60 ct)', store:'Costco', note:'60 shell eggs', price:9.18, link:'https://www.costco.com/CatalogSearch?keyword=1025795' },
-  { id:'costco-whey', name:'ON Gold Standard Whey, Chocolate (5.64 lb)', store:'Costco', note:'80 servings', price:85.11, link:'https://www.costco.com/CatalogSearch?keyword=1243880' },
-  { id:'costco-paneer', name:'Verka Paneer Indian Cheese (32 oz)', store:'Costco', note:'', price:12.02, link:'https://www.costco.com/CatalogSearch?keyword=505987' },
-  { id:'costco-milk', name:'Kirkland 2% Milk (2×1 gallon)', store:'Costco', note:'No item # given in your plan, so no link yet', price:8.16, link:'' },
-  { id:'costco-yogurt', name:'Kirkland Nonfat Plain Greek Yogurt (48 oz)', store:'Costco', note:'', price:5.55, link:'https://www.costco.com/CatalogSearch?keyword=1956023' },
-  { id:'costco-oats', name:'Quaker Old-Fashioned Rolled Oats (10 lb)', store:'Costco', note:'', price:8.96, link:'https://www.costco.com/CatalogSearch?keyword=446586' },
-  { id:'costco-flax', name:"Bob's Red Mill Organic Golden Flaxseed Meal (64 oz)", store:'Costco', note:'', price:9.59, link:'https://www.costco.com/CatalogSearch?keyword=9467' },
-  { id:'costco-rice', name:'Royal Basmati Rice (20 lb)', store:'Costco', note:'', price:22.69, link:'https://www.costco.com/CatalogSearch?keyword=132666' },
-  { id:'costco-dal', name:'Khazana Organic Masoor Dal (7 lb)', store:'Costco', note:'Item # in your plan was marked "approximately," so no link yet', price:13.79, link:'' },
-  { id:'costco-mandarin', name:'Dole Mandarin Oranges in Juice (16 ct)', store:'Costco', note:'', price:11.11, link:'https://www.costco.com/CatalogSearch?keyword=46586' },
-  { id:'costco-banana', name:'Costco Bananas (3 lb)', store:'Costco', note:'', price:1.69, link:'https://www.costco.com/CatalogSearch?keyword=30669' },
-  { id:'costco-ghee', name:'Kirkland Signature Organic Ghee (27 oz)', store:'Costco', note:'', price:24.96, link:'https://www.costco.com/CatalogSearch?keyword=1582922' },
-  { id:'costco-lemon', name:'Costco Lemons (5 lb)', store:'Costco', note:'', price:6.80, link:'https://www.costco.com/CatalogSearch?keyword=83345' },
-  { id:'costco-water', name:'Kirkland Purified Water (40×500ml)', store:'Costco', note:'per case', price:4.53, link:'https://www.costco.com/CatalogSearch?keyword=782796' },
-  { id:'tj-lunchsalad', name:"Trader Joe's Organic Baby Lettuce Mix (5 oz)", store:"Trader Joe's", note:'per bag', price:2.79, link:'' },
-  { id:'tj-dinnersalad', name:"Trader Joe's Organic Herb Salad Mix (5 oz)", store:"Trader Joe's", note:'per bag', price:2.79, link:'' },
-  { id:'tj-fruit', name:"Trader Joe's Fresh-Cut Fruit", store:"Trader Joe's", note:'~1.4kg/week total', price:3.99, link:'' }
+const seedFoods=[
+ {id:'oats',name:'Rolled oats',basis:100,unit:'g',calories:379,protein:13.2,carbs:67.7,fat:6.5,fiber:10.1},
+ {id:'milk',name:'2% milk',basis:100,unit:'ml',calories:50,protein:3.3,carbs:4.8,fat:2,fiber:0,density:1.03},
+ {id:'whey',name:'Whey protein',basis:1,unit:'scoop',calories:120,protein:24,carbs:3,fat:1.5,fiber:0,pieceG:30},
+ {id:'banana',name:'Banana',basis:100,unit:'g',calories:89,protein:1.1,carbs:22.8,fat:.3,fiber:2.6,pieceG:118},
+ {id:'flax',name:'Ground flaxseed',basis:100,unit:'g',calories:534,protein:18.3,carbs:28.9,fat:42.2,fiber:27.3},
+ {id:'egg',name:'Large egg',basis:1,unit:'piece',calories:72,protein:6.3,carbs:.4,fat:4.8,fiber:0,pieceG:50},
+ {id:'rice',name:'Cooked white rice',basis:100,unit:'g',calories:130,protein:2.7,carbs:28.2,fat:.3,fiber:.4},
+ {id:'yogurt',name:'Nonfat Greek yogurt',basis:100,unit:'g',calories:59,protein:10.3,carbs:3.6,fat:.4,fiber:0,density:1.04},
+ {id:'paneer',name:'Paneer',basis:100,unit:'g',calories:265,protein:18.3,carbs:1.2,fat:20.8,fiber:0},
+ {id:'lentils',name:'Cooked lentils',basis:100,unit:'g',calories:116,protein:9,carbs:20.1,fat:.4,fiber:7.9},
+ {id:'olive',name:'Olive oil',basis:1,unit:'tbsp',calories:119,protein:0,carbs:0,fat:13.5,fiber:0,density:.91},
+ {id:'almonds',name:'Almonds',basis:100,unit:'g',calories:579,protein:21.2,carbs:21.6,fat:49.9,fiber:12.5}
 ];
-
-// Your actual week-by-week Costco buying schedule, straight from the plan
-// document's section 7. Trader Joe's stays identical every week (7 lunch
-// salads, 7 dinner salads, ~1.4kg fruit) so it's applied to all 8 weeks
-// automatically rather than repeated here.
-const WEEKLY_SCHEDULE = {
-  1: [['costco-eggs',2],['costco-whey',2],['costco-paneer',2],['costco-milk',1],['costco-yogurt',2],['costco-oats',1],['costco-flax',1],['costco-rice',1],['costco-dal',1],['costco-mandarin',1],['costco-banana',1],['costco-ghee',1],['costco-lemon',1],['costco-water',3]],
-  2: [['costco-eggs',1],['costco-paneer',1],['costco-yogurt',2],['costco-banana',1],['costco-lemon',1],['costco-water',2]],
-  3: [['costco-eggs',1],['costco-paneer',1],['costco-yogurt',1],['costco-mandarin',1],['costco-banana',1],['costco-lemon',1],['costco-water',3]],
-  4: [['costco-eggs',1],['costco-paneer',1],['costco-milk',1],['costco-yogurt',2],['costco-banana',1],['costco-lemon',1],['costco-water',2]],
-  5: [['costco-eggs',1],['costco-paneer',2],['costco-yogurt',1],['costco-dal',1],['costco-mandarin',1],['costco-banana',1],['costco-lemon',1],['costco-water',3]],
-  6: [['costco-eggs',1],['costco-paneer',1],['costco-yogurt',2],['costco-banana',1],['costco-lemon',1],['costco-water',2]],
-  7: [['costco-eggs',1],['costco-whey',1],['costco-paneer',1],['costco-milk',1],['costco-yogurt',1],['costco-mandarin',1],['costco-banana',1],['costco-lemon',1],['costco-water',3]],
-  8: [['costco-eggs',1],['costco-paneer',1],['costco-yogurt',2],['costco-banana',1],['costco-lemon',1],['costco-water',2]]
+const seedRecipe={id:'demo-oats',name:'Power oat bowl',servings:1,method:'Mix oats and milk. Top with banana, flaxseed, and protein powder.',items:[{foodId:'oats',qty:40,unit:'g'},{foodId:'milk',qty:180,unit:'ml'},{foodId:'banana',qty:.5,unit:'piece'},{foodId:'flax',qty:10,unit:'g'},{foodId:'whey',qty:.5,unit:'scoop'}]};
+let state=JSON.parse(localStorage.getItem('nourish-state')||'null')||{foods:seedFoods,recipes:[seedRecipe],diary:[],goals:{calories:2000,protein:120,carbs:220,fat:65}};
+let draft=JSON.parse(JSON.stringify(seedRecipe)); let editingFood=null,logDraft=null;
+const $=id=>document.getElementById(id), round=(n,d=1)=>Number(n.toFixed(d));
+function persist(){localStorage.setItem('nourish-state',JSON.stringify(state))}
+function toast(msg){$('notice').textContent=msg;$('notice').classList.add('show');setTimeout(()=>$('notice').classList.remove('show'),1800)}
+function todayKey(){return new Date().toISOString().slice(0,10)}
+function food(id){return state.foods.find(f=>f.id===id)}
+function unitsFor(f){const mass=['g','oz'],liquid=['ml','cup','tbsp','tsp'],count=['piece','serving','scoop'];let u=mass.includes(f.unit)?mass:liquid.includes(f.unit)?liquid:[f.unit];if(f.density)u.push(...mass,...liquid);if(f.pieceG)u.push(...mass,...count);return [...new Set(u)]}
+function toBasisQty(f,qty,unit){qty=Number(qty)||0;if(unit===f.unit)return qty;const mass={g:1,oz:28.3495},liquid={ml:1,cup:236.588,tbsp:14.787,tsp:4.929},counts=['piece','serving','scoop'];let grams=null,ml=null;if(mass[unit])grams=qty*mass[unit];if(liquid[unit])ml=qty*liquid[unit];if(counts.includes(unit)&&f.pieceG)grams=qty*f.pieceG;if(grams===null&&ml!==null&&f.density)grams=ml*f.density;if(ml===null&&grams!==null&&f.density)ml=grams/f.density;if(mass[f.unit]&&grams!==null)return grams/mass[f.unit];if(liquid[f.unit]&&ml!==null)return ml/liquid[f.unit];if(counts.includes(f.unit)&&grams!==null&&f.pieceG)return grams/f.pieceG;return 0}
+function nutrients(item){const f=food(item.foodId);if(!f)return zero();const factor=toBasisQty(f,item.qty,item.unit)/f.basis;return {calories:f.calories*factor,protein:f.protein*factor,carbs:f.carbs*factor,fat:f.fat*factor,fiber:f.fiber*factor}}
+function zero(){return{calories:0,protein:0,carbs:0,fat:0,fiber:0}}
+function sum(items){return items.reduce((a,x)=>{let n=nutrients(x);Object.keys(a).forEach(k=>a[k]+=n[k]);return a},zero())}
+function recipeNutrients(r){return sum(r.items)}
+function init(){
+ $('todayDate').textContent=new Date().toLocaleDateString(undefined,{weekday:'long',month:'long',day:'numeric'});
+ document.querySelectorAll('#nav button').forEach(b=>{const c=b.cloneNode(true);c.onclick=()=>go(b.dataset.page);$('mobileNav').appendChild(c);b.onclick=()=>go(b.dataset.page)});
+ $('recipeName').oninput=()=>draft.name=$('recipeName').value;$('servings').oninput=()=>{draft.servings=Math.max(.25,Number($('servings').value)||1);renderBuilder()};
+ ['goalCalories','goalProtein','goalCarbs','goalFat'].forEach(id=>$(id).value=state.goals[id.replace('goal','').toLowerCase()]);
+ $('method').value=draft.method||'';fillFoodSelect();renderAll();
+}
+function go(id){document.querySelectorAll('.page').forEach(p=>p.classList.toggle('active',p.id===id));document.querySelectorAll('[data-page]').forEach(b=>b.classList.toggle('active',b.dataset.page===id));const titles={dashboard:['Daily nutrition','Today'],builder:['Create & calculate','Recipe builder'],recipes:['Your collection','My recipes'],foods:['Nutrition database','Ingredients'],settings:['Personalize','Goals & settings']};$('eyebrow').textContent=titles[id][0];$('pageTitle').textContent=titles[id][1];if(id==='dashboard')renderDashboard();if(id==='recipes')renderRecipes();if(id==='foods')renderFoods();scrollTo(0,0)}
+function fillFoodSelect(){const selected=$('foodSelect').value;$('foodSelect').innerHTML=state.foods.map(f=>`<option value="${f.id}">${esc(f.name)}</option>`).join('');if(food(selected))$('foodSelect').value=selected;$('foodSelect').onchange=fillUnits;fillUnits()}
+function fillUnits(){const f=food($('foodSelect').value);$('foodUnit').innerHTML=(f?unitsFor(f):['g']).map(u=>`<option>${u}</option>`).join('')}
+function addIngredient(){const f=food($('foodSelect').value),qty=Number($('foodQty').value);if(!f||qty<=0)return toast('Enter a valid amount');draft.items.push({foodId:f.id,qty,unit:$('foodUnit').value});renderBuilder();toast(`${f.name} added`)}
+function renderBuilder(){$('recipeName').value=draft.name;$('servings').value=draft.servings;$('builderRows').innerHTML=draft.items.length?draft.items.map((it,i)=>{const f=food(it.foodId),n=nutrients(it);if(!f)return'';return `<div class="ing-row"><div><div class="food-name">${esc(f.name)}</div><div class="ing-macros">${round(n.calories,0)} kcal · P ${round(n.protein)}g · C ${round(n.carbs)}g · F ${round(n.fat)}g</div></div><input class="input" type="number" min=".01" step=".1" value="${it.qty}" onchange="changeItem(${i},'qty',this.value)"><select onchange="changeItem(${i},'unit',this.value)">${unitsFor(f).map(u=>`<option ${u===it.unit?'selected':''}>${u}</option>`).join('')}</select><span class="tag">${round(n.calories,0)} kcal</span><button class="icon-btn" aria-label="Remove" onclick="removeItem(${i})">×</button></div>`}).join(''):'<div class="empty"><div class="orb">＋</div>Add ingredients to calculate your recipe.</div>';
+ const n=recipeNutrients(draft),s=Math.max(.25,draft.servings);$('totalCalories').textContent=round(n.calories,0);$('recipeMacros').innerHTML=macroBoxes(n);$('perServing').innerHTML=`<div class="per-line"><span>Per serving</span><b>${round(n.calories/s,0)} kcal</b></div><div class="per-line"><span>Protein</span><b>${round(n.protein/s)} g</b></div><div class="per-line"><span>Carbs</span><b>${round(n.carbs/s)} g</b></div><div class="per-line"><span>Fat</span><b>${round(n.fat/s)} g</b></div>`}
+function macroBoxes(n){return [['Protein',n.protein],['Carbs',n.carbs],['Fat',n.fat],['Fiber',n.fiber]].map(([k,v])=>`<div class="macro-box"><span>${k}</span><b>${round(v)} g</b></div>`).join('')}
+function changeItem(i,key,val){draft.items[i][key]=key==='qty'?Math.max(.01,Number(val)||.01):val;renderBuilder()}
+function removeItem(i){draft.items.splice(i,1);renderBuilder()}
+function clearRecipe(){draft={id:null,name:'',servings:1,method:'',items:[]};$('method').value='';renderBuilder()}
+function saveRecipe(){draft.name=$('recipeName').value.trim();draft.method=$('method').value.trim();if(!draft.name||!draft.items.length){toast('Add a name and at least one ingredient');return false}let copy=JSON.parse(JSON.stringify(draft));if(copy.id&&state.recipes.some(r=>r.id===copy.id)){state.recipes=state.recipes.map(r=>r.id===copy.id?copy:r)}else{copy.id='r-'+Date.now();draft.id=copy.id;state.recipes.push(copy)}persist();renderRecipes();toast('Recipe saved');return true}
+function saveAndLog(){if(saveRecipe())askLog(draft.id)}
+function editRecipe(id){const r=state.recipes.find(x=>x.id===id);if(!r)return;draft=JSON.parse(JSON.stringify(r));$('method').value=draft.method||'';renderBuilder();go('builder')}
+function deleteRecipe(id){if(!confirm('Delete this recipe?'))return;state.recipes=state.recipes.filter(r=>r.id!==id);persist();renderRecipes()}
+function renderRecipes(){$('recipeList').innerHTML=state.recipes.length?state.recipes.map(r=>{let n=recipeNutrients(r),s=r.servings||1;return `<div class="saved-recipe"><div><h4>${esc(r.name)}</h4><div class="subtle">${r.items.length} ingredients · ${round(n.calories/s,0)} kcal · P ${round(n.protein/s)}g · C ${round(n.carbs/s)}g · F ${round(n.fat/s)}g per serving</div></div><div class="library-tools"><button class="btn secondary small" onclick="askLog('${r.id}')">Add to today</button><button class="btn ghost small" onclick="editRecipe('${r.id}')">Edit</button><button class="icon-btn" onclick="deleteRecipe('${r.id}')">×</button></div></div>`}).join(''):'<div class="empty"><div class="orb">▤</div>No saved recipes yet.</div>'}
+function askLog(id){const r=state.recipes.find(x=>x.id===id);if(!r)return;logDraft=JSON.parse(JSON.stringify(r));$('logName').value=r.name;$('logServings').value=1;$('updateMaster').checked=false;$('logFoodSelect').innerHTML=state.foods.map(f=>`<option value="${f.id}">${esc(f.name)}</option>`).join('');fillLogUnits();renderLogEditor();$('logModal').classList.add('open')}
+function closeLogModal(){$('logModal').classList.remove('open');logDraft=null}
+function fillLogUnits(){const f=food($('logFoodSelect').value);$('logFoodUnit').innerHTML=(f?unitsFor(f):['g']).map(u=>`<option>${u}</option>`).join('')}
+function renderLogEditor(){if(!logDraft)return;const servings=Math.max(.25,Number($('logServings').value)||1),factor=servings/(logDraft.servings||1);$('logItems').innerHTML=logDraft.items.length?logDraft.items.map((it,i)=>{const f=food(it.foodId),n=nutrients(it);if(!f)return'';return `<div class="custom-row"><div><select aria-label="Ingredient" onchange="logChangeFood(${i},this.value)">${state.foods.map(x=>`<option value="${x.id}" ${x.id===f.id?'selected':''}>${esc(x.name)}</option>`).join('')}</select><div class="ing-macros">Logged: ${round(n.calories*factor,0)} kcal · P ${round(n.protein*factor)}g</div></div><div class="stepper"><button aria-label="Decrease" onclick="logStep(${i},-1)">−</button><input aria-label="Amount" type="number" min=".01" step=".1" value="${it.qty}" onchange="logChange(${i},'qty',this.value)"><button aria-label="Increase" onclick="logStep(${i},1)">+</button></div><select aria-label="Unit" onchange="logChange(${i},'unit',this.value)">${unitsFor(f).map(u=>`<option ${u===it.unit?'selected':''}>${u}</option>`).join('')}</select><span class="tag">${round(n.calories*factor,0)} kcal</span><button class="icon-btn" aria-label="Remove ingredient" onclick="removeLogItem(${i})">×</button></div>`}).join(''):'<div class="empty" style="padding:20px">No ingredients. Add one below.</div>';let n=recipeNutrients(logDraft);$('logCalories').textContent=`${round(n.calories*factor,0)} kcal`;$('logMacroLine').textContent=`Protein ${round(n.protein*factor)} g · Carbs ${round(n.carbs*factor)} g · Fat ${round(n.fat*factor)} g · Fiber ${round(n.fiber*factor)} g`}
+function logChange(i,key,value){if(!logDraft)return;logDraft.items[i][key]=key==='qty'?Math.max(.01,Number(value)||.01):value;renderLogEditor()}
+function logStep(i,direction){const it=logDraft.items[i],step=['piece','serving','scoop'].includes(it.unit)?.25:1;it.qty=Math.max(.01,round(it.qty+direction*step,2));renderLogEditor()}
+function logChangeFood(i,id){const f=food(id);if(!f)return;logDraft.items[i]={foodId:id,qty:f.basis,unit:f.unit};renderLogEditor()}
+function removeLogItem(i){logDraft.items.splice(i,1);renderLogEditor()}
+function addLogItem(){const f=food($('logFoodSelect').value),qty=Number($('logFoodQty').value);if(!f||qty<=0)return toast('Enter a valid amount');logDraft.items.push({foodId:f.id,qty,unit:$('logFoodUnit').value});renderLogEditor()}
+function confirmLog(){if(!logDraft||!logDraft.items.length)return toast('Add at least one ingredient');const servings=Math.max(.25,Number($('logServings').value)||1),name=$('logName').value.trim()||logDraft.name;logDraft.name=name;if($('updateMaster').checked)state.recipes=state.recipes.map(r=>r.id===logDraft.id?JSON.parse(JSON.stringify(logDraft)):r);state.diary.push({id:'d-'+Date.now(),date:todayKey(),recipeId:logDraft.id,name,servings,nutrition:recipeNutrients(logDraft),recipeServings:logDraft.servings});persist();closeLogModal();renderRecipes();renderDashboard();toast(`${name} added to today`);go('dashboard')}
+function diaryNutrients(){return state.diary.filter(x=>x.date===todayKey()).reduce((a,x)=>{let factor=x.servings/(x.recipeServings||1);Object.keys(a).forEach(k=>a[k]+=(x.nutrition[k]||0)*factor);return a},zero())}
+function renderDashboard(){let n=diaryNutrients(),g=state.goals;const data=[['Calories',n.calories,g.calories,'kcal'],['Protein',n.protein,g.protein,'g'],['Carbs',n.carbs,g.carbs,'g'],['Fat',n.fat,g.fat,'g']];$('stats').innerHTML=data.map(([k,v,t,u])=>`<div class="stat"><div class="stat-top"><span>${k}</span><span>${round(v,0)} / ${t} ${u}</span></div><b>${round(Math.max(0,t-v),0)} <small style="font-size:12px;color:var(--muted)">${u} left</small></b><div class="bar"><i style="width:${Math.min(100,v/t*100)}%"></i></div></div>`).join('');let meals=state.diary.filter(x=>x.date===todayKey());$('mealList').innerHTML=meals.length?meals.map(x=>{let f=x.servings/(x.recipeServings||1),nn=Object.fromEntries(Object.entries(x.nutrition).map(([k,v])=>[k,v*f]));return `<div class="meal"><div class="meal-icon">🥣</div><div><div class="meal-name">${esc(x.name)}</div><div class="macro-mini">${x.servings} serving${x.servings===1?'':'s'} · P ${round(nn.protein)}g · C ${round(nn.carbs)}g · F ${round(nn.fat)}g</div></div><div class="kcal">${round(nn.calories,0)} kcal</div><button class="icon-btn" onclick="removeDiary('${x.id}')">×</button></div>`}).join(''):'<div class="empty"><div class="orb">🥗</div><b>No meals logged yet</b><div>Choose a saved recipe and add a serving.</div></div>';let pct=Math.min(1,n.calories/g.calories);$('calRing').style.setProperty('--angle',(pct*360)+'deg');$('ringValue').textContent=round(n.calories,0);$('ringGoal').textContent=`of ${g.calories.toLocaleString()} kcal`;$('dailyTip').textContent=n.calories?`${round(g.calories-n.calories,0)} kcal remaining today. Protein: ${round(n.protein)} of ${g.protein} g.`:'Build a recipe or add a saved meal to begin tracking.'}
+function removeDiary(id){state.diary=state.diary.filter(x=>x.id!==id);persist();renderDashboard()}
+function renderFoods(){let q=($('foodSearch').value||'').toLowerCase();$('foodRows').innerHTML=state.foods.filter(f=>f.name.toLowerCase().includes(q)).map(f=>`<tr><td><div class="food-name">${esc(f.name)}</div><span class="tag">${f.id.startsWith('custom')?'Custom':'Built-in'}</span></td><td>${f.basis} ${f.unit}</td><td class="num">${f.calories}</td><td class="num">${f.protein} g</td><td class="num">${f.carbs} g</td><td class="num">${f.fat} g</td><td class="num">${f.fiber} g</td><td><button class="btn ghost small" onclick="openFoodModal('${f.id}')">Edit</button></td></tr>`).join('')}
+function openFoodModal(id){editingFood=id||null;let f=id?food(id):{name:'',basis:100,unit:'g',calories:0,protein:0,carbs:0,fat:0,fiber:0,pieceG:'',density:''};$('modalTitle').textContent=id?'Edit ingredient':'Add custom ingredient';['Name','Basis','Unit','Calories','Protein','Carbs','Fat','Fiber','PieceG','Density'].forEach(k=>{$('f'+k).value=f[k.charAt(0).toLowerCase()+k.slice(1)]??''});$('foodModal').classList.add('open')}
+function closeFoodModal(){$('foodModal').classList.remove('open')}
+function saveFood(){let name=$('fName').value.trim(),basis=Number($('fBasis').value);if(!name||basis<=0)return toast('Name and basis amount are required');let f={id:editingFood||'custom-'+Date.now(),name,basis,unit:$('fUnit').value,calories:num('fCalories'),protein:num('fProtein'),carbs:num('fCarbs'),fat:num('fFat'),fiber:num('fFiber'),pieceG:num('fPieceG')||undefined,density:num('fDensity')||undefined};if(editingFood)state.foods=state.foods.map(x=>x.id===editingFood?f:x);else state.foods.push(f);persist();closeFoodModal();fillFoodSelect();renderFoods();renderBuilder();toast('Ingredient saved')}
+function num(id){return Math.max(0,Number($(id).value)||0)}
+function saveGoals(){let goals={calories:num('goalCalories'),protein:num('goalProtein'),carbs:num('goalCarbs'),fat:num('goalFat')};if(Object.values(goals).some(v=>v<=0))return toast('All goals must be greater than zero');state.goals=goals;persist();renderDashboard();toast('Goals updated')}
+function exportData(){let blob=new Blob([JSON.stringify(state,null,2)],{type:'application/json'}),a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='nourish-data.json';a.click();URL.revokeObjectURL(a.href)}
+function importData(e){let file=e.target.files[0];if(!file)return;let reader=new FileReader();reader.onload=()=>{try{let x=JSON.parse(reader.result);if(!x.foods||!x.recipes||!x.goals)throw 0;state=x;persist();fillFoodSelect();renderAll();toast('Data imported')}catch{toast('That file is not valid Nourish data')}};reader.readAsText(file)}
+function resetData(){if(!confirm('Reset all recipes, ingredients, goals, and diary entries?'))return;localStorage.removeItem('nourish-state');state={foods:JSON.parse(JSON.stringify(seedFoods)),recipes:[JSON.parse(JSON.stringify(seedRecipe))],diary:[],goals:{calories:2000,protein:120,carbs:220,fat:65}};draft=JSON.parse(JSON.stringify(seedRecipe));persist();location.reload()}
+function renderAll(){renderDashboard();renderBuilder();renderRecipes();renderFoods()}
+function esc(s){return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
+init();
+</script>
+<script>
+/* Nourish Duo profile, meal-composition, and final-plan layer */
+const clone=x=>JSON.parse(JSON.stringify(x));
+const I=(foodId,qty,unit)=>({foodId,qty,unit});
+const finalFoods=[
+ {id:'whey',name:'ON Gold Standard Whey',basis:1,unit:'scoop',calories:120,protein:24,carbs:3,fat:1.5,fiber:0,pieceG:30},
+ {id:'oats',name:'Dry rolled oats',basis:100,unit:'g',calories:379,protein:13.2,carbs:67.7,fat:6.5,fiber:10.1},
+ {id:'milk',name:'Kirkland 2% milk',basis:100,unit:'ml',calories:50,protein:3.3,carbs:4.8,fat:2,fiber:0,density:1.03},
+ {id:'banana',name:'Banana',basis:100,unit:'g',calories:89,protein:1.1,carbs:22.8,fat:.3,fiber:2.6,pieceG:118},
+ {id:'flax',name:'Ground flaxseed',basis:100,unit:'g',calories:534,protein:18.3,carbs:28.9,fat:42.2,fiber:27.3},
+ {id:'egg',name:'Whole large egg',basis:1,unit:'piece',calories:72,protein:6.3,carbs:.4,fat:4.8,fiber:0,pieceG:50},
+ {id:'eggwhite',name:'Boiled egg white',basis:1,unit:'piece',calories:17,protein:3.6,carbs:.2,fat:0,fiber:0,pieceG:33},
+ {id:'rice',name:'Cooked white/basmati rice',basis:100,unit:'g',calories:130,protein:2.7,carbs:28.2,fat:.3,fiber:.4},
+ {id:'yogurt',name:'Plain nonfat Greek yogurt',basis:100,unit:'g',calories:59,protein:10.3,carbs:3.6,fat:.4,fiber:0,density:1.04},
+ {id:'salad',name:'Trader Joe’s salad mix',basis:100,unit:'g',calories:20,protein:2,carbs:3,fat:.3,fiber:2},
+ {id:'lemon',name:'Medium lemon',basis:1,unit:'piece',calories:17,protein:.6,carbs:5.4,fat:.2,fiber:1.6,pieceG:58},
+ {id:'salt',name:'Salt',basis:1,unit:'g',calories:0,protein:0,carbs:0,fat:0,fiber:0},
+ {id:'chili',name:'Red chilli powder',basis:100,unit:'g',calories:282,protein:12,carbs:50,fat:14,fiber:35},
+ {id:'mandarin',name:'Dole Mandarin Orange Fruit Bowl',basis:1,unit:'serving',calories:70,protein:1,carbs:17,fat:0,fiber:1},
+ {id:'fruit',name:'Trader Joe’s fresh-cut fruit',basis:100,unit:'g',calories:45,protein:.7,carbs:11,fat:.2,fiber:1.2},
+ {id:'paneer',name:'Verka paneer',basis:100,unit:'g',calories:321.25,protein:25,carbs:3.75,fat:25,fiber:0},
+ {id:'lentils',name:'Cooked moong/masoor dal',basis:100,unit:'g',calories:116,protein:9,carbs:20.1,fat:.4,fiber:7.9},
+ {id:'ghee',name:'Kirkland Organic Ghee',basis:100,unit:'g',calories:900,protein:0,carbs:0,fat:100,fiber:0},
+ {id:'water',name:'Water',basis:100,unit:'ml',calories:0,protein:0,carbs:0,fat:0,fiber:0,density:1}
+];
+const FR=[
+ ['b-whey','bhargav','After-gym whey',[I('whey',1,'scoop')],'Mix one scoop with water as needed.'],
+ ['b-oats','bhargav','Protein oat bowl',[I('oats',40,'g'),I('milk',150,'ml'),I('flax',10,'g'),I('whey',.5,'scoop'),I('banana',55,'g')],'Microwave oats and milk for 90 seconds. Continue in 20–30-second intervals. Cool briefly, stir in flaxseed and whey, then add banana.'],
+ ['b-eggs','bhargav','Breakfast eggs',[I('egg',2,'piece'),I('eggwhite',4,'piece')],'Serve 2 whole boiled eggs and whites from 4 additional boiled eggs.'],
+ ['b-riceyog','bhargav','Creamy rice and yogurt bowl',[I('rice',150,'g'),I('yogurt',150,'g'),I('milk',20,'ml')],'Cool rice until warm. Mix with yogurt and milk until creamy. Do not add ghee or oil.'],
+ ['b-lsalad','bhargav','Lunch salad',[I('salad',71,'g'),I('lemon',.5,'piece'),I('salt',1,'g'),I('chili',.5,'g')],'Toss immediately before eating. No oil, mayonnaise, or sugary dressing.'],
+ ['b-snackwhey','bhargav','Snack whey',[I('whey',1,'scoop')],'Mix with water.'],
+ ['b-mandarin','bhargav','Mandarin fruit cup',[I('mandarin',1,'serving')],'Fresh fruit may replace this cup; do not add both.'],
+ ['b-paneer','bhargav','Measured paneer',[I('paneer',80,'g')],'Cook in a nonstick pan with calorie-free spices. Do not add oil or ghee.'],
+ ['b-dal','bhargav','Dal and ghee bowl',[I('lentils',150,'g'),I('ghee',5,'g')],'Heat the dal and stir in exactly 5 g ghee. Bhargav’s saved dinner has no rice.'],
+ ['b-dsalad','bhargav','Dinner salad',[I('salad',71,'g'),I('lemon',.5,'piece'),I('salt',1,'g'),I('chili',.5,'g')],'Toss immediately before eating.'],
+ ['a-whey','anusha','After-gym whey',[I('whey',.5,'scoop')],'May be moved into breakfast, but then skip this separate shake.'],
+ ['a-oats','anusha','Oat bowl',[I('oats',35,'g'),I('milk',150,'ml'),I('flax',10,'g'),I('banana',55,'g')],'Microwave oats and milk. Stir in flaxseed after cooking and add banana.'],
+ ['a-eggs','anusha','Breakfast eggs',[I('egg',1,'piece'),I('eggwhite',2,'piece')],'Serve 1 whole boiled egg and whites from 2 additional boiled eggs.'],
+ ['a-riceyog','anusha','Rice and yogurt bowl',[I('rice',125,'g'),I('yogurt',150,'g')],'Cool rice until warm and mix with yogurt. This saved version has no milk.'],
+ ['a-lsalad','anusha','Lunch salad',[I('salad',71,'g'),I('lemon',.5,'piece'),I('salt',1,'g'),I('chili',.5,'g')],'Toss immediately before eating.'],
+ ['a-snackwhey','anusha','Snack whey',[I('whey',.5,'scoop')],'Mix with water.'],
+ ['a-fruit','anusha','Fresh fruit bowl',[I('fruit',200,'g')],'Use watermelon, cantaloupe, or mixed fresh fruit.'],
+ ['a-paneer','anusha','Measured paneer',[I('paneer',77.5,'g')],'Cook in a nonstick pan with spices. Do not add oil or extra ghee.'],
+ ['a-dalrice','anusha','Rice, dal and ghee bowl',[I('lentils',125,'g'),I('rice',75,'g'),I('ghee',5,'g')],'Combine dal and rice, heat, then stir in exactly 5 g ghee.'],
+ ['a-dsalad','anusha','Dinner salad',[I('salad',71,'g'),I('lemon',.5,'piece'),I('salt',1,'g'),I('chili',.5,'g')],'Toss immediately before eating.']
+].map(x=>({id:x[0],profileId:x[1],name:x[2],servings:1,items:x[3],method:x[4]}));
+const FM=[
+ ['b-after','bhargav','After gym','After-gym whey','After training','🏋️',['b-whey'],''],['b-breakfast','bhargav','Breakfast','Protein oat bowl + eggs','8:00 AM','🥣',['b-oats','b-eggs'],''],['b-lunch','bhargav','Lunch','Creamy bowl + salad','1:00 PM','🥗',['b-riceyog','b-lsalad'],''],['b-snack','bhargav','Snack','Whey + mandarin','4:00 PM','🍊',['b-snackwhey','b-mandarin'],'Choose the Dole cup or fresh fruit, not both.'],['b-dinner','bhargav','Dinner','Paneer + dal + salad','7:30 PM','🍲',['b-paneer','b-dal','b-dsalad'],'Bhargav’s 1,700-calorie dinner contains no rice.'],
+ ['a-after','anusha','After gym','After-gym whey','After training','🏋️',['a-whey'],'If this whey is moved into breakfast, exclude this recipe.'],['a-breakfast','anusha','Breakfast','Oat bowl + eggs','8:00 AM','🥣',['a-oats','a-eggs'],'Whey may be moved here only as a replacement for the after-gym serving.'],['a-lunch','anusha','Lunch','Rice-yogurt bowl + salad','1:00 PM','🥗',['a-riceyog','a-lsalad'],''],['a-snack','anusha','Snack','Whey + fresh fruit','4:00 PM','🍉',['a-snackwhey','a-fruit'],''],['a-dinner','anusha','Dinner','Paneer + rice-dal + salad','7:30 PM','🍲',['a-paneer','a-dalrice','a-dsalad'],'']
+].map(x=>({id:x[0],profileId:x[1],slot:x[2],name:x[3],time:x[4],icon:x[5],recipeIds:x[6],rule:x[7]}));
+function makeFinalState(){return{version:5,activeProfile:'bhargav',profiles:{bhargav:{name:'Bhargav',goals:{calories:1720,protein:154,carbs:175,fat:60}},anusha:{name:'Anusha',goals:{calories:1450,protein:103,carbs:165,fat:50}}},foods:clone(finalFoods),recipes:clone(FR),meals:clone(FM),diary:[]}}
+function migratePlanV5(){
+ if(!state.profiles||!state.recipes||!state.meals){state=makeFinalState();persist();return;}
+ const paneer=state.foods&&state.foods.find(f=>f.id==='paneer');
+ if(paneer&&paneer.protein===18&&paneer.calories===321){paneer.protein=25;paneer.calories=321.25;paneer.carbs=3.75;}
+ state.version=5;persist();
+}
+if(state.version!==5)migratePlanV5();
+let bundleDraft=null;
+function active(){return state.profiles[state.activeProfile]}
+function scaled(n,f){return Object.fromEntries(Object.entries(n).map(([k,v])=>[k,v*f]))}
+function addNutrition(list){return list.reduce((a,n)=>{Object.keys(a).forEach(k=>a[k]+=(n[k]||0));return a},zero())}
+function recipeServingN(r){return scaled(recipeNutrients(r),1/(r.servings||1))}
+function mealNutrition(m){return addNutrition(m.recipeIds.map(id=>state.recipes.find(r=>r.id===id)).filter(Boolean).map(recipeServingN))}
+persist=function(){localStorage.setItem('nourish-state',JSON.stringify(state))}
+setProfile=function(id){state.activeProfile=id;draft={id:null,profileId:id,name:'',servings:1,method:'',items:[]};persist();$('profileBhargav').classList.toggle('active',id==='bhargav');$('profileAnusha').classList.toggle('active',id==='anusha');$('profileLabel').textContent=`Viewing ${active().name}’s separate plan and diary`;loadGoalInputs();renderAll()}
+go=function(id){document.querySelectorAll('.page').forEach(p=>p.classList.toggle('active',p.id===id));document.querySelectorAll('[data-page]').forEach(b=>b.classList.toggle('active',b.dataset.page===id));const titles={dashboard:['Daily nutrition','Today'],mealplan:['Meal structure','Daily meal plan'],builder:['Create & calculate','Recipe builder'],recipes:['Your collection','My recipes'],foods:['Nutrition database','Ingredients'],settings:['Personalize','Goals & settings']};$('eyebrow').textContent=titles[id][0];$('pageTitle').textContent=titles[id][1];if(id==='dashboard')renderDashboard();if(id==='mealplan')renderMealPlan();if(id==='recipes')renderRecipes();if(id==='foods')renderFoods();if(id==='settings')loadGoalInputs();scrollTo(0,0)}
+clearRecipe=function(){draft={id:null,profileId:state.activeProfile,name:'',servings:1,method:'',items:[]};$('method').value='';renderBuilder()}
+saveRecipe=function(){draft.name=$('recipeName').value.trim();draft.method=$('method').value.trim();draft.profileId=state.activeProfile;if(!draft.name||!draft.items.length){toast('Add a name and at least one ingredient');return false}let copy=clone(draft);if(copy.id&&state.recipes.some(r=>r.id===copy.id))state.recipes=state.recipes.map(r=>r.id===copy.id?copy:r);else{copy.id='r-'+Date.now();draft.id=copy.id;state.recipes.push(copy)}persist();renderRecipes();renderMealPlan();toast('Recipe saved');return true}
+deleteRecipe=function(id){if(state.meals.some(m=>m.recipeIds.includes(id)))return toast('Remove this recipe from its meal before deleting it');if(!confirm('Delete this recipe?'))return;state.recipes=state.recipes.filter(r=>r.id!==id);persist();renderRecipes()}
+function changeBuilderFood(i,id){let f=food(id);draft.items[i]={foodId:id,qty:f.basis,unit:f.unit};renderBuilder()}
+function stepBuilder(i,d){let it=draft.items[i],step=['piece','serving','scoop'].includes(it.unit)?.25:1;it.qty=Math.max(.01,round(it.qty+d*step,2));renderBuilder()}
+renderBuilder=function(){$('recipeName').value=draft.name;$('servings').value=draft.servings;$('method').value=draft.method||'';$('builderRows').innerHTML=draft.items.length?draft.items.map((it,i)=>{let f=food(it.foodId),n=nutrients(it);return`<div class="custom-row"><div><select onchange="changeBuilderFood(${i},this.value)">${state.foods.map(x=>`<option value="${x.id}" ${x.id===f.id?'selected':''}>${esc(x.name)}</option>`).join('')}</select><div class="ing-macros">${round(n.calories,0)} kcal · P ${round(n.protein)}g · C ${round(n.carbs)}g · F ${round(n.fat)}g</div></div><div class="stepper"><button onclick="stepBuilder(${i},-1)">−</button><input type="number" min=".01" value="${it.qty}" onchange="changeItem(${i},'qty',this.value)"><button onclick="stepBuilder(${i},1)">+</button></div><select onchange="changeItem(${i},'unit',this.value)">${unitsFor(f).map(u=>`<option ${u===it.unit?'selected':''}>${u}</option>`).join('')}</select><span class="tag">${round(n.calories,0)} kcal</span><button class="icon-btn" onclick="removeItem(${i})">×</button></div>`}).join(''):'<div class="empty"><div class="orb">＋</div>Add ingredients to calculate your recipe.</div>';let n=recipeNutrients(draft),s=Math.max(.25,draft.servings);$('totalCalories').textContent=round(n.calories,0);$('recipeMacros').innerHTML=macroBoxes(n);$('perServing').innerHTML=`<div class="per-line"><span>Per serving</span><b>${round(n.calories/s,0)} kcal</b></div><div class="per-line"><span>Protein</span><b>${round(n.protein/s)} g</b></div><div class="per-line"><span>Carbs</span><b>${round(n.carbs/s)} g</b></div><div class="per-line"><span>Fat</span><b>${round(n.fat/s)} g</b></div>`}
+renderRecipes=function(){let rs=state.recipes.filter(r=>r.profileId===state.activeProfile);$('recipeList').innerHTML=rs.length?rs.map(r=>{let n=recipeServingN(r);return`<div class="saved-recipe"><div><h4>${esc(r.name)}</h4><div class="subtle">${r.items.length} ingredients · ${round(n.calories,0)} kcal · P ${round(n.protein)}g · C ${round(n.carbs)}g · F ${round(n.fat)}g per serving</div><details><summary class="subtle" style="cursor:pointer">Preparation</summary><div class="method">${esc(r.method||'No instructions')}</div></details></div><div class="library-tools"><button class="btn secondary small" onclick="askLog('${r.id}')">Customize & log</button><button class="btn ghost small" onclick="editRecipe('${r.id}')">Edit</button><button class="icon-btn" onclick="deleteRecipe('${r.id}')">×</button></div></div>`}).join(''):'<div class="empty"><div class="orb">▤</div>No recipes yet.</div>'}
+function renderMealPlan(){let ms=state.meals.filter(m=>m.profileId===state.activeProfile);$('planTitle').textContent=`${active().name}’s daily meal plan`;$('mealPlanGrid').innerHTML=ms.map(m=>{let n=mealNutrition(m),available=state.recipes.filter(r=>r.profileId===state.activeProfile&&!m.recipeIds.includes(r.id));return`<article class="card plan-card"><div class="plan-top"><div><div class="plan-time">${esc(m.time)}</div><div class="plan-name">${m.icon} ${esc(m.name)}</div></div><span class="tag">${esc(m.slot)}</span></div>${m.recipeIds.map(id=>{let r=state.recipes.find(x=>x.id===id);return r?`<div class="recipe-chip"><span>${esc(r.name)}</span><span><small class="subtle">${round(recipeServingN(r).calories,0)} kcal</small> <button class="icon-btn" onclick="removeRecipeFromMeal('${m.id}','${r.id}')">×</button></span></div>`:''}).join('')}${m.rule?`<div class="bundle-rule">${esc(m.rule)}</div>`:''}<div class="plan-total"><span>Total</span><b>${round(n.calories,0)} kcal · ${round(n.protein)}g protein</b></div><div class="plan-actions"><button class="btn" onclick="openBundle('${m.id}')">Review & log meal</button></div><div class="plan-add"><select id="meal-add-${m.id}">${available.map(r=>`<option value="${r.id}">${esc(r.name)}</option>`).join('')||'<option value="">No recipe available</option>'}</select><button class="btn secondary small" onclick="addRecipeToMeal('${m.id}')">+ Recipe</button></div></article>`}).join('')}
+function addRecipeToMeal(mid){let m=state.meals.find(x=>x.id===mid),id=$(`meal-add-${mid}`).value;if(!id)return toast('No recipe selected');m.recipeIds.push(id);persist();renderMealPlan();toast('Recipe added to meal')}
+function removeRecipeFromMeal(mid,rid){let m=state.meals.find(x=>x.id===mid);m.recipeIds=m.recipeIds.filter(x=>x!==rid);persist();renderMealPlan()}
+function openBundle(mid){let m=state.meals.find(x=>x.id===mid);bundleDraft={meal:clone(m),parts:m.recipeIds.map(id=>({include:true,recipe:clone(state.recipes.find(r=>r.id===id))})).filter(x=>x.recipe)};$('bundleTitle').textContent=`${m.icon} ${m.name}`;$('bundleRule').innerHTML=m.rule?`<div class="bundle-rule">${esc(m.rule)}</div>`:'';$('bundleUpdate').checked=false;renderBundle();$('bundleModal').classList.add('open')}
+function closeBundle(){$('bundleModal').classList.remove('open');bundleDraft=null}
+function bundleFoodOptions(selected){return state.foods.map(f=>`<option value="${f.id}" ${f.id===selected?'selected':''}>${esc(f.name)}</option>`).join('')}
+function renderBundle(){if(!bundleDraft)return;$('bundleParts').innerHTML=bundleDraft.parts.map((p,pi)=>`<div class="bundle-part"><div class="bundle-head"><label class="checkline" style="margin:0"><input type="checkbox" ${p.include?'checked':''} onchange="bundleDraft.parts[${pi}].include=this.checked;renderBundle()"><span><b style="color:var(--ink)">${esc(p.recipe.name)}</b><br><small>${round(recipeServingN(p.recipe).calories,0)} kcal per serving</small></span></label></div>${p.include?p.recipe.items.map((it,ii)=>{let f=food(it.foodId),n=nutrients(it);return`<div class="custom-row"><div><select onchange="bundleChange(${pi},${ii},'foodId',this.value)">${bundleFoodOptions(f.id)}</select><div class="ing-macros">${round(n.calories/(p.recipe.servings||1),0)} kcal · P ${round(n.protein/(p.recipe.servings||1))}g</div></div><div class="stepper"><button onclick="bundleStep(${pi},${ii},-1)">−</button><input type="number" value="${it.qty}" min=".01" onchange="bundleChange(${pi},${ii},'qty',this.value)"><button onclick="bundleStep(${pi},${ii},1)">+</button></div><select onchange="bundleChange(${pi},${ii},'unit',this.value)">${unitsFor(f).map(u=>`<option ${u===it.unit?'selected':''}>${u}</option>`).join('')}</select><span class="tag">${round(n.calories,0)} kcal</span><button class="icon-btn" onclick="bundleRemove(${pi},${ii})">×</button></div>`}).join('')+`<div class="add-custom-row"><select id="bf-${pi}" onchange="bundleFillUnits(${pi})">${bundleFoodOptions()}</select><input class="input" id="bq-${pi}" type="number" min=".01" value="10"><select id="bu-${pi}"></select><button class="btn secondary small" onclick="bundleAdd(${pi})">+ Ingredient</button></div><details><summary class="subtle" style="cursor:pointer;margin-top:9px">Preparation instructions</summary><div class="method">${esc(p.recipe.method)}</div></details>`:''}</div>`).join('');bundleDraft.parts.forEach((p,i)=>{if(p.include)bundleFillUnits(i)});let n=addNutrition(bundleDraft.parts.filter(p=>p.include).map(p=>recipeServingN(p.recipe)));$('bundleCalories').textContent=`${round(n.calories,0)} kcal`;$('bundleMacros').textContent=`Protein ${round(n.protein)} g · Carbs ${round(n.carbs)} g · Fat ${round(n.fat)} g · Fiber ${round(n.fiber)} g`}
+function bundleFillUnits(pi){let f=food($(`bf-${pi}`).value);$(`bu-${pi}`).innerHTML=unitsFor(f).map(u=>`<option>${u}</option>`).join('')}
+function bundleChange(pi,ii,key,val){let it=bundleDraft.parts[pi].recipe.items[ii];if(key==='foodId'){let f=food(val);Object.assign(it,{foodId:val,qty:f.basis,unit:f.unit})}else it[key]=key==='qty'?Math.max(.01,+val||.01):val;renderBundle()}
+function bundleStep(pi,ii,d){let it=bundleDraft.parts[pi].recipe.items[ii],step=['piece','serving','scoop'].includes(it.unit)?.25:1;it.qty=Math.max(.01,round(it.qty+d*step,2));renderBundle()}
+function bundleRemove(pi,ii){bundleDraft.parts[pi].recipe.items.splice(ii,1);renderBundle()}
+function bundleAdd(pi){let f=food($(`bf-${pi}`).value),q=+$(`bq-${pi}`).value;if(!f||q<=0)return toast('Enter a valid amount');bundleDraft.parts[pi].recipe.items.push(I(f.id,q,$(`bu-${pi}`).value));renderBundle()}
+function confirmBundle(){let parts=bundleDraft.parts.filter(p=>p.include);if(!parts.length)return toast('Select at least one recipe');if($('bundleUpdate').checked)parts.forEach(p=>state.recipes=state.recipes.map(r=>r.id===p.recipe.id?clone(p.recipe):r));let n=addNutrition(parts.map(p=>recipeServingN(p.recipe))),m=bundleDraft.meal;state.diary.push({id:'d-'+Date.now(),date:todayKey(),profileId:state.activeProfile,name:m.name,detail:parts.map(p=>p.recipe.name).join(' + '),icon:m.icon,servings:1,recipeServings:1,nutrition:n});persist();closeBundle();renderAll();go('dashboard');toast(`${m.name} added to today`)}
+function logFullDay(){let ms=state.meals.filter(m=>m.profileId===state.activeProfile);if(!confirm(`Log all ${ms.length} planned meals for ${active().name}?`))return;ms.forEach((m,i)=>state.diary.push({id:`d-${Date.now()}-${i}`,date:todayKey(),profileId:state.activeProfile,name:m.name,detail:m.recipeIds.map(id=>state.recipes.find(r=>r.id===id)?.name).filter(Boolean).join(' + '),icon:m.icon,servings:1,recipeServings:1,nutrition:mealNutrition(m)}));persist();renderDashboard();go('dashboard');toast('Complete day logged')}
+confirmLog=function(){if(!logDraft||!logDraft.items.length)return toast('Add at least one ingredient');const servings=Math.max(.25,Number($('logServings').value)||1),name=$('logName').value.trim()||logDraft.name;logDraft.name=name;if($('updateMaster').checked)state.recipes=state.recipes.map(r=>r.id===logDraft.id?clone(logDraft):r);state.diary.push({id:'d-'+Date.now(),date:todayKey(),profileId:state.activeProfile,recipeId:logDraft.id,name,detail:'Customized recipe',icon:'🍽️',servings,nutrition:recipeNutrients(logDraft),recipeServings:logDraft.servings});persist();closeLogModal();renderAll();toast(`${name} added to today`);go('dashboard')}
+diaryNutrients=function(){return state.diary.filter(x=>x.date===todayKey()&&x.profileId===state.activeProfile).reduce((a,x)=>{let factor=x.servings/(x.recipeServings||1);Object.keys(a).forEach(k=>a[k]+=(x.nutrition[k]||0)*factor);return a},zero())}
+renderDashboard=function(){let n=diaryNutrients(),g=active().goals;const data=[['Calories',n.calories,g.calories,'kcal'],['Protein',n.protein,g.protein,'g'],['Carbs',n.carbs,g.carbs,'g'],['Fat',n.fat,g.fat,'g']];$('stats').innerHTML=data.map(([k,v,t,u])=>`<div class="stat"><div class="stat-top"><span>${k}</span><span>${round(v,0)} / ${t} ${u}</span></div><b>${round(Math.max(0,t-v),0)} <small style="font-size:12px;color:var(--muted)">${u} left</small></b><div class="bar"><i style="width:${Math.min(100,v/t*100)}%"></i></div></div>`).join('');let entries=state.diary.filter(x=>x.date===todayKey()&&x.profileId===state.activeProfile);$('mealList').innerHTML=entries.length?entries.map(x=>{let f=x.servings/(x.recipeServings||1),nn=scaled(x.nutrition,f);return`<div class="meal"><div class="meal-icon">${x.icon||'🍽️'}</div><div><div class="meal-name">${esc(x.name)}</div><div class="macro-mini">${esc(x.detail||`${x.servings} serving`)} · P ${round(nn.protein)}g · C ${round(nn.carbs)}g · F ${round(nn.fat)}g</div></div><div class="kcal">${round(nn.calories,0)} kcal</div><button class="icon-btn" onclick="removeDiary('${x.id}')">×</button></div>`}).join(''):'<div class="empty"><div class="orb">🥗</div><b>No meals logged yet</b><div>Open Meal plan to review and add a complete meal.</div></div>';let pct=Math.min(1,n.calories/g.calories);$('calRing').style.setProperty('--angle',pct*360+'deg');$('ringValue').textContent=round(n.calories,0);$('ringGoal').textContent=`of ${g.calories.toLocaleString()} kcal`;$('dailyTip').textContent=n.calories?`${round(g.calories-n.calories,0)} kcal remaining. Protein: ${round(n.protein)} of ${g.protein} g.`:`${active().name}’s five-meal plan is ready to log.`}
+function loadGoalInputs(){let g=active().goals;$('goalCalories').value=g.calories;$('goalProtein').value=g.protein;$('goalCarbs').value=g.carbs;$('goalFat').value=g.fat}
+saveGoals=function(){let g={calories:num('goalCalories'),protein:num('goalProtein'),carbs:num('goalCarbs'),fat:num('goalFat')};if(Object.values(g).some(v=>v<=0))return toast('All goals must be greater than zero');active().goals=g;persist();renderDashboard();toast(`${active().name}’s goals updated`)}
+resetData=function(){if(!confirm('Restore both original diet plans? This removes custom recipes and diary entries.'))return;state=makeFinalState();persist();draft=clone(state.recipes[0]);fillFoodSelect();setProfile('bhargav');toast('Original plans restored')}
+renderAll=function(){renderDashboard();renderBuilder();renderRecipes();renderFoods();renderMealPlan();loadGoalInputs()}
+draft=clone(state.recipes.find(r=>r.profileId===state.activeProfile));fillFoodSelect();setProfile(state.activeProfile);
+</script>
+<script>
+/* Weekly planning, prep, pantry, progress, micronutrients, and adherence */
+const microKeys=['satFat','sugar','sodium','calcium','iron','potassium','vitaminD'];
+const microSeed={
+ whey:[1,1,130,130,.5,160,0],oats:[1.2,1,2,52,4.3,429,0],milk:[1.3,5,47,120,0,150,1.2],banana:[.1,12.2,1,5,.3,358,0],flax:[3.7,1.6,30,255,5.7,813,0],egg:[1.6,.2,71,28,.9,69,1.1],eggwhite:[0,.2,55,2,0,54,0],rice:[.1,.1,1,10,.2,35,0],yogurt:[.1,3.2,36,110,.1,141,0],salad:[.05,1.2,30,45,1.2,300,0],lemon:[0,1.5,1,15,.3,80,0],salt:[0,0,393,0,0,0,0],chili:[2.5,10,30,148,7.8,2014,0],mandarin:[0,14,10,20,.3,150,0],fruit:[0,9,2,12,.3,170,0],paneer:[15,1,22,480,.2,104,0],lentils:[.1,1.8,2,19,3.3,369,0],ghee:[60,0,0,0,0,0,0],water:[0,0,0,0,0,0,0]
 };
-const TJ_WEEKLY = [['tj-lunchsalad',7],['tj-dinnersalad',7],['tj-fruit',1]];
-
-function escapeHtml(s){ return String(s==null?'':s).replace(/[&<>"']/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); }
-function groceryDoc(key){ return db.collection('users').doc(currentUser.uid).collection('apps').doc('grocery-v4').collection('data').doc(key); }
-function fmtMoney(n){ return '$'+Number(n||0).toFixed(2); }
-function todayStr(){ const d=new Date(); return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
-
-let products = [];
-let purchases = {}; // key `${week}:${productId}` -> {done, price}
-let extras = {}; // key `week${n}` -> [{id,name,done,price}]
-let priceLog = []; // {id, key, name, price, date} — one upserted entry per key
-let budgetTarget = 150;
-let activeWeek = 1;
-function nextSaturday(){
-  const d = new Date(); d.setHours(0,0,0,0);
-  const daysUntilSat = (6 - d.getDay() + 7) % 7; // 0 if today is Saturday
-  d.setDate(d.getDate()+daysUntilSat);
-  return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+function migrateFeatures(){
+ state.featureVersion=1;state.selectedDate=state.selectedDate||new Date().toISOString().slice(0,10);state.weekAnchor=state.weekAnchor||state.selectedDate;state.progress=state.progress||{bhargav:[],anusha:[]};state.prepChecks=state.prepChecks||{};
+ state.foods.forEach(f=>{let vals=microSeed[f.id]||[];microKeys.forEach((k,i)=>{if(f[k]==null)f[k]=vals[i]||0})});
+ Object.values(state.profiles).forEach(p=>p.microGoals=p.microGoals||{satFat:20,sugar:50,sodium:2300,calcium:1000,iron:18,potassium:3400,vitaminD:20});
+ if(!state.pantry){let qty={whey:30,oats:1000,milk:3000,banana:10,flax:500,egg:24,eggwhite:24,rice:2000,yogurt:1500,salad:568,lemon:8,salt:500,chili:100,mandarin:8,fruit:1000,paneer:1000,lentils:1500,ghee:500};state.pantry=state.foods.filter(f=>qty[f.id]!=null).map(f=>({foodId:f.id,qty:qty[f.id],lowAt:Math.max(1,round(qty[f.id]*.2,1)),expiry:'',store:['salad','fruit','yogurt','milk'].includes(f.id)?'Trader Joe’s / refrigerated':['ghee','whey'].includes(f.id)?'Costco / pantry':'Pantry'}))}
+ state.diary.forEach(x=>{x.status=x.status||'eaten';x.note=x.note||''});persist()
 }
-let groceryStartDate = nextSaturday(); // Week 1 start — editable in the UI, defaults to the upcoming Saturday
-let activeView = 'list';
-let budgetPeriod = 'week1';
-let editingProductId = null;
-let movingItemKey = null;
-
-async function loadAll(){
-  try{
-    const doc = await groceryDoc('products').get();
-    products = (doc.exists && doc.data().json) ? JSON.parse(doc.data().json) : JSON.parse(JSON.stringify(PRODUCTS_SEED));
-    if(!doc.exists) await saveProducts();
-  }catch(e){ products = JSON.parse(JSON.stringify(PRODUCTS_SEED)); }
-  try{ const d = await groceryDoc('purchases').get(); purchases = (d.exists && d.data().json) ? JSON.parse(d.data().json) : {}; }catch(e){ purchases = {}; }
-  try{ const d = await groceryDoc('extras').get(); extras = (d.exists && d.data().json) ? JSON.parse(d.data().json) : {}; }catch(e){ extras = {}; }
-  try{ const d = await groceryDoc('priceLog').get(); priceLog = (d.exists && d.data().json) ? JSON.parse(d.data().json) : []; }catch(e){ priceLog = []; }
-  try{ const d = await groceryDoc('budget').get(); budgetTarget = (d.exists && d.data().json) ? JSON.parse(d.data().json).weekly : 150; }catch(e){ budgetTarget = 150; }
-  await loadGroceryStartDate();
-  await loadCheckins();
-  await loadInventory();
-  await loadTripHistory();
-  activeWeek = currentWeekFromDate();
-}
-async function saveProducts(){ try{ await groceryDoc('products').set({json: JSON.stringify(products)}); }catch(e){ console.error(e); } }
-async function savePurchases(){ try{ await groceryDoc('purchases').set({json: JSON.stringify(purchases)}); }catch(e){ console.error(e); } }
-async function saveExtras(){ try{ await groceryDoc('extras').set({json: JSON.stringify(extras)}); }catch(e){ console.error(e); } }
-async function savePriceLog(){ try{ await groceryDoc('priceLog').set({json: JSON.stringify(priceLog)}); }catch(e){ console.error(e); } }
-async function saveBudget(){ try{ await groceryDoc('budget').set({json: JSON.stringify({weekly: budgetTarget})}); }catch(e){ console.error(e); } }
-
-/* =====================================================================
-   WEEKLY CHECK-IN — before shopping for whichever week is actually
-   current (by real date), a reminder to check what's already at home so
-   you're not buying more of something you don't need yet.
-===================================================================== */
-let checkins = {}; // { [week]: { done:true, skipped:[productId,...] } }
-// Inventory — what's actually at home right now for each product, updated
-// automatically whenever something's checked off as bought, and editable
-// any time with a quick status tap.
-const STOCK_LEVELS = ['full','75','half','25','low','finished'];
-const STOCK_LABELS = {full:'Full', '75':'75%', half:'Half', '25':'25%', low:'Low', finished:'Finished'};
-let inventory = {}; // { productId: { status, lastPurchased, location, expiry } }
-async function loadInventory(){
-  try{ const d = await groceryDoc('inventory').get(); inventory = (d.exists && d.data().json) ? JSON.parse(d.data().json) : {}; }catch(e){ inventory = {}; }
-}
-async function saveInventory(){ try{ await groceryDoc('inventory').set({json: JSON.stringify(inventory)}); }catch(e){} }
-async function loadGroceryStartDate(){
-  try{ const d = await groceryDoc('startDate').get(); if(d.exists && d.data().value) groceryStartDate = d.data().value; }catch(e){}
-}
-async function saveGroceryStartDate(v){ groceryStartDate = v; try{ await groceryDoc('startDate').set({value:v}); }catch(e){} }
-async function loadCheckins(){
-  try{ const d = await groceryDoc('checkins').get(); checkins = (d.exists && d.data().json) ? JSON.parse(d.data().json) : {}; }catch(e){ checkins = {}; }
-}
-async function saveCheckins(){ try{ await groceryDoc('checkins').set({json: JSON.stringify(checkins)}); }catch(e){} }
-function currentWeekFromDate(){
-  const start = new Date(groceryStartDate+'T00:00:00');
-  const today = new Date(); today.setHours(0,0,0,0);
-  const diffDays = Math.floor((today-start)/86400000);
-  const week = Math.floor(diffDays/7)+1;
-  return Math.max(1, week); // uncapped — cycles repeat past week 8, they don't stop
-}
-// The 8-week grocery template repeats forever — weekInCycle maps any
-// absolute week back onto the 1-8 template, cycleNumber tracks which
-// repeat you're on. Purchases/extras/check-ins stay keyed by the
-// absolute week number, so Cycle 2's Week 1 has its own separate history
-// from Cycle 1's Week 1, never overwriting it.
-function weekInCycle(absWeek){ return ((absWeek-1)%8)+1; }
-function cycleNumber(absWeek){ return Math.floor((absWeek-1)/8)+1; }
-function cycleWeekLabel(absWeek){ return 'Cycle '+cycleNumber(absWeek)+' · Week '+weekInCycle(absWeek); }
-function weekDateRange(absWeek){
-  const start = new Date(groceryStartDate+'T00:00:00');
-  const weekStart = new Date(start); weekStart.setDate(start.getDate() + (absWeek-1)*7);
-  const weekEnd = new Date(weekStart); weekEnd.setDate(weekStart.getDate()+6);
-  const fmt = function(d){ return d.toLocaleDateString('en-US', {month:'short', day:'numeric'}); };
-  return fmt(weekStart)+' – '+fmt(weekEnd);
-}
-
-function productById(id){ return products.find(function(p){ return p.id===id; }); }
-
-auth.onAuthStateChanged(async function(user){
-  currentUser = user;
-  if(!user){ window.location.href = '../index.html'; return; }
-  await loadAll();
-  document.getElementById('loading-gate').style.display = 'none';
-  document.getElementById('app-wrap').style.display = 'block';
-  wireControls();
-  renderWeekTabs();
-  renderStartDateRow();
-  render();
-});
-
-function wireControls(){
-  document.getElementById('view-list-btn').addEventListener('click', function(){ showView('list'); });
-  document.getElementById('view-shop-btn').addEventListener('click', function(){ showView('shop'); });
-  document.getElementById('view-inventory-btn').addEventListener('click', function(){ showView('inventory'); });
-  document.getElementById('view-budget-btn').addEventListener('click', function(){ showView('budget'); });
-  document.getElementById('view-history-btn').addEventListener('click', function(){ showView('history'); });
-}
-function showView(v){
-  activeView = v;
-  ['list','shop','inventory','budget','history'].forEach(function(name){
-    document.getElementById('view-'+name+'-btn').classList.toggle('active', v===name);
-    document.getElementById(name+'-view').style.display = v===name ? 'block':'none';
-  });
-  if(v==='shop') renderShop();
-  if(v==='inventory') renderInventory();
-  if(v==='budget') renderBudget();
-  if(v==='history') renderHistory();
-}
-
-function renderWeekTabs(){
-  const mount = document.getElementById('week-tabs');
-  const current = currentWeekFromDate();
-  // Show a reasonable navigable range: a few weeks back through a good
-  // stretch forward, rather than an ever-growing list.
-  const rangeStart = Math.max(1, current-8);
-  const rangeEnd = current+12;
-  let options = '';
-  for(let w=rangeStart; w<=rangeEnd; w++){
-    const list = weekItemList(w);
-    const doneCount = list.filter(function(i){ return i.done; }).length;
-    const allDone = list.length>0 && doneCount===list.length;
-    const isCurrent = w===current;
-    options += '<option value="'+w+'" '+(w===activeWeek?'selected':'')+'>'+cycleWeekLabel(w)+' ('+weekDateRange(w)+')'+(isCurrent?' — current':'')+(allDone?' ✓':'')+'</option>';
-  }
-  mount.innerHTML = '<select id="week-select" class="week-select">'+options+'</select>'+
-    '<button type="button" id="week-today-btn" class="week-today-btn" title="Jump to current week">Today</button>';
-  document.getElementById('week-select').addEventListener('change', function(e){
-    activeWeek = parseInt(e.target.value,10); renderWeek();
-  });
-  document.getElementById('week-today-btn').addEventListener('click', function(){
-    activeWeek = currentWeekFromDate(); renderWeekTabs(); renderWeek();
-  });
-}
-
-function fmtStartDate(dstr){
-  const d = new Date(dstr+'T00:00:00');
-  return d.toLocaleDateString('en-US', {month:'short', day:'numeric'});
-}
-function renderStartDateRow(){
-  document.getElementById('startdate-display').textContent = fmtStartDate(groceryStartDate);
-  document.getElementById('startdate-input').value = groceryStartDate;
-  document.getElementById('startdate-edit-btn').onclick = function(){
-    const input = document.getElementById('startdate-input');
-    input.style.display = input.style.display !== 'none' ? 'none' : 'inline-block';
-  };
-  document.getElementById('startdate-input').onchange = async function(e){
-    await saveGroceryStartDate(e.target.value);
-    activeWeek = currentWeekFromDate();
-    renderStartDateRow(); renderWeekTabs(); renderWeek();
-  };
-}
-function weekItemList(week){
-  const templateWeek = weekInCycle(week); // the schedule template repeats 1-8
-  const skipped = (checkins[week] && checkins[week].skipped) || [];
-  const scheduled = (WEEKLY_SCHEDULE[templateWeek]||[]).concat(TJ_WEEKLY).map(function(pair){
-    const key = week+':'+pair[0]; // absolute week — keeps each cycle's own record
-    const p = productById(pair[0]);
-    if(!p) return null;
-    const purchase = purchases[key] || {};
-    return { key:key, id:pair[0], name:p.name, store:p.store, note:p.note, link:p.link, qty:pair[1], price: purchase.price!=null?purchase.price:p.price, done: !!purchase.done, extra:false, skippedThisWeek: skipped.indexOf(pair[0])!==-1 };
-  }).filter(Boolean);
-  const extraList = (extras[week]||[]).map(function(x){ return Object.assign({extra:true, store:x.store||'Extra items', skippedThisWeek:false}, x); });
-  return scheduled.concat(extraList);
-}
-
-function render(){ renderWeek(); }
-
-/* =====================================================================
-   WEEK VIEW
-===================================================================== */
-function renderWeek(){
-  const mount = document.getElementById('week-mount');
-  const fullList = weekItemList(activeWeek);
-  const list = fullList.filter(function(i){ return !i.skippedThisWeek; });
-  const skippedList = fullList.filter(function(i){ return i.skippedThisWeek; });
-  const spent = list.filter(function(i){ return i.done; }).reduce(function(s,i){ return s+(i.price||0)*(i.extra?1:i.qty); }, 0);
-  const pct = budgetTarget ? Math.min(100, Math.round(100*spent/budgetTarget)) : 0;
-
-  let html = '';
-  const isCurrentWeek = activeWeek === currentWeekFromDate();
-  const checkedIn = checkins[activeWeek] && checkins[activeWeek].done;
-  if(isCurrentWeek && !checkedIn){
-    html += '<div class="checkin-banner"><div class="cb-icon">🔔</div><div class="cb-body"><div class="cb-title">Check what\'s remaining before you shop</div><div class="cb-sub">Quick pass through this week\'s list — skip anything you already have plenty of.</div></div><button type="button" id="checkin-start-btn">Check now</button></div>';
-  }
-
-  html += '<div class="week-progress-card"><div class="week-progress-top"><h2>'+cycleWeekLabel(activeWeek)+'</h2><div class="week-progress-spent">'+fmtMoney(spent)+' of '+fmtMoney(budgetTarget)+'</div></div><div class="week-daterange">'+weekDateRange(activeWeek)+'</div>'+
-    '<div class="week-bar-track"><div class="week-bar-fill" style="width:'+pct+'%;'+(spent>budgetTarget?'background:var(--danger);':'')+'"></div></div></div>';
-
-  const groups = {};
-  const order = [];
-  list.forEach(function(i){ const g = i.store||'Extra items'; if(!groups[g]){ groups[g]=[]; order.push(g); } groups[g].push(i); });
-  order.sort(function(a,b){ if(a==='Extra items') return 1; if(b==='Extra items') return -1; return a.localeCompare(b); });
-
-  html += order.map(function(g){
-    const rows = groups[g];
-    const left = rows.filter(function(i){ return !i.done; }).length;
-    return '<div class="store-group"><div class="store-head"><h3>'+escapeHtml(g)+'</h3><span class="count">'+left+' left</span></div>'+
-      rows.map(weekItemRowHtml).join('') + '</div>';
-  }).join('');
-
-  if(skippedList.length){
-    html += '<details class="skipped-section"><summary>Skipped this week — already had it ('+skippedList.length+')</summary>'+
-      skippedList.map(function(i){
-        return '<div class="skipped-row"><span>'+escapeHtml(i.name)+'</span><button type="button" class="add-back-btn" data-addback="'+i.id+'">+ Add back</button></div>';
-      }).join('')+
-    '</details>';
-  }
-
-  html += '<div class="add-extra-card"><div class="add-extra-row">'+
-    '<input type="text" id="extra-name-input" placeholder="Something else for this week…">'+
-    '<button type="button" id="extra-add-btn">Add</button></div>'+
-    '<button type="button" id="extra-full-btn" class="extra-full-btn">+ Full details (brand, price, store, repeat…)</button></div>';
-
-  mount.innerHTML = html;
-  attachWeekHandlers();
-  if(isCurrentWeek && !checkedIn){
-    document.getElementById('checkin-start-btn').addEventListener('click', openCheckinFlow);
-  }
-  mount.querySelectorAll('[data-addback]').forEach(function(btn){
-    btn.addEventListener('click', async function(){
-      const list2 = checkins[activeWeek] && checkins[activeWeek].skipped || [];
-      checkins[activeWeek].skipped = list2.filter(function(id){ return id!==btn.dataset.addback; });
-      await saveCheckins();
-      renderWeek();
-    });
-  });
-}
-function openCheckinFlow(){
-  const templateWeek = weekInCycle(activeWeek); // the schedule template repeats 1-8
-  const items = (WEEKLY_SCHEDULE[templateWeek]||[]).concat(TJ_WEEKLY).map(function(pair){ const p = productById(pair[0]); return p ? {id:pair[0], name:p.name} : null; }).filter(Boolean);
-  const mount = document.getElementById('modal-mount');
-  const currentSkipped = new Set((checkins[activeWeek] && checkins[activeWeek].skipped) || []);
-  function draw(){
-    mount.innerHTML = '<div class="price-overlay" id="checkin-overlay"><div class="price-sheet" style="max-height:80vh;overflow-y:auto;">'+
-      '<h3>Quick stock check — '+cycleWeekLabel(activeWeek)+'</h3>'+
-      '<p>For each item, mark whether you still have some at home.</p>'+
-      items.map(function(it){
-        const skipped = currentSkipped.has(it.id);
-        return '<div class="checkin-item-row"><span>'+escapeHtml(it.name)+'</span><div class="checkin-toggle">'+
-          '<button type="button" class="ci-btn '+(!skipped?'active':'')+'" data-cineed="'+it.id+'">Need it</button>'+
-          '<button type="button" class="ci-btn '+(skipped?'active':'')+'" data-cihave="'+it.id+'">Have some</button>'+
-        '</div></div>';
-      }).join('')+
-      '<div class="sheet-actions"><button class="btn-mini primary" id="checkin-done-btn" style="flex:1;">Done</button></div>'+
-    '</div></div>';
-    mount.querySelectorAll('[data-cihave]').forEach(function(btn){ btn.addEventListener('click', function(){ currentSkipped.add(btn.dataset.cihave); draw(); }); });
-    mount.querySelectorAll('[data-cineed]').forEach(function(btn){ btn.addEventListener('click', function(){ currentSkipped.delete(btn.dataset.cineed); draw(); }); });
-    document.getElementById('checkin-done-btn').addEventListener('click', async function(){
-      checkins[activeWeek] = { done:true, skipped:[...currentSkipped] };
-      await saveCheckins();
-      mount.innerHTML = '';
-      renderWeek(); renderWeekTabs();
-    });
-  }
-  draw();
-}
-
-function weekItemRowHtml(item){
-  const qtyLabel = item.extra ? '' : (item.qty>1 ? item.qty+'× ' : '');
-  return '<div class="item-row '+(item.done?'done':'')+'" data-itemkey="'+item.key+'">'+
-    '<input type="checkbox" class="item-chk" data-toggle="'+item.key+'" '+(item.done?'checked':'')+'>'+
-    '<div class="item-body">'+
-      '<div class="item-name">'+qtyLabel+escapeHtml(item.name)+'</div>'+
-      (item.note ? '<div class="item-note">'+escapeHtml(item.note)+'</div>' : '')+
-      (item.done && item.price!=null ? '<div class="item-price">Paid '+fmtMoney(item.price)+'</div>' : '')+
-    '</div>'+
-    '<div class="item-actions">'+
-      (item.link ? '<a class="icon-btn link-btn" href="'+escapeHtml(item.link)+'" target="_blank" rel="noopener" title="Open product link">🔗</a>' : '')+
-      (item.extra ? '<button type="button" class="icon-btn move-btn" data-moveitem="'+item.key+'" title="Move to another week">↪</button>' : '')+
-      (item.extra ? '<button type="button" class="icon-btn del-btn" data-delextra="'+item.key+'" title="Remove">✕</button>' : '<button type="button" class="icon-btn edit-btn" data-editproduct="'+item.id+'" title="Edit product">✎</button>')+
-    '</div>'+
-  '</div>'+
-  (editingProductId===item.id ? productEditPanelHtml(productById(item.id)) : '')+
-  (movingItemKey===item.key ? moveItemPanelHtml(item) : '');
-}
-function moveItemPanelHtml(item){
-  let options = '';
-  const current = currentWeekFromDate();
-  for(let w=current-2; w<=current+10; w++) options += '<option value="'+w+'" '+(w===activeWeek?'selected':'')+'>'+cycleWeekLabel(w)+'</option>';
-  return '<div class="edit-panel"><div class="ef"><label>Move "'+escapeHtml(item.name)+'" to</label><select id="move-week-select">'+options+'</select></div>'+
-    '<div class="edit-actions"><button type="button" class="btn-mini primary" data-domove="'+item.key+'">Move it</button><button type="button" class="btn-mini ghost" data-cancelmove>Cancel</button></div></div>';
-}
-
-function productEditPanelHtml(p){
-  return '<div class="edit-panel">'+
-    '<div class="ef"><label>Name</label><input type="text" class="pe-name" value="'+escapeHtml(p.name)+'"></div>'+
-    '<div class="ef"><label>Note</label><input type="text" class="pe-note" value="'+escapeHtml(p.note||'')+'"></div>'+
-    '<div class="ef"><label>Link to the product</label><input type="url" class="pe-link" value="'+escapeHtml(p.link||'')+'"></div>'+
-    '<div class="ef"><label>Reference price</label><input type="number" step="0.01" class="pe-price" value="'+p.price+'"></div>'+
-    '<div class="edit-actions"><button type="button" class="btn-mini primary" data-saveproduct="'+p.id+'">Save</button><button type="button" class="btn-mini ghost" data-canceledit>Cancel</button></div>'+
-  '</div>';
-}
-
-function attachWeekHandlers(){
-  document.querySelectorAll('[data-toggle]').forEach(function(cb){
-    cb.addEventListener('change', function(){
-      const key = cb.dataset.toggle;
-      const item = weekItemList(activeWeek).find(function(i){ return i.key===key; });
-      const qty = item ? (item.extra ? 1 : item.qty) : 1;
-      if(cb.checked) openPricePrompt(key, renderWeek, qty);
-      else undoPurchase(key);
-    });
-  });
-  document.querySelectorAll('[data-editproduct]').forEach(function(btn){
-    btn.addEventListener('click', function(){ editingProductId = editingProductId===btn.dataset.editproduct ? null : btn.dataset.editproduct; renderWeek(); });
-  });
-  document.querySelectorAll('[data-canceledit]').forEach(function(btn){ btn.addEventListener('click', function(){ editingProductId=null; renderWeek(); }); });
-  document.querySelectorAll('[data-moveitem]').forEach(function(btn){
-    btn.addEventListener('click', function(){ movingItemKey = movingItemKey===btn.dataset.moveitem ? null : btn.dataset.moveitem; renderWeek(); });
-  });
-  document.querySelectorAll('[data-cancelmove]').forEach(function(btn){ btn.addEventListener('click', function(){ movingItemKey=null; renderWeek(); }); });
-  document.querySelectorAll('[data-domove]').forEach(function(btn){
-    btn.addEventListener('click', async function(){
-      const oldKey = btn.dataset.domove;
-      const oldWeek = oldKey.split(':')[0];
-      const panel = btn.closest('.edit-panel');
-      const newWeek = parseInt(panel.querySelector('#move-week-select').value,10);
-      const item = (extras[oldWeek]||[]).find(function(x){ return x.key===oldKey; });
-      if(!item){ movingItemKey=null; renderWeek(); return; }
-      extras[oldWeek] = (extras[oldWeek]||[]).filter(function(x){ return x.key!==oldKey; });
-      const newKey = newWeek+':extra-'+Date.now();
-      if(!extras[newWeek]) extras[newWeek] = [];
-      extras[newWeek].push(Object.assign({}, item, { key:newKey }));
-      await saveExtras();
-      movingItemKey = null;
-      renderWeek(); renderWeekTabs();
-      showToast(item.name+' moved to '+cycleWeekLabel(newWeek)+'.', async function(){
-        extras[newWeek] = (extras[newWeek]||[]).filter(function(x){ return x.key!==newKey; });
-        if(!extras[oldWeek]) extras[oldWeek] = [];
-        extras[oldWeek].push(Object.assign({}, item, { key:oldKey }));
-        await saveExtras();
-        renderWeek(); renderWeekTabs();
-      });
-    });
-  });
-  document.querySelectorAll('[data-saveproduct]').forEach(function(btn){
-    btn.addEventListener('click', async function(){
-      const p = productById(btn.dataset.saveproduct);
-      const panel = btn.closest('.edit-panel');
-      p.name = panel.querySelector('.pe-name').value.trim() || p.name;
-      p.note = panel.querySelector('.pe-note').value.trim();
-      let link = panel.querySelector('.pe-link').value.trim();
-      if(link && !/^https?:\/\//i.test(link)) link = 'https://'+link;
-      p.link = link;
-      p.price = parseFloat(panel.querySelector('.pe-price').value) || p.price;
-      editingProductId = null;
-      await saveProducts();
-      renderWeek();
-    });
-  });
-  document.querySelectorAll('[data-delextra]').forEach(function(btn){
-    btn.addEventListener('click', async function(){
-      const key = btn.dataset.delextra;
-      const list = extras[activeWeek]||[];
-      extras[activeWeek] = list.filter(function(x){ return x.key!==key; });
-      priceLog = priceLog.filter(function(l){ return l.key!==key; });
-      await saveExtras(); await savePriceLog();
-      renderWeek(); renderWeekTabs();
-    });
-  });
-  document.getElementById('extra-add-btn').addEventListener('click', addExtra);
-  document.getElementById('extra-full-btn').addEventListener('click', openFullAddForm);
-  document.getElementById('extra-name-input').addEventListener('keydown', function(e){ if(e.key==='Enter') addExtra(); });
-}
-
-async function addExtra(){
-  const input = document.getElementById('extra-name-input');
-  const name = input.value.trim();
-  if(!name) return;
-  const key = activeWeek+':extra-'+Date.now();
-  if(!extras[activeWeek]) extras[activeWeek] = [];
-  extras[activeWeek].push({ key:key, name:name, done:false, price:null });
-  await saveExtras();
-  input.value = '';
-  renderWeek();
-}
-
-/* =====================================================================
-   FULL ADD ITEM FORM — the quick-add stays for speed, this is for when
-   you want the real detail: brand, quantity+unit, store, category, a
-   price to plan against, a link, who it's for, which week(s), and how
-   it repeats.
-===================================================================== */
-function openFullAddForm(){
-  const mount = document.getElementById('modal-mount');
-  mount.innerHTML = '<div class="price-overlay" id="fullform-overlay"><div class="price-sheet" style="max-height:85vh;overflow-y:auto;">'+
-    '<h3>Add item — full details</h3>'+
-    '<div class="ff-grid">'+
-      '<div class="ff-f ff-wide"><label>Name</label><input type="text" id="ff-name"></div>'+
-      '<div class="ff-f"><label>Brand</label><input type="text" id="ff-brand"></div>'+
-      '<div class="ff-f"><label>Category</label><input type="text" id="ff-category" placeholder="e.g. Dairy"></div>'+
-      '<div class="ff-f"><label>Quantity</label><input type="number" id="ff-qty" value="1"></div>'+
-      '<div class="ff-f"><label>Unit</label><input type="text" id="ff-unit" placeholder="e.g. lb, oz, pack"></div>'+
-      '<div class="ff-f"><label>Store</label><input type="text" id="ff-store" placeholder="Costco, TJ\'s…"></div>'+
-      '<div class="ff-f"><label>Expected price</label><input type="number" step="0.01" id="ff-price"></div>'+
-      '<div class="ff-f ff-wide"><label>Product link</label><input type="url" id="ff-link"></div>'+
-      '<div class="ff-f"><label>For</label><select id="ff-owner"><option value="shared">Shared</option><option value="Bhargav">Bhargav only</option><option value="Anusha">Anusha only</option></select></div>'+
-      '<div class="ff-f"><label>Week</label><select id="ff-week"></select></div>'+
-      '<div class="ff-f ff-wide"><label>Repeats</label><select id="ff-repeat"><option value="once">This week only</option><option value="everyweek">Every week</option><option value="every2">Every 2 weeks</option><option value="everycycle">Every cycle (same week each cycle)</option></select></div>'+
-      '<div class="ff-f ff-wide"><label>Notes</label><input type="text" id="ff-notes"></div>'+
-    '</div>'+
-    '<div class="sheet-actions" style="margin-top:10px;"><button class="btn-mini primary" id="ff-save-btn" style="flex:1;">Add item</button><button class="btn-mini ghost" id="ff-cancel-btn">Cancel</button></div>'+
-  '</div></div>';
-
-  const weekSel = document.getElementById('ff-week');
-  const current = currentWeekFromDate();
-  for(let w=current; w<=current+8; w++) weekSel.innerHTML += '<option value="'+w+'" '+(w===activeWeek?'selected':'')+'>'+cycleWeekLabel(w)+'</option>';
-
-  document.getElementById('ff-cancel-btn').addEventListener('click', function(){ mount.innerHTML = ''; });
-  document.getElementById('fullform-overlay').addEventListener('click', function(e){ if(e.target.id==='fullform-overlay') mount.innerHTML = ''; });
-  document.getElementById('ff-save-btn').addEventListener('click', async function(){
-    const name = document.getElementById('ff-name').value.trim();
-    if(!name) return;
-    const detail = {
-      brand: document.getElementById('ff-brand').value.trim(),
-      category: document.getElementById('ff-category').value.trim(),
-      qty: parseFloat(document.getElementById('ff-qty').value)||1,
-      unit: document.getElementById('ff-unit').value.trim(),
-      store: document.getElementById('ff-store').value.trim() || 'Extra items',
-      price: document.getElementById('ff-price').value ? parseFloat(document.getElementById('ff-price').value) : null,
-      link: document.getElementById('ff-link').value.trim(),
-      owner: document.getElementById('ff-owner').value,
-      notes: document.getElementById('ff-notes').value.trim()
-    };
-    const startWeek = parseInt(document.getElementById('ff-week').value,10);
-    const repeat = document.getElementById('ff-repeat').value;
-    const weeksToAdd = [];
-    if(repeat==='once') weeksToAdd.push(startWeek);
-    else if(repeat==='everyweek') for(let w=startWeek; w<startWeek+16; w++) weeksToAdd.push(w);
-    else if(repeat==='every2') for(let w=startWeek; w<startWeek+32; w+=2) weeksToAdd.push(w);
-    else if(repeat==='everycycle') for(let c=0; c<6; c++) weeksToAdd.push(startWeek + c*8);
-
-    weeksToAdd.forEach(function(w){
-      if(!extras[w]) extras[w] = [];
-      extras[w].push(Object.assign({ key: w+':extra-'+Date.now()+'-'+w }, detail, { name:name, done:false }));
-    });
-    await saveExtras();
-    mount.innerHTML = '';
-    renderWeek(); renderWeekTabs();
-  });
-}
-
-/* =====================================================================
-   PRICE PROMPT — checking something off asks what you paid (pre-filled
-   with the reference/last price), and unchecking it removes that exact
-   log entry again so the budget always matches what's actually ticked.
-===================================================================== */
-function openPricePrompt(key, refreshFn, itemQty){
-  refreshFn = refreshFn || renderWeek;
-  let name, refPrice;
-  const qty = itemQty || 1;
-  if(key.indexOf('extra-')!==-1 || key.split(':')[1].indexOf('extra-')===0){
-    const week = key.split(':')[0];
-    const item = (extras[week]||[]).find(function(x){ return x.key===key; });
-    name = item.name; refPrice = item.price;
-  } else {
-    const productId = key.split(':')[1];
-    const p = productById(productId);
-    name = p.name; refPrice = p.price;
-  }
-  const mount = document.getElementById('modal-mount');
-  const multiQty = qty > 1;
-  mount.innerHTML = '<div class="price-overlay" id="price-overlay"><div class="price-sheet">'+
-    '<h3>What did '+escapeHtml(name)+' cost?</h3>'+
-    '<p>'+(refPrice!=null ? 'Reference: '+fmtMoney(refPrice)+(multiQty?' each':'') : 'No reference price yet.')+'</p>'+
-    (multiQty ? '<div class="price-mode-row"><button type="button" class="pm-btn active" data-pricemode="unit">Price per package</button><button type="button" class="pm-btn" data-pricemode="total">Total for all '+qty+'</button></div>' : '')+
-    '<div class="pf"><span>$</span><input type="number" step="0.01" id="price-input" value="'+(refPrice!=null?refPrice:'')+'" autofocus></div>'+
-    (multiQty ? '<div class="price-line-total" id="price-line-total"></div>' : '')+
-    '<div class="sheet-actions"><button class="btn-mini primary" id="price-confirm-btn">Log it & check off</button><button class="btn-mini ghost" id="price-skip-btn">Just check off</button></div>'+
-  '</div></div>';
-  document.getElementById('price-input').focus();
-  let priceMode = 'unit';
-  function updateLineTotal(){
-    if(!multiQty) return;
-    const val = parseFloat(document.getElementById('price-input').value);
-    if(isNaN(val)){ document.getElementById('price-line-total').textContent = ''; return; }
-    const unitPrice = priceMode==='unit' ? val : val/qty;
-    document.getElementById('price-line-total').textContent = qty+' × '+fmtMoney(unitPrice)+' = '+fmtMoney(unitPrice*qty);
-  }
-  if(multiQty){
-    document.getElementById('price-input').addEventListener('input', updateLineTotal);
-    mount.querySelectorAll('[data-pricemode]').forEach(function(btn){
-      btn.addEventListener('click', function(){
-        priceMode = btn.dataset.pricemode;
-        mount.querySelectorAll('[data-pricemode]').forEach(function(b){ b.classList.toggle('active', b===btn); });
-        updateLineTotal();
-      });
-    });
-    updateLineTotal();
-  }
-  document.getElementById('price-confirm-btn').addEventListener('click', async function(){
-    const val = parseFloat(document.getElementById('price-input').value);
-    const unitPrice = isNaN(val) ? null : (priceMode==='total' ? val/qty : val);
-    await confirmPurchase(key, name, unitPrice, refreshFn, qty);
-    closePriceModal();
-  });
-  document.getElementById('price-skip-btn').addEventListener('click', async function(){
-    await confirmPurchase(key, name, null, refreshFn, qty);
-    closePriceModal();
-  });
-  document.getElementById('price-overlay').addEventListener('click', function(e){
-    if(e.target.id==='price-overlay') closePriceModal(); // dismiss without checking off
-  });
-}
-function closePriceModal(){ document.getElementById('modal-mount').innerHTML = ''; }
-
-async function confirmPurchase(key, name, price, refreshFn, qty){
-  refreshFn = refreshFn || renderWeek;
-  qty = qty || 1;
-  const isExtra = key.split(':')[1] && key.split(':')[1].indexOf('extra-')===0;
-  if(isExtra){
-    const week = key.split(':')[0];
-    const item = (extras[week]||[]).find(function(x){ return x.key===key; });
-    item.done = true; item.price = price;
-    await saveExtras();
-  } else {
-    purchases[key] = { done:true, price: price };
-    await savePurchases();
-    const productId = key.split(':')[1];
-    if(price!=null){ const p = productById(productId); if(p){ p.price = price; await saveProducts(); } }
-    // Buying something resets it to fully stocked at home.
-    inventory[productId] = { status:'full', lastPurchased: todayStr(), location: (inventory[productId]&&inventory[productId].location)||'', expiry: (inventory[productId]&&inventory[productId].expiry)||'' };
-    await saveInventory();
-  }
-  // Upsert — at most one log entry per key, so re-checking updates rather than duplicates.
-  // Stores quantity, unit price, and the line total explicitly, so the
-  // budget always totals the real amount spent, not just one unit's price.
-  priceLog = priceLog.filter(function(l){ return l.key!==key; });
-  if(price!=null) priceLog.push({ id:'log-'+Date.now()+'-'+Math.floor(Math.random()*10000), key:key, name:name, price:price, qty:qty, lineTotal:price*qty, date:todayStr() });
-  await savePriceLog();
-  refreshFn(); renderWeekTabs();
-}
-// Unticking reverses the purchase entirely — the whole point of keeping
-// the budget honest against whatever's actually ticked right now.
-async function undoPurchase(key, refreshFn){
-  refreshFn = refreshFn || renderWeek;
-  const isExtra = key.split(':')[1] && key.split(':')[1].indexOf('extra-')===0;
-  if(isExtra){
-    const week = key.split(':')[0];
-    const item = (extras[week]||[]).find(function(x){ return x.key===key; });
-    if(item){ item.done = false; }
-    await saveExtras();
-  } else {
-    purchases[key] = { done:false, price:null };
-    await savePurchases();
-  }
-  priceLog = priceLog.filter(function(l){ return l.key!==key; });
-  await savePriceLog();
-  refreshFn(); renderWeekTabs();
-}
-
-/* =====================================================================
-   BUDGET VIEW — you choose the period: any single week of the 8, or all
-   of them combined. Spend is only ever what's currently ticked, since
-   unticking already removed its log entry.
-===================================================================== */
-/* =====================================================================
-   INVENTORY — what's actually at home for every product, with a quick
-   status tap, so the weekly check-in and shopping list can both reflect
-   reality instead of assuming everything runs out on schedule.
-===================================================================== */
-function renderInventory(){
-  const mount = document.getElementById('inventory-view');
-  const needsAttention = products.filter(function(p){ const inv = inventory[p.id]; return inv && (inv.status==='low'||inv.status==='finished'); });
-  const rest = products.filter(function(p){ const inv = inventory[p.id]; return !inv || (inv.status!=='low'&&inv.status!=='finished'); });
-
-  function rowHtml(p){
-    const inv = inventory[p.id] || {};
-    const status = inv.status || 'full';
-    return '<div class="inv-row" data-invproduct="'+p.id+'">'+
-      '<div class="inv-row-top"><span class="inv-name">'+escapeHtml(p.name)+'</span>'+
-        (inv.lastPurchased ? '<span class="inv-meta">Last bought '+inv.lastPurchased+'</span>' : '<span class="inv-meta">Never logged</span>')+'</div>'+
-      '<div class="inv-status-row">'+STOCK_LEVELS.map(function(s){
-        return '<button type="button" class="inv-stock-btn '+(status===s?'active':'')+'" data-invstatus="'+p.id+':'+s+'">'+STOCK_LABELS[s]+'</button>';
-      }).join('')+'</div>'+
-      (status==='low'||status==='finished' ? '<button type="button" class="inv-addlist-btn" data-invaddlist="'+p.id+'">+ Add to this week\'s list</button>' : '')+
-    '</div>';
-  }
-
-  let html = '<p class="inv-intro">What\'s actually at home right now — tap a status any time, or let buying something reset it to Full automatically.</p>';
-  if(needsAttention.length){
-    html += '<div class="store-group"><div class="store-head"><h3>Needs attention</h3><span class="count">'+needsAttention.length+'</span></div>'+needsAttention.map(rowHtml).join('')+'</div>';
-  }
-  html += '<div class="store-group"><div class="store-head"><h3>Everything else</h3><span class="count">'+rest.length+'</span></div>'+rest.map(rowHtml).join('')+'</div>';
-  mount.innerHTML = html;
-
-  mount.querySelectorAll('[data-invstatus]').forEach(function(btn){
-    btn.addEventListener('click', async function(){
-      const [pid, status] = btn.dataset.invstatus.split(':');
-      inventory[pid] = Object.assign({}, inventory[pid], { status: status });
-      await saveInventory();
-      renderInventory();
-    });
-  });
-  mount.querySelectorAll('[data-invaddlist]').forEach(function(btn){
-    btn.addEventListener('click', async function(){
-      const p = productById(btn.dataset.invaddlist);
-      const week = currentWeekFromDate();
-      if(!extras[week]) extras[week] = [];
-      extras[week].push({ key: week+':extra-'+Date.now(), name: p.name, done:false, price:null });
-      await saveExtras();
-      alert(p.name+' added to this week\'s list.');
-    });
-  });
-}
-
-/* =====================================================================
-   SHOP — a focused view for the actual store trip: current week only,
-   grouped by store, big tap targets, running total front and center.
-===================================================================== */
-let unlockedForEdit = {}; // { [week]: true } — session-only override for a completed week
-function renderShop(){
-  const mount = document.getElementById('shop-view');
-  const week = currentWeekFromDate();
-  const isLocked = tripHistory[week] && tripHistory[week].completed && !unlockedForEdit[week];
-  if(isLocked){
-    mount.innerHTML = '<div class="week-locked-banner"><div class="wl-title">✓ '+cycleWeekLabel(week)+' — Completed</div>'+
-      '<div class="wl-sub">Finished on '+tripHistory[week].completedAt+'. Locked so a finished trip doesn\'t change by accident.</div>'+
-      '<button type="button" id="unlock-week-btn">Edit Completed Week</button></div>';
-    document.getElementById('unlock-week-btn').addEventListener('click', function(){ unlockedForEdit[week] = true; renderShop(); });
+if(state.featureVersion!==1)migrateFeatures();
+zero=function(){return{calories:0,protein:0,carbs:0,fat:0,fiber:0,satFat:0,sugar:0,sodium:0,calcium:0,iron:0,potassium:0,vitaminD:0}}
+nutrients=function(it){let f=food(it.foodId);if(!f)return zero();let factor=toBasisQty(f,it.qty,it.unit)/f.basis,n=zero();Object.keys(n).forEach(k=>n[k]=(f[k]||0)*factor);return n}
+todayKey=function(){return state.selectedDate}
+function addDaysISO(iso,d){let x=new Date(iso+'T12:00:00');x.setDate(x.getDate()+d);return x.toISOString().slice(0,10)}
+function mondayOf(iso){let d=new Date(iso+'T12:00:00'),n=(d.getDay()+6)%7;return addDaysISO(iso,-n)}
+function formatDate(iso,opt={month:'short',day:'numeric'}){return new Date(iso+'T12:00:00').toLocaleDateString(undefined,opt)}
+function updateHeaderDate(){$('todayDate').textContent=formatDate(state.selectedDate,{weekday:'long',month:'long',day:'numeric'})}
+function consumptionFor(items,factor=1){let map={};items.forEach(it=>{let f=food(it.foodId),q=toBasisQty(f,it.qty,it.unit)*factor;map[f.id]=(map[f.id]||0)+q});return Object.entries(map).map(([foodId,qty])=>({foodId,qty}))}
+function mergeConsumption(groups){let m={};groups.flat().forEach(x=>m[x.foodId]=(m[x.foodId]||0)+x.qty);return Object.entries(m).map(([foodId,qty])=>({foodId,qty}))}
+function applyConsumption(list,direction=-1){list.forEach(c=>{let p=state.pantry.find(x=>x.foodId===c.foodId);if(p)p.qty=Math.max(0,p.qty+direction*c.qty)})}
+function updateDiary(id,key,val){let e=state.diary.find(x=>x.id===id);if(!e)return;if(key==='status'){let was=e.status||'eaten';if(was==='eaten'&&val!=='eaten')applyConsumption(e.consumption||[],1);if(was!=='eaten'&&val==='eaten')applyConsumption(e.consumption||[],-1)}e[key]=val;persist();renderAll()}
+removeDiary=function(id){let e=state.diary.find(x=>x.id===id);if(e&&(e.status||'eaten')==='eaten')applyConsumption(e.consumption||[],1);state.diary=state.diary.filter(x=>x.id!==id);persist();renderAll()}
+diaryNutrients=function(){return state.diary.filter(x=>x.date===todayKey()&&x.profileId===state.activeProfile&&(x.status||'eaten')==='eaten').reduce((a,x)=>{let f=x.servings/(x.recipeServings||1);Object.keys(a).forEach(k=>a[k]+=(x.nutrition[k]||0)*f);return a},zero())}
+confirmLog=function(){if(!logDraft||!logDraft.items.length)return toast('Add at least one ingredient');let servings=Math.max(.25,+$('logServings').value||1),name=$('logName').value.trim()||logDraft.name,factor=servings/(logDraft.servings||1),c=consumptionFor(logDraft.items,factor);logDraft.name=name;if($('updateMaster').checked)state.recipes=state.recipes.map(r=>r.id===logDraft.id?clone(logDraft):r);applyConsumption(c,-1);state.diary.push({id:'d-'+Date.now(),date:todayKey(),profileId:state.activeProfile,recipeId:logDraft.id,name,detail:'Customized recipe',icon:'🍽️',servings,nutrition:recipeNutrients(logDraft),recipeServings:logDraft.servings,status:'eaten',note:'',consumption:c});persist();closeLogModal();renderAll();toast(`${name} added to ${formatDate(todayKey())}`);go('dashboard')}
+confirmBundle=function(){let parts=bundleDraft.parts.filter(p=>p.include);if(!parts.length)return toast('Select at least one recipe');if($('bundleUpdate').checked)parts.forEach(p=>state.recipes=state.recipes.map(r=>r.id===p.recipe.id?clone(p.recipe):r));let n=addNutrition(parts.map(p=>recipeServingN(p.recipe))),c=mergeConsumption(parts.map(p=>consumptionFor(p.recipe.items,1/(p.recipe.servings||1)))),m=bundleDraft.meal;applyConsumption(c,-1);state.diary.push({id:'d-'+Date.now(),date:todayKey(),profileId:state.activeProfile,name:m.name,detail:parts.map(p=>p.recipe.name).join(' + '),icon:m.icon,servings:1,recipeServings:1,nutrition:n,status:'eaten',note:'',consumption:c});persist();closeBundle();renderAll();go('dashboard');toast(`${m.name} added to ${formatDate(todayKey())}`)}
+logFullDay=function(){let ms=state.meals.filter(m=>m.profileId===state.activeProfile);if(!confirm(`Log all ${ms.length} meals for ${active().name} on ${formatDate(todayKey())}?`))return;ms.forEach((m,i)=>{let rs=m.recipeIds.map(id=>state.recipes.find(r=>r.id===id)).filter(Boolean),c=mergeConsumption(rs.map(r=>consumptionFor(r.items,1/(r.servings||1))));applyConsumption(c,-1);state.diary.push({id:`d-${Date.now()}-${i}`,date:todayKey(),profileId:state.activeProfile,name:m.name,detail:rs.map(r=>r.name).join(' + '),icon:m.icon,servings:1,recipeServings:1,nutrition:mealNutrition(m),status:'eaten',note:'',consumption:c})});persist();renderAll();go('dashboard');toast('Complete day logged')}
+renderDashboard=function(){updateHeaderDate();let n=diaryNutrients(),g=active().goals,data=[['Calories',n.calories,g.calories,'kcal'],['Protein',n.protein,g.protein,'g'],['Carbs',n.carbs,g.carbs,'g'],['Fat',n.fat,g.fat,'g']];$('stats').innerHTML=data.map(([k,v,t,u])=>`<div class="stat"><div class="stat-top"><span>${k}</span><span>${round(v,0)} / ${t} ${u}</span></div><b>${round(Math.max(0,t-v),0)} <small style="font-size:12px;color:var(--muted)">${u} left</small></b><div class="bar"><i style="width:${Math.min(100,v/t*100)}%"></i></div></div>`).join('');let entries=state.diary.filter(x=>x.date===todayKey()&&x.profileId===state.activeProfile);$('mealList').innerHTML=entries.length?entries.map(x=>{let f=x.servings/(x.recipeServings||1),nn=scaled(x.nutrition,f),s=x.status||'eaten';return`<div class="meal" style="opacity:${s==='skipped'?.55:1}"><div class="meal-icon">${x.icon||'🍽️'}</div><div class="meal-main"><div class="meal-name">${esc(x.name)}</div><div class="macro-mini">${esc(x.detail||'Meal')} · P ${round(nn.protein)}g · C ${round(nn.carbs)}g · F ${round(nn.fat)}g</div><div class="diary-controls"><select onchange="updateDiary('${x.id}','status',this.value)"><option value="planned" ${s==='planned'?'selected':''}>Planned</option><option value="eaten" ${s==='eaten'?'selected':''}>Eaten</option><option value="skipped" ${s==='skipped'?'selected':''}>Skipped</option></select><input class="input note-input" value="${esc(x.note||'')}" placeholder="Hunger, energy, digestion…" onchange="updateDiary('${x.id}','note',this.value)"></div></div><div class="kcal">${s==='eaten'?round(nn.calories,0):0} kcal</div><button class="icon-btn" onclick="removeDiary('${x.id}')">×</button></div>`}).join(''):'<div class="empty"><div class="orb">🥗</div><b>No entries for this date</b><div>Open Meal plan or Week to add the standard plan.</div></div>';let pct=Math.min(1,n.calories/g.calories);$('calRing').style.setProperty('--angle',pct*360+'deg');$('ringValue').textContent=round(n.calories,0);$('ringGoal').textContent=`of ${g.calories.toLocaleString()} kcal`;$('dailyTip').textContent=n.calories?`${round(g.calories-n.calories,0)} kcal remaining. Protein: ${round(n.protein)} of ${g.protein} g.`:`${active().name}’s plan is ready for ${formatDate(todayKey())}.`}
+function renderCalendar(){let start=mondayOf(state.weekAnchor),days=Array.from({length:7},(_,i)=>addDaysISO(start,i));$('weekTitle').textContent=`${formatDate(start)} – ${formatDate(days[6],{month:'short',day:'numeric',year:'numeric'})}`;$('weekGrid').innerHTML=days.map(d=>{let es=state.diary.filter(x=>x.date===d&&x.profileId===state.activeProfile),eaten=es.filter(x=>(x.status||'eaten')==='eaten'),n=addNutrition(eaten.map(x=>scaled(x.nutrition,x.servings/(x.recipeServings||1)))),status=eaten.length>=5?'done':eaten.length?'partial':'';return`<button class="day-card ${d===state.selectedDate?'active':''}" onclick="selectDate('${d}')"><span class="status-dot ${status}"></span><div class="dayname">${formatDate(d,{weekday:'short'})}</div><div class="daynum">${new Date(d+'T12:00:00').getDate()}</div><div class="daymacro"><b>${eaten.length}/5 meals</b><br>${round(n.calories,0)} kcal<br>${round(n.protein)} g protein</div></button>`}).join('')}
+function selectDate(d){state.selectedDate=d;state.weekAnchor=d;persist();updateHeaderDate();renderCalendar()}
+function selectToday(){selectDate(new Date().toISOString().slice(0,10))}function moveWeek(n){state.weekAnchor=addDaysISO(state.weekAnchor,n);persist();renderCalendar()}function openSelectedDay(){go('dashboard')}
+function copyPreviousDay(){let src=addDaysISO(state.selectedDate,-1),old=state.diary.filter(x=>x.date===src&&x.profileId===state.activeProfile);if(!old.length)return toast('Previous day has no entries');old.forEach((x,i)=>state.diary.push({...clone(x),id:`d-copy-${Date.now()}-${i}`,date:state.selectedDate,status:'planned',note:'Copied from previous day'}));persist();renderAll();toast('Previous day copied as planned')}
+function logPlanForSelectedDay(){let ms=state.meals.filter(m=>m.profileId===state.activeProfile);ms.forEach((m,i)=>{let rs=m.recipeIds.map(id=>state.recipes.find(r=>r.id===id)).filter(Boolean),c=mergeConsumption(rs.map(r=>consumptionFor(r.items,1/(r.servings||1))));state.diary.push({id:`d-plan-${Date.now()}-${i}`,date:state.selectedDate,profileId:state.activeProfile,name:m.name,detail:rs.map(r=>r.name).join(' + '),icon:m.icon,servings:1,recipeServings:1,nutrition:mealNutrition(m),status:'planned',note:'',consumption:c})});persist();renderAll();toast('Standard plan added as planned')}
+function aggregatePrep(scope,days){let profiles=scope==='both'?['bhargav','anusha']:[state.activeProfile],map={};profiles.forEach(pid=>state.meals.filter(m=>m.profileId===pid).forEach(m=>m.recipeIds.forEach(id=>{let r=state.recipes.find(x=>x.id===id);r?.items.forEach(it=>{let f=food(it.foodId),q=toBasisQty(f,it.qty,it.unit)/(r.servings||1)*days;map[f.id]=(map[f.id]||0)+q})})));return map}
+function renderPrep(){let scope=$('prepScope').value,days=+$('prepDays').value,map=aggregatePrep(scope,days),key=`${scope}-${days}`;$('prepList').innerHTML=Object.entries(map).filter(([id])=>!['salt','chili','water'].includes(id)).sort((a,b)=>a[0].localeCompare(b[0])).map(([id,q])=>{let f=food(id),ck=`${key}-${id}`,done=!!state.prepChecks[ck];return`<label class="prep-item ${done?'done':''}"><input type="checkbox" ${done?'checked':''} onchange="togglePrep('${ck}',this.checked)"><span><b>${esc(f.name)}</b><br><small class="subtle">Measure, portion, or confirm stock</small></span><b>${round(q,1)} ${f.unit}</b></label>`}).join('')}
+function togglePrep(k,v){state.prepChecks[k]=v;persist();renderPrep()}
+function populateYieldRecipes(){$('yieldRecipe').innerHTML=state.recipes.filter(r=>r.profileId===state.activeProfile).map(r=>`<option value="${r.id}">${esc(r.name)}</option>`).join('');loadYield()}
+function loadYield(){let r=state.recipes.find(x=>x.id===$('yieldRecipe').value),y=r?.yield;if(y){$('yieldRaw').value=y.raw;$('yieldCooked').value=y.cooked;$('yieldPortion').value=y.portion}calculateYield()}
+function calculateYield(){let raw=+$('yieldRaw').value||0,cooked=+$('yieldCooked').value||0,portion=+$('yieldPortion').value||0;$('yieldPortions').value=cooked&&portion?round(cooked/portion,2):0;$('yieldResult').textContent=cooked?`${round(raw*portion/cooked,1)} g`:'0 g'}
+function saveYield(){let r=state.recipes.find(x=>x.id===$('yieldRecipe').value);if(!r)return toast('Choose a recipe');r.yield={raw:+$('yieldRaw').value,cooked:+$('yieldCooked').value,portion:+$('yieldPortion').value};persist();toast('Cooking yield saved')}
+function renderPantry(){$('pantryList').innerHTML=state.pantry.map((p,i)=>{let f=food(p.foodId),low=p.qty<=p.lowAt;return`<div class="pantry-row"><div class="field"><label>Ingredient</label><div><b>${esc(f.name)}</b><br><span class="${low?'stock-low':'stock-good'}">${low?'Low stock':'In stock'}</span></div></div><div class="field"><label>On hand (${f.unit})</label><input class="input" type="number" value="${round(p.qty,2)}" onchange="pantryChange(${i},'qty',this.value)"></div><div class="field"><label>Low at</label><input class="input" type="number" value="${p.lowAt}" onchange="pantryChange(${i},'lowAt',this.value)"></div><div class="field"><label>Expiry</label><input class="input" type="date" value="${p.expiry||''}" onchange="pantryChange(${i},'expiry',this.value)"></div><div class="field"><label>Store</label><input class="input" value="${esc(p.store||'')}" onchange="pantryChange(${i},'store',this.value)"></div></div>`}).join('')}
+function pantryChange(i,k,v){state.pantry[i][k]=['qty','lowAt'].includes(k)?Math.max(0,+v||0):v;persist();renderPantry()}
+function restockWeek(){let map=aggregatePrep('both',7);Object.entries(map).forEach(([id,q])=>{let p=state.pantry.find(x=>x.foodId===id);if(p)p.qty+=q});persist();renderPantry();toast('One combined week added to inventory')}
+function renderProgress(){let rows=state.progress[state.activeProfile]||[];$('progressProfile').textContent=`Measurements for ${active().name}`;$('prDate').value=$('prDate').value||state.selectedDate;$('progressRows').innerHTML=[...rows].sort((a,b)=>b.date.localeCompare(a.date)).map(x=>`<tr><td>${formatDate(x.date)}</td><td>${x.weight||'—'} lb</td><td>${x.waist||'—'} in</td><td>${x.steps||'—'}</td><td>${x.sleep||'—'} h</td><td>${x.water||'—'} L</td><td>${x.workout==='yes'?'✓':'—'}</td><td>${esc(x.notes||'')}</td><td><button class="icon-btn" onclick="deleteProgress('${x.id}')">×</button></td></tr>`).join('');let trend=[...rows].filter(x=>x.weight).sort((a,b)=>a.date.localeCompare(b.date)).slice(-10),vals=trend.map(x=>x.weight),min=Math.min(...vals,0),max=Math.max(...vals,1);$('weightTrend').innerHTML=trend.length?trend.map(x=>`<div class="trend-col"><small>${x.weight}</small><div class="trend-bar" style="height:${30+(x.weight-min)/(max-min||1)*100}px"></div><small class="subtle">${formatDate(x.date,{month:'numeric',day:'numeric'})}</small></div>`).join(''):'<div class="empty">Add weight entries to see a trend.</div>'}
+function saveProgress(){let x={id:'p-'+Date.now(),date:$('prDate').value||state.selectedDate,weight:num('prWeight')||null,waist:num('prWaist')||null,steps:num('prSteps')||null,sleep:num('prSleep')||null,water:num('prWater')||null,workout:$('prWorkout').value,notes:$('prNotes').value.trim()};state.progress[state.activeProfile].push(x);persist();['prWeight','prWaist','prSteps','prSleep','prWater','prNotes'].forEach(id=>$(id).value='');renderProgress();toast('Progress entry saved')}
+function deleteProgress(id){state.progress[state.activeProfile]=state.progress[state.activeProfile].filter(x=>x.id!==id);persist();renderProgress()}
+function renderNutrition(){let n=diaryNutrients(),g=active().microGoals,defs=[['Saturated fat','satFat','g','limit'],['Sugar','sugar','g','limit'],['Sodium','sodium','mg','limit'],['Calcium','calcium','mg','minimum'],['Iron','iron','mg','minimum'],['Potassium','potassium','mg','minimum'],['Vitamin D','vitaminD','mcg','minimum']];$('nutritionDate').textContent=`${active().name} · ${formatDate(state.selectedDate,{weekday:'long',month:'long',day:'numeric'})}`;$('microGrid').innerHTML=defs.map(([label,k,u,type])=>`<div class="micro-card"><div class="micro-card-top"><b>${label}</b><span>${round(n[k],1)} / ${g[k]} ${u}</span></div><div class="bar"><i style="width:${Math.min(100,n[k]/g[k]*100)}%"></i></div><small class="subtle">Daily ${type}</small></div>`).join('')}
+function lastDays(n){return Array.from({length:n},(_,i)=>addDaysISO(new Date().toISOString().slice(0,10),i-(n-1)))}
+function renderInsights(){let days=lastDays(7),entries=state.diary.filter(x=>x.profileId===state.activeProfile&&days.includes(x.date)),eaten=entries.filter(x=>(x.status||'eaten')==='eaten'),skipped=entries.filter(x=>x.status==='skipped'),g=active().goals,dayData=days.map(d=>{let es=eaten.filter(x=>x.date===d),n=addNutrition(es.map(x=>scaled(x.nutrition,x.servings/(x.recipeServings||1))));return{d,count:es.length,n}}),activeDays=dayData.filter(x=>x.count),avgCal=activeDays.length?activeDays.reduce((a,x)=>a+x.n.calories,0)/activeDays.length:0,avgPro=activeDays.length?activeDays.reduce((a,x)=>a+x.n.protein,0)/activeDays.length:0,proteinDays=dayData.filter(x=>x.n.protein>=g.protein*.9).length,adherence=Math.min(100,eaten.length/35*100);$('adherenceScores').innerHTML=[['Meal adherence',`${round(adherence,0)}%`],['Meals completed',`${eaten.length}/35`],['Average calories',`${round(avgCal,0)}`],['Protein days',`${proteinDays}/7`]].map(([k,v])=>`<div class="score"><b>${v}</b><span>${k}</span></div>`).join('');$('adherenceDays').innerHTML=dayData.map(x=>`<div class="metric-row"><span>${formatDate(x.d,{weekday:'short',month:'short',day:'numeric'})}</span><div class="bar"><i style="width:${Math.min(100,x.count/5*100)}%"></i></div><b>${x.count}/5</b></div>`).join('');let notes=[];if(avgPro<g.protein*.9)notes.push(['Protein consistency',`Average protein on logged days is ${round(avgPro)} g versus a ${g.protein} g target.`]);else notes.push(['Protein consistency','Protein is averaging close to or above the target on logged days.']);if(skipped.length)notes.push(['Skipped meals',`${skipped.length} meal${skipped.length===1?' was':'s were'} marked skipped this week.`]);let low=state.pantry.filter(p=>p.qty<=p.lowAt);notes.push(['Pantry readiness',low.length?`${low.length} ingredient${low.length===1?' is':'s are'} currently low.`:'Tracked pantry items are above their low-stock thresholds.']);$('adherencePatterns').innerHTML=notes.map(([a,b],i)=>`<div class="why"><i>${i+1}</i><div><b>${a}</b><span>${b}</span></div></div>`).join('')}
+openFoodModal=function(id){editingFood=id||null;let f=id?food(id):{name:'',basis:100,unit:'g',calories:0,protein:0,carbs:0,fat:0,fiber:0,satFat:0,sugar:0,sodium:0,calcium:0,iron:0,potassium:0,vitaminD:0,pieceG:'',density:''};$('modalTitle').textContent=id?'Edit ingredient':'Add custom ingredient';['Name','Basis','Unit','Calories','Protein','Carbs','Fat','Fiber','SatFat','Sugar','Sodium','Calcium','Iron','Potassium','VitaminD','PieceG','Density'].forEach(k=>$('f'+k).value=f[k[0].toLowerCase()+k.slice(1)]??'');$('foodModal').classList.add('open')}
+saveFood=function(){let name=$('fName').value.trim(),basis=+$('fBasis').value;if(!name||basis<=0)return toast('Name and basis amount are required');let f={id:editingFood||'custom-'+Date.now(),name,basis,unit:$('fUnit').value};['Calories','Protein','Carbs','Fat','Fiber','SatFat','Sugar','Sodium','Calcium','Iron','Potassium','VitaminD','PieceG','Density'].forEach(k=>f[k[0].toLowerCase()+k.slice(1)]=num('f'+k)||undefined);microKeys.forEach(k=>f[k]=f[k]||0);['calories','protein','carbs','fat','fiber'].forEach(k=>f[k]=f[k]||0);if(editingFood)state.foods=state.foods.map(x=>x.id===editingFood?f:x);else{state.foods.push(f);state.pantry.push({foodId:f.id,qty:0,lowAt:1,expiry:'',store:'Pantry'})}persist();closeFoodModal();fillFoodSelect();renderAll();toast('Ingredient saved')}
+importData=function(e){let file=e.target.files[0];if(!file)return;let reader=new FileReader();reader.onload=()=>{try{let x=JSON.parse(reader.result);if(!x.foods||!x.recipes||!x.profiles)throw 0;state=x;if(state.featureVersion!==1)migrateFeatures();persist();fillFoodSelect();setProfile(state.activeProfile||'bhargav');toast('Data imported')}catch{toast('That file is not valid Nourish Duo data')}};reader.readAsText(file)}
+const previousSetProfile=setProfile;setProfile=function(id){previousSetProfile(id);populateYieldRecipes();renderCalendar();renderPrep();renderPantry();renderProgress();renderNutrition();renderInsights()}
+go=function(id){document.querySelectorAll('.page').forEach(p=>p.classList.toggle('active',p.id===id));document.querySelectorAll('[data-page]').forEach(b=>b.classList.toggle('active',b.dataset.page===id));let titles={dashboard:['Daily nutrition','Today'],mealplan:['Meal structure','Daily meal plan'],calendar:['Seven-day view','Weekly calendar'],prep:['Batch cooking','Meal preparation'],pantry:['Inventory and expiry','Pantry'],progress:['Body and habits','Progress'],nutrition:['Micronutrients and limits','Expanded nutrition'],insights:['Seven-day consistency','Adherence dashboard'],builder:['Create & calculate','Recipe builder'],recipes:['Your collection','My recipes'],foods:['Nutrition database','Ingredients'],settings:['Personalize','Goals & settings']},t=titles[id];$('eyebrow').textContent=t[0];$('pageTitle').textContent=t[1];updateHeaderDate();if(id==='dashboard')renderDashboard();if(id==='mealplan')renderMealPlan();if(id==='calendar')renderCalendar();if(id==='prep'){populateYieldRecipes();renderPrep()}if(id==='pantry')renderPantry();if(id==='progress')renderProgress();if(id==='nutrition')renderNutrition();if(id==='insights')renderInsights();if(id==='recipes')renderRecipes();if(id==='foods')renderFoods();if(id==='settings')loadGoalInputs();scrollTo(0,0)}
+renderAll=function(){renderDashboard();renderBuilder();renderRecipes();renderFoods();renderMealPlan();loadGoalInputs();renderCalendar();renderPrep();renderPantry();renderProgress();renderNutrition();renderInsights()}
+resetData=function(){if(!confirm('Restore both original diet plans? This removes custom data, inventory changes, and history.'))return;state=makeFinalState();migrateFeatures();draft=clone(state.recipes[0]);fillFoodSelect();setProfile('bhargav');toast('Original plans restored')}
+document.querySelector('.sidebar').style.overflowY='auto';updateHeaderDate();populateYieldRecipes();renderAll();
+</script>
+<script>
+/* Connected app layer: account sync, Grocery inventory, Gym progress, and hub navigation. */
+(function(){
+  const gate=$('loadingGate'), gateText=$('loadingText'), shell=$('appShell');
+  if(typeof firebase==='undefined'){
+    gateText.textContent='The connected services could not load. Check your internet connection and refresh.';
     return;
   }
-  const fullList = weekItemList(week).filter(function(i){ return !i.skippedThisWeek; });
-  const spent = fullList.filter(function(i){ return i.done; }).reduce(function(s,i){ return s+(i.price||0)*(i.extra?1:i.qty); }, 0);
-  const remaining = fullList.filter(function(i){ return !i.done; }).length;
-  const pct = budgetTarget ? Math.min(100, Math.round(100*spent/budgetTarget)) : 0;
+  const firebaseConfig={
+    apiKey:'AIzaSyBe01eR2RZwSbU_aoJMeh_2MMJ5mqkVuKk',
+    authDomain:'iron-log-bfc55.firebaseapp.com',
+    projectId:'iron-log-bfc55',
+    storageBucket:'iron-log-bfc55.firebasestorage.app',
+    messagingSenderId:'106586808946',
+    appId:'1:106586808946:web:f4736554ba9fc82c6fd8eb'
+  };
+  if(!firebase.apps.length)firebase.initializeApp(firebaseConfig);
+  const auth=firebase.auth(),db=firebase.firestore();
+  try{db.enablePersistence({synchronizeTabs:true}).catch(function(){});}catch(e){}
+  let appUser=null,cloudReady=false,saveTimer=null;
+  const originalLocalPersist=persist;
+  function stateDoc(){return db.collection('users').doc(appUser.uid).collection('apps').doc('nourish-diet-v2').collection('data').doc('state');}
+  function setCloudStatus(label,ready){$('cloudLabel').textContent=label;$('cloudDot').classList.toggle('ready',!!ready);}
+  persist=function(){
+    originalLocalPersist();
+    if(!cloudReady||!appUser)return;
+    setCloudStatus('Saving…',false);
+    clearTimeout(saveTimer);
+    saveTimer=setTimeout(function(){
+      stateDoc().set({json:JSON.stringify(state),updatedAt:firebase.firestore.FieldValue.serverTimestamp()})
+        .then(function(){setCloudStatus('Saved to cloud',true);})
+        .catch(function(){setCloudStatus('Saved on this device; cloud retry needed',false);});
+    },350);
+  };
 
-  let html = (unlockedForEdit[week] ? '<div class="week-locked-banner" style="margin-bottom:10px;"><div class="wl-sub" style="margin-bottom:0;">Editing a completed week — re-completing will update its saved record.</div></div>' : '')+
-    '<div class="shop-header"><div class="shop-title">'+cycleWeekLabel(week)+' — Shopping</div>'+
-    '<div class="shop-total-row"><div><div class="shop-total-num">'+fmtMoney(spent)+'</div><div class="shop-total-label">cart total</div></div>'+
-    '<div class="shop-remaining"><div class="shop-total-num">'+remaining+'</div><div class="shop-total-label">left to get</div></div></div>'+
-    '<div class="week-bar-track"><div class="week-bar-fill" style="width:'+pct+'%;'+(spent>budgetTarget?'background:var(--danger);':'')+'"></div></div>'+
-    '<div class="shop-budget-sub">'+fmtMoney(budgetTarget-spent)+' left of '+fmtMoney(budgetTarget)+' budget</div>'+
-  '</div>';
+  const groceryProducts=[
+    ['costco-eggs','Kirkland Signature Large Eggs (60 ct)'],['costco-whey','ON Gold Standard Whey, Chocolate (5.64 lb)'],
+    ['costco-paneer','Verka Paneer Indian Cheese (32 oz)'],['costco-milk','Kirkland 2% Milk (2×1 gallon)'],
+    ['costco-yogurt','Kirkland Nonfat Plain Greek Yogurt (48 oz)'],['costco-oats','Quaker Old-Fashioned Rolled Oats (10 lb)'],
+    ['costco-flax',"Bob's Red Mill Organic Golden Flaxseed Meal (64 oz)"],['costco-rice','Royal Basmati Rice (20 lb)'],
+    ['costco-dal','Khazana Organic Masoor Dal (7 lb)'],['costco-mandarin','Dole Mandarin Oranges in Juice (16 ct)'],
+    ['costco-banana','Costco Bananas (3 lb)'],['costco-ghee','Kirkland Signature Organic Ghee (27 oz)'],
+    ['costco-lemon','Costco Lemons (5 lb)'],['costco-water','Kirkland Purified Water (40×500 ml)'],
+    ['tj-lunchsalad',"Trader Joe's Organic Baby Lettuce Mix (5 oz)"],['tj-dinnersalad',"Trader Joe's Organic Herb Salad Mix (5 oz)"],
+    ['tj-fruit',"Trader Joe's Fresh-Cut Fruit"]
+  ];
+  const stockLabels={full:'Full','75':'75%',half:'Half','25':'25%',low:'Low',finished:'Finished'};
+  renderPantry=async function(){
+    if(!appUser){$('pantryList').innerHTML='<div class="empty">Connecting to Grocery…</div>';return;}
+    $('pantryList').innerHTML='<div class="empty">Loading live Grocery inventory…</div>';
+    try{
+      const doc=await db.collection('users').doc(appUser.uid).collection('apps').doc('grocery-v4').collection('data').doc('inventory').get();
+      const inventory=doc.exists&&doc.data().json?JSON.parse(doc.data().json):{};
+      $('pantryList').innerHTML=groceryProducts.map(function(p){const item=inventory[p[0]],status=item&&item.status,label=status?(stockLabels[status]||status):'Not tracked',low=status==='low'||status==='finished';return '<div class="live-row"><div><b>'+esc(p[1])+'</b><div class="subtle">'+(item&&item.lastPurchased?'Last purchased '+esc(item.lastPurchased):'No purchase recorded')+'</div></div><span class="tag">Grocery</span><b class="'+(low?'stock-low':'stock-good')+'">'+esc(label)+'</b></div>';}).join('');
+    }catch(e){$('pantryList').innerHTML='<div class="empty">Grocery inventory is unavailable right now. Open Grocery or try Refresh.</div>';}
+  };
 
-  const groups = {}; const order = [];
-  fullList.forEach(function(i){ const g = i.store||'Extra items'; if(!groups[g]){ groups[g]=[]; order.push(g); } groups[g].push(i); });
-  order.sort(function(a,b){ if(a==='Extra items') return 1; if(b==='Extra items') return -1; return a.localeCompare(b); });
+  renderProgress=async function(){
+    $('progressProfile').textContent='Live measurements for '+active().name;
+    if(!appUser){$('latestProgress').innerHTML='<div class="empty">Connecting to Gym…</div>';return;}
+    $('latestProgress').innerHTML='<div class="empty">Loading Gym history…</div>';
+    try{
+      const base=db.collection('users').doc(appUser.uid).collection('profiles').doc(state.activeProfile);
+      const results=await Promise.all([base.collection('dailyLogs').get(),base.collection('workoutLogs').get()]);
+      const rows=[],workouts=new Set();results[0].forEach(function(d){rows.push(Object.assign({date:d.id},d.data()));});results[1].forEach(function(d){workouts.add(d.id.split(':')[0]);});rows.sort(function(a,b){return String(b.date).localeCompare(String(a.date));});
+      const latest=rows[0];
+      $('latestProgress').innerHTML=latest?'<div class="goal-grid"><div class="score"><b>'+(latest.weight??'—')+'</b><span>Weight</span></div><div class="score"><b>'+(latest.waist??'—')+'</b><span>Waist</span></div><div class="score"><b>'+(latest.steps??'—')+'</b><span>Steps</span></div><div class="score"><b>'+(latest.sleep??'—')+'</b><span>Sleep hours</span></div></div><div class="subtle" style="margin-top:12px">Latest entry: '+esc(latest.date||'')+'</div>':'<div class="empty">No progress entries in Gym yet.</div>';
+      const trend=rows.filter(function(x){return x.weight!==null&&x.weight!==undefined&&x.weight!=='';}).slice(0,10).reverse(),values=trend.map(function(x){return +x.weight;}),min=values.length?Math.min.apply(null,values):0,max=values.length?Math.max.apply(null,values):1;
+      $('weightTrend').innerHTML=trend.length?trend.map(function(x){return '<div class="trend-col"><small>'+esc(x.weight)+'</small><div class="trend-bar" style="height:'+(35+(+x.weight-min)/(max-min||1)*95)+'px"></div><small class="subtle">'+formatDate(x.date,{month:'numeric',day:'numeric'})+'</small></div>';}).join(''):'<div class="empty">Log weight in Gym to see a trend.</div>';
+      $('progressRows').innerHTML=rows.slice(0,30).map(function(x){return '<tr><td>'+esc(x.date||'')+'</td><td>'+(x.weight??'—')+'</td><td>'+(x.waist??'—')+'</td><td>'+(x.steps??'—')+'</td><td>'+(x.sleep??'—')+'</td><td>'+(x.water??'—')+'</td><td>'+(workouts.has(x.date)?'✓':'—')+'</td><td>'+esc(x.notes||'')+'</td></tr>';}).join('');
+    }catch(e){$('latestProgress').innerHTML='<div class="empty">Gym history is unavailable right now. Open Gym or try Refresh.</div>';$('weightTrend').innerHTML='';$('progressRows').innerHTML='';}
+  };
 
-  html += order.map(function(g){
-    const rows = groups[g];
-    return '<div class="store-group"><div class="store-head"><h3>'+escapeHtml(g)+'</h3></div>'+
-      rows.map(function(item){
-        const qtyLabel = item.extra ? '' : (item.qty>1 ? item.qty+'× ' : '');
-        return '<div class="shop-row '+(item.done?'done':'')+'" data-shopkey="'+item.key+'">'+
-          '<input type="checkbox" class="shop-chk" data-shoptoggle="'+item.key+'" '+(item.done?'checked':'')+'>'+
-          '<div class="shop-item-body"><div class="shop-item-name">'+qtyLabel+escapeHtml(item.name)+'</div>'+
-          (item.done && item.price!=null ? '<div class="shop-item-price">'+fmtMoney(item.price)+'</div>' : '')+'</div>'+
-        '</div>';
-      }).join('')+
-    '</div>';
-  }).join('');
-
-  if(!fullList.length) html += '<div class="empty-note">Nothing on this week\'s list.</div>';
-  html += '<button type="button" class="complete-trip-btn" id="complete-trip-btn">Complete trip & review</button>';
-
-  mount.innerHTML = html;
-  mount.querySelectorAll('[data-shoptoggle]').forEach(function(cb){
-    cb.addEventListener('change', function(){
-      const key = cb.dataset.shoptoggle;
-      const item = fullList.find(function(i){ return i.key===key; });
-      const qty = item ? (item.extra ? 1 : item.qty) : 1;
-      if(cb.checked) openPricePrompt(key, renderShop, qty); else undoPurchase(key, renderShop);
-    });
-  });
-  document.getElementById('complete-trip-btn').addEventListener('click', openCompleteTripFlow);
-}
-
-/* =====================================================================
-   COMPLETE TRIP — closes out the current week: what was bought, what
-   wasn't, planned vs actual cost, and saves a permanent record for
-   History so nothing about a finished week gets lost or overwritten.
-===================================================================== */
-let tripHistory = {}; // { [week]: { completedAt, plannedCost, actualCost, purchasedCount, skippedCount } }
-async function loadTripHistory(){
-  try{ const d = await groceryDoc('tripHistory').get(); tripHistory = (d.exists && d.data().json) ? JSON.parse(d.data().json) : {}; }catch(e){ tripHistory = {}; }
-}
-async function saveTripHistory(){ try{ await groceryDoc('tripHistory').set({json: JSON.stringify(tripHistory)}); }catch(e){} }
-function openCompleteTripFlow(){
-  const week = currentWeekFromDate();
-  const list = weekItemList(week).filter(function(i){ return !i.skippedThisWeek; });
-  const purchased = list.filter(function(i){ return i.done; });
-  const notPurchased = list.filter(function(i){ return !i.done; });
-  const missingPrice = purchased.filter(function(i){
-    // weekItemList always falls back to the reference price for display,
-    // so check the raw saved record instead — that's the only place a
-    // truly-unrecorded price actually shows up as null.
-    if(i.extra){ const e = (extras[week]||[]).find(function(x){ return x.key===i.key; }); return e && e.price==null; }
-    const p = purchases[i.key];
-    return p && p.price==null;
-  });
-  const planned = list.reduce(function(s,i){ return s+(i.extra?(i.price||0):(productById(i.id)?productById(i.id).price:0)*i.qty); }, 0);
-  const actual = purchased.reduce(function(s,i){
-    let raw;
-    if(i.extra){ const e = (extras[week]||[]).find(function(x){ return x.key===i.key; }); raw = e ? e.price : null; }
-    else { const p = purchases[i.key]; raw = p ? p.price : null; }
-    return s+(raw||0)*(i.extra?1:i.qty);
-  }, 0);
-  const diff = actual-planned;
-  const mount = document.getElementById('modal-mount');
-  const alreadyCompleted = tripHistory[week] && tripHistory[week].completed;
-
-  function draw(){
-    mount.innerHTML = '<div class="price-overlay" id="trip-overlay"><div class="price-sheet" style="max-height:85vh;overflow-y:auto;">'+
-      '<h3>Complete '+cycleWeekLabel(week)+'?</h3>'+
-      (alreadyCompleted ? '<p style="font-size:12px;color:var(--gold);font-weight:700;">Already completed on '+tripHistory[week].completedAt+' — this will update that record.</p>' : '')+
-      '<div class="trip-summary-row"><span>Purchased</span><b>'+purchased.length+' item'+(purchased.length===1?'':'s')+'</b></div>'+
-      (notPurchased.length ? '<div class="trip-summary-row"><span>Not purchased</span><b>'+notPurchased.length+'</b></div>' : '')+
-      '<div class="trip-summary-row"><span>Planned cost</span><b>'+fmtMoney(planned)+'</b></div>'+
-      '<div class="trip-summary-row"><span>Actual recorded</span><b>'+fmtMoney(actual)+'</b></div>'+
-      '<div class="trip-summary-row" style="color:'+(diff>0?'var(--danger)':'var(--accent-deep)')+';"><span>Difference</span><b>'+(diff>=0?'+':'')+fmtMoney(diff)+'</b></div>'+
-      (missingPrice.length ? '<div class="trip-warning">⚠ '+missingPrice.length+' purchased item'+(missingPrice.length===1?'':'s')+' still need'+(missingPrice.length===1?'s':'')+' a price.<button type="button" id="trip-fillprices-btn">Enter missing prices</button></div>' : '')+
-      (notPurchased.length ? '<div class="ff-f" style="margin-top:12px;"><label>What about the '+notPurchased.length+' item'+(notPurchased.length===1?'':'s')+' not purchased?</label>'+
-        '<select id="trip-notpurchased-action"><option value="keep">Keep on this week, unchanged</option><option value="move">Move to next week</option><option value="unavailable">Mark unavailable (stays logged, not moved)</option><option value="notneeded">No longer needed (remove from list)</option></select></div>' : '')+
-      '<div class="sheet-actions" style="margin-top:14px;"><button class="btn-mini primary" id="trip-complete-btn" style="flex:1;">'+(alreadyCompleted?'Update completion':'Complete week')+'</button><button class="btn-mini ghost" id="trip-cancel-btn">Cancel</button></div>'+
-    '</div></div>';
-
-    if(missingPrice.length){
-      document.getElementById('trip-fillprices-btn').addEventListener('click', function(){
-        document.getElementById('modal-mount').innerHTML = '';
-        promptMissingPrices(missingPrice.slice(), week, openCompleteTripFlow);
-      });
-    }
-    document.getElementById('trip-complete-btn').addEventListener('click', async function(){
-      const action = notPurchased.length ? document.getElementById('trip-notpurchased-action').value : 'keep';
-      if(action==='move'){
-        notPurchased.forEach(function(i){
-          if(i.extra){
-            extras[week] = (extras[week]||[]).filter(function(x){ return x.key!==i.key; });
-            const nextWeek = week+1;
-            if(!extras[nextWeek]) extras[nextWeek] = [];
-            extras[nextWeek].push(Object.assign({}, i, { key: nextWeek+':extra-'+Date.now()+'-'+Math.random() }));
-          }
-          // Scheduled items reappear automatically via the repeating template — nothing to move for those.
-        });
-        await saveExtras();
-      } else if(action==='notneeded'){
-        notPurchased.forEach(function(i){
-          if(i.extra) extras[week] = (extras[week]||[]).filter(function(x){ return x.key!==i.key; });
-        });
-        await saveExtras();
+  auth.onAuthStateChanged(async function(user){
+    if(!user){window.location.href='../index.html';return;}
+    appUser=user;gateText.textContent='Loading your saved Nourish plan…';
+    try{
+      const doc=await stateDoc().get();
+      if(doc.exists&&doc.data().json){
+        const loaded=JSON.parse(doc.data().json);
+        if(loaded&&loaded.foods&&loaded.recipes&&loaded.profiles)state=loaded;
       }
-      // 'unavailable' and 'keep' both leave the list as-is — unavailable is just noted in the record.
-      tripHistory[week] = { completed:true, completedAt: (alreadyCompleted?tripHistory[week].completedAt:todayStr()), plannedCost: planned, actualCost: actual, purchasedCount: purchased.length, notPurchasedCount: notPurchased.length, notPurchasedAction: action };
-      await saveTripHistory();
-      document.getElementById('modal-mount').innerHTML = '';
-      showToast((alreadyCompleted?'Completion updated for ':'')+cycleWeekLabel(week)+(alreadyCompleted?'.':' completed.'));
-      // Open next week automatically, matching a real weekly-planning flow.
-      if(!alreadyCompleted){ activeWeek = week+1; }
-      renderShop(); renderWeekTabs();
-    });
-    document.getElementById('trip-cancel-btn').addEventListener('click', function(){ document.getElementById('modal-mount').innerHTML = ''; });
-    document.getElementById('trip-overlay').addEventListener('click', function(e){ if(e.target.id==='trip-overlay') document.getElementById('modal-mount').innerHTML = ''; });
-  }
-  draw();
-}
-function promptMissingPrices(items, week, onDone){
-  const mount = document.getElementById('modal-mount');
-  if(!items.length){ onDone(); return; }
-  const item = items.shift();
-  mount.innerHTML = '<div class="price-overlay" id="mp-overlay"><div class="price-sheet">'+
-    '<h3>Price for '+escapeHtml(item.name)+'?</h3>'+
-    '<div class="pf"><span>$</span><input type="number" step="0.01" id="mp-input" autofocus></div>'+
-    '<div class="sheet-actions"><button class="btn-mini primary" id="mp-save-btn" style="flex:1;">Save & next</button><button class="btn-mini ghost" id="mp-skip-btn">Skip</button></div>'+
-  '</div></div>';
-  document.getElementById('mp-input').focus();
-  document.getElementById('mp-save-btn').addEventListener('click', async function(){
-    const val = parseFloat(document.getElementById('mp-input').value);
-    if(!isNaN(val)) await confirmPurchase(item.key, item.name, val, function(){}, item.extra?1:item.qty);
-    promptMissingPrices(items, week, onDone);
+      if(!state.profiles||!state.recipes||!state.meals)state=makeFinalState();
+      if(state.version!==5)migratePlanV5();
+      if(state.featureVersion!==1)migrateFeatures();
+      const requested=(new URLSearchParams(location.search).get('profile')||'').toLowerCase();
+      if(requested==='bhargav'||requested==='anusha')state.activeProfile=requested;
+      state.selectedDate=state.selectedDate||new Date().toISOString().slice(0,10);state.weekAnchor=state.weekAnchor||state.selectedDate;
+      cloudReady=true;
+      await stateDoc().set({json:JSON.stringify(state),updatedAt:firebase.firestore.FieldValue.serverTimestamp()},{merge:true});
+      draft=clone(state.recipes.find(function(r){return r.profileId===state.activeProfile;})||{id:null,profileId:state.activeProfile,name:'',servings:1,method:'',items:[]});
+      fillFoodSelect();setProfile(state.activeProfile);setCloudStatus('Saved to cloud',true);
+      shell.style.visibility='visible';gate.style.display='none';
+    }catch(e){
+      cloudReady=false;setCloudStatus('Using this device; cloud unavailable',false);shell.style.visibility='visible';gate.style.display='none';renderAll();toast('Cloud could not load; local data is still available');
+    }
   });
-  document.getElementById('mp-skip-btn').addEventListener('click', function(){ promptMissingPrices(items, week, onDone); });
-}
-// Small status toast for confirmations — appears briefly, optionally with
-// an undo action for the specific thing that just happened.
-function showToast(msg, undoFn){
-  let el = document.getElementById('gr-toast');
-  if(!el){ el = document.createElement('div'); el.id = 'gr-toast'; el.className='gr-toast'; document.body.appendChild(el); }
-  el.innerHTML = escapeHtml(msg) + (undoFn ? ' <button type="button" id="gr-toast-undo" style="background:none;border:none;color:#8FD9FF;font-weight:800;text-decoration:underline;margin-left:6px;">Undo</button>' : '');
-  el.classList.add('show');
-  if(undoFn) document.getElementById('gr-toast-undo').addEventListener('click', function(){ undoFn(); el.classList.remove('show'); });
-  clearTimeout(showToast._t);
-  showToast._t = setTimeout(function(){ el.classList.remove('show'); }, 4000);
-}
-
-/* =====================================================================
-   HISTORY — every completed trip, grouped by cycle, plus the full
-   purchase log underneath. Nothing here ever gets overwritten by a
-   later cycle — each week's record is permanent once completed.
-===================================================================== */
-function renderHistory(){
-  const mount = document.getElementById('history-view');
-  const completedWeeks = Object.keys(tripHistory).map(function(w){ return parseInt(w,10); }).sort(function(a,b){ return b-a; });
-
-  let html = '<h3 class="hist-section-title">Completed trips</h3>';
-  if(!completedWeeks.length){
-    html += '<div class="empty-note">No trips completed yet — use "Complete trip & review" on the Shop tab when you finish a week.</div>';
-  } else {
-    const byCycle = {};
-    completedWeeks.forEach(function(w){ const c = cycleNumber(w); if(!byCycle[c]) byCycle[c] = []; byCycle[c].push(w); });
-    Object.keys(byCycle).sort(function(a,b){ return b-a; }).forEach(function(c){
-      html += '<div class="hist-cycle-group"><div class="hist-cycle-label">Cycle '+c+'</div>'+
-        byCycle[c].map(function(w){
-          const t = tripHistory[w];
-          const diff = t.actualCost - t.plannedCost;
-          return '<div class="hist-trip-row"><div><div class="hist-trip-week">'+cycleWeekLabel(w)+'</div><div class="hist-trip-meta">'+weekDateRange(w)+' · '+t.purchasedCount+' items · completed '+t.completedAt+'</div></div>'+
-            '<div class="hist-trip-cost"><div>'+fmtMoney(t.actualCost)+'</div><div class="hist-trip-diff" style="color:'+(diff>0?'var(--danger)':'var(--accent-deep)')+';">'+(diff>=0?'+':'')+fmtMoney(diff)+'</div></div></div>';
-        }).join('')+
-      '</div>';
-    });
-  }
-
-  html += '<h3 class="hist-section-title">Full purchase log</h3>';
-  if(!priceLog.length){
-    html += '<div class="empty-note">Nothing logged yet.</div>';
-  } else {
-    html += priceLog.slice().sort(function(a,b){ return a.date<b.date?1:-1; }).slice(0,100).map(function(l){
-      const w = parseInt(l.key.split(':')[0],10);
-      const qty = l.qty||1;
-      const priceDisplay = qty>1 ? qty+' × '+fmtMoney(l.price)+' = '+fmtMoney(l.lineTotal!=null?l.lineTotal:l.price*qty) : fmtMoney(l.price);
-      return '<div class="history-row"><div><div class="hr-name">'+escapeHtml(l.name)+'</div><div class="hr-meta">'+l.date+' · '+cycleWeekLabel(w)+'</div></div><div class="hr-price">'+priceDisplay+'</div></div>';
-    }).join('');
-  }
-  mount.innerHTML = html;
-}
-
-function renderBudget(){
-  const mount = document.getElementById('budget-view');
-  const current = currentWeekFromDate();
-  const thisCycle = cycleNumber(current);
-  const cycleStart = (thisCycle-1)*8+1;
-  const cycleWeeks = []; for(let i=0;i<8;i++) cycleWeeks.push(cycleStart+i);
-
-  // Planned vs Actual for the current 8-week cycle.
-  let plannedTotal = 0, actualTotal = 0, reserved = 0;
-  const perWeekRows = cycleWeeks.map(function(w){
-    const list = weekItemList(w).filter(function(i){ return !i.skippedThisWeek; });
-    const planned = list.reduce(function(s,i){ return s+(i.extra?(i.price||0):(productById(i.id)?productById(i.id).price:0)*i.qty); }, 0);
-    const actual = list.filter(function(i){ return i.done; }).reduce(function(s,i){ return s+(i.price||0)*(i.extra?1:i.qty); }, 0);
-    plannedTotal += planned;
-    if(w <= current) actualTotal += actual; else reserved += planned;
-    return { week:w, planned:planned, actual:actual, isPast: w < current, isCurrent: w===current };
-  });
-  const cycleBudget = budgetTarget*8;
-  const unallocated = cycleBudget - plannedTotal;
-
-  let html = '<div class="pva-card"><h3>Cycle '+thisCycle+' — planned vs actual</h3>'+
-    '<div class="pva-grid">'+
-      '<div class="pva-cell"><div class="pva-label">Cycle budget</div><div class="pva-val">'+fmtMoney(cycleBudget)+'</div></div>'+
-      '<div class="pva-cell"><div class="pva-label">Planned</div><div class="pva-val">'+fmtMoney(plannedTotal)+'</div></div>'+
-      '<div class="pva-cell"><div class="pva-label">Actually spent</div><div class="pva-val">'+fmtMoney(actualTotal)+'</div></div>'+
-      '<div class="pva-cell"><div class="pva-label">Reserved (future weeks)</div><div class="pva-val">'+fmtMoney(reserved)+'</div></div>'+
-      '<div class="pva-cell pva-wide"><div class="pva-label">Unallocated</div><div class="pva-val" style="color:'+(unallocated<0?'var(--danger)':'var(--accent-deep)')+';">'+fmtMoney(unallocated)+'</div></div>'+
-    '</div></div>';
-
-  html += '<div class="pva-weeks">'+perWeekRows.map(function(r){
-    const diff = r.actual - r.planned;
-    const showDiff = r.isPast || r.isCurrent;
-    return '<div class="pva-week-row '+(r.isCurrent?'current':'')+'"><div class="pva-week-label">'+cycleWeekLabel(r.week)+(r.isCurrent?' (this week)':'')+'</div>'+
-      '<div class="pva-week-nums"><span>Planned '+fmtMoney(r.planned)+'</span>'+(showDiff?'<span>Actual '+fmtMoney(r.actual)+'</span><span style="color:'+(diff>0?'var(--danger)':'var(--accent-deep)')+';">'+(diff>=0?'+':'')+fmtMoney(diff)+'</span>':'')+'</div></div>';
-  }).join('')+'</div>';
-
-  let options = '';
-  const rangeStart = Math.max(1, current-8);
-  for(let w=rangeStart; w<=current+8; w++) options += '<option value="week'+w+'" '+(budgetPeriod==='week'+w?'selected':'')+'>'+cycleWeekLabel(w)+'</option>';
-  options += '<option value="all" '+(budgetPeriod==='all'?'selected':'')+'>All time</option>';
-
-  const relevantLogs = budgetPeriod==='all' ? priceLog : priceLog.filter(function(l){ return l.key.split(':')[0]===budgetPeriod.replace('week',''); });
-  const spent = relevantLogs.reduce(function(s,l){ return s+(l.lineTotal!=null?l.lineTotal:l.price*(l.qty||1)); }, 0);
-  const target = budgetPeriod==='all' ? null : budgetTarget;
-  const pct = target ? Math.min(100, Math.round(100*spent/target)) : 0;
-  const overBudget = target && spent > target;
-
-  html += '<div class="period-select-row"><select id="period-select">'+options+'</select></div>';
-  html += '<div class="budget-card">'+
-    '<div class="budget-top"><div><div class="budget-spent" style="'+(overBudget?'color:var(--danger);':'')+'">'+fmtMoney(spent)+'</div><div class="budget-note">spent'+(budgetPeriod==='all'?', all time':'')+'</div></div>'+
-    '<div class="budget-target">weekly target $<input type="number" id="budget-target-input" value="'+budgetTarget+'"></div></div>'+
-    (target ? '<div class="budget-bar-track"><div class="budget-bar-fill" style="width:'+pct+'%;'+(overBudget?'background:var(--danger);':'')+'"></div></div><div class="budget-note">'+pct+'% of '+fmtMoney(target)+' target'+(overBudget?' — over budget':'')+'</div>' : '')+
-  '</div>';
-
-  if(!relevantLogs.length){
-    html += '<div class="empty-note">Nothing logged for this period yet.</div>';
-  } else {
-    html += relevantLogs.slice().sort(function(a,b){ return a.date<b.date?1:-1; }).map(function(l){
-      return '<div class="history-row"><div><div class="hr-name">'+escapeHtml(l.name)+'</div><div class="hr-meta">'+l.date+(budgetPeriod==='all'?' · '+cycleWeekLabel(parseInt(l.key.split(':')[0],10)):'')+'</div></div><div class="hr-price">'+fmtMoney(l.price)+'</div></div>';
-    }).join('');
-  }
-
-  mount.innerHTML = html;
-  document.getElementById('period-select').addEventListener('change', function(e){ budgetPeriod = e.target.value; renderBudget(); });
-  document.getElementById('budget-target-input').addEventListener('change', async function(e){
-    budgetTarget = parseFloat(e.target.value) || 0;
-    await saveBudget();
-    renderBudget();
-  });
-}
-
-} // end firebase-available guard
+})();
 </script>
 </body>
 </html>
