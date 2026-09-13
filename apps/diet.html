@@ -868,7 +868,7 @@ async function enterProfile(profileId){
   try{ localStorage.setItem(LAST_PROFILE_KEY, profileId); }catch(e){}
   document.getElementById('loading-gate').style.display = 'none';
   document.getElementById('profile-overlay').style.display = 'none';
-  document.getElementById('app-wrap').style.display = 'block';
+  document.getElementById('app-wrap').style.display = '';
   document.getElementById('app-sub').textContent = profileId+"'s food diary";
   document.getElementById('switch-profile-btn').textContent = 'Switch to '+(profileId==='Bhargav'?'Anusha':'Bhargav');
   document.getElementById('switch-profile-btn').onclick = function(){
