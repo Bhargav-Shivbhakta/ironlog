@@ -218,6 +218,26 @@
   .meal-block.dragging{opacity:0.4;}
   .meal-block.drag-over-top{border-top:2px solid var(--accent-a,#4f7cff);}
   .meal-block.drag-over-bottom{border-bottom:2px solid var(--accent-a,#4f7cff);}
+  .ex-card{transition:transform .15s ease, opacity .15s ease;}
+  .ex-card.dragging{opacity:0.4;}
+  .ex-card.drag-over-top{border-top:2px solid var(--accent-a,#4f7cff);}
+  .ex-card.drag-over-bottom{border-bottom:2px solid var(--accent-a,#4f7cff);}
+  .icon-btn{background:none;border:none;color:var(--text-dim,#888);cursor:pointer;font-size:14px;padding:2px 4px;}
+  .icon-btn:hover{color:var(--accent-a,#e0596b);}
+  .ex-unit-toggle{display:flex;gap:3px;flex:none;}
+  .unit-opt{border:1px solid var(--border,#ddd);background:var(--surface);color:var(--text-dim,#888);border-radius:7px;padding:4px 8px;font-size:10.5px;font-weight:700;cursor:pointer;}
+  .unit-opt.active{background:var(--accent-a,#e0596b);color:#fff;border-color:transparent;}
+  .last-time-cell{color:var(--text-dim,#888);font-size:11.5px;white-space:nowrap;}
+  .ex-save-msg{font-size:11px;color:var(--green,#2a9d5c);margin-top:4px;min-height:14px;}
+  .rest-input{border:1px solid var(--border,#ddd);border-radius:7px;padding:5px 6px;font-size:12px;text-align:center;}
+  .preview-overlay{position:fixed;inset:0;z-index:200;background:rgba(0,0,0,0.55);display:flex;align-items:flex-end;justify-content:center;}
+  .preview-sheet{background:var(--surface);width:100%;max-width:560px;max-height:85vh;overflow-y:auto;border-radius:20px 20px 0 0;padding:20px;box-shadow:0 -12px 40px rgba(0,0,0,0.25);}
+  .preview-head{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:14px;gap:10px;}
+  .preview-head h3{margin:0;font-size:17px;}
+  .preview-ex-row{display:flex;gap:12px;padding:12px 0;border-top:1px solid var(--border,#eee);}
+  .preview-ex-row:first-of-type{border-top:none;}
+  .preview-ex-num{width:26px;height:26px;border-radius:50%;background:var(--surface-alt,#f2f2f2);color:var(--text-dim,#888);font-weight:700;font-size:12px;display:flex;align-items:center;justify-content:center;flex:none;}
+  .preview-cardio-note{margin-top:14px;padding:12px;background:var(--surface-alt,#f2f2f2);border-radius:12px;font-size:13px;}
   .meal-reorder-msg{text-align:center;font-size:11.5px;color:var(--text-dim,#888);margin:-4px 0 12px;min-height:16px;}
   .meal-head .m-name{font-family:var(--font-display);font-size:16px;text-transform:uppercase;font-weight:600;}
   body.theme-glow .meal-head .m-name{text-transform:none;}
@@ -514,10 +534,15 @@
           <tr>
             <td>
               <select id="cardio-machine">
-                <option value="Treadmill">Treadmill</option>
-                <option value="Cycle">Cycle</option>
+                <option value="Treadmill">Treadmill — walk</option>
+                <option value="Treadmill run">Treadmill — run</option>
+                <option value="Cycle">Stationary bike</option>
                 <option value="Elliptical">Elliptical</option>
                 <option value="Stairmaster">Stairmaster</option>
+                <option value="Rowing">Rowing machine</option>
+                <option value="Jump rope">Jump rope</option>
+                <option value="Swimming">Swimming</option>
+                <option value="Sports">Sports / recreational</option>
                 <option value="Other">Other</option>
               </select>
             </td>
@@ -566,6 +591,22 @@
         <input type="text" id="newex-target" placeholder="Target weight / equipment (optional)" style="flex:1;">
         <input type="number" id="newex-rest" placeholder="Rest (sec)" style="width:90px;">
       </div>
+      <div class="detail-row">
+        <select id="newex-movement" style="flex:1;">
+          <option value="compound">Compound (multi-joint — squat, press, row…)</option>
+          <option value="isolation">Isolation (single-joint — curl, extension, raise…)</option>
+        </select>
+        <select id="newex-muscle" style="flex:1;">
+          <option value="legs">Legs / glutes</option>
+          <option value="back">Back</option>
+          <option value="chest">Chest</option>
+          <option value="shoulders">Shoulders</option>
+          <option value="arms">Arms</option>
+          <option value="core">Core</option>
+          <option value="fullbody">Full body</option>
+        </select>
+      </div>
+      <div class="ex-meta" style="margin-top:2px;">These two answers are what let a brand-new exercise get a reasonable calorie estimate and slot into the right spot in a science-ordered preview — no exercise-by-exercise database needed.</div>
       <div class="ex-actions">
         <button class="btn small primary" id="add-exercise-btn">Add to today's list</button>
       </div>
@@ -1124,6 +1165,40 @@ async function setLift(date, key, obj){ try{ await userCol('workoutLogs').doc(da
 async function listLift(){
   try{ const snap = await userCol('workoutLogs').get(); const out=[]; snap.forEach(d=>out.push(d.data())); return out.sort((a,b)=> a.date<b.date?1:-1); }catch(e){ return []; }
 }
+/* ---------------- Per-exercise unit preference (kg/lbs stays consistent per exercise, independent of the profile default) ---------------- */
+let exerciseUnitsCache = null;
+async function loadExerciseUnits(){
+  try{ const doc = await userCol('meta').doc('exerciseUnits').get(); exerciseUnitsCache = doc.exists ? (doc.data().byId || {}) : {}; }catch(e){ exerciseUnitsCache = {}; }
+  return exerciseUnitsCache;
+}
+function unitForExercise(exId){ return (exerciseUnitsCache && exerciseUnitsCache[exId]) || activeProfile.liftUnit; }
+async function setUnitForExercise(exId, unit){
+  if(!exerciseUnitsCache) await loadExerciseUnits();
+  exerciseUnitsCache[exId] = unit;
+  try{ await userCol('meta').doc('exerciseUnits').set({byId: exerciseUnitsCache}); }catch(e){}
+}
+// Exercise tile order is remembered per day+mode, independent of the
+// underlying schedule — dragging a tile just changes how it's displayed,
+// never what's actually programmed for that day.
+let exerciseOrderCache = null;
+async function loadExerciseOrder(){
+  try{ const doc = await userCol('meta').doc('exerciseOrder').get(); exerciseOrderCache = doc.exists ? (doc.data().byKey || {}) : {}; }catch(e){ exerciseOrderCache = {}; }
+  return exerciseOrderCache;
+}
+async function saveExerciseOrder(orderKey, idList){
+  if(!exerciseOrderCache) await loadExerciseOrder();
+  exerciseOrderCache[orderKey] = idList;
+  try{ await userCol('meta').doc('exerciseOrder').set({byKey: exerciseOrderCache}); }catch(e){}
+}
+function applyExerciseOrder(orderKey, list){
+  const order = (exerciseOrderCache && exerciseOrderCache[orderKey]) || null;
+  if(!order) return list;
+  const byId = {}; list.forEach(e=>byId[e.id]=e);
+  const ordered = order.map(id=>byId[id]).filter(Boolean);
+  list.forEach(e=>{ if(!order.includes(e.id)) ordered.push(e); });
+  return ordered;
+}
+
 async function getLastExerciseLog(exId){
   const all = await listLift();
   for(const w of all){
@@ -1276,12 +1351,15 @@ async function renderDashboard(){
     const isToday = dn === dayNameFor(today);
     const card = document.createElement('div');
     card.className = 'card' + (isToday ? ' accent-a' : '');
+    card.style.cursor = 'pointer';
+    card.title = 'Tap for a full preview of this day\'s workout';
     card.innerHTML = `
       <div class="stat-label">${dn}${isToday ? ' · TODAY' : ''}</div>
       <div style="font-family:var(--font-display);font-size:17px;font-weight:600;margin-bottom:6px;">${s.main}</div>
       ${s.purpose ? `<div class="stat-foot">${s.purpose}</div>` : ''}
       <div class="stat-foot" style="color:var(--text-faint);">${s.cardio}</div>
     `;
+    card.addEventListener('click', ()=> openWorkoutPreview(dn));
     weekGrid.appendChild(card);
   });
 
@@ -1300,6 +1378,57 @@ async function renderDashboard(){
       </div>
     </div>
   `;
+  document.getElementById('today-card').style.cursor = 'pointer';
+  document.getElementById('today-card').title = 'Tap for a full preview of today\'s workout';
+  document.getElementById('today-card').onclick = ()=> openWorkoutPreview(dayNameFor(today));
+}
+// Orders exercises the way a session should actually flow: big compound,
+// multi-joint lifts first while you're freshest and they demand the most
+// coordination, then smaller single-joint isolation work last, since
+// pre-fatiguing a stabilizer muscle before a heavy compound lift both
+// hurts performance and raises injury risk. Ties keep their original
+// programmed order.
+function exercisePriority(ex){
+  if(ex.movementType==='compound') return 0;
+  if(ex.movementType==='isolation') return 2;
+  const name = ((ex.name||'')+' '+(ex.equip||'')).toLowerCase();
+  const COMPOUND = ['squat','deadlift','press','bench','row','pull-up','pullup','pulldown','lunge','dip','clean','snatch','thrust','hip thrust'];
+  const ISOLATION = ['curl','extension','raise','fly','flye','crunch','kickback','shrug','lateral','calf'];
+  if(COMPOUND.some(k=>name.includes(k))) return 0;
+  if(ISOLATION.some(k=>name.includes(k))) return 2;
+  return 1;
+}
+function scienceOrderedExercises(list){
+  return list.map((e,i)=>({e,i})).sort((a,b)=> (exercisePriority(a.e)-exercisePriority(b.e)) || (a.i-b.i)).map(x=>x.e);
+}
+function openWorkoutPreview(dayKey){
+  const p = activeProfile;
+  const defaultExercises = (p.workouts && p.workouts[dayKey]) || [];
+  const customList = customExercisesFor(dayKey).map(e=>Object.assign({}, e, {custom:true}));
+  const ordered = scienceOrderedExercises(defaultExercises.concat(customList));
+  const s = p.weekSchedule ? p.weekSchedule[dayKey] : null;
+  const mount = document.getElementById('preview-modal-mount');
+  if(!ordered.length){
+    mount.innerHTML = `<div class="preview-overlay" id="preview-overlay"><div class="preview-sheet">
+      <div class="preview-head"><h3>${dayKey}</h3><button class="icon-btn" id="preview-close">✕</button></div>
+      <div class="empty-note">No lifting exercises programmed for ${dayKey}${s?' — '+s.main:''}. A great day to add a custom exercise from the Lift tab if you're training anyway.</div>
+    </div></div>`;
+  } else {
+    mount.innerHTML = `<div class="preview-overlay" id="preview-overlay"><div class="preview-sheet">
+      <div class="preview-head"><div><h3>${dayKey}</h3><div class="ex-meta">${s?s.main:''} · ordered so bigger, more demanding lifts come first</div></div><button class="icon-btn" id="preview-close">✕</button></div>
+      ${ordered.map((ex,i)=>{
+        const repRangeText = (ex.repMin!=null && ex.repMax!=null) ? (ex.repMin===ex.repMax ? `${ex.repMin} ${ex.repUnit||'reps'}` : `${ex.repMin}–${ex.repMax} ${ex.repUnit||'reps'}`) : '';
+        const metaBits = [];
+        if(ex.sets) metaBits.push(`${ex.sets} sets`+(repRangeText?` × ${repRangeText}`:''));
+        if(ex.equip) metaBits.push(ex.equip);
+        if(ex.weightRange) metaBits.push('suggested '+ex.weightRange);
+        return `<div class="preview-ex-row"><div class="preview-ex-num">${i+1}</div><div><div class="ex-name">${ex.name}</div><div class="ex-meta">${metaBits.join(' · ')}</div>${ex.cue?`<div class="ex-cue">"${ex.cue}"</div>`:''}</div></div>`;
+      }).join('')}
+      ${s && s.cardio ? `<div class="preview-cardio-note">🏃 ${s.cardio}</div>` : ''}
+    </div></div>`;
+  }
+  document.getElementById('preview-close').addEventListener('click', ()=> mount.innerHTML='');
+  document.getElementById('preview-overlay').addEventListener('click', (e)=>{ if(e.target.id==='preview-overlay') mount.innerHTML=''; });
 }
 
 /* =====================================================================
@@ -1468,13 +1597,17 @@ async function renderExerciseList(date, dayKey){
   }
 
   const customList = customExercisesFor(dayKey).map(e=>Object.assign({}, e, {custom:true}));
-  const allExercises = exercises.concat(customList);
+  let allExercises = exercises.concat(customList);
+  const orderKey = liftMode+':'+dayKey;
+  allExercises = applyExerciseOrder(orderKey, allExercises);
 
   for(const ex of allExercises){
     const saved = savedExFor(ex.id);
-    const last = saved ? null : await getLastExerciseLog(ex.id);
+    const last = await getLastExerciseLog(ex.id);
+    const unit = unitForExercise(ex.id);
     const card = document.createElement('div');
     card.className = 'ex-card'; card.dataset.exid = ex.id;
+    card.draggable = true;
 
     const unitLabel = ex.repUnit === 'sec' ? 'Sec' : 'Reps';
     let rowsHtml = '';
@@ -1482,11 +1615,17 @@ async function renderExerciseList(date, dayKey){
     for(let i=0;i<setCount;i++){
       const savedSet = saved?.sets?.[i];
       const lastSet = last?.ex?.sets?.[i];
-      const w = savedSet?.weight ?? '', r = savedSet?.reps ?? '';
+      const w = savedSet?.weight ?? '', r = savedSet?.reps ?? '', ef = savedSet?.effort ?? '';
       const ph = lastSet ? `${lastSet.weight||''}` : '', phR = lastSet ? `${lastSet.reps||''}` : '';
-      rowsHtml += `<tr><td class="set-num">${i+1}</td>
-        <td><input type="number" step="${activeProfile.liftUnit==='kg'?'0.5':'2.5'}" class="inp-weight" value="${w}" placeholder="${ph}"></td>
-        <td><input type="number" class="inp-reps" value="${r}" placeholder="${phR}"></td></tr>`;
+      const lastCellText = lastSet && (lastSet.weight!=null || lastSet.reps!=null) ? `${lastSet.weight??'—'} × ${lastSet.reps??'—'}` : '—';
+      rowsHtml += `<tr>
+        <td class="set-num">${i+1}</td>
+        <td class="last-time-cell">${lastCellText}</td>
+        <td><input type="number" step="${unit==='kg'?'0.5':'2.5'}" class="inp-weight" value="${w}" placeholder="${ph}"></td>
+        <td><input type="number" class="inp-reps" value="${r}" placeholder="${phR}"></td>
+        <td><select class="inp-effort"><option value="">—</option>${[1,2,3,4,5,6,7,8,9,10].map(n=>`<option value="${n}" ${String(ef)===String(n)?'selected':''}>${n}</option>`).join('')}</select></td>
+        <td><button type="button" class="icon-btn del-set-btn" title="Delete this set">✕</button></td>
+      </tr>`;
     }
     const repRangeText = (ex.repMin!=null && ex.repMax!=null) ? (ex.repMin === ex.repMax ? `${ex.repMin} ${ex.repUnit||'reps'}` : `${ex.repMin}–${ex.repMax} ${ex.repUnit||'reps'}`) : '';
     const metaBits = [];
@@ -1495,44 +1634,74 @@ async function renderExerciseList(date, dayKey){
     if(ex.equip) metaBits.push(ex.equip);
     if(ex.target) metaBits.push('target '+ex.target);
     if(ex.weightRange) metaBits.push('suggested '+ex.weightRange);
-    if(ex.rest) metaBits.push('rest '+ex.rest+'s');
     if(ex.custom) metaBits.push('added by you');
 
     card.innerHTML = `
       <div class="ex-head">
+        <div class="drag-handle" title="Drag to reorder">⠿</div>
         <div>
           <div class="ex-name">${ex.name}</div>
           <div class="ex-meta">${metaBits.join(' · ')}</div>
           ${ex.cue ? `<div class="ex-cue">"${ex.cue}"</div>` : ''}
         </div>
+        <div class="ex-unit-toggle">
+          <button type="button" class="unit-opt ${unit==='kg'?'active':''}" data-unit="kg">kg</button>
+          <button type="button" class="unit-opt ${unit==='lb'?'active':''}" data-unit="lb">lb</button>
+        </div>
         <div class="ex-number">${last ? 'Last: '+last.date : (saved ? 'Logged' : 'New')}</div>
       </div>
       <table class="sets-table">
-        <thead><tr><th>Set</th><th>Weight (${activeProfile.liftUnit})</th><th>${unitLabel}</th></tr></thead>
+        <thead><tr><th>Set</th><th>Last time</th><th>Weight (${unit})</th><th>${unitLabel}</th><th>Effort</th><th></th></tr></thead>
         <tbody>${rowsHtml}</tbody>
       </table>
       <div class="ex-actions">
         <button class="btn small ghost btn-add-set">+ Add set</button>
-        <button class="btn small ghost rest-btn" data-rest="${ex.rest||60}">⏱ Rest ${ex.rest||60}s</button>
+        <button class="btn small primary btn-log-exercise">Log this exercise</button>
+        <input type="number" class="rest-input" value="${ex.rest||60}" title="Rest seconds" style="width:56px;">
+        <button class="btn small ghost rest-btn">⏱ Start rest</button>
         <span class="rest-display"></span>
         ${ex.custom ? `<button class="btn small ghost" style="color:var(--accent-a);margin-left:auto;" data-removecustom="${ex.id}" data-day="${dayKey}">Remove</button>` : ''}
       </div>
+      <div class="ex-save-msg"></div>
     `;
     container.appendChild(card);
   }
 
+  wireExerciseCardHandlers(container, date, dayKey, orderKey);
+}
+function wireExerciseCardHandlers(container, date, dayKey, orderKey){
   container.querySelectorAll('.btn-add-set').forEach(btn=>{
     btn.addEventListener('click', (e)=>{
       const card = e.target.closest('.ex-card');
       const tbody = card.querySelector('tbody');
       const n = tbody.children.length + 1;
       const tr = document.createElement('tr');
-      tr.innerHTML = `<td class="set-num">${n}</td><td><input type="number" step="0.5" class="inp-weight"></td><td><input type="number" class="inp-reps"></td>`;
+      tr.innerHTML = `<td class="set-num">${n}</td><td class="last-time-cell">—</td><td><input type="number" step="0.5" class="inp-weight"></td><td><input type="number" class="inp-reps"></td><td><select class="inp-effort"><option value="">—</option>${[1,2,3,4,5,6,7,8,9,10].map(x=>`<option value="${x}">${x}</option>`).join('')}</select></td><td><button type="button" class="icon-btn del-set-btn" title="Delete this set">✕</button></td>`;
       tbody.appendChild(tr);
+      wireDeleteSetButton(tr.querySelector('.del-set-btn'));
     });
   });
+  container.querySelectorAll('.del-set-btn').forEach(wireDeleteSetButton);
   container.querySelectorAll('.rest-btn').forEach(btn=>{
-    btn.addEventListener('click', (e)=>{ startRestTimer(e.target, parseInt(e.target.dataset.rest,10)); });
+    btn.addEventListener('click', (e)=>{
+      const card = e.target.closest('.ex-card');
+      const seconds = parseInt(card.querySelector('.rest-input').value,10) || 60;
+      startRestTimer(e.target, seconds);
+    });
+  });
+  container.querySelectorAll('.unit-opt').forEach(btn=>{
+    btn.addEventListener('click', async (e)=>{
+      const card = e.target.closest('.ex-card');
+      const exId = card.dataset.exid;
+      await setUnitForExercise(exId, btn.dataset.unit);
+      renderExerciseList(date, dayKey);
+    });
+  });
+  container.querySelectorAll('.btn-log-exercise').forEach(btn=>{
+    btn.addEventListener('click', (e)=>{ saveOneExercise(e.target.closest('.ex-card'), date, dayKey, true); });
+  });
+  container.querySelectorAll('.inp-weight, .inp-reps, .inp-effort').forEach(input=>{
+    input.addEventListener('change', (e)=>{ saveOneExercise(e.target.closest('.ex-card'), date, dayKey, false); });
   });
   container.querySelectorAll('[data-removecustom]').forEach(btn=>{
     btn.addEventListener('click', async (e)=>{
@@ -1540,16 +1709,93 @@ async function renderExerciseList(date, dayKey){
       renderExerciseList(document.getElementById('lift-date').value || todayStr(), currentLiftDay);
     });
   });
+  wireExerciseDragDrop(container, orderKey);
+}
+function wireDeleteSetButton(btn){
+  if(!btn) return;
+  btn.addEventListener('click', (e)=>{
+    const card = e.target.closest('.ex-card');
+    const tr = e.target.closest('tr');
+    tr.remove();
+    card.querySelectorAll('tbody tr').forEach((row,i)=>{ row.querySelector('.set-num').textContent = i+1; });
+  });
+}
+function wireExerciseDragDrop(container, orderKey){
+  let draggedId = null;
+  container.querySelectorAll('.ex-card').forEach(card=>{
+    card.addEventListener('dragstart', ()=>{ draggedId = card.dataset.exid; card.classList.add('dragging'); });
+    card.addEventListener('dragend', ()=>{ card.classList.remove('dragging'); container.querySelectorAll('.ex-card').forEach(c=>c.classList.remove('drag-over-top','drag-over-bottom')); });
+    card.addEventListener('dragover', (e)=>{
+      e.preventDefault();
+      if(card.dataset.exid===draggedId) return;
+      const rect = card.getBoundingClientRect();
+      const isTopHalf = (e.clientY-rect.top) < rect.height/2;
+      container.querySelectorAll('.ex-card').forEach(c=>{ if(c!==card) c.classList.remove('drag-over-top','drag-over-bottom'); });
+      card.classList.toggle('drag-over-top', isTopHalf);
+      card.classList.toggle('drag-over-bottom', !isTopHalf);
+    });
+    card.addEventListener('drop', async (e)=>{
+      e.preventDefault();
+      container.querySelectorAll('.ex-card').forEach(c=>c.classList.remove('drag-over-top','drag-over-bottom'));
+      const targetId = card.dataset.exid;
+      if(targetId===draggedId || !draggedId) return;
+      const rect = card.getBoundingClientRect();
+      const isTopHalf = (e.clientY-rect.top) < rect.height/2;
+      const ids = [...container.querySelectorAll('.ex-card')].map(c=>c.dataset.exid);
+      const fromIdx = ids.indexOf(draggedId);
+      ids.splice(fromIdx,1);
+      let toIdx = ids.indexOf(targetId);
+      ids.splice(isTopHalf?toIdx:toIdx+1, 0, draggedId);
+      await saveExerciseOrder(orderKey, ids);
+      renderExerciseList(document.getElementById('lift-date').value || todayStr(), currentLiftDay);
+    });
+  });
+}
+async function saveOneExercise(card, date, dayKey, showMessage){
+  const id = card.dataset.exid;
+  const name = card.querySelector('.ex-name').textContent;
+  const sets = [];
+  let incompleteCount = 0;
+  card.querySelectorAll('tbody tr').forEach(tr=>{
+    const weightRaw = tr.querySelector('.inp-weight').value;
+    const repsRaw = tr.querySelector('.inp-reps').value;
+    const effortRaw = tr.querySelector('.inp-effort').value;
+    const weight = weightRaw!=='' ? parseFloat(weightRaw) : null;
+    const reps = repsRaw!=='' ? parseInt(repsRaw) : null;
+    const effort = effortRaw!=='' ? parseInt(effortRaw) : null;
+    if(weight!=null && reps!=null) sets.push({weight, reps, effort});
+    else if(weight!=null || reps!=null) incompleteCount++;
+  });
+  const msgEl = card.querySelector('.ex-save-msg');
+  if(!sets.length){
+    if(showMessage && msgEl){ msgEl.textContent = 'Add weight and reps to at least one set first.'; msgEl.style.color = 'var(--accent-a)'; setTimeout(()=>msgEl.textContent='', 3000); }
+    return;
+  }
+  const existing = (await getLift(date, liftMode+':'+dayKey)) || { date, day: dayKey, mode: liftMode, exercises: [] };
+  const idx = existing.exercises.findIndex(e=>e.id===id);
+  const entry = { id, name, sets };
+  if(idx===-1) existing.exercises.push(entry); else existing.exercises[idx] = entry;
+  await setLift(date, liftMode+':'+dayKey, existing);
+  if(msgEl){
+    msgEl.style.color = 'var(--green)';
+    msgEl.textContent = incompleteCount>0 ? 'Saved ('+incompleteCount+' incomplete set'+(incompleteCount===1?'':'s')+' skipped)' : 'Logged ✓';
+    setTimeout(()=>{ msgEl.textContent=''; }, 2500);
+  }
 }
 
 function estimateCardioKcal(machine, duration, speed, incline){
   if(!duration) return null;
   const m = (machine||'').toLowerCase();
   let mets;
-  if(m.includes('cycle')) mets = 7;
+  if(m.includes('run')) mets = 10;
+  else if(m.includes('cycle')) mets = 7;
   else if(m.includes('elliptical')) mets = 5;
   else if(m.includes('stairmaster')) mets = 8;
-  else {
+  else if(m.includes('rowing')) mets = 7;
+  else if(m.includes('jump rope')) mets = 11;
+  else if(m.includes('swimming')) mets = 7;
+  else if(m.includes('sports')) mets = 6;
+  else if(m.includes('treadmill')) {
     const sp = speed||0;
     if(sp < 4) mets = 3.5;
     else if(sp < 5.5) mets = 6;
@@ -1557,6 +1803,7 @@ function estimateCardioKcal(machine, duration, speed, incline){
     else mets = 11;
     mets += ((incline||0)/2)*0.5;
   }
+  else mets = 5; // generic "Other" fallback
   const weight = (activeProfile.program && activeProfile.program.startWeight) || 80; // reasonable fallback
   const raw = mets * weight * (duration/60);
   return { gross: Math.round(raw * 0.95), active: Math.round((mets-1) * weight * (duration/60) * 0.95) }; // active = net of resting metabolism, so it doesn't double-count against BMR
@@ -1686,13 +1933,46 @@ document.getElementById('add-exercise-btn').addEventListener('click', async ()=>
     repMax: parseInt(document.getElementById('newex-repmax').value) || null,
     repUnit: document.getElementById('newex-repunit').value,
     target: document.getElementById('newex-target').value.trim() || null,
-    rest: parseInt(document.getElementById('newex-rest').value) || null
+    rest: parseInt(document.getElementById('newex-rest').value) || null,
+    movementType: document.getElementById('newex-movement').value,
+    muscleGroup: document.getElementById('newex-muscle').value
   };
   await addCustomExercise(currentLiftDay, ex);
   ['newex-name','newex-sets','newex-repmin','newex-repmax','newex-target','newex-rest'].forEach(id=>{ document.getElementById(id).value=''; });
   renderExerciseList(document.getElementById('lift-date').value || todayStr(), currentLiftDay);
 });
 
+// A rest timer needs to be genuinely hard to miss over gym music — this
+// plays several loud, sharp tones through the Web Audio API. A webpage
+// can't reach into another app and mute it directly, but starting audio
+// playback here triggers the same interruption most phones already use
+// to duck or pause music for a call or notification, so in practice this
+// usually does quiet whatever's playing.
+let restAudioCtx = null;
+function playRestDoneAlert(){
+  try{
+    if(!restAudioCtx) restAudioCtx = new (window.AudioContext||window.webkitAudioContext)();
+    if(restAudioCtx.state === 'suspended') restAudioCtx.resume();
+    const pattern = [1046.5, 1046.5, 1318.5, 1046.5, 1318.5, 1568]; // rising, urgent, hard to miss
+    pattern.forEach(function(freq, i){
+      const osc = restAudioCtx.createOscillator(); const gain = restAudioCtx.createGain();
+      osc.type = 'square'; osc.frequency.value = freq; // square wave cuts through ambient noise far better than sine
+      osc.connect(gain); gain.connect(restAudioCtx.destination);
+      const start = restAudioCtx.currentTime + i*0.26;
+      gain.gain.setValueAtTime(0.0001, start);
+      gain.gain.exponentialRampToValueAtTime(0.9, start+0.015); // near-max gain
+      gain.gain.exponentialRampToValueAtTime(0.0001, start+0.22);
+      osc.start(start); osc.stop(start+0.24);
+    });
+  }catch(e){}
+  try{ if(navigator.vibrate) navigator.vibrate([300,120,300,120,300]); }catch(e){}
+}
+// The very first tap anywhere unlocks audio ahead of time, so it's ready
+// the moment a rest timer actually finishes rather than trying (and
+// failing) to start cold.
+document.addEventListener('click', function unlockRestAudio(){
+  try{ if(!restAudioCtx) restAudioCtx = new (window.AudioContext||window.webkitAudioContext)(); if(restAudioCtx.state==='suspended') restAudioCtx.resume(); }catch(e){}
+}, {once:false});
 function startRestTimer(btn, seconds){
   if(btn._timer){ clearInterval(btn._timer); btn._timer=null; }
   let remaining = seconds;
@@ -1704,6 +1984,7 @@ function startRestTimer(btn, seconds){
     if(remaining<=0){
       clearInterval(btn._timer); btn._timer=null;
       display.textContent = 'Rest done ✓'; btn.disabled=false;
+      playRestDoneAlert();
       setTimeout(()=>{ if(display.textContent==='Rest done ✓') display.textContent=''; }, 4000);
       return;
     }
@@ -1731,12 +2012,14 @@ document.getElementById('save-lift').addEventListener('click', async ()=>{
     card.querySelectorAll('tbody tr').forEach(tr=>{
       const weightRaw = tr.querySelector('.inp-weight').value;
       const repsRaw = tr.querySelector('.inp-reps').value;
+      const effortRaw = tr.querySelector('.inp-effort') ? tr.querySelector('.inp-effort').value : '';
       const weight = weightRaw!=='' ? parseFloat(weightRaw) : null;
       const reps = repsRaw!=='' ? parseInt(repsRaw) : null;
+      const effort = effortRaw!=='' ? parseInt(effortRaw) : null;
       // A set only counts once it actually has both numbers — a set with
       // just one filled in isn't a real logged set, it's a half-entry that
       // would otherwise get saved as junk data with a null sitting in it.
-      if(weight!=null && reps!=null) sets.push({weight, reps});
+      if(weight!=null && reps!=null) sets.push({weight, reps, effort});
       else if(weight!=null || reps!=null) incompleteCount++;
     });
     if(sets.length) exercises.push({id, name, sets});
@@ -2074,7 +2357,11 @@ async function renderAnalytics(){
 
   const daySelect = document.getElementById('strength-day-select');
   const exSelect = document.getElementById('ex-select');
-  const workoutDays = Object.keys(activeProfile.workouts).filter(d=>activeProfile.workouts[d] && activeProfile.workouts[d].length);
+  // Include every day that's a valid key, not just ones with a default
+  // schedule — Tuesday/Saturday are intentionally empty by default (rest
+  // days you can still log a custom exercise on), so they'd otherwise
+  // vanish from analytics the moment something's actually logged there.
+  const workoutDays = Object.keys(activeProfile.workouts);
   const orderedDays = DAY_NAMES.filter(d=>workoutDays.includes(d));
   const periodOption = (activeProfile.periodWorkouts && Object.keys(activeProfile.periodWorkouts).length) ? ['Period'] : [];
   const dayOptions = ['All'].concat(orderedDays).concat(periodOption);
@@ -2086,6 +2373,10 @@ async function renderAnalytics(){
       const groups = [Object.values(activeProfile.workouts)];
       if(activeProfile.periodWorkouts) groups.push(Object.values(activeProfile.periodWorkouts));
       groups.forEach(group => group.forEach(list => list.forEach(e => { if(!all.find(x=>x.id===e.id)) all.push(e); })));
+      // Custom exercises live outside the default schedule entirely — a
+      // day like Tuesday or Saturday has no default list at all, so this
+      // is the only place they'd ever show up.
+      Object.keys(customExercisesCache||{}).forEach(dk => customExercisesFor(dk).forEach(e => { if(!all.find(x=>x.id===e.id)) all.push(e); }));
       return all;
     }
     if(day==='Period'){
@@ -2093,7 +2384,7 @@ async function renderAnalytics(){
       Object.values(activeProfile.periodWorkouts||{}).forEach(list => list.forEach(e => { if(!all.find(x=>x.id===e.id)) all.push(e); }));
       return all;
     }
-    return activeProfile.workouts[day] || [];
+    return (activeProfile.workouts[day] || []).concat(customExercisesFor(day));
   }
   function populateExerciseSelect(day){
     const list = exercisesForDay(day);
@@ -2214,6 +2505,8 @@ async function init(){
   renderHabitList();
   await loadDayIntoForm(today);
   await loadCustomExercises();
+  await loadExerciseUnits();
+  await loadExerciseOrder();
   currentLiftDay = activeProfile.workouts[dayNameFor(today)] ? dayNameFor(today) : Object.keys(activeProfile.workouts)[0];
   document.querySelectorAll('.mode-btn').forEach(b=>b.classList.remove('active'));
   document.querySelector('.mode-btn[data-mode="regular"]').classList.add('active');
@@ -2230,5 +2523,6 @@ if('serviceWorker' in navigator){
   // default scope covers this page too, so no separate registration needed here.
 }
 </script>
+<div id="preview-modal-mount"></div>
 </body>
 </html>
