@@ -443,6 +443,8 @@ document.querySelector('.sidebar').style.overflowY='auto';updateHeaderDate();pop
       await stateDoc().set({json:JSON.stringify(state),updatedAt:firebase.firestore.FieldValue.serverTimestamp()},{merge:true});
       draft=clone(state.recipes.find(function(r){return r.profileId===state.activeProfile;})||{id:null,profileId:state.activeProfile,name:'',servings:1,method:'',items:[]});
       fillFoodSelect();setProfile(state.activeProfile);setCloudStatus('Saved to cloud',true);
+      const requestedPage=new URLSearchParams(location.search).get('page');
+      if(requestedPage && document.getElementById(requestedPage)) go(requestedPage);
       shell.style.visibility='visible';gate.style.display='none';
     }catch(e){
       cloudReady=false;setCloudStatus('Using this device; cloud unavailable',false);shell.style.visibility='visible';gate.style.display='none';renderAll();toast('Cloud could not load; local data is still available');
