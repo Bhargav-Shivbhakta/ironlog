@@ -1637,6 +1637,7 @@ async function renderExerciseList(date, dayKey){
     const card = document.createElement('div');
     card.className = 'ex-card'; card.dataset.exid = ex.id;
     card.draggable = true;
+    card.dataset.lastSets = JSON.stringify((last && last.ex && last.ex.sets) || []);
 
     const unitLabel = ex.repUnit === 'sec' ? 'Sec' : 'Reps';
     let rowsHtml = '';
@@ -1708,6 +1709,7 @@ function wireExerciseCardHandlers(container, date, dayKey, orderKey){
       tr.innerHTML = `<td class="set-num">${n}</td><td class="last-time-cell">—</td><td><input type="number" step="0.5" class="inp-weight"></td><td><input type="number" class="inp-reps"></td><td><select class="inp-effort"><option value="">—</option>${[1,2,3,4,5,6,7,8,9,10].map(x=>`<option value="${x}">${x}</option>`).join('')}</select></td><td><button type="button" class="icon-btn del-set-btn" title="Delete this set">✕</button></td>`;
       tbody.appendChild(tr);
       wireDeleteSetButton(tr.querySelector('.del-set-btn'));
+      refreshSetNumbersAndLastTime(card);
     });
   });
   container.querySelectorAll('.del-set-btn').forEach(wireDeleteSetButton);
@@ -1746,7 +1748,20 @@ function wireDeleteSetButton(btn){
     const card = e.target.closest('.ex-card');
     const tr = e.target.closest('tr');
     tr.remove();
-    card.querySelectorAll('tbody tr').forEach((row,i)=>{ row.querySelector('.set-num').textContent = i+1; });
+    refreshSetNumbersAndLastTime(card);
+  });
+}
+// Keeps set numbers and their "Last time" reference in sync with each
+// other no matter how many times sets get added or removed — row 1
+// always shows set 1's history, row 2 always shows set 2's, etc.,
+// regardless of what the rows looked like before the edit.
+function refreshSetNumbersAndLastTime(card){
+  const lastSets = JSON.parse(card.dataset.lastSets || '[]');
+  card.querySelectorAll('tbody tr').forEach((row,i)=>{
+    row.querySelector('.set-num').textContent = i+1;
+    const lastSet = lastSets[i];
+    const cell = row.querySelector('.last-time-cell');
+    if(cell) cell.textContent = lastSet && (lastSet.weight!=null || lastSet.reps!=null) ? `${lastSet.weight??'—'} × ${lastSet.reps??'—'}` : '—';
   });
 }
 function wireExerciseDragDrop(container, orderKey){
