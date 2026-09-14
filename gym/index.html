@@ -668,6 +668,13 @@
       <div class="card"><div class="stat-label">Avg Adherence</div><div class="stat-value" id="an-adherence">—<small>%</small></div></div>
     </div>
 
+    <div class="grid cols-4" style="margin-bottom:20px;">
+      <div class="card"><div class="stat-label">Cardio Sessions</div><div class="stat-value" id="an-cardio-sessions">0</div></div>
+      <div class="card"><div class="stat-label">Total Cardio Minutes</div><div class="stat-value" id="an-cardio-minutes">0</div></div>
+      <div class="card"><div class="stat-label">Cardio Calories (active)</div><div class="stat-value" id="an-cardio-kcal">0</div></div>
+      <div class="card"><div class="stat-label">Most Used Machine</div><div class="stat-value" id="an-cardio-top" style="font-size:16px;">—</div></div>
+    </div>
+
     <div class="grid cols-2" style="margin-bottom:20px;" id="an-nutrition-wrap">
       <div class="card"><div class="stat-label">Avg Calories (last 7 days)</div><div class="stat-value" id="an-avg-cal">—</div></div>
       <div class="card"><div class="stat-label">Avg Protein (last 7 days)</div><div class="stat-value" id="an-avg-protein">—</div></div>
@@ -677,6 +684,11 @@
     <div class="grid cols-2">
       <div class="chart-card"><h3>Weight Trend</h3><canvas id="chart-weight" height="220"></canvas></div>
       <div class="chart-card"><h3>Weekly Adherence</h3><canvas id="chart-adherence" height="220"></canvas></div>
+    </div>
+
+    <div class="grid cols-2" style="margin-top:20px;">
+      <div class="chart-card"><h3>Weekly Cardio Minutes</h3><canvas id="chart-cardio-minutes" height="200"></canvas></div>
+      <div class="chart-card"><h3>Weekly Cardio Calories (active)</h3><canvas id="chart-cardio-kcal" height="200"></canvas></div>
     </div>
 
     <div class="section-title">Strength Progression</div>
@@ -713,6 +725,8 @@
       </div>
     </div>
     <div style="overflow-x:auto;"><table class="plain" id="history-lift"></table></div>
+    <div class="section-title">Cardio Log</div>
+    <div style="overflow-x:auto;"><table class="plain" id="history-cardio"></table></div>
   </section>
 
 </main>
@@ -1235,6 +1249,20 @@ async function removeCustomExercise(dayKey, exId){
 /* ---------------- Cardio log (one entry per calendar date) ---------------- */
 async function getCardio(date){ try{ const doc = await userCol('cardioLogs').doc(date).get(); if(!doc.exists) return []; const data = doc.data(); return Array.isArray(data.entries) ? data.entries : (data.machine ? [data] : []); }catch(e){ return []; } }
 async function saveCardioEntries(date, entries){ try{ await userCol('cardioLogs').doc(date).set({date, entries}); return true; }catch(e){ console.error(e); return null; } }
+// One doc per date holding that day's cardio sessions — pulled for
+// History and Analytics the same way workout logs are.
+async function listCardio(){
+  try{
+    const snap = await userCol('cardioLogs').get();
+    const out=[];
+    snap.forEach(d=>{
+      const data = d.data();
+      const entries = Array.isArray(data.entries) ? data.entries : (data.machine ? [data] : []);
+      if(entries.length) out.push({date: data.date || d.id, entries});
+    });
+    return out.sort((a,b)=> a.date<b.date?1:-1);
+  }catch(e){ return []; }
+}
 
 /* =====================================================================
    UTIL
@@ -1258,6 +1286,7 @@ tabButtons.forEach(btn=>{
     document.getElementById('view-'+btn.dataset.view).classList.add('active');
     if(btn.dataset.view==='analytics') renderAnalytics();
     if(btn.dataset.view==='history') renderHistory();
+    if(btn.dataset.view==='diet'){ loadLiveDietData().then(renderDiet); }
   });
 });
 
@@ -2065,24 +2094,27 @@ document.getElementById('lift-date').addEventListener('change', async (e)=>{
 function n2gym(n){ return (Math.round(n*100)/100).toString(); }
 async function loadNutritionAnalytics(){
   try{
+    await loadLiveDietData(); // always fetch fresh — Analytics can be opened without ever visiting the Diet tab first
+    if(!dietStateLive) throw new Error('no diet state');
     const today = new Date();
-    let totalCal = 0, totalProtein = 0, daysWithLogs = 0;
-    const dayDocs = await Promise.all(Array.from({length:7}, (_,i)=>{
+    const cutoffDates = new Set(Array.from({length:7}, (_,i)=>{
       const d = new Date(today); d.setDate(d.getDate()-i);
-      const dateStr = d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
-      return dietProfileDoc('log-'+dateStr).get();
+      return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
     }));
-    dayDocs.forEach(function(doc){
-      if(!doc.exists || !doc.data().json) return;
-      const entries = JSON.parse(doc.data().json);
-      if(!entries.length) return;
-      daysWithLogs++;
-      entries.forEach(function(e){
-        const mult = e.servings||1;
-        if(e.sourceType==='recipe'){ const r = liveRecipeById(e.sourceId); if(!r) return; const m = liveRecipeMacros(r); totalCal += m.cal*mult; totalProtein += m.protein*mult; }
-        else { const f = liveFoodById(e.sourceId); if(!f) return; totalCal += (f.cal||0)*mult; totalProtein += (f.protein||0)*mult; }
-      });
+    const profileId = activeProfile.id;
+    const entries = (dietStateLive.diary||[]).filter(function(e){ return e.profileId===profileId && cutoffDates.has(e.date); });
+    const dayTotals = {};
+    entries.forEach(function(e){
+      const factor = (e.servings!=null?e.servings:1) / (e.recipeServings||1);
+      const cal = (e.nutrition && e.nutrition.calories!=null) ? e.nutrition.calories*factor : 0;
+      const protein = (e.nutrition && e.nutrition.protein!=null) ? e.nutrition.protein*factor : 0;
+      if(!dayTotals[e.date]) dayTotals[e.date] = {cal:0, protein:0};
+      dayTotals[e.date].cal += cal;
+      dayTotals[e.date].protein += protein;
     });
+    const daysWithLogs = Object.keys(dayTotals).length;
+    const totalCal = Object.values(dayTotals).reduce((s,d)=>s+d.cal,0);
+    const totalProtein = Object.values(dayTotals).reduce((s,d)=>s+d.protein,0);
     document.getElementById('an-avg-cal').textContent = daysWithLogs ? Math.round(totalCal/daysWithLogs)+' kcal' : '—';
     document.getElementById('an-avg-protein').textContent = daysWithLogs ? (totalProtein/daysWithLogs).toFixed(0)+' g' : '—';
     document.getElementById('an-nutrition-note').textContent = daysWithLogs
@@ -2094,32 +2126,58 @@ async function loadNutritionAnalytics(){
     document.getElementById('an-nutrition-note').textContent = '';
   }
 }
-function dietProfileDoc(key){
-  const name = activeProfile.id === 'bhargav' ? 'Bhargav' : 'Anusha';
-  return db.collection('users').doc(currentUser.uid).collection('diet-profiles').doc(name).collection('data').doc(key);
+// Diet now stores everything in one unified state document (foods,
+// recipes, and meals together) instead of separate per-key docs — this
+// points at that document directly.
+function dietStateDoc(){
+  return db.collection('users').doc(currentUser.uid).collection('apps').doc('nourish-diet-v2').collection('data').doc('state');
 }
-let dietMealsLive = null, dietRecipesLive = null, dietFoodsLive = null;
+let dietStateLive = null, dietMealsLive = null, dietRecipesLive = null, dietFoodsLive = null;
 async function loadLiveDietData(){
   try{
-    const [mDoc, rDoc, fDoc] = await Promise.all([dietProfileDoc('meals').get(), dietProfileDoc('recipes').get(), dietProfileDoc('foods').get()]);
-    dietMealsLive = (mDoc.exists && mDoc.data().json) ? JSON.parse(mDoc.data().json) : null;
-    dietRecipesLive = (rDoc.exists && rDoc.data().json) ? JSON.parse(rDoc.data().json) : null;
-    dietFoodsLive = (fDoc.exists && fDoc.data().json) ? JSON.parse(fDoc.data().json) : null;
-  }catch(e){ dietMealsLive = null; dietRecipesLive = null; dietFoodsLive = null; }
+    const doc = await dietStateDoc().get();
+    dietStateLive = (doc.exists && doc.data().json) ? JSON.parse(doc.data().json) : null;
+    const profileId = activeProfile.id; // 'bhargav' / 'anusha' — matches Diet's own profileId values exactly
+    dietFoodsLive = dietStateLive ? (dietStateLive.foods||[]) : null;
+    dietRecipesLive = dietStateLive ? (dietStateLive.recipes||[]) : null;
+    dietMealsLive = dietStateLive ? (dietStateLive.meals||[]).filter(function(m){ return m.profileId===profileId; }) : null;
+  }catch(e){ dietStateLive = null; dietMealsLive = null; dietRecipesLive = null; dietFoodsLive = null; }
 }
 function liveFoodById(id){ return (dietFoodsLive||[]).find(f=>f.id===id); }
 function liveRecipeById(id){ return (dietRecipesLive||[]).find(r=>r.id===id); }
+// Mirrors Diet's own unit-conversion exactly (mass/liquid/piece-count,
+// via a food's density or per-piece grams) — same formula, so numbers
+// here always match what Diet itself would show.
+function dietToBasisQty(f, qty, unit){
+  qty = Number(qty)||0;
+  if(unit===f.unit) return qty;
+  const mass={g:1,oz:28.3495}, liquid={ml:1,cup:236.588,tbsp:14.787,tsp:4.929}, counts=['piece','serving','scoop'];
+  let grams=null, ml=null;
+  if(mass[unit]) grams = qty*mass[unit];
+  if(liquid[unit]) ml = qty*liquid[unit];
+  if(counts.includes(unit) && f.pieceG) grams = qty*f.pieceG;
+  if(grams===null && ml!==null && f.density) grams = ml*f.density;
+  if(ml===null && grams!==null && f.density) ml = grams/f.density;
+  if(mass[f.unit] && grams!==null) return grams/mass[f.unit];
+  if(liquid[f.unit] && ml!==null) return ml/liquid[f.unit];
+  if(counts.includes(f.unit) && grams!==null && f.pieceG) return grams/f.pieceG;
+  return 0;
+}
+function dietItemNutrients(item){
+  const f = liveFoodById(item.foodId);
+  if(!f) return {calories:0,protein:0};
+  const factor = dietToBasisQty(f, item.qty, item.unit) / f.basis;
+  return { calories: (f.calories||0)*factor, protein: (f.protein||0)*factor };
+}
 function liveRecipeMacros(r){
   let cal=0, protein=0;
-  r.ingredients.forEach(function(ing){
-    const f = liveFoodById(ing.foodId); if(!f) return;
-    cal += (f.cal||0)*ing.servings; protein += (f.protein||0)*ing.servings;
+  (r.items||[]).forEach(function(item){
+    const n = dietItemNutrients(item);
+    cal += n.calories; protein += n.protein;
   });
-  const s = r.recipeServings||1;
+  const s = r.servings||1;
   return { cal: cal/s, protein: protein/s };
 }
-const MEAL_SLOT_ORDER = ['breakfast','lunch','dinner','snacks'];
-const MEAL_SLOT_LABEL = {breakfast:'Breakfast', lunch:'Lunch', dinner:'Dinner', snacks:'Snacks'};
 
 function wireMealDragDrop(){
   const wrap = document.getElementById('diet-meals');
@@ -2154,9 +2212,6 @@ function wireMealDragDrop(){
     });
   });
 }
-// Reordering here writes straight back to the same Diet data Gym is
-// reading live — so the new order shows up in the Diet app too, not just
-// on this screen.
 async function reorderMeals(draggedId, targetId, insertBefore){
   const draggedIdx = dietMealsLive.findIndex(function(m){ return m.id===draggedId; });
   if(draggedIdx===-1) return;
@@ -2164,16 +2219,20 @@ async function reorderMeals(draggedId, targetId, insertBefore){
   let targetIdx = dietMealsLive.findIndex(function(m){ return m.id===targetId; });
   if(targetIdx===-1) targetIdx = dietMealsLive.length;
   dietMealsLive.splice(insertBefore ? targetIdx : targetIdx+1, 0, draggedMeal);
-  // Render first so the new order shows immediately, then save — saving
-  // first would show the confirmation message right before renderDiet()
-  // rebuilds that same element and wipes it out.
   await renderDiet();
   await saveDietMealsOrder();
 }
+// Reordering writes back into the same unified state document Diet
+// itself reads and writes — this profile's meals get the new order,
+// while the other profile's meals in the same array are left untouched.
 async function saveDietMealsOrder(){
   const msg = document.getElementById('meal-reorder-msg');
   try{
-    await dietProfileDoc('meals').set({json: JSON.stringify(dietMealsLive)});
+    if(!dietStateLive) throw new Error('no live state');
+    const profileId = activeProfile.id;
+    const otherMeals = (dietStateLive.meals||[]).filter(function(m){ return m.profileId!==profileId; });
+    dietStateLive.meals = otherMeals.concat(dietMealsLive);
+    await dietStateDoc().set({json: JSON.stringify(dietStateLive)}, {merge:true});
     if(msg){ msg.textContent = 'Order saved ✓'; setTimeout(function(){ if(document.getElementById('meal-reorder-msg')) document.getElementById('meal-reorder-msg').textContent=''; }, 2200); }
   }catch(e){
     if(msg) msg.textContent = 'Could not save the new order — try again.';
@@ -2188,7 +2247,7 @@ async function renderDiet(){
 
   const wrap = document.getElementById('diet-meals');
   const editLink = document.createElement('a');
-  editLink.href = '../apps/diet.html?profile='+(p.id==='bhargav'?'Bhargav':'Anusha');
+  editLink.href = '../apps/diet.html?profile='+(p.id==='bhargav'?'Bhargav':'Anusha')+'&page=recipes';
   editLink.target = '_blank'; editLink.rel = 'noopener';
   editLink.className = 'diet-edit-link';
   editLink.textContent = '✎ Edit this diet in the Diet app';
@@ -2208,60 +2267,43 @@ async function renderDiet(){
     document.getElementById('day-total-wrap').style.display = 'none';
   } else {
     let grandCal = 0, grandProtein = 0;
-    // Render meals in the order Diet actually lists them, not grouped by
-    // slot — a slot like "snacks" can happen twice in one day (a post-gym
-    // shake first thing, then a real mid-afternoon snack between lunch
-    // and dinner), so grouping by slot wrongly lumped both at the end of
-    // the day. The authored order in Diet is already the true chronology.
     dietMealsLive.forEach(function(m){
-      const slotKey = m.mealSlot;
-        const items = m.components.map(function(c){
-          if(c.type==='recipe'){
-            const r = liveRecipeById(c.id); if(!r) return null;
-            const mac = liveRecipeMacros(r);
-            const mult = c.servings||1;
-            const scaleFactor = mult/(r.recipeServings||1);
-            const ingredients = r.ingredients.map(function(ing){
-              const f = liveFoodById(ing.foodId);
-              if(!f) return null;
-              const scaledQty = ing.servings*scaleFactor;
-              return n2gym(scaledQty)+'× '+f.name+' ('+f.serving+')';
-            }).filter(Boolean);
-            return { name:r.name, qty:mult===1?'1 serving':n2gym(mult)+'× servings', cal:Math.round(mac.cal*mult), protein:mac.protein*mult, note:'Recipe', isRecipe:true, ingredients:ingredients, instructions:r.instructions||'' };
-          } else {
-            const f = liveFoodById(c.id); if(!f) return null;
-            const mult = c.servings||1;
-            return { name:f.name, qty:f.serving, cal:Math.round((f.cal||0)*mult), protein:(f.protein||0)*mult, note:'', isRecipe:false };
-          }
+      const recipeIds = m.recipeIds || [];
+      const items = recipeIds.map(function(rid){
+        const r = liveRecipeById(rid); if(!r) return null;
+        const mac = liveRecipeMacros(r);
+        const ingredients = (r.items||[]).map(function(it){
+          const f = liveFoodById(it.foodId);
+          if(!f) return null;
+          return n2gym(it.qty)+' '+it.unit+' '+f.name;
         }).filter(Boolean);
-        const calSub = items.reduce((s,i)=>s+i.cal,0);
-        const proSub = items.reduce((s,i)=>s+i.protein,0);
-        grandCal += calSub; grandProtein += proSub;
-        const block = document.createElement('div');
-        block.className='meal-block';
-        block.draggable = true;
-        block.dataset.mealid = m.id;
-        block.innerHTML = `
-          <div class="meal-head"><div class="drag-handle" title="Drag to reorder">⠿</div><div class="m-name">${m.name}</div><a class="meal-edit-pencil" href="../apps/diet.html?profile=${p.id==='bhargav'?'Bhargav':'Anusha'}&editmeal=${encodeURIComponent(m.id)}" target="_blank" rel="noopener" title="Edit this meal in Diet">✎</a><div class="m-time">${MEAL_SLOT_LABEL[slotKey]}</div></div>
-          ${items.map(i=> i.isRecipe ? `
-            <details class="recipe-detail">
-              <summary class="food-row" style="cursor:pointer;">
-                <div class="f-name">${i.name}${i.qty?' — '+i.qty:''}<span class="f-note">Recipe — tap to see how to make it</span></div>
-                <div class="f-macro">${i.cal} kcal · ${i.protein.toFixed(1)}g</div>
-              </summary>
-              <div class="recipe-detail-body" style="padding:10px 4px 14px 4px;">
-                <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.04em;color:var(--text-dim,#888);margin-bottom:6px;">Ingredients</div>
-                <ul style="margin:0 0 12px;padding-left:18px;font-size:13px;line-height:1.6;">${i.ingredients.map(x=>`<li>${x}</li>`).join('')}</ul>
-                ${i.instructions ? `<div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.04em;color:var(--text-dim,#888);margin-bottom:6px;">How to make it</div><p style="font-size:13px;line-height:1.6;margin:0;">${i.instructions}</p>` : ''}
-              </div>
-            </details>` : `
-            <div class="food-row">
-              <div class="f-name">${i.name}${i.qty?' — '+i.qty:''}<span class="f-note">${i.note}</span></div>
+        return { name:r.name, qty:(r.servings||1)===1?'1 serving':n2gym(r.servings)+'× servings', cal:Math.round(mac.cal), protein:mac.protein, isRecipe:true, ingredients:ingredients, instructions:r.method||'' };
+      }).filter(Boolean);
+      const calSub = items.reduce((s,i)=>s+i.cal,0);
+      const proSub = items.reduce((s,i)=>s+i.protein,0);
+      grandCal += calSub; grandProtein += proSub;
+      const block = document.createElement('div');
+      block.className='meal-block';
+      block.draggable = true;
+      block.dataset.mealid = m.id;
+      block.innerHTML = `
+        <div class="meal-head"><div class="drag-handle" title="Drag to reorder">⠿</div><div class="m-name">${m.icon?m.icon+' ':''}${m.name}</div><a class="meal-edit-pencil" href="../apps/diet.html?profile=${p.id==='bhargav'?'Bhargav':'Anusha'}&page=recipes" target="_blank" rel="noopener" title="Edit this meal's recipes in Diet">✎</a><div class="m-time">${m.slot||''}${m.time?' · '+m.time:''}</div></div>
+        ${items.map(i=> `
+          <details class="recipe-detail">
+            <summary class="food-row" style="cursor:pointer;">
+              <div class="f-name">${i.name}${i.qty?' — '+i.qty:''}<span class="f-note">Recipe — tap to see how to make it</span></div>
               <div class="f-macro">${i.cal} kcal · ${i.protein.toFixed(1)}g</div>
-            </div>`).join('')}
-          <div class="meal-sub"><span>Subtotal</span><span>${calSub} kcal · ${proSub.toFixed(1)}g protein</span></div>
-        `;
-        wrap.appendChild(block);
+            </summary>
+            <div class="recipe-detail-body" style="padding:10px 4px 14px 4px;">
+              <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.04em;color:var(--text-dim,#888);margin-bottom:6px;">Ingredients</div>
+              <ul style="margin:0 0 12px;padding-left:18px;font-size:13px;line-height:1.6;">${i.ingredients.map(x=>`<li>${x}</li>`).join('')}</ul>
+              ${i.instructions ? `<div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.04em;color:var(--text-dim,#888);margin-bottom:6px;">How to make it</div><p style="font-size:13px;line-height:1.6;margin:0;">${i.instructions}</p>` : ''}
+            </div>
+          </details>`).join('')}
+        ${m.rule ? `<div class="ex-meta" style="padding:6px 2px 0;">${m.rule}</div>` : ''}
+        <div class="meal-sub"><span>Subtotal</span><span>${calSub} kcal · ${proSub.toFixed(1)}g protein</span></div>
+      `;
+      wrap.appendChild(block);
     });
     wireMealDragDrop();
     document.getElementById('day-total-wrap').style.display = 'flex';
@@ -2355,6 +2397,42 @@ async function renderAnalytics(){
     options:{ responsive:true, scales:{ y:{min:0,max:100,grid:{color:chartColors.grid}}, x:{grid:{display:false}} }, plugins:{legend:{display:false}} }
   });
 
+  // Cardio stats and charts — pulled from cardioLogs the same way lift
+  // history is, since until now nothing ever read this data back out.
+  const cardioLog = (await listCardio()).sort((a,b)=> a.date < b.date ? -1 : 1);
+  const allCardioEntries = cardioLog.flatMap(d=>d.entries.map(e=>Object.assign({date:d.date}, e)));
+  document.getElementById('an-cardio-sessions').textContent = allCardioEntries.length;
+  document.getElementById('an-cardio-minutes').textContent = Math.round(allCardioEntries.reduce((s,e)=>s+(e.duration||0),0));
+  const totalCardioActiveKcal = allCardioEntries.reduce((s,e)=>{ const k = estimateCardioKcal(e.machine,e.duration,e.speed,e.incline); return s+(k?k.active:0); }, 0);
+  document.getElementById('an-cardio-kcal').textContent = Math.round(totalCardioActiveKcal);
+  const machineCounts = {};
+  allCardioEntries.forEach(e=>{ machineCounts[e.machine] = (machineCounts[e.machine]||0)+1; });
+  const topMachine = Object.keys(machineCounts).sort((a,b)=>machineCounts[b]-machineCounts[a])[0];
+  document.getElementById('an-cardio-top').textContent = topMachine || '—';
+
+  destroyChart('cardioMinutes'); destroyChart('cardioKcal');
+  const cardioWeekMap = {};
+  allCardioEntries.forEach(e=>{
+    const dt = new Date(e.date+'T00:00:00');
+    const weekStart = new Date(dt); weekStart.setDate(dt.getDate() - dt.getDay());
+    const key = fmtDate(weekStart);
+    if(!cardioWeekMap[key]) cardioWeekMap[key] = { minutes:0, kcal:0 };
+    cardioWeekMap[key].minutes += (e.duration||0);
+    const k = estimateCardioKcal(e.machine,e.duration,e.speed,e.incline);
+    cardioWeekMap[key].kcal += k ? k.active : 0;
+  });
+  const cardioWeekKeys = Object.keys(cardioWeekMap).sort();
+  charts.cardioMinutes = new Chart(document.getElementById('chart-cardio-minutes'), {
+    type:'bar',
+    data:{ labels:cardioWeekKeys, datasets:[{ label:'Minutes', data:cardioWeekKeys.map(k=>Math.round(cardioWeekMap[k].minutes)), backgroundColor:chartColors.a, borderRadius:4 }]},
+    options:{ responsive:true, scales:{ y:{grid:{color:chartColors.grid}}, x:{grid:{display:false}} }, plugins:{legend:{display:false}} }
+  });
+  charts.cardioKcal = new Chart(document.getElementById('chart-cardio-kcal'), {
+    type:'bar',
+    data:{ labels:cardioWeekKeys, datasets:[{ label:'Active kcal', data:cardioWeekKeys.map(k=>Math.round(cardioWeekMap[k].kcal)), backgroundColor:chartColors.b, borderRadius:4 }]},
+    options:{ responsive:true, scales:{ y:{grid:{color:chartColors.grid}}, x:{grid:{display:false}} }, plugins:{legend:{display:false}} }
+  });
+
   const daySelect = document.getElementById('strength-day-select');
   const exSelect = document.getElementById('ex-select');
   // Include every day that's a valid key, not just ones with a default
@@ -2438,6 +2516,29 @@ async function renderHistory(){
   const lifts = await listLift();
   populateHistoryFilters(lifts);
   renderHistoryLiftTable(lifts);
+
+  const cardioLog = await listCardio();
+  renderHistoryCardioTable(cardioLog);
+}
+function renderHistoryCardioTable(cardioLog){
+  const ct = document.getElementById('history-cardio');
+  if(!cardioLog.length){
+    ct.outerHTML = '<div class="empty-note" id="history-cardio">No cardio logged yet — add a session from the Lift tab.</div>';
+    return;
+  }
+  const rows = [];
+  cardioLog.forEach(day=>{
+    day.entries.forEach(e=>{
+      const kcal = estimateCardioKcal(e.machine, e.duration, e.speed, e.incline);
+      rows.push({ date: day.date, machine: e.machine, duration: e.duration, speed: e.speed, incline: e.incline, kcal });
+    });
+  });
+  ct.innerHTML = `<tr><th>Date</th><th>Machine</th><th>Duration</th><th>Speed</th><th>Incline</th><th>Calories</th></tr>` +
+    rows.map(r=>`<tr>
+      <td>${r.date}</td><td>${r.machine}</td><td>${r.duration?r.duration+' min':'—'}</td>
+      <td>${r.speed?r.speed+' mph':'—'}</td><td>${r.incline?r.incline+'%':'—'}</td>
+      <td>${r.kcal ? r.kcal.gross+' kcal gross ('+r.kcal.active+' active)' : '—'}</td>
+    </tr>`).join('');
 }
 
 function populateHistoryFilters(lifts){
