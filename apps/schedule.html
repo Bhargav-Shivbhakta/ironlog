@@ -188,7 +188,9 @@
   .routine-summary .rs-title{font-family:'Manrope',sans-serif;font-weight:800;font-size:16.5px;}
   .routine-summary .rs-sub{font-size:13.5px;color:var(--text-faint);margin-top:1px;}
   .cat-legend{display:flex;flex-wrap:wrap;gap:5px;margin-bottom:10px;}
-  .cat-chip{font-size:11.5px;font-weight:700;border-radius:20px;padding:2px 8px;}
+  .cat-chip{font-size:11.5px;font-weight:700;border-radius:20px;padding:5px 11px;border:none;cursor:pointer;transition:transform .1s ease;}
+  .cat-chip:hover{transform:translateY(-1px);}
+  .cat-chip-active{box-shadow:0 2px 8px rgba(0,0,0,0.18);}
 
   .routine-block{
     display:flex;align-items:center;gap:9px;padding:7px 9px 7px 10px;border-radius:var(--radius-sm);
@@ -372,15 +374,24 @@ function showAuth(){
 }
 auth.onAuthStateChanged(user=>{
   currentUser = user;
-  user ? showProfilePicker() : showAuth();
+  if(!user){ showAuth(); return; }
+  const params = new URLSearchParams(window.location.search);
+  const fromUrl = params.get('profile');
+  if(fromUrl === 'Bhargav' || fromUrl === 'Anusha'){ enterProfile(fromUrl); return; }
+  let last = null;
+  try{ last = localStorage.getItem('hub-active-profile'); }catch(e){}
+  if(last === 'Bhargav' || last === 'Anusha') enterProfile(last);
+  else showProfilePicker();
 });
 
 async function enterProfile(profileId){
   activeProfile = profileId;
+  try{ localStorage.setItem('hub-active-profile', profileId); }catch(e){}
   document.getElementById('profile-overlay').style.display = 'none';
   document.getElementById('app-wrap').style.display = 'block';
   document.getElementById('who-badge').innerHTML = '<span class="who-avatar av-'+(profileId==='Bhargav'?'b':'a')+'">'+profileId[0]+'</span><span class="who-name">'+profileId+'</span>';
-  document.getElementById('switch-profile-btn').onclick = showProfilePicker;
+  document.getElementById('switch-profile-btn').textContent = 'Switch to '+(profileId==='Bhargav'?'Anusha':'Bhargav');
+  document.getElementById('switch-profile-btn').onclick = function(){ enterProfile(profileId==='Bhargav'?'Anusha':'Bhargav'); };
   initControls();
   await loadEvents();
   await loadChores();
@@ -407,7 +418,7 @@ const WORKOUT_PATTERN = {
 /* ---------------- DAILY ROUTINE TEMPLATE ---------------- */
 // Each profile gets its own 7-day set of blocks (one per weekday, not
 // paired) since two people's real schedules don't line up the same way.
-function tRange(start, end, activity){ return {start, end, activity}; }
+function tRange(start, end, activity, category){ return {start, end, activity, category: category || null}; }
 const BHARGAV_MWF = [
   tRange('04:30','05:00','Get ready and food preparation'),
   tRange('05:00','05:20','Home workout'),
@@ -425,10 +436,11 @@ const BHARGAV_MWF = [
   tRange('16:30','16:45','Snack'),
   tRange('16:45','19:00','Study'),
   tRange('19:00','19:25','Dinner'),
-  tRange('19:25','21:00','Study'),
+  tRange('19:25','19:55','Dishwashing'),
+  tRange('19:55','21:00','Study'),
   tRange('21:00','21:10','GitHub/LinkedIn update'),
   tRange('21:10','21:20','Plan the next day'),
-  tRange('21:20','21:30','Final review'),
+  tRange('21:20','21:30','Final review + Skin routine'),
   tRange('21:30','04:30','Sleep'),
 ];
 const BHARGAV_FRI = [
@@ -450,10 +462,11 @@ const BHARGAV_FRI = [
   tRange('16:30','16:45','Snack'),
   tRange('16:45','19:00','Study'),
   tRange('19:00','19:25','Dinner'),
-  tRange('19:25','21:00','Study'),
+  tRange('19:25','19:55','Dishwashing'),
+  tRange('19:55','21:00','Study'),
   tRange('21:00','21:10','GitHub/LinkedIn update'),
   tRange('21:10','21:20','Plan the next day'),
-  tRange('21:20','21:30','Final review'),
+  tRange('21:20','21:30','Final review + Skin routine'),
   tRange('21:30','04:30','Sleep'),
 ];
 const BHARGAV_TUETHU = [
@@ -479,7 +492,7 @@ const BHARGAV_TUETHU = [
   tRange('20:55','21:00','Check assignments'),
   tRange('21:00','21:10','GitHub/LinkedIn update'),
   tRange('21:10','21:20','Plan the next day'),
-  tRange('21:20','21:25','Final review'),
+  tRange('21:20','21:25','Final review + Skin routine'),
   tRange('21:25','21:30','Prepare for sleep'),
   tRange('21:30','04:30','Sleep'),
 ];
@@ -511,7 +524,8 @@ const DAY_TEMPLATE_SEED_BHARGAV = {
     tRange('16:30','16:45','Snack'),
     tRange('16:45','19:00','Study'),
     tRange('19:00','19:25','Dinner'),
-    tRange('19:25','20:45','Study'),
+    tRange('19:25','19:55','Dishwashing'),
+    tRange('19:55','20:45','Study'),
     tRange('20:45','21:10','Open/reset time'),
     tRange('21:10','21:20','Plan the next day'),
     tRange('21:20','21:30','Prepare for sleep'),
@@ -535,10 +549,11 @@ const DAY_TEMPLATE_SEED_BHARGAV = {
     tRange('16:30','16:45','Snack'),
     tRange('16:45','19:00','Study'),
     tRange('19:00','19:25','Dinner'),
-    tRange('19:25','21:00','Study'),
+    tRange('19:25','19:55','Dishwashing'),
+    tRange('19:55','21:00','Study'),
     tRange('21:00','21:10','GitHub/LinkedIn update'),
     tRange('21:10','21:20','Plan the next day'),
-    tRange('21:20','21:30','Final review'),
+    tRange('21:20','21:30','Final review + Skin routine'),
     tRange('21:30','04:30','Sleep'),
   ]
 };
@@ -714,6 +729,17 @@ let events = [];
 let chores = [];
 let choreLog = {};
 let dayTemplates = {};
+let activeCategoryFilter = null; // null = show everything; a category key (e.g. 'study') = show only that category's blocks, across the whole day
+// One delegated listener handles the filter chips wherever they render —
+// Today view or Week view — rather than re-wiring after every render.
+document.addEventListener('click', function(e){
+  const chip = e.target.closest('[data-filtercat]');
+  if(!chip) return;
+  const cat = chip.dataset.filtercat;
+  activeCategoryFilter = (activeCategoryFilter === cat) ? null : cat; // click again to clear
+  if(activeView === 'today') renderToday();
+  else if(activeView === 'week') renderWeek();
+});
 let templateLog = {};
 let autoConfig = { workoutsOn:true, groceryOn:true, groceryWeekday:6 };
 let activeView = 'today';
@@ -745,6 +771,17 @@ async function loadDayTemplates(){
     const isEmpty = !loaded || Object.keys(loaded).length===0 || Object.values(loaded).every(arr=>!arr || !arr.length);
     if(loaded && !isEmpty){
       dayTemplates = loaded; // real saved content (possibly hand-edited) — never overwrite it
+      // A day that's specifically empty (however it happened — a past
+      // edit, an old bug) stayed empty forever before, since only the
+      // *global* all-days-empty case triggered a reseed. This backfills
+      // just that one day from the seed template, leaving every other
+      // day's real saved content completely untouched.
+      if(seed){
+        TEMPLATE_KEYS.forEach(function(day){
+          const dayEmpty = !dayTemplates[day] || !dayTemplates[day].length;
+          if(dayEmpty && seed[day] && seed[day].length) dayTemplates[day] = JSON.parse(JSON.stringify(seed[day]));
+        });
+      }
       await saveDayTemplates(); // persist the migrated format
     } else if(seed){
       dayTemplates = JSON.parse(JSON.stringify(seed));
@@ -753,6 +790,19 @@ async function loadDayTemplates(){
       dayTemplates = loaded || {};
     }
   }catch(e){ dayTemplates = seed ? JSON.parse(JSON.stringify(seed)) : {}; }
+  // Existing saved schedules keep whatever the person already edited, so a
+  // seed change alone won't reach them — this renames only the exact,
+  // untouched "Final review" block to add the skin routine alongside it,
+  // and leaves anything already customized exactly as it is.
+  if(activeProfile==='Bhargav'){
+    let changed = false;
+    Object.keys(dayTemplates).forEach(function(day){
+      (dayTemplates[day]||[]).forEach(function(block){
+        if(block.activity === 'Final review'){ block.activity = 'Final review + Skin routine'; changed = true; }
+      });
+    });
+    if(changed) await saveDayTemplates();
+  }
 }
 async function saveDayTemplates(){
   try{ await profileDoc(activeProfile,'dayTemplates').set({json: JSON.stringify(dayTemplates)}); }
@@ -1076,7 +1126,8 @@ function renderDailyRoutineHtml(dateStr){
 
   const legend = [...new Set(blocks.map(b=>categorize(b.activity)))].map(cat=>{
     const m = CATEGORY_META[cat];
-    return '<span class="cat-chip" style="background:'+m.soft+';color:'+m.color+';">'+m.label+'</span>';
+    const isActive = activeCategoryFilter === cat;
+    return '<button type="button" class="cat-chip '+(isActive?'cat-chip-active':'')+'" data-filtercat="'+cat+'" style="background:'+(isActive?m.color:m.soft)+';color:'+(isActive?'#fff':m.color)+';">'+m.label+'</button>';
   }).join('');
 
   const rows = blocks.map((b,i)=>{
@@ -1086,7 +1137,8 @@ function renderDailyRoutineHtml(dateStr){
     const isDone = !!templateLog[key];
     const isNow = i === curIdx;
     const tKey = todaysTemplateKey(dateStr);
-    return '<div class="routine-block '+(isDone?'done':'')+' '+(isNow?'now':'')+'" style="border-left-color:'+meta.color+';">'+
+    const hiddenByFilter = activeCategoryFilter && cat !== activeCategoryFilter;
+    return '<div class="routine-block '+(isDone?'done':'')+' '+(isNow?'now':'')+'" style="border-left-color:'+meta.color+';'+(hiddenByFilter?'display:none;':'')+'">'+
       '<input type="checkbox" class="routine-chk" data-blockkey="'+key+'" '+(isDone?'checked':'')+'>'+
       '<div class="rb-body">'+
         '<div class="rb-title '+(isDone?'strike':'')+'" contenteditable="true" data-tplkey="'+tKey+'" data-tplidx="'+i+'" data-field="activity">'+escapeHtml(b.activity)+'</div>'+
