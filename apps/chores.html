@@ -248,7 +248,7 @@ const CHORES_SEED = [
   {id:'laundry-arya', name:'Laundry — Arya', freqType:'everyNDays', freqDays:15, assignedTo:['Arya'], lastCompleted:null, dueOverride:'2026-09-04', notes:'First cycle scheduled'},
   {id:'dishwashing-anusha', name:'Dishwashing — Anusha', freqType:'daily', assignedTo:['Anusha'], lastCompleted:d('2026-09-02'), notes:'Compulsory; no timing changes'},
   {id:'dishwashing-arya', name:'Dishwashing — Arya', freqType:'daily', assignedTo:['Arya'], lastCompleted:d('2026-09-02'), notes:'Compulsory; no timing changes'},
-  {id:'cooking-bhargav', name:'Cooking — Bhargav', freqType:'daily', assignedTo:['Bhargav'], lastCompleted:d('2026-09-03'), notes:'Last completed in the morning'},
+  {id:'dishwashing-bhargav', name:'Dishwashing — Bhargav', freqType:'daily', assignedTo:['Bhargav'], lastCompleted:null, notes:'Every night', scheduleSync:{profile:'Bhargav', keyword:'dishwashing'}},
   {id:'cooking-arya', name:'Cooking — Arya', freqType:'daily', assignedTo:['Arya'], lastCompleted:d('2026-09-03'), notes:'Last completed in the morning'},
   {id:'bathroom1', name:'Bathroom 1 — Left', freqType:'everyNDays', freqDays:15, assignedTo:['Arya'], lastCompleted:null, notes:'Not done yet'},
   {id:'bathroom2', name:'Bathroom 2 — Right', freqType:'everyNDays', freqDays:15, assignedTo:['Bhargav'], lastCompleted:d('2026-08-29'), notes:null},
@@ -332,6 +332,11 @@ function statusFor(chore){
   const nd = nextDueFor(chore);
   if(nd === null) return 'asneeded';
   const today = todayStr();
+  // A chore synced to Schedule only counts as due today if today's
+  // actual schedule has the matching block — otherwise it's treated as
+  // upcoming rather than due or overdue, so it doesn't wrongly nag on a
+  // day it was never expected.
+  if(nd <= today && chore.scheduleSync && !isDueTodayByScheduleSync(chore)) return 'upcoming';
   if(nd < today) return 'overdue';
   if(nd === today) return 'today';
   return 'upcoming';
@@ -355,6 +360,38 @@ function freqLabel(chore){
 ===================================================================== */
 function scheduleProfileDoc(profile, key){
   return db.collection('users').doc(currentUser.uid).collection('schedule-profiles').doc(profile).collection('data').doc(key);
+}
+// Opt-in sync: a chore can carry scheduleSync:{profile,keyword} to say
+// "only count this as due on days that profile's actual Schedule has a
+// matching block." Chores without this field behave exactly as before —
+// nothing changes for them. Loaded once per session; Schedule's own
+// day-template shape (per-weekday arrays of {start,end,activity}).
+let scheduleDayTemplatesCache = {};
+async function loadScheduleDayTemplates(profile){
+  if(scheduleDayTemplatesCache[profile]) return scheduleDayTemplatesCache[profile];
+  try{
+    const doc = await scheduleProfileDoc(profile,'dayTemplates').get();
+    scheduleDayTemplatesCache[profile] = (doc.exists && doc.data().json) ? JSON.parse(doc.data().json) : {};
+  }catch(e){ scheduleDayTemplatesCache[profile] = {}; }
+  return scheduleDayTemplatesCache[profile];
+}
+const WEEKDAY_NAMES = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+function scheduleHasKeywordOn(templates, weekdayName, keyword){
+  const blocks = templates[weekdayName] || [];
+  const kw = keyword.toLowerCase();
+  return blocks.some(function(b){ return (b.activity||'').toLowerCase().indexOf(kw) !== -1; });
+}
+// Called once at load so the due-date logic below can check synchronously.
+async function preloadScheduleSyncData(){
+  const profiles = new Set();
+  chores.forEach(function(c){ if(c.scheduleSync) profiles.add(c.scheduleSync.profile); });
+  await Promise.all([...profiles].map(loadScheduleDayTemplates));
+}
+function isDueTodayByScheduleSync(chore){
+  if(!chore.scheduleSync) return true; // unsynced chores are unaffected — normal frequency rules apply
+  const templates = scheduleDayTemplatesCache[chore.scheduleSync.profile] || {};
+  const weekdayName = WEEKDAY_NAMES[new Date().getDay()];
+  return scheduleHasKeywordOn(templates, weekdayName, chore.scheduleSync.keyword);
 }
 let scheduleChores = { Bhargav: [], Anusha: [] };
 async function loadScheduleChores(){
@@ -489,6 +526,7 @@ function choreRowHtml(chore, showCompleteBtn, showManageIcons){
         chore.assignedTo.map(function(p){ return '<span class="person-pill '+personClass(p)+'">'+escapeHtml(p)+'</span>'; }).join('')+
         '<span class="status-pill '+status+'">'+statusLabel+(nd && status!=='asneeded' ? ' · '+fmtShort(nd) : '')+'</span>'+
         '<span class="freq-tag">'+freqLabel(chore)+'</span>'+
+        (chore.scheduleSync ? '<span class="freq-tag" title="Only counted as due on days '+chore.scheduleSync.profile+'\'s Schedule actually has a matching block">🔗 Synced to Schedule</span>' : '')+
       '</div>'+
       (chore.notes ? '<div class="cr-note">'+escapeHtml(chore.notes)+'</div>' : '')+
     '</div>'+
@@ -828,6 +866,7 @@ async function init(){
   document.getElementById('tab-history-btn').onclick = function(){ showTab('history'); };
 
   await loadAll();
+  await preloadScheduleSyncData();
   await loadScheduleChores();
   const linkChoreId = params.get('chore');
   if(linkChoreId) jumpToChore(linkChoreId);
