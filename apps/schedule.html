@@ -281,6 +281,24 @@
 </div>
 
 <script>
+window.addEventListener('error', function(e){
+  const gate = document.getElementById('fb-load-error');
+  if(gate) return; // already shown
+  if(typeof firebase !== 'undefined') return; // a different, unrelated error — don't misattribute it
+  showFirebaseLoadError();
+});
+function showFirebaseLoadError(){
+  const box = document.querySelector('.auth-box');
+  if(!box || document.getElementById('fb-load-error')) return;
+  const msg = document.createElement('div');
+  msg.id = 'fb-load-error';
+  msg.style.cssText = 'background:#FCE1E5;color:#B23A4E;border-radius:10px;padding:11px 13px;font-size:12.5px;font-weight:600;margin-bottom:14px;';
+  msg.textContent = "Couldn't load — check your internet connection and refresh the page.";
+  box.insertBefore(msg, box.firstChild.nextSibling);
+}
+if(typeof firebase === 'undefined'){
+  showFirebaseLoadError();
+} else {
 /* =====================================================================
    FIREBASE
 ===================================================================== */
@@ -1635,6 +1653,8 @@ function openChoreForm(mountId){
     showView(activeView);
   });
 }
+
+} // end firebase-available guard
 </script>
 </body>
 </html>
