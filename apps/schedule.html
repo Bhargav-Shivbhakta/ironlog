@@ -230,7 +230,14 @@
 </head>
 <body>
 
-<div id="auth-overlay" class="auth-overlay">
+<div id="conn-loading" style="position:fixed;inset:0;z-index:250;background:#F4F1EA;display:flex;align-items:center;justify-content:center;padding:20px;">
+  <div style="text-align:center;">
+    <div style="font-family:'Manrope',sans-serif;font-size:18px;font-weight:700;margin-bottom:6px;">Schedule</div>
+    <div id="conn-loading-text" style="color:#6B6558;font-size:14px;">Connecting…</div>
+  </div>
+</div>
+
+<div id="auth-overlay" class="auth-overlay" style="display:none;">
   <div class="auth-box">
     <h2>Schedule</h2>
     <p>Sign in to sync across devices.</p>
@@ -317,6 +324,22 @@ db.enablePersistence({synchronizeTabs:true}).catch(()=>{});
 let currentUser = null;
 let activeProfile = null;
 
+// If Firebase Auth's own callback never fires — a real network issue,
+// a blocked request, anything — the person was previously left staring
+// at a fully-rendered but non-functional page with zero feedback. This
+// guarantees they see an actual message instead of silence.
+let authResolved = false;
+setTimeout(function(){
+  if(authResolved) return;
+  const txt = document.getElementById('conn-loading-text');
+  if(txt) txt.innerHTML = "This is taking longer than expected.<br>Check your connection, then <a href=\"#\" onclick=\"location.reload();return false;\" style=\"color:#9C7B0E;font-weight:700;\">tap here to retry</a>.";
+}, 7000);
+function hideConnLoading(){
+  authResolved = true;
+  const el = document.getElementById('conn-loading');
+  if(el) el.style.display = 'none';
+}
+
 function profileDoc(profileId, key){
   return db.collection('users').doc(currentUser.uid).collection('schedule-profiles').doc(profileId).collection('data').doc(key);
 }
@@ -391,6 +414,7 @@ function showAuth(){
   document.getElementById('app-wrap').style.display = 'none';
 }
 auth.onAuthStateChanged(user=>{
+  hideConnLoading();
   currentUser = user;
   if(!user){ window.location.href = '../index.html'; return; }
   const params = new URLSearchParams(window.location.search);
