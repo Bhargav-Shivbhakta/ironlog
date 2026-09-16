@@ -751,10 +751,29 @@ async function addTask(parsed){
   await saveTasksFor(listId);
   return item;
 }
+// findTaskAnywhere is the fallback for toggle/delete below: if a task's
+// stored listId ever drifts from which array it's actually sitting in —
+// any bug, past or future, that moves a task without keeping both in
+// sync — a lookup keyed strictly by listId silently finds nothing and
+// the button just does nothing, with no error to explain why. Searching
+// both arrays for the id directly sidesteps that class of bug entirely,
+// whatever caused it. isShared reflects which array it was actually
+// found in, not the listId string — a task can carry a custom list id
+// (e.g. "list-research") while still physically living in sharedTasks,
+// and saving must follow the real array, not that string.
+function findTaskAnywhere(id){
+  let t = personalTasks.find(function(x){ return x.id===id; });
+  if(t) return {arr:personalTasks, t:t, isShared:false};
+  t = sharedTasks.find(function(x){ return x.id===id; });
+  if(t) return {arr:sharedTasks, t:t, isShared:true};
+  return null;
+}
+async function saveByShared(isShared){ return isShared ? saveSharedTasks() : savePersonalTasks(); }
 async function toggleTask(id, listId){
-  const arr = tasksArrFor(listId);
-  const t = arr.find(function(x){ return x.id===id; });
-  if(!t) return;
+  let arr = tasksArrFor(listId);
+  let t = arr.find(function(x){ return x.id===id; });
+  let isShared = listId === 'shared';
+  if(!t){ const found = findTaskAnywhere(id); if(!found) return; arr = found.arr; t = found.t; isShared = found.isShared; }
   t.done = !t.done;
   t.completedOn = t.done ? todayStr() : null;
   if(t.done && t.repeat && t.repeat!=='none' && t.due){
@@ -766,15 +785,20 @@ async function toggleTask(id, listId){
       order: Date.now(), createdAt: new Date().toISOString()
     }));
   }
-  await saveTasksFor(listId);
+  await saveByShared(isShared);
 }
 function deleteTask(id, listId){
-  const arr = tasksArrFor(listId);
-  const idx = arr.findIndex(function(x){ return x.id===id; });
-  if(idx<0) return;
-  lastDeleted = { listId: listId, item: arr[idx], idx: idx };
+  let arr = tasksArrFor(listId);
+  let idx = arr.findIndex(function(x){ return x.id===id; });
+  let isShared = listId === 'shared';
+  if(idx<0){
+    const found = findTaskAnywhere(id);
+    if(!found) return;
+    arr = found.arr; isShared = found.isShared; idx = arr.indexOf(found.t);
+  }
+  lastDeleted = { listId: arr[idx].listId, isShared: isShared, item: arr[idx], idx: idx };
   arr.splice(idx,1);
-  saveTasksFor(listId);
+  saveByShared(isShared);
   showUndo('Task deleted');
 }
 function showUndo(msg){
@@ -785,9 +809,9 @@ function showUndo(msg){
 }
 document.getElementById('undo-btn').addEventListener('click', async function(){
   if(!lastDeleted) return;
-  const arr = tasksArrFor(lastDeleted.listId);
+  const arr = lastDeleted.isShared ? sharedTasks : personalTasks;
   arr.splice(lastDeleted.idx, 0, lastDeleted.item);
-  await saveTasksFor(lastDeleted.listId);
+  await saveByShared(lastDeleted.isShared);
   lastDeleted = null;
   document.getElementById('undo-toast').classList.remove('show');
   render();
