@@ -268,6 +268,7 @@
   .parse-chip.tag{background:var(--p3-soft);color:var(--p3);}
 
   .tag-filter-pill{display:inline-flex;align-items:center;gap:8px;background:var(--p3-soft);color:var(--p3);font-size:12.5px;font-weight:700;border-radius:20px;padding:6px 8px 6px 14px;margin-bottom:10px;}
+  #misplaced-banner{align-items:center;gap:10px;flex-wrap:wrap;background:#FFF4E5;border:1px solid #F0B95C;border-radius:10px;padding:9px 12px;margin-bottom:10px;font-size:13px;color:#7A5A1E;}
   .tag-filter-pill button{background:none;border:none;color:var(--p3);cursor:pointer;font-size:13px;padding:2px 6px;border-radius:50%;}
   .tag-filter-pill button:hover{background:rgba(91,141,239,0.15);}
 
@@ -381,6 +382,7 @@
 
   <div class="list-chips" id="list-chips"></div>
   <div style="text-align:right;margin:-4px 0 6px;"><button type="button" id="manage-tags-btn" style="background:none;border:none;color:var(--text-faint);font-size:11.5px;text-decoration:underline;">🏷 Manage tags</button></div>
+  <div id="misplaced-banner" style="display:none;"></div>
   <div id="tag-filter-bar" style="display:none;"></div>
   <div id="new-list-mount"></div>
   <div id="modal-mount"></div>
@@ -560,6 +562,51 @@ async function loadTasks(){
   catch(e){ personalTasks = []; }
   try{ const doc2 = await sharedDoc('tasks').get(); sharedTasks = (doc2.exists && doc2.data().json) ? JSON.parse(doc2.data().json) : []; }
   catch(e){ sharedTasks = []; }
+  await reconcileTaskArrays();
+}
+// Self-healing: whatever caused a task's physical array to disagree with
+// where its listId says it belongs — any past bug, a half-finished move,
+// anything — this finds and permanently corrects it on every load. A
+// task tagged personal (or a non-shared custom list) has no business
+// sitting in the one Firestore document both profiles read; this moves
+// it back and saves both sides so it can't silently recur.
+//
+// One real limitation: tasks don't currently record which profile
+// personally owns them, only which list/category they're tagged with —
+// so a task wrongly sitting in the shared pool can't be safely assigned
+// back to "whichever profile happens to load first" without risking
+// handing Anusha's task to Bhargav or the reverse. That direction is
+// deliberately left for a manual list-reassignment via the task's own
+// edit form (which already moves both listId and array correctly)
+// rather than an automatic guess.
+async function reconcileTaskArrays(){
+  const shouldBeShared = function(t){ const l = listById(t.listId); return t.listId === 'shared' || (l && l.shared === true); };
+  const wronglyInPersonal = personalTasks.filter(function(t){ return shouldBeShared(t); });
+  if(wronglyInPersonal.length){
+    personalTasks = personalTasks.filter(function(t){ return !shouldBeShared(t); });
+    sharedTasks = sharedTasks.concat(wronglyInPersonal);
+    await savePersonalTasks();
+    await saveSharedTasks();
+  }
+  // The other direction needs a person to confirm, not a silent guess —
+  // surfaced as a banner rather than auto-moved.
+  const wronglyInShared = sharedTasks.filter(function(t){ return !shouldBeShared(t); });
+  if(wronglyInShared.length) showMisplacedTasksBanner(wronglyInShared);
+}
+function showMisplacedTasksBanner(items){
+  const bar = document.getElementById('misplaced-banner');
+  if(!bar) return;
+  bar.style.display = 'flex';
+  bar.innerHTML = '<span>Found '+items.length+' task'+(items.length===1?'':'s')+' set to a personal list but visible to everyone — claim '+(items.length===1?'it':'them')+' as '+activeProfile+'\'s?</span><button id="claim-misplaced-btn" class="btn small primary">Move to my list</button><button id="dismiss-misplaced-btn" class="btn small ghost">Not mine</button>';
+  document.getElementById('claim-misplaced-btn').addEventListener('click', async function(){
+    sharedTasks = sharedTasks.filter(function(t){ return !items.some(function(i){ return i.id===t.id; }); });
+    personalTasks = personalTasks.concat(items);
+    await savePersonalTasks();
+    await saveSharedTasks();
+    bar.style.display = 'none';
+    render();
+  });
+  document.getElementById('dismiss-misplaced-btn').addEventListener('click', function(){ bar.style.display = 'none'; });
 }
 async function savePersonalTasks(){
   try{ await profileDoc(activeProfile,'tasks').set({json: JSON.stringify(personalTasks)}); }
