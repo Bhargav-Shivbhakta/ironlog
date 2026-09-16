@@ -538,13 +538,31 @@ const BHARGAV_TUETHU = [
   tRange('21:25','21:30','Prepare for sleep'),
   tRange('21:30','04:30','Sleep'),
 ];
-const DAY_TEMPLATE_SEED_BHARGAV = {
-  Monday: BHARGAV_MWF,
-  Wednesday: BHARGAV_MWF,
-  Tuesday: BHARGAV_TUETHU,
-  Thursday: BHARGAV_TUETHU,
-  Friday: BHARGAV_FRI,
-  Saturday:[
+// Saturday's laundry slot alternates with a deep-clean slot every other
+// week — the time block itself stays fixed (10:30–12:30, same as
+// before), only what fills it changes. Reference date matches the same
+// pattern already used for rotating shared chores between people.
+function weekParity(dateStr){
+  const ref = dateObj('2026-01-03'); // a Saturday, so parity flips cleanly on Saturdays
+  const weeksSince = Math.floor((dateObj(dateStr) - ref) / (7*86400000));
+  return ((weeksSince % 2)+2)%2; // 0 = laundry week, 1 = deep-clean week
+}
+function buildBhargavSaturday(variant){
+  const middleBlocks = variant === 'laundry' ? [
+    tRange('10:30','10:45','Take laundry and trash down; start washer'),
+    tRange('10:45','10:55','GitHub/LinkedIn update'),
+    tRange('10:55','11:15','Study while laundry runs'),
+    tRange('11:15','11:25','Transfer clothes to dryer'),
+    tRange('11:25','12:00','Study while clothes dry'),
+    tRange('12:00','12:30','Collect, fold and organize clothes'),
+  ] : [
+    tRange('10:30','10:45','Deep clean — kitchen and common areas'),
+    tRange('10:45','10:55','GitHub/LinkedIn update'),
+    tRange('10:55','11:30','Deep clean — bedroom and closet'),
+    tRange('11:30','12:00','Organize and declutter'),
+    tRange('12:00','12:30','Wipe down surfaces and final reset'),
+  ];
+  return [
     tRange('04:30','05:00','Get ready and food preparation'),
     tRange('05:00','07:00','LeetCode'),
     tRange('07:00','07:20','Home workout'),
@@ -555,12 +573,7 @@ const DAY_TEMPLATE_SEED_BHARGAV = {
     tRange('09:40','10:00','Bath and get ready'),
     tRange('10:00','10:25','Breakfast'),
     tRange('10:25','10:30','Quick review'),
-    tRange('10:30','10:45','Take laundry and trash down; start washer'),
-    tRange('10:45','10:55','GitHub/LinkedIn update'),
-    tRange('10:55','11:15','Study while laundry runs'),
-    tRange('11:15','11:25','Transfer clothes to dryer'),
-    tRange('11:25','12:00','Study while clothes dry'),
-    tRange('12:00','12:30','Collect, fold and organize clothes'),
+  ].concat(middleBlocks).concat([
     tRange('12:30','13:25','Lunch and social break'),
     tRange('13:25','16:30','Study'),
     tRange('16:30','16:45','Snack'),
@@ -572,7 +585,15 @@ const DAY_TEMPLATE_SEED_BHARGAV = {
     tRange('21:10','21:20','Plan the next day'),
     tRange('21:20','21:30','Prepare for sleep'),
     tRange('21:30','04:30','Sleep'),
-  ],
+  ]);
+}
+const DAY_TEMPLATE_SEED_BHARGAV = {
+  Monday: BHARGAV_MWF,
+  Wednesday: BHARGAV_MWF,
+  Tuesday: BHARGAV_TUETHU,
+  Thursday: BHARGAV_TUETHU,
+  Friday: BHARGAV_FRI,
+  Saturday: buildBhargavSaturday('laundry'), // resolved dynamically at render time — see resolveBhargavSaturday()
   Sunday:[
     tRange('04:30','05:00','Get ready and food preparation'),
     tRange('05:00','07:00','LeetCode'),
@@ -860,7 +881,27 @@ async function saveTemplateLog(){
 }
 function templateBlockKey(dateStr, idx){ return dateStr+':'+idx; }
 function todaysTemplateKey(dateStr){ return templateKeyForWeekday(weekdayOf(dateStr)); }
-function todaysBlocks(dateStr){ return dayTemplates[todaysTemplateKey(dateStr)] || []; }
+// Resolves which variant of Bhargav's Saturday actually applies for a
+// given date — but only auto-alternates if the stored content still
+// matches the original, unedited seed. If he's hand-edited Saturday at
+// all, that edit is respected exactly like any other day, and auto
+// alternation stops (same "never overwrite what's been customized"
+// rule used everywhere else in this app).
+function resolveDayBlocks(profileKey, templateKey, dateStr){
+  const stored = dayTemplates[templateKey] || [];
+  if(profileKey === 'Bhargav' && templateKey === 'Saturday'){
+    const laundryVariant = buildBhargavSaturday('laundry');
+    const deepCleanVariant = buildBhargavSaturday('deepclean');
+    const matchesVariant = function(variant){
+      return stored.length === variant.length && stored.every(function(b,i){ return b.activity === variant[i].activity; });
+    };
+    if(matchesVariant(laundryVariant) || matchesVariant(deepCleanVariant)){
+      return weekParity(dateStr) === 0 ? laundryVariant : deepCleanVariant;
+    }
+  }
+  return stored;
+}
+function todaysBlocks(dateStr){ return resolveDayBlocks(activeProfile, todaysTemplateKey(dateStr), dateStr); }
 function currentBlockIndex(blocks){
   const now = new Date();
   let nowMin = now.getHours()*60 + now.getMinutes();
@@ -1584,7 +1625,7 @@ function minutesToTime(mins){
   const h = Math.floor(mins/60), m = mins%60;
   return String(h).padStart(2,'0')+':'+String(m).padStart(2,'0');
 }
-function todaysBlocksFor(dateStr){ return dayTemplates[templateKeyForWeekday(weekdayOf(dateStr))] || []; }
+function todaysBlocksFor(dateStr){ return resolveDayBlocks(activeProfile, templateKeyForWeekday(weekdayOf(dateStr)), dateStr); }
 
 function openEventForm(mountId, defaultDate, existingEvent, defaultTime){
   const mount = document.getElementById(mountId);

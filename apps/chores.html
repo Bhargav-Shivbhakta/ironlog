@@ -244,7 +244,8 @@ const CHORES_SEED = [
   {id:'brooming', name:'Brooming / Sweeping', freqType:'everyNDays', freqDays:10, assignedTo:['Arya'], lastCompleted:d('2026-08-29'), notes:null},
   {id:'dusting', name:'Dusting', freqType:'asNeeded', assignedTo:['Anusha','Arya','Bhargav'], lastCompleted:null, notes:'Not done yet; schedule when guests are invited'},
   {id:'trash', name:'Taking Out Trash', freqType:'specificDays', days:[1,5], assignedTo:['Bhargav'], lastCompleted:d('2026-09-03'), notes:null},
-  {id:'laundry-b', name:'Laundry — Bhargav', freqType:'everyNDays', freqDays:15, assignedTo:['Bhargav'], lastCompleted:d('2026-09-02'), notes:null},
+  {id:'laundry-b', name:'Laundry — Bhargav', freqType:'everyNDays', freqDays:7, assignedTo:['Bhargav'], lastCompleted:d('2026-09-02'), notes:'Alternates with Deep Clean — Saturday mornings', scheduleSync:{profile:'Bhargav', keyword:['laundry','deep clean'], requireWeekParity:0}},
+  {id:'deepclean-bhargav', name:'Deep Clean & Organize — Bhargav', freqType:'everyNDays', freqDays:7, assignedTo:['Bhargav'], lastCompleted:null, notes:'Alternates with Laundry — Saturday mornings', scheduleSync:{profile:'Bhargav', keyword:['laundry','deep clean'], requireWeekParity:1}},
   {id:'laundry-arya', name:'Laundry — Arya', freqType:'everyNDays', freqDays:15, assignedTo:['Arya'], lastCompleted:null, dueOverride:'2026-09-04', notes:'First cycle scheduled'},
   {id:'dishwashing-anusha', name:'Dishwashing — Anusha', freqType:'daily', assignedTo:['Anusha'], lastCompleted:d('2026-09-02'), notes:'Compulsory; no timing changes'},
   {id:'dishwashing-arya', name:'Dishwashing — Arya', freqType:'daily', assignedTo:['Arya'], lastCompleted:d('2026-09-02'), notes:'Compulsory; no timing changes'},
@@ -258,8 +259,8 @@ const CHORES_SEED = [
   {id:'washroom2', name:'Washroom 2 — Big', freqType:'everyNDays', freqDays:7, assignedTo:['Anusha'], lastCompleted:d('2026-08-29'), notes:null},
   {id:'dishkeeping', name:'Dish Keeping', freqType:'daily', assignedTo:['Bhargav'], lastCompleted:null, notes:'Do before dishwashing'},
   {id:'countertop', name:'Countertop Cleaning', freqType:'daily', assignedTo:['Anusha'], lastCompleted:d('2026-09-02'), notes:'Do after dishwashing'},
-  {id:'restocking', name:'Restocking', freqType:'everyNDays', freqDays:7, assignedTo:['Bhargav'], lastCompleted:null, dueOverride:'2026-09-07', notes:'Scheduled for next week'},
-  {id:'grocery-order', name:'Grocery Ordering', freqType:'everyNDays', freqDays:7, assignedTo:['Bhargav'], lastCompleted:null, dueOverride:'2026-09-07', notes:'Scheduled for next week'}
+  {id:'restocking', name:'Restocking', freqType:'everyNDays', freqDays:7, assignedTo:['Bhargav'], lastCompleted:null, dueOverride:'2026-09-07', notes:'Scheduled for next week', scheduleSync:{profile:'Bhargav', keyword:['costco','trader joe']}},
+  {id:'grocery-order', name:'Grocery Ordering', freqType:'everyNDays', freqDays:7, assignedTo:['Bhargav'], lastCompleted:null, dueOverride:'2026-09-07', notes:'Scheduled for next week', scheduleSync:{profile:'Bhargav', keyword:['costco','trader joe']}}
 ];
 const HISTORY_SEED = [
   {date:'2026-08-29', task:'Mopping', by:'Anusha', shift:null, notes:'Initial record'},
@@ -376,29 +377,62 @@ async function loadScheduleDayTemplates(profile){
   return scheduleDayTemplatesCache[profile];
 }
 const WEEKDAY_NAMES = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
-function scheduleHasKeywordOn(templates, weekdayName, keyword){
+function scheduleHasKeywordOn(templates, weekdayName, keywords){
   const blocks = templates[weekdayName] || [];
-  const kw = keyword.toLowerCase();
-  return blocks.some(function(b){ return (b.activity||'').toLowerCase().indexOf(kw) !== -1; });
+  const kws = (Array.isArray(keywords) ? keywords : [keywords]).map(function(k){ return k.toLowerCase(); });
+  return blocks.some(function(b){ const a = (b.activity||'').toLowerCase(); return kws.some(function(kw){ return a.indexOf(kw) !== -1; }); });
+}
+// Mirrors Schedule's own weekParity() exactly — Schedule alternates what
+// fills a fixed Saturday slot (e.g. Laundry vs Deep Clean) at render
+// time, but the document actually stored in Firestore never changes, so
+// reading it directly here needs the same parity math to know which
+// week's activity it currently represents.
+function weekParity(dateStr){
+  const ref = new Date('2026-01-03T00:00:00');
+  const d = new Date(dateStr+'T00:00:00');
+  const weeksSince = Math.floor((d - ref) / (7*86400000));
+  return ((weeksSince % 2)+2)%2;
 }
 // Called once at load so the due-date logic below can check synchronously.
 async function preloadScheduleSyncData(){
   const profiles = new Set();
   chores.forEach(function(c){ if(c.scheduleSync) profiles.add(c.scheduleSync.profile); });
-  await Promise.all([...profiles].map(loadScheduleDayTemplates));
+  // A cross-app read that hangs or gets denied (permissions, network,
+  // anything) should never be able to block the whole app from finishing
+  // load — this can wait at most 4 seconds before giving up and moving
+  // on with sync features simply unavailable for this session.
+  const timeout = new Promise(function(resolve){ setTimeout(resolve, 4000); });
+  try{
+    await Promise.race([Promise.all([...profiles].map(loadScheduleDayTemplates)), timeout]);
+  }catch(e){ /* fall through — sync-gated chores just behave as unsynced this session */ }
 }
 function isDueTodayByScheduleSync(chore){
   if(!chore.scheduleSync) return true; // unsynced chores are unaffected — normal frequency rules apply
   const templates = scheduleDayTemplatesCache[chore.scheduleSync.profile] || {};
   const weekdayName = WEEKDAY_NAMES[new Date().getDay()];
+  // Alternating slots (requireWeekParity set) can't trust which variant's
+  // text is currently frozen in the stored document — Schedule decides
+  // that at render time and never writes it back — so `keyword` here is
+  // every possible variant's text, just to confirm this actually is the
+  // right day (e.g. Saturday) at all; parity alone then decides which
+  // variant's week this one is.
+  if(chore.scheduleSync.requireWeekParity != null){
+    if(!scheduleHasKeywordOn(templates, weekdayName, chore.scheduleSync.keyword)) return false;
+    return weekParity(todayStr()) === chore.scheduleSync.requireWeekParity;
+  }
   return scheduleHasKeywordOn(templates, weekdayName, chore.scheduleSync.keyword);
 }
 let scheduleChores = { Bhargav: [], Anusha: [] };
 async function loadScheduleChores(){
   for(const profile of ['Bhargav','Anusha']){
     try{
-      const doc = await scheduleProfileDoc(profile,'chores').get();
-      scheduleChores[profile] = (doc.exists && doc.data().json) ? JSON.parse(doc.data().json) : [];
+      // Same protection as preloadScheduleSyncData — a hang here (not
+      // just a rejection) would otherwise block init() indefinitely,
+      // since try/catch alone doesn't help against a promise that never
+      // settles at all.
+      const timeout = new Promise(function(resolve){ setTimeout(function(){ resolve(null); }, 4000); });
+      const doc = await Promise.race([scheduleProfileDoc(profile,'chores').get(), timeout]);
+      scheduleChores[profile] = (doc && doc.exists && doc.data().json) ? JSON.parse(doc.data().json) : [];
     }catch(e){ scheduleChores[profile] = []; }
   }
 }
