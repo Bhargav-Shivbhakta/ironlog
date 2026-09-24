@@ -1,5 +1,5 @@
-const CACHE_NAME = 'fit-hub-v3';
-const ASSETS = ['./', './index.html', './manifest.json', './icon-192.png', './icon-512.png'];
+const CACHE_NAME = 'fit-hub-v4';
+const ASSETS = ['./', './index.html', './assets/app.css', './assets/app.js', './manifest.json', './icon-192.png', './icon-512.png'];
 
 self.addEventListener('install', (event) => {
   event.waitUntil(
