@@ -50,6 +50,7 @@ const ICONS = {
 // new (not in this list) has no default and lands in "uncategorized"
 // until a category is picked for it.
 const DEFAULT_CATEGORY = {
+  'gym.html':'health',
   'schedule.html':'planner', 'todo.html':'planner', 'calendar.html':'planner', 'clock.html':'planner', 'jobs.html':'planner',
   'diet.html':'health', 'skin.html':'health',
   'grocery.html':'home', 'chores.html':'home'
@@ -120,7 +121,7 @@ function renderCategoryGrid(cat){
     if(isHidden && !editMode[cat]) return;
     const card = document.createElement('a');
     card.className = 'app-card' + (isHidden ? ' hidden-card' : '');
-    card.href = 'apps/'+a.file + (state.profile ? '?profile='+encodeURIComponent(state.profile) : '');
+    card.href = a.path + (state.profile ? '?profile='+encodeURIComponent(state.profile) : '');
     card.draggable = editMode[cat];
     card.dataset.file = a.file;
     const iconHtml = a.icon ? '<img src="'+a.icon+'" alt="">' : '<i data-lucide="layout-grid"></i>';
@@ -183,7 +184,12 @@ async function loadDashboard(){
     discoverApps()
   ]);
   await loadHubMeta();
-  Object.assign(state,{templates,events,personalTasks:personal,sharedTasks:shared,chores,choreHistory,dailyLog,apps});
+  // Gym lives in its own top-level gym/ folder, not inside apps/ like
+  // every other tool — GitHub discovery only scans apps/, so it can
+  // never find Gym on its own. It's added here as a fixed entry, the
+  // same way the original hub always special-cased it.
+  const appsWithGym = [{ file:'gym.html', path:'gym/index.html', title:'Gym', icon:'tile-icons/gym.png' }].concat(apps.map(a => ({...a, path:'apps/'+a.file})));
+  Object.assign(state,{templates,events,personalTasks:personal,sharedTasks:shared,chores,choreHistory,dailyLog,apps:appsWithGym});
   renderDashboard();renderAllCategoryPages();startHubClock();setGate(null);showRoute(location.hash.replace('#','')||'today');
 }
 
