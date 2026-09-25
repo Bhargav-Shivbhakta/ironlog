@@ -300,14 +300,22 @@ function renderTraining(){$('training-status').textContent=state.dailyLog?"Today
    CLOCK WIDGET
 ===================================================================== */
 let clockTimer = null;
+function localTimezoneLabel(){
+  try{
+    const tz = Intl.DateTimeFormat().resolvedOptions().timeZone; // e.g. "America/Los_Angeles"
+    const parts = tz.split('/');
+    return (parts[parts.length-1]||tz).replace(/_/g,' ');
+  }catch(e){ return ''; }
+}
 function startHubClock(){
   if(clockTimer) clearInterval(clockTimer);
+  const tzLabel = localTimezoneLabel();
   const tick = () => {
     const now = new Date();
     let h = now.getHours(); const period = h>=12?'PM':'AM'; h = h%12||12;
     const m = String(now.getMinutes()).padStart(2,'0'), s = String(now.getSeconds()).padStart(2,'0');
     $('hub-clock').firstChild.textContent = h+':'+m+':'+s+' '+period+' ';
-    $('hub-clock-date').textContent = now.toLocaleDateString(undefined,{weekday:'short',month:'short',day:'numeric'});
+    $('hub-clock-date').textContent = now.toLocaleDateString(undefined,{weekday:'short',month:'short',day:'numeric'}) + (tzLabel ? ' · '+tzLabel : '');
   };
   tick(); clockTimer = setInterval(tick, 1000);
 }
