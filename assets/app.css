@@ -17,7 +17,8 @@ body[data-profile="Anusha"]{--accent:#b25c78;--accent-soft:#faeaf0;--accent-ink:
 @media(prefers-reduced-motion:reduce){*{scroll-behavior:auto!important;animation:none!important;transition:none!important}}
 
 /* ===== Hub clock widget (sidebar) ===== */
-.hub-clock{padding:0 8px;margin:14px 0 6px;font-variant-numeric:tabular-nums;font-size:20px;font-weight:600;letter-spacing:-.02em;color:#f7f7f2}
+.hub-clock{display:block;padding:0 8px;margin:14px 0 6px;font-variant-numeric:tabular-nums;font-size:20px;font-weight:600;letter-spacing:-.02em;color:#f7f7f2;text-decoration:none}
+.hub-clock:hover{color:var(--accent)}
 .hub-clock small{display:block;font-size:10px;font-weight:500;color:#8a8a82;letter-spacing:.06em;text-transform:uppercase;margin-top:2px}
 
 /* ===== Category app-grid (dynamically discovered apps) ===== */
