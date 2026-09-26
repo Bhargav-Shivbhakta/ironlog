@@ -21,6 +21,7 @@ body[data-profile="Anusha"]{--accent:#b25c78;--accent-soft:#faeaf0;--accent-ink:
 .hub-clock:hover,.hub-clock.active{background:#292925}
 .hub-clock:hover{color:var(--accent)}
 .hub-clock small{display:block;font-size:10px;font-weight:500;color:#8a8a82;letter-spacing:.06em;text-transform:uppercase;margin-top:2px}
+.hub-clock-icon{display:none;width:20px;height:20px}
 
 /* ===== Category app-grid (dynamically discovered apps) ===== */
 .app-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:14px}
@@ -61,7 +62,15 @@ body[data-profile="Anusha"]{--accent:#b25c78;--accent-soft:#faeaf0;--accent-ink:
 .app-shell.sidebar-collapsed .app-frame-overlay{left:var(--sidebar-collapsed)}
 .app-shell.sidebar-collapsed .brand{justify-content:center;padding:0}
 .app-shell.sidebar-collapsed .brand>span:not(.brand-mark){display:none}
-.app-shell.sidebar-collapsed .hub-clock{display:none}
+/* Used to fully hide when collapsed — but that made the digital time
+   display (the one real way into Clock now that it's not a separate
+   nav tab) disappear entirely, with no way to click back into Clock
+   until the sidebar was manually re-expanded. It now shrinks to just a
+   clock icon, same treatment as the other nav buttons when collapsed,
+   so it stays clickable at all times. */
+.app-shell.sidebar-collapsed .hub-clock{display:flex;justify-content:center;padding:11px 6px}
+.app-shell.sidebar-collapsed .hub-clock-icon{display:block}
+.app-shell.sidebar-collapsed .hub-clock-text{display:none}
 .app-shell.sidebar-collapsed .main-nav button{justify-content:center;padding:11px 6px}
 .app-shell.sidebar-collapsed .main-nav button span{display:none}
 .app-shell.sidebar-collapsed .profile-control{grid-template-columns:1fr;justify-items:center;padding:8px}

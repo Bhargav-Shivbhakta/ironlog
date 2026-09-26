@@ -314,7 +314,8 @@ function startHubClock(){
     const now = new Date();
     let h = now.getHours(); const period = h>=12?'PM':'AM'; h = h%12||12;
     const m = String(now.getMinutes()).padStart(2,'0'), s = String(now.getSeconds()).padStart(2,'0');
-    $('hub-clock').firstChild.textContent = h+':'+m+':'+s+' '+period+' ';
+    const hubClockText = document.querySelector('.hub-clock-text');
+    if(hubClockText) hubClockText.firstChild.textContent = h+':'+m+':'+s+' '+period+' ';
     $('hub-clock-date').textContent = now.toLocaleDateString(undefined,{weekday:'short',month:'short',day:'numeric'}) + (tzLabel ? ' · '+tzLabel : '');
   };
   tick(); clockTimer = setInterval(tick, 1000);
