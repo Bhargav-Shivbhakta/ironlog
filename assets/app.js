@@ -20,7 +20,7 @@ function hubRef(key){return db.collection('users').doc(state.user.uid).collectio
 async function readJson(ref,fallback=[]){try{const snap=await ref.get();return snap.exists?safeJson(snap.data().json,fallback):fallback}catch(e){console.warn(e);return fallback}}
 
 function setGate(name){['loading','auth','profile'].forEach(x=>$(x+'-gate').hidden=x!==name);$('app-shell').hidden=!!name}
-function setProfile(name){state.profile=name;localStorage.setItem(PROFILE_KEY,name);document.body.dataset.profile=name;$('sidebar-profile').textContent=name;$('sidebar-avatar').textContent=name[0];$('sidebar-avatar').className='avatar '+name.toLowerCase();$('mobile-profile').textContent=name[0];$('mobile-profile').className='avatar '+name.toLowerCase();updateProfileLinks()}
+function setProfile(name){state.profile=name;localStorage.setItem(PROFILE_KEY,name);document.body.dataset.profile=name;$('sidebar-profile').textContent=name;$('sidebar-avatar').textContent=name[0];$('sidebar-avatar').className='avatar '+name.toLowerCase();$('mobile-profile').textContent=name[0];$('mobile-profile').className='avatar '+name.toLowerCase();updateProfileLinks();startHubAlarmWatch()}
 function updateProfileLinks(){document.querySelectorAll('[data-profile-link]').forEach(link=>{const base=link.getAttribute('href').split('?')[0];link.href=base+'?profile='+encodeURIComponent(state.profile)})}
 
 /* =====================================================================
@@ -324,7 +324,17 @@ function startHubClock(){
    ROUTING
 ===================================================================== */
 function showRoute(route){if(!['today','planner','health','home','insights'].includes(route))route='today';document.querySelectorAll('[data-page]').forEach(p=>p.classList.toggle('active',p.dataset.page===route));document.querySelectorAll('[data-route]').forEach(b=>b.classList.toggle('active',b.dataset.route===route));if(location.hash!=='#'+route)history.replaceState(null,'','#'+route);window.scrollTo({top:0,behavior:'smooth'})}
-document.querySelectorAll('[data-route]').forEach(el=>el.addEventListener('click',e=>{e.preventDefault();showRoute(el.dataset.route)}));
+// Clicking Today/Planner/Health/Home/Insights while an app is open in the
+// viewer used to just switch the (hidden) page behind the overlay — the
+// screen still showed whatever app was open, so the click looked like it
+// did nothing until you separately hit "Back to Hub". Closing the app
+// viewer first makes the switch visible immediately, same as clicking
+// Back to Hub yourself would.
+document.querySelectorAll('[data-route]').forEach(el=>el.addEventListener('click',e=>{
+  e.preventDefault();
+  if($('app-frame-overlay') && !$('app-frame-overlay').hidden) closeAppFrame();
+  showRoute(el.dataset.route);
+}));
 window.addEventListener('hashchange',()=>showRoute(location.hash.replace('#','')));
 
 /* =====================================================================
@@ -370,6 +380,12 @@ function openAppFrame(url,title){
     $('app-shell').classList.add('sidebar-collapsed');
     sidebarAutoCollapsed=true;
   }
+  // On phone, the Hub's own fixed top bar (the "H" brand + avatar) sits at
+  // the same spot as the app viewer's own back bar — without this it just
+  // floats on top of "Back to Hub", hiding it and making it look like
+  // there's no way out of the app. This hides the Hub's own bar while an
+  // app is open; the bottom tab bar stays up so you can always jump away.
+  $('app-shell').classList.add('app-open');
   $('app-frame-iframe').src=url;
   $('app-frame-title').textContent=title;
   $('app-frame-open').href=url;
@@ -384,6 +400,7 @@ function openAppFrame(url,title){
   lucide.createIcons();
 }
 function closeAppFrame(){
+  $('app-shell').classList.remove('app-open');
   $('app-frame-overlay').hidden=true;
   $('app-frame-iframe').src='about:blank';
   if(document.querySelector('[data-nav-clock].active')){
@@ -434,3 +451,77 @@ $('auth-form').addEventListener('submit',async e=>{e.preventDefault();$('auth-er
 auth.onAuthStateChanged(user=>{state.user=user;if(!user){setGate('auth');return}const saved=localStorage.getItem(PROFILE_KEY);if(saved==='Bhargav'||saved==='Anusha'){setProfile(saved);loadDashboard()}else setGate('profile')});
 lucide.createIcons();
 if('serviceWorker'in navigator)window.addEventListener('load',()=>navigator.serviceWorker.register('sw.js').catch(()=>{}));
+
+/* =====================================================================
+   HUB ALARMS — reads the same alarm list Clock manages, but checks the
+   time and rings from here, the persistent outer shell, instead of from
+   inside Clock's own iframe. That way an alarm still fires while you're
+   looking at Diet, Grocery, or anything else — the Clock app only has to
+   be open at the moment you *set* an alarm, not at the moment it rings —
+   and the ringing screen can cover the whole viewport instead of being
+   boxed inside whatever iframe happened to be open.
+===================================================================== */
+let hubAudioCtx=null;
+function hubEnsureAudio(){
+  if(!hubAudioCtx) hubAudioCtx=new (window.AudioContext||window.webkitAudioContext)();
+  if(hubAudioCtx.state==='suspended') hubAudioCtx.resume();
+  return hubAudioCtx;
+}
+document.addEventListener('click',()=>{ try{ hubEnsureAudio(); }catch(e){} });
+document.addEventListener('touchstart',()=>{ try{ hubEnsureAudio(); }catch(e){} });
+function hubToneChime(){ const ctx=hubEnsureAudio(); [880,1108].forEach((freq,i)=>{const osc=ctx.createOscillator(),gain=ctx.createGain();osc.type='sine';osc.frequency.value=freq;osc.connect(gain);gain.connect(ctx.destination);const start=ctx.currentTime+i*0.22;gain.gain.setValueAtTime(0.0001,start);gain.gain.exponentialRampToValueAtTime(0.28,start+0.02);gain.gain.exponentialRampToValueAtTime(0.0001,start+0.5);osc.start(start);osc.stop(start+0.55);});}
+function hubToneBells(){ const ctx=hubEnsureAudio(); [1320,990,660].forEach((freq,i)=>{const osc=ctx.createOscillator(),gain=ctx.createGain();osc.type='triangle';osc.frequency.value=freq;osc.connect(gain);gain.connect(ctx.destination);const start=ctx.currentTime+i*0.16;gain.gain.setValueAtTime(0.0001,start);gain.gain.exponentialRampToValueAtTime(0.22,start+0.015);gain.gain.exponentialRampToValueAtTime(0.0001,start+0.7);osc.start(start);osc.stop(start+0.75);});}
+function hubToneBeep(){ const ctx=hubEnsureAudio(); [0,0.18,0.36].forEach(offset=>{const osc=ctx.createOscillator(),gain=ctx.createGain();osc.type='square';osc.frequency.value=1500;osc.connect(gain);gain.connect(ctx.destination);const start=ctx.currentTime+offset;gain.gain.setValueAtTime(0.0001,start);gain.gain.exponentialRampToValueAtTime(0.16,start+0.01);gain.gain.exponentialRampToValueAtTime(0.0001,start+0.13);osc.start(start);osc.stop(start+0.15);});}
+function hubToneRising(){ const ctx=hubEnsureAudio(); const osc=ctx.createOscillator(),gain=ctx.createGain();osc.type='sawtooth';osc.connect(gain);gain.connect(ctx.destination);const start=ctx.currentTime;osc.frequency.setValueAtTime(420,start);osc.frequency.exponentialRampToValueAtTime(920,start+0.8);gain.gain.setValueAtTime(0.0001,start);gain.gain.exponentialRampToValueAtTime(0.22,start+0.05);gain.gain.exponentialRampToValueAtTime(0.0001,start+0.85);osc.start(start);osc.stop(start+0.9);}
+const HUB_ALARM_SOUNDS={chime:hubToneChime,bells:hubToneBells,beep:hubToneBeep,rising:hubToneRising};
+function hubPlayAlarmSound(soundId){ try{ (HUB_ALARM_SOUNDS[soundId]||hubToneChime)(); }catch(e){} }
+let hubRingInterval=null;
+function hubStartRinging(soundId){
+  hubStopRinging();
+  hubPlayAlarmSound(soundId);
+  hubRingInterval=setInterval(()=>hubPlayAlarmSound(soundId),1400);
+}
+function hubStopRinging(){ clearInterval(hubRingInterval); hubRingInterval=null; }
+
+let hubAlarms=[];
+let hubAlarmsUnsub=null;
+let hubFiredToday={};
+function startHubAlarmWatch(){
+  if(hubAlarmsUnsub){ try{ hubAlarmsUnsub(); }catch(e){} hubAlarmsUnsub=null; }
+  hubAlarms=[]; hubFiredToday={};
+  if(!state.user||!state.profile) return;
+  try{
+    hubAlarmsUnsub = profileRef('clock-profiles','alarms').onSnapshot(doc=>{
+      hubAlarms = (doc.exists && doc.data().json) ? JSON.parse(doc.data().json) : [];
+    }, ()=>{});
+  }catch(e){}
+}
+function hubPad2(n){ return (n<10?'0':'')+n; }
+function hubCheckAlarms(){
+  if(!hubAlarms.length) return;
+  const now=new Date();
+  const hhmm=hubPad2(now.getHours())+':'+hubPad2(now.getMinutes());
+  const dow=now.getDay(), todayKey=now.toDateString();
+  hubAlarms.forEach(a=>{
+    if(!a.on) return;
+    if(a.days && a.days.length && a.days.indexOf(dow)===-1) return;
+    if(a.time!==hhmm) return;
+    const fireKey=a.id+':'+todayKey+':'+hhmm;
+    if(hubFiredToday[fireKey]) return;
+    hubFiredToday[fireKey]=true;
+    hubFireAlarm(a);
+  });
+}
+function hubFireAlarm(a){
+  hubStartRinging(a.sound||'chime');
+  const parts=(a.time||'00:00').split(':'); const hh=parseInt(parts[0],10), mm=parseInt(parts[1],10);
+  const ampm=hh>=12?'PM':'AM', h12=hh%12===0?12:hh%12;
+  $('hub-alarm-label').textContent = a.label || 'Alarm';
+  $('hub-alarm-time').textContent = h12+':'+hubPad2(mm)+' '+ampm;
+  $('hub-alarm-overlay').hidden=false;
+}
+if($('hub-alarm-dismiss')) $('hub-alarm-dismiss').addEventListener('click',()=>{
+  hubStopRinging();
+  $('hub-alarm-overlay').hidden=true;
+});
+setInterval(hubCheckAlarms,1000);

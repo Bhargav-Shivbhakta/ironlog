@@ -82,4 +82,23 @@ body[data-profile="Anusha"]{--accent:#b25c78;--accent-soft:#faeaf0;--accent-ink:
 @media(max-width:700px){
   .app-frame-overlay{left:0}
   .app-shell.sidebar-collapsed .app-frame-overlay{left:0}
+  /* The Hub's own fixed top bar would otherwise sit on top of the app
+     viewer's "Back to Hub" bar (both pinned to the same top strip),
+     hiding the one working way out of the app. The bottom tab bar is
+     left alone so there's still always a quick way to jump elsewhere. */
+  .app-shell.app-open .mobile-header{display:none}
+  .app-frame-bar{padding-top:max(14px,env(safe-area-inset-top))}
 }
+
+/* HUB ALARM — fires from the top-level shell (not from inside an app
+   iframe) so it rings and covers the full screen no matter which app,
+   if any, is open at the time. Sits above the sidebar and app viewer. */
+.hub-alarm-overlay{position:fixed;inset:0;z-index:200;background:rgba(16,16,13,.92);display:flex;align-items:center;justify-content:center;animation:hub-alarm-in .25s ease both}
+@keyframes hub-alarm-in{from{opacity:0}to{opacity:1}}
+.hub-alarm-box{text-align:center;color:#fff;padding:40px}
+.hub-alarm-eyebrow{margin:0 0 6px;text-transform:uppercase;letter-spacing:.14em;font-size:12px;font-weight:700;color:var(--accent)}
+.hub-alarm-label{font-size:22px;font-weight:600;margin-bottom:6px;opacity:.92}
+.hub-alarm-time{font-size:clamp(48px,10vw,88px);font-weight:700;letter-spacing:-.03em;margin-bottom:34px;animation:hub-alarm-pulse 1s ease-in-out infinite}
+@keyframes hub-alarm-pulse{0%,100%{transform:scale(1)}50%{transform:scale(1.04)}}
+.hub-alarm-dismiss{border:0;background:#fff;color:var(--ink);font-size:16px;font-weight:700;padding:16px 46px;border-radius:999px;cursor:pointer}
+.hub-alarm-dismiss:hover{background:var(--accent-soft)}
