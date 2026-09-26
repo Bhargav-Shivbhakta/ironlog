@@ -206,7 +206,14 @@
   .alarm-preview-time{font-size:34px;font-weight:700;letter-spacing:-.02em;margin:4px 0 2px}
   .alarm-preview-time small{font-size:15px;font-weight:600;color:var(--muted);margin-left:4px}
   .alarm-preview-label{font-size:13px;color:var(--muted)}
-  .content-grid{display:grid}
+  /* The dashboard's two-column layout (big clock on the left, alarm/world
+     time/stopwatch cards on the right) used to be set as an inline style,
+     which can't respond to screen size — on a phone it squeezed both
+     columns into ~45% width each, crushing the big time display down to
+     nearly unreadable. Living here as a real class instead means it can
+     drop to a single column on narrow screens. */
+  .content-grid{display:grid;grid-template-columns:1.3fr 1fr;gap:18px;align-items:start}
+  @media(max-width:760px){ .content-grid{grid-template-columns:1fr} }
   /* Running-now focus card (dashboard) */
   .running-now-card{background:var(--ink);color:#fff;border-color:transparent}
   .running-now-card .section-kicker{color:var(--accent);opacity:1}
@@ -556,7 +563,7 @@ function renderDashboard(){
   const nextAlarm = nextUpcomingAlarm();
   const runningTimer = timers.find(function(t){ return t.running; });
   el.innerHTML =
-    '<div class="content-grid" style="display:grid;grid-template-columns:1.3fr 1fr;gap:18px;align-items:start;">'+
+    '<div class="content-grid">'+
       '<div class="stack" style="display:grid;gap:18px;">'+
         '<section class="surface clock-hero-card">'+
           '<div class="clock-card-top"><span class="live-tag"><span class="live-dot"></span>Local time</span><span id="dash-tz"></span></div>'+
