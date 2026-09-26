@@ -374,16 +374,35 @@ function openAppFrame(url,title){
   $('app-frame-title').textContent=title;
   $('app-frame-open').href=url;
   $('app-frame-overlay').hidden=false;
+  // Clock has its own real spot in the nav (below Insights), so opening
+  // it highlights that tab instead of leaving whichever page-route tab
+  // was last active looking "current".
+  if(/\/apps\/clock\.html/.test(url)){
+    document.querySelectorAll('[data-route]').forEach(b=>b.classList.remove('active'));
+    document.querySelectorAll('[data-nav-clock]').forEach(b=>b.classList.add('active'));
+  }
   lucide.createIcons();
 }
 function closeAppFrame(){
   $('app-frame-overlay').hidden=true;
   $('app-frame-iframe').src='about:blank';
+  if(document.querySelector('[data-nav-clock].active')){
+    document.querySelectorAll('[data-nav-clock]').forEach(b=>b.classList.remove('active'));
+    const activePage=document.querySelector('[data-page].active');
+    const route=activePage?activePage.dataset.page:'today';
+    document.querySelectorAll('[data-route]').forEach(b=>b.classList.toggle('active',b.dataset.route===route));
+  }
   if(sidebarAutoCollapsed){
     $('app-shell').classList.remove('sidebar-collapsed');
     sidebarAutoCollapsed=false;
   }
 }
+document.querySelectorAll('[data-nav-clock]').forEach(btn=>{
+  btn.addEventListener('click',()=>{
+    const url='apps/clock.html'+(state.profile?('?profile='+encodeURIComponent(state.profile)):'');
+    openAppFrame(url,'Clock');
+  });
+});
 if($('app-frame-back')) $('app-frame-back').addEventListener('click',closeAppFrame);
 document.addEventListener('keydown',e=>{ if(e.key==='Escape' && $('app-frame-overlay') && !$('app-frame-overlay').hidden) closeAppFrame(); });
 document.addEventListener('click',e=>{
