@@ -387,7 +387,17 @@ function openAppFrame(url,title){
   // there's no way out of the app. This hides the Hub's own bar while an
   // app is open; the bottom tab bar stays up so you can always jump away.
   $('app-shell').classList.add('app-open');
-  $('app-frame-iframe').src=url;
+  // Always force a genuinely fresh load of the app, even if it's the same
+  // URL as what's already sitting in the iframe (re-opening Clock right
+  // after it was already open). Setting .src to an unchanged value is a
+  // no-op in browsers — it reuses whatever page/state was already there
+  // instead of reloading — which meant a page that got into a bad state
+  // (e.g. Clock going blank after an alarm fired) stayed broken until a
+  // full sign-out forced everything to reload from scratch. Clearing to
+  // about:blank first guarantees the next assignment is always a real
+  // navigation.
+  $('app-frame-iframe').src='about:blank';
+  setTimeout(()=>{ $('app-frame-iframe').src=url; },0);
   $('app-frame-title').textContent=title;
   $('app-frame-open').href=url;
   $('app-frame-overlay').hidden=false;
@@ -554,3 +564,17 @@ if($('hub-alarm-dismiss')) $('hub-alarm-dismiss').addEventListener('click',()=>{
   $('hub-alarm-overlay').hidden=true;
 });
 setInterval(hubCheckAlarms,1000);
+// Dismissing in one tab should silence it everywhere — the "already
+// rang" record lives in localStorage, which the browser broadcasts to
+// every OTHER open tab of the same site as a 'storage' event (the tab
+// that made the change never gets its own event, only siblings do). Any
+// tab still ringing for that same alarm stops and hides the moment it
+// hears about it.
+window.addEventListener('storage',e=>{
+  if(e.key!==HUB_FIRED_KEY) return;
+  hubFiredToday=loadHubFiredToday();
+  if($('hub-alarm-overlay') && !$('hub-alarm-overlay').hidden){
+    hubStopRinging();
+    $('hub-alarm-overlay').hidden=true;
+  }
+});
