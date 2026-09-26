@@ -156,6 +156,56 @@
 
   .agenda-daygroup{font-family:'Manrope',sans-serif;font-weight:800;font-size:13px;margin:16px 0 6px;color:var(--text-soft);}
   .agenda-daygroup:first-child{margin-top:0;}
+
+  /* ---- MEETING SCHEDULING — a real "schedule a meeting" flow, on top of
+     the exact same event data Schedule's own Events panel manages
+     (schedule-profiles/<profile>/data/events). Creating, editing or
+     deleting here updates Schedule too, and vice versa. ---- */
+  .toolbar-row{display:flex;justify-content:center;gap:8px;margin:-6px 0 14px;flex-wrap:wrap;}
+  .new-event-btn{background:linear-gradient(135deg,var(--accent),var(--accent-deep));color:#fff;border:none;border-radius:999px;padding:8px 16px;font-size:13px;font-weight:700;box-shadow:var(--shadow);}
+  .cell-pill[data-editnative],.week-event[data-editnative]{cursor:pointer;}
+  .agenda-row[data-editnative]{cursor:pointer;}
+
+  .evt-overlay{position:fixed;inset:0;z-index:190;background:rgba(20,20,40,0.4);display:flex;align-items:center;justify-content:center;padding:20px;overflow-y:auto;}
+  .evt-modal{background:var(--surface);border-radius:20px;padding:20px 18px;width:100%;max-width:440px;max-height:88vh;overflow-y:auto;box-shadow:0 20px 50px rgba(0,0,0,0.25);margin:auto;}
+  .evt-modal h3{margin:0 0 14px;font-size:16px;}
+  .evt-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;}
+  .evt-grid .f{display:flex;flex-direction:column;gap:3px;}
+  .evt-grid .f.full{grid-column:1/-1;}
+  .evt-grid label{font-size:11px;color:var(--text-faint);font-weight:700;text-transform:uppercase;letter-spacing:0.02em;}
+  .evt-grid input[type=text],.evt-grid input[type=date],.evt-grid input[type=time],.evt-grid input[type=number],.evt-grid select{font-size:14px;padding:8px 9px;border-radius:9px;border:1px solid var(--border);}
+  .evt-check{grid-column:1/-1;display:flex;align-items:center;gap:7px;font-size:13.5px;color:var(--text-soft);}
+  .evt-owner-toggle{grid-column:1/-1;display:flex;gap:6px;}
+  .evt-owner-toggle button{flex:1;border:1px solid var(--border);background:var(--surface-alt);border-radius:9px;padding:7px;font-size:12.5px;font-weight:700;color:var(--text-soft);}
+  .evt-owner-toggle button.on{background:var(--accent-soft);color:var(--accent-deep);border-color:var(--accent);}
+  .evt-colors{grid-column:1/-1;display:flex;gap:7px;flex-wrap:wrap;}
+  .evt-color-swatch{width:26px;height:26px;border-radius:50%;border:2.5px solid transparent;cursor:pointer;}
+  .evt-color-swatch.on{border-color:var(--text);}
+  .evt-conflict{grid-column:1/-1;background:var(--accent-soft);color:var(--accent-deep);border-radius:9px;padding:8px 10px;font-size:12px;display:none;}
+  .evt-actions{grid-column:1/-1;display:flex;gap:6px;margin-top:2px;}
+  .btn-mini{font-size:12.5px;font-weight:700;border:none;border-radius:9px;padding:8px 12px;cursor:pointer;}
+  .btn-mini.primary{background:var(--accent);color:#fff;}
+  .btn-mini.ghost{background:var(--surface-alt);color:var(--text-soft);}
+  .btn-mini.danger{background:var(--danger-soft);color:var(--danger);}
+
+  /* Week "Grid" mode — an hour-by-hour timeline (same drag-to-create
+     pattern as Schedule's own week grid), shown only for meetings since
+     that's what has real clock times; List mode (unchanged, existing
+     behavior) still shows every source (Todo/Chores/Schedule/Panchang). */
+  .week-mode-toggle{display:flex;gap:4px;background:var(--surface-alt);border-radius:999px;padding:3px;width:fit-content;margin:0 auto 12px;}
+  .week-mode-toggle button{border:none;background:transparent;color:var(--text-soft);font-size:12.5px;font-weight:700;padding:5px 12px;border-radius:999px;cursor:pointer;}
+  .week-mode-toggle button.active{background:var(--surface);color:var(--text);box-shadow:var(--shadow);}
+  .cal-wrap{overflow-x:auto;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-md);box-shadow:var(--shadow);}
+  .cal-grid{display:grid;grid-template-columns:44px repeat(7,minmax(84px,1fr));min-width:680px;}
+  .cal-daylabel{font-size:12px;font-weight:700;color:var(--text-soft);text-align:center;padding:6px 2px;border-bottom:1px solid var(--border);position:sticky;top:0;background:var(--surface);}
+  .cal-daylabel.today{color:var(--accent-deep);}
+  .cal-timecol{position:relative;border-right:1px solid var(--border-soft);}
+  .cal-timelabel{position:absolute;right:4px;font-size:11px;color:var(--text-faint);transform:translateY(-50%);}
+  .cal-daycol{position:relative;border-right:1px solid var(--border-soft);background-image:repeating-linear-gradient(to bottom, var(--border-soft) 0, var(--border-soft) 1px, transparent 1px, transparent 56px);}
+  .cal-daycol.today{background-color:rgba(173,123,32,0.04);}
+  .cal-block{position:absolute;left:2px;right:2px;border-radius:5px;border-left:3px solid;padding:2px 5px;overflow:hidden;font-size:11.5px;line-height:1.25;cursor:pointer;}
+  .cal-block .cb-title{font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .cal-dragsel{position:absolute;left:2px;right:2px;background:var(--accent);opacity:0.25;border-radius:5px;pointer-events:none;}
 </style>
 </head>
 <body>
@@ -186,9 +236,13 @@
   </div>
 
   <div class="legend" id="filter-toggles"></div>
+  <div class="toolbar-row">
+    <button type="button" class="new-event-btn" id="new-event-btn">+ Schedule a meeting</button>
+  </div>
   <div style="text-align:center;margin:-6px 0 14px;"><button type="button" id="manage-birthdays-btn" style="background:none;border:none;color:var(--text-faint);font-size:11.5px;text-decoration:underline;">🔔 Manage reminders</button></div>
   <div style="text-align:center;margin:-8px 0 14px;font-size:11px;color:var(--text-faint);">Schedule shown for: <button type="button" id="cal-profile-switch-btn" style="background:var(--surface-alt);border:none;border-radius:999px;padding:3px 10px;font-size:11px;font-weight:700;color:var(--text);"></button></div>
 
+  <div id="week-mode-mount"></div>
   <div id="view-mount"></div>
 </div>
 
@@ -643,6 +697,7 @@ const AUSPICIOUS_TIMING = {
 ===================================================================== */
 const FILTER_KEY = 'calendar-active-filters';
 const FILTER_DEFS = [
+  {key:'meetings', label:'Meetings', icon:'📅', color:'var(--schedule)'},
   {key:'todo', label:'Todo', icon:'✓', color:'var(--todo)'},
   {key:'chores', label:'Chores', icon:'🧹', color:'var(--chores)'},
   {key:'schedule', label:'Schedule', icon:'📋', color:'var(--schedule)'},
@@ -773,9 +828,326 @@ function eventsForRecurringWeekday(dateStr){
   return out;
 }
 
+/* =====================================================================
+   MEETING SCHEDULING — writes straight into Schedule's own event data
+   (schedule-profiles/<profile>/data/events, same docs and same schema
+   Schedule's own Events panel/conflict-detection use), so scheduling a
+   meeting here shows up in Schedule immediately and vice versa. Unlike
+   the read-only Todo/Chores/Schedule-routine aggregation above, these
+   are editable and deletable directly from Calendar.
+===================================================================== */
+function scheduleEventsDoc(profile){ return db.collection('users').doc(currentUser.uid).collection('schedule-profiles').doc(profile).collection('data').doc('events'); }
+let nativeEvents = { Bhargav: [], Anusha: [] };
+async function loadNativeMeetingEvents(){
+  for(const p of ['Bhargav','Anusha']){
+    try{ const doc = await scheduleEventsDoc(p).get(); nativeEvents[p] = (doc.exists && doc.data().json) ? JSON.parse(doc.data().json) : []; }
+    catch(e){ nativeEvents[p] = []; }
+  }
+}
+async function saveNativeMeetingEvents(profile){
+  try{ await scheduleEventsDoc(profile).set({json: JSON.stringify(nativeEvents[profile])}); }
+  catch(e){ console.error('meeting save failed', e); }
+}
+// A shared meeting is mirrored into the partner's own events array too —
+// the exact same mirroring convention Schedule's mirrorToPartner uses, so
+// either app sees one consistent, non-duplicated result either way.
+async function mirrorMeetingToPartner(owner, item, deleted){
+  if(!item.shared) return;
+  const partner = owner==='Bhargav' ? 'Anusha' : 'Bhargav';
+  try{
+    const doc = await scheduleEventsDoc(partner).get();
+    let list = (doc.exists && doc.data().json) ? JSON.parse(doc.data().json) : [];
+    list = list.filter(function(e){ return e.id !== item.id; });
+    if(!deleted) list.push(Object.assign({}, item, {mirrored:true, ownerProfile:owner}));
+    await scheduleEventsDoc(partner).set({json: JSON.stringify(list)});
+    nativeEvents[partner] = list;
+  }catch(e){ console.error('meeting mirror failed', e); }
+}
+function findNativeEvent(id){
+  for(const p of ['Bhargav','Anusha']){
+    const ev = (nativeEvents[p]||[]).find(function(e){ return e.id===id; });
+    if(ev) return {owner:p, ev:ev};
+  }
+  return null;
+}
+function weekdayOf(dateStr){ return new Date(dateStr+'T00:00:00').getDay(); }
+function toMinutes(hhmm){ const parts=hhmm.split(':').map(Number); return parts[0]*60+parts[1]; }
+function minutesToTime(mins){ mins=Math.max(0,Math.min(1439,mins)); return String(Math.floor(mins/60)).padStart(2,'0')+':'+String(mins%60).padStart(2,'0'); }
+// Same generalized recurrence rule as Schedule's own eventOccursOn (kept
+// in sync deliberately — same event objects, same meaning).
+function eventOccursOn(ev, dateStr){
+  if(ev.kind==='task') return false;
+  if(!ev.recurring) return ev.date === dateStr;
+  if(!ev.startDate || dateStr < ev.startDate) return false;
+  const repeat = ev.repeat || {type:'weekly', until:null};
+  if(repeat.until && dateStr > repeat.until) return false;
+  if(repeat.type==='daily') return true;
+  if(repeat.type==='monthly') return new Date(dateStr+'T00:00:00').getDate() === new Date(ev.startDate+'T00:00:00').getDate();
+  if(repeat.type==='yearly'){
+    const d=new Date(dateStr+'T00:00:00'), s=new Date(ev.startDate+'T00:00:00');
+    return d.getMonth()===s.getMonth() && d.getDate()===s.getDate();
+  }
+  return weekdayOf(dateStr) === (ev.weekday!=null ? ev.weekday : weekdayOf(ev.startDate));
+}
+function nativeEventsForDate(dateStr){
+  const out = [];
+  ['Bhargav','Anusha'].forEach(function(owner){
+    (nativeEvents[owner]||[]).forEach(function(ev){
+      if(ev.mirrored) return; // the owner's own copy already represents it; skip the partner's mirrored duplicate
+      if(!eventOccursOn(ev, dateStr)) return;
+      out.push({
+        title: ev.title, source:'Meetings', color: ev.color || 'var(--schedule)',
+        person: owner, time: ev.time||'', sortKey: ev.time||'', link:null,
+        nativeId: ev.id, ownerProfile: owner, endTime: ev.endTime||'', notes: ev.notes||''
+      });
+    });
+  });
+  return out;
+}
+function findScheduleConflicts(owner, dateStr, startTime, endTime, excludeId){
+  if(!startTime) return [];
+  const start=toMinutes(startTime), end = endTime && toMinutes(endTime)>start ? toMinutes(endTime) : start+45;
+  const conflicts = [];
+  (nativeEvents[owner]||[]).forEach(function(item){
+    if(item.id===excludeId || !eventOccursOn(item, dateStr) || !item.time) return;
+    const a=toMinutes(item.time), b=item.endTime&&toMinutes(item.endTime)>a?toMinutes(item.endTime):a+45;
+    if(start<b && end>a) conflicts.push(item.title);
+  });
+  const wd = WEEKDAY_NAMES[weekdayOf(dateStr)];
+  (((window.scheduleTemplates||{})[owner]||{})[wd]||[]).forEach(function(block){
+    if(!block.start || !block.end) return;
+    const a=toMinutes(block.start), b=toMinutes(block.end);
+    if(start<b && end>a) conflicts.push(block.activity||block.title||block.name);
+  });
+  return [...new Set(conflicts)];
+}
+
 async function loadAllEvents(){
   eventsByDate = {};
-  await Promise.all([loadTodoEvents(), loadChoresEvents(), loadScheduleEvents()]);
+  await Promise.all([loadTodoEvents(), loadChoresEvents(), loadScheduleEvents(), loadNativeMeetingEvents()]);
+}
+
+/* =====================================================================
+   MEETING CREATE / EDIT MODAL — writes straight into Schedule's own
+   events collection (schedule-profiles/<profile>/data/events), so a
+   meeting scheduled here shows up in Schedule and vice versa.
+===================================================================== */
+const EVT_COLORS = ['var(--schedule)','#4A7CF6','#E0574E','#2FA86B','#B8493F','#8A5CF6','#F0A93B'];
+function openEventModal(existing, defaultDate, defaultTime){
+  const mount = document.getElementById('modal-mount') || (function(){ const m = document.createElement('div'); m.id='modal-mount'; document.body.appendChild(m); return m; })();
+  const ev = existing ? existing.ev : null;
+  const owner0 = existing ? existing.owner : activeCalendarProfile;
+
+  function draw(owner){
+    const dateVal = ev ? (ev.startDate || ev.date || defaultDate || todayStr()) : (defaultDate || todayStr());
+    const startVal = ev ? (ev.time||'') : (defaultTime||'');
+    const endVal = ev ? (ev.endTime||'') : '';
+    const repeatVal = ev ? (ev.repeat ? ev.repeat.type : (ev.recurring ? 'weekly' : 'none')) : 'none';
+    const untilVal = ev && ev.repeat ? (ev.repeat.until||'') : '';
+    const color = ev ? (ev.color || EVT_COLORS[0]) : EVT_COLORS[0];
+    const shared = ev ? !!ev.shared : false;
+    const notes = ev ? (ev.notes||'') : '';
+    const reminderMin = ev && ev.reminderMinutes!=null ? String(ev.reminderMinutes) : '';
+
+    mount.innerHTML = '<div class="evt-overlay" id="evt-overlay"><div class="evt-modal">'+
+      '<h3>'+(ev?'Edit meeting':'Schedule a meeting')+'</h3>'+
+      '<div class="evt-owner-toggle">'+
+        ['Bhargav','Anusha'].map(function(p){ return '<button type="button" data-owner="'+p+'" class="'+(p===owner?'on':'')+'">'+p+'</button>'; }).join('')+
+      '</div>'+
+      '<div class="evt-grid">'+
+        '<div class="f full"><label>Title</label><input type="text" id="evt-title" value="'+escapeHtml(ev?ev.title:'')+'" placeholder="e.g. Dentist, Team sync"></div>'+
+        '<div class="f"><label>Date</label><input type="date" id="evt-date" value="'+dateVal+'"></div>'+
+        '<div class="f"><label>Repeat</label><select id="evt-repeat">'+
+          ['none','daily','weekly','monthly','yearly'].map(function(r){ return '<option value="'+r+'" '+(r===repeatVal?'selected':'')+'>'+(r==='none'?'Just once':r.charAt(0).toUpperCase()+r.slice(1))+'</option>'; }).join('')+
+        '</select></div>'+
+        '<div class="f"><label>Start time</label><input type="time" id="evt-start" value="'+startVal+'"></div>'+
+        '<div class="f"><label>End time</label><input type="time" id="evt-end" value="'+endVal+'"></div>'+
+        '<div class="f full" id="evt-until-wrap" style="'+(repeatVal==='none'?'display:none;':'')+'"><label>Repeat until (optional)</label><input type="date" id="evt-until" value="'+untilVal+'"></div>'+
+        '<div class="f full"><label>Color</label><div class="evt-colors">'+EVT_COLORS.map(function(c){ return '<button type="button" class="evt-color-swatch '+(c===color?'on':'')+'" data-color="'+c+'" style="background:'+c+';"></button>'; }).join('')+'</div></div>'+
+        '<div class="f full"><label style="display:flex;align-items:center;gap:8px;font-weight:600;"><input type="checkbox" class="evt-check" id="evt-shared" '+(shared?'checked':'')+'> Share with partner</label></div>'+
+        '<div class="f full"><label>Reminder</label><select id="evt-reminder"><option value="">No reminder</option>'+
+          [0,5,10,15,30,60,1440].map(function(m){ return '<option value="'+m+'" '+(String(m)===reminderMin?'selected':'')+'>'+(m===0?'At time of event':m<60?m+' minutes before':m===1440?'1 day before':(m/60)+' hour before')+'</option>'; }).join('')+
+        '</select></div>'+
+        '<div class="f full"><label>Notes</label><textarea id="evt-notes" rows="2" placeholder="Location, agenda...">'+escapeHtml(notes)+'</textarea></div>'+
+      '</div>'+
+      '<div class="evt-conflict" id="evt-conflict" style="display:none;"></div>'+
+      '<div class="evt-actions">'+
+        (ev ? '<button type="button" class="btn-mini danger" id="evt-delete-btn">Delete</button>' : '')+
+        '<button type="button" class="btn-mini ghost" id="evt-cancel-btn">Cancel</button>'+
+        '<button type="button" class="btn-mini primary" id="evt-save-btn">Save</button>'+
+      '</div>'+
+    '</div></div>';
+
+    mount.querySelectorAll('[data-owner]').forEach(function(btn){
+      btn.addEventListener('click', function(){ draw(btn.dataset.owner); });
+    });
+    mount.querySelectorAll('[data-color]').forEach(function(btn){
+      btn.addEventListener('click', function(){ mount.querySelectorAll('[data-color]').forEach(function(b){ b.classList.toggle('on', b===btn); }); });
+    });
+    document.getElementById('evt-repeat').addEventListener('change', function(){
+      document.getElementById('evt-until-wrap').style.display = this.value==='none' ? 'none' : '';
+    });
+
+    function checkConflictsNow(){
+      const d2 = document.getElementById('evt-date').value;
+      const s2 = document.getElementById('evt-start').value;
+      const e2 = document.getElementById('evt-end').value;
+      const box = document.getElementById('evt-conflict');
+      if(!d2 || !s2){ box.style.display='none'; return; }
+      const conflicts = findScheduleConflicts(owner, d2, s2, e2, ev?ev.id:null);
+      if(conflicts.length){ box.style.display='block'; box.textContent = '⚠️ Conflicts with: '+conflicts.join(', '); }
+      else box.style.display='none';
+    }
+    ['evt-date','evt-start','evt-end'].forEach(function(id){ document.getElementById(id).addEventListener('input', checkConflictsNow); });
+    checkConflictsNow();
+
+    document.getElementById('evt-cancel-btn').addEventListener('click', function(){ mount.innerHTML=''; });
+    document.getElementById('evt-overlay').addEventListener('click', function(e){ if(e.target.id==='evt-overlay') mount.innerHTML=''; });
+
+    if(ev){
+      document.getElementById('evt-delete-btn').addEventListener('click', async function(){
+        if(!window.confirm('Delete "'+ev.title+'"?')) return;
+        nativeEvents[owner] = (nativeEvents[owner]||[]).filter(function(x){ return x.id!==ev.id; });
+        await saveNativeMeetingEvents(owner);
+        if(ev.shared) await mirrorMeetingToPartner(owner, ev, true);
+        mount.innerHTML='';
+        await loadAllEvents(); render();
+      });
+    }
+
+    document.getElementById('evt-save-btn').addEventListener('click', async function(){
+      const title2 = document.getElementById('evt-title').value.trim();
+      const date2 = document.getElementById('evt-date').value;
+      if(!title2){ document.getElementById('evt-title').style.outline='2px solid var(--danger,#F0596B)'; return; }
+      if(!date2) return;
+      const start2 = document.getElementById('evt-start').value;
+      const end2 = document.getElementById('evt-end').value;
+      const repeatType = document.getElementById('evt-repeat').value;
+      const until2 = document.getElementById('evt-until').value;
+      const colorBtn = mount.querySelector('[data-color].on');
+      const color2 = colorBtn ? colorBtn.dataset.color : EVT_COLORS[0];
+      const shared2 = document.getElementById('evt-shared').checked;
+      const reminderVal = document.getElementById('evt-reminder').value;
+      const notes2 = document.getElementById('evt-notes').value.trim();
+      const isRecurring = repeatType !== 'none';
+      const wasShared = ev ? !!ev.shared : false;
+      const id = ev ? ev.id : 'meet-'+Date.now()+'-'+Math.floor(Math.random()*1000);
+      const item = {
+        id: id, kind:'event', title: title2,
+        date: isRecurring ? null : date2,
+        startDate: isRecurring ? date2 : null,
+        recurring: isRecurring,
+        weekday: isRecurring ? weekdayOf(date2) : undefined,
+        repeat: isRecurring ? {type: repeatType, until: until2 || null} : null,
+        time: start2 || null, endTime: end2 || null,
+        color: color2, shared: shared2, notes: notes2 || null,
+        reminderMinutes: reminderVal === '' ? null : parseInt(reminderVal,10)
+      };
+      // Meeting moved to a different owner — pull it out of the old
+      // owner's list (and un-mirror from whoever had the old copy) first.
+      if(ev && owner0 !== owner){
+        nativeEvents[owner0] = (nativeEvents[owner0]||[]).filter(function(x){ return x.id!==ev.id; });
+        await saveNativeMeetingEvents(owner0);
+        if(wasShared) await mirrorMeetingToPartner(owner0, ev, true);
+      }
+      const arr = nativeEvents[owner] = nativeEvents[owner] || [];
+      const idx = arr.findIndex(function(x){ return x.id===id; });
+      if(idx>=0) arr[idx] = item; else arr.push(item);
+      await saveNativeMeetingEvents(owner);
+      if(shared2) await mirrorMeetingToPartner(owner, item, false);
+      else if(wasShared) await mirrorMeetingToPartner(owner, item, true);
+      mount.innerHTML='';
+      await loadAllEvents(); render();
+    });
+  }
+  draw(owner0);
+}
+
+/* =====================================================================
+   WEEK GRID MODE — an hour-by-hour week grid (ported from Schedule's
+   own drag-to-create calendar grid) for scheduling meetings visually.
+===================================================================== */
+const GRID_START_HOUR = 4;
+const GRID_END_HOUR = 23;
+const GRID_HOUR_PX = 56;
+function renderWeekGridView(mountEl, weekStart){
+  const totalHours = GRID_END_HOUR - GRID_START_HOUR;
+  const gridHeight = totalHours * GRID_HOUR_PX;
+  const today = todayStr();
+
+  let timeLabels = '';
+  for(let h=GRID_START_HOUR; h<GRID_END_HOUR; h++){
+    timeLabels += '<div class="cal-timelabel" style="top:'+((h-GRID_START_HOUR)*GRID_HOUR_PX)+'px;">'+fmtScheduleTime(String(h).padStart(2,'0')+':00')+'</div>';
+  }
+
+  let headHtml = '<div class="cal-daylabel"></div>';
+  let colsHtml = '';
+  for(let i=0;i<7;i++){
+    const d = addDays(weekStart, i);
+    const dd = new Date(d+'T00:00:00');
+    const isToday = d === today;
+    headHtml += '<div class="cal-daylabel '+(isToday?'today':'')+'">'+WEEKDAY_NAMES[dd.getDay()].slice(0,3)+' '+dd.getDate()+'</div>';
+
+    const dayEvents = eventsFor(d).filter(function(e){ return e.time; });
+    let blocksHtml = '';
+    dayEvents.forEach(function(e){
+      const startMin = toMinutes(e.time) - GRID_START_HOUR*60;
+      const durMin = e.endTime && toMinutes(e.endTime)>toMinutes(e.time) ? toMinutes(e.endTime)-toMinutes(e.time) : 45;
+      if(startMin+durMin < 0 || startMin > totalHours*60) return;
+      const top = Math.max(0,(startMin/60))*GRID_HOUR_PX;
+      const height = Math.max(20, (durMin/60)*GRID_HOUR_PX);
+      const editAttr = e.nativeId ? ' data-editnative="'+e.nativeId+'"' : '';
+      blocksHtml += '<div class="cal-block" style="top:'+top+'px;height:'+height+'px;border-left-color:'+e.color+';background:'+e.color+'22;color:'+e.color+';"'+editAttr+'><div class="cb-title">'+escapeHtml(e.title)+'</div></div>';
+    });
+    colsHtml += '<div class="cal-daycol '+(isToday?'today':'')+'" style="height:'+gridHeight+'px;" data-daycol="'+d+'">'+blocksHtml+'</div>';
+  }
+
+  mountEl.innerHTML = '<div class="cal-wrap"><div class="cal-grid">'+
+    headHtml+
+    '<div class="cal-timecol" style="height:'+gridHeight+'px;">'+timeLabels+'</div>'+
+    colsHtml+
+    '</div></div>';
+
+  mountEl.querySelectorAll('[data-editnative]').forEach(function(pill){
+    pill.addEventListener('click', function(e){
+      e.stopPropagation();
+      const found = findNativeEvent(pill.dataset.editnative);
+      if(found) openEventModal(found);
+    });
+  });
+
+  // Drag-to-create on empty grid space — mirrors Schedule's own grid.
+  mountEl.querySelectorAll('.cal-daycol').forEach(function(col){
+    let dragEl = null, startY = 0;
+    col.addEventListener('mousedown', function(e){
+      if(e.target.closest('.cal-block')) return;
+      const rect = col.getBoundingClientRect();
+      startY = e.clientY - rect.top;
+      dragEl = document.createElement('div');
+      dragEl.className = 'cal-dragsel';
+      dragEl.style.top = startY+'px';
+      dragEl.style.height = '2px';
+      col.appendChild(dragEl);
+      const onMove = function(me){
+        const y = Math.max(0, me.clientY - rect.top);
+        const top = Math.min(startY, y), h = Math.abs(y-startY);
+        dragEl.style.top = top+'px';
+        dragEl.style.height = h+'px';
+      };
+      const onUp = function(me){
+        document.removeEventListener('mousemove', onMove);
+        document.removeEventListener('mouseup', onUp);
+        const rect2 = col.getBoundingClientRect();
+        const endY = Math.max(0, me.clientY - rect2.top);
+        const top = Math.min(startY, endY);
+        if(dragEl) dragEl.remove();
+        const startMinutes = GRID_START_HOUR*60 + Math.round(top/GRID_HOUR_PX*60/15)*15;
+        openEventModal(null, col.dataset.daycol, minutesToTime(startMinutes));
+      };
+      document.addEventListener('mousemove', onMove);
+      document.addEventListener('mouseup', onUp);
+    });
+  });
 }
 
 /* =====================================================================
@@ -803,6 +1175,7 @@ auth.onAuthStateChanged(async function(user){
   document.getElementById('nav-next').onclick = function(){ navigate(1); };
   document.getElementById('nav-today-btn').onclick = function(){ activeDate = todayStr(); render(); };
   document.getElementById('manage-birthdays-btn').onclick = openBirthdaysPanel;
+  document.getElementById('new-event-btn').onclick = function(){ openEventModal(null, activeDate); };
   document.getElementById('cal-profile-switch-btn').textContent = activeCalendarProfile;
   document.getElementById('cal-profile-switch-btn').onclick = function(){
     activeCalendarProfile = activeCalendarProfile==='Bhargav' ? 'Anusha' : 'Bhargav';
@@ -820,24 +1193,45 @@ function navigate(dir){
   else { activeDate = addDays(activeDate, dir); }
   render();
 }
+let weekModeGrid = false;
 function render(){
   const mount = document.getElementById('view-mount');
+  const weekModeMount = document.getElementById('week-mode-mount');
   const d = new Date(activeDate+'T00:00:00');
   if(activeView==='month'){
     document.getElementById('date-title').textContent = MONTH_NAMES[d.getMonth()]+' '+d.getFullYear();
     mount.innerHTML = ''; mount.appendChild(renderMonthView(d.getFullYear(), d.getMonth()));
+    weekModeMount.innerHTML = '';
   } else if(activeView==='week'){
     const weekStart = addDays(activeDate, -d.getDay());
     const weekEnd = addDays(weekStart, 6);
     document.getElementById('date-title').textContent = fmtShort(weekStart)+' – '+fmtShort(weekEnd);
-    mount.innerHTML = ''; mount.appendChild(renderWeekView(weekStart));
+    weekModeMount.innerHTML = '<div class="week-mode-toggle">'+
+      '<button type="button" data-weekmode="list" class="'+(weekModeGrid?'':'active')+'">List</button>'+
+      '<button type="button" data-weekmode="grid" class="'+(weekModeGrid?'active':'')+'">Grid</button>'+
+    '</div>';
+    weekModeMount.querySelectorAll('[data-weekmode]').forEach(function(btn){
+      btn.addEventListener('click', function(){ weekModeGrid = btn.dataset.weekmode==='grid'; render(); });
+    });
+    mount.innerHTML = '';
+    if(weekModeGrid) renderWeekGridView(mount, weekStart);
+    else mount.appendChild(renderWeekView(weekStart));
   } else if(activeView==='day'){
     document.getElementById('date-title').textContent = fmtLong(activeDate);
     mount.innerHTML = renderDayView(activeDate);
+    weekModeMount.innerHTML = '';
   } else {
     document.getElementById('date-title').textContent = 'Next 30 days';
     mount.innerHTML = renderAgendaView();
+    weekModeMount.innerHTML = '';
   }
+  mount.querySelectorAll('[data-editnative]').forEach(function(pill){
+    pill.addEventListener('click', function(e){
+      e.stopPropagation();
+      const found = findNativeEvent(pill.dataset.editnative);
+      if(found) openEventModal(found);
+    });
+  });
 }
 function fmtShort(dateStr){ const d = new Date(dateStr+'T00:00:00'); return MONTH_NAMES[d.getMonth()].slice(0,3)+' '+d.getDate(); }
 function fmtLong(dateStr){ const d = new Date(dateStr+'T00:00:00'); return WEEKDAY_NAMES[d.getDay()]+', '+MONTH_NAMES[d.getMonth()]+' '+d.getDate()+', '+d.getFullYear(); }
@@ -1023,6 +1417,7 @@ function eventsFor(dateStr){
   let out = (eventsByDate[dateStr]||[]).filter(function(e){ return activeFilters.has((e.source||'').toLowerCase()); });
   if(activeFilters.has('schedule')) out = out.concat(eventsForRecurringWeekday(dateStr));
   if(activeFilters.has('birthdays')) out = out.concat(reminderEventsFor(dateStr));
+  if(activeFilters.has('meetings')) out = out.concat(nativeEventsForDate(dateStr));
   // Chronological order — anything with a real time sorts by that time;
   // untimed items (most chores, undated todos) stay grouped at the end,
   // in their original order, so the day reads like an actual timeline.
@@ -1072,8 +1467,9 @@ function monthCellHtml(dateStr, dnum, otherMonth, today){
   const sunBadge = ausp ? '<span class="sun-badge" title="'+escapeHtml(ausp.label)+'">☀️</span>' : '';
   const pills = evs.slice(0,3).map(function(e){
     const tag = e.link ? 'a' : 'div';
-    const attrs = e.link ? ' href="'+escapeHtml(e.link)+'" target="_blank" rel="noopener" onclick="event.stopPropagation()"' : '';
-    return '<'+tag+' class="cell-pill" style="background:'+e.color+'22;color:'+e.color+';display:block;text-decoration:none;"'+attrs+'>'+escapeHtml(e.title)+'</'+tag+'>';
+    const attrs = e.link ? ' href="'+escapeHtml(e.link)+'" target="_blank" rel="noopener" onclick="event.stopPropagation()"' : (e.nativeId ? ' onclick="event.stopPropagation()"' : '');
+    const editAttr = e.nativeId ? ' data-editnative="'+e.nativeId+'"' : '';
+    return '<'+tag+' class="cell-pill" style="background:'+e.color+'22;color:'+e.color+';display:block;text-decoration:none;"'+attrs+editAttr+'>'+escapeHtml(e.title)+'</'+tag+'>';
   }).join('');
   const more = evs.length>3 ? '<div class="cell-more">+'+(evs.length-3)+' more</div>' : '';
   const festHtml = festList.length ? '<div class="cell-festival">'+escapeHtml(festList[0])+(festList.length>1?' <span class="cell-fest-more">+'+(festList.length-1)+'</span>':'')+'</div>' : '';
@@ -1099,8 +1495,9 @@ function renderWeekView(weekStart){
       (tithi ? '<div class="week-tithi">'+(tithi.isAnchor?tithi.name:tithi.paksha.slice(0,1)+' '+tithi.tithiNum)+'</div>' : '')+
       evs.map(function(e){
         const tag = e.link ? 'a' : 'div';
-        const attrs = e.link ? ' href="'+escapeHtml(e.link)+'" target="_blank" rel="noopener" onclick="event.stopPropagation()"' : '';
-        return '<'+tag+' class="week-event" style="background:'+e.color+'22;color:'+e.color+';display:block;text-decoration:none;"'+attrs+'>'+escapeHtml(e.title)+'</'+tag+'>';
+        const attrs = e.link ? ' href="'+escapeHtml(e.link)+'" target="_blank" rel="noopener" onclick="event.stopPropagation()"' : (e.nativeId ? ' onclick="event.stopPropagation()"' : '');
+        const editAttr = e.nativeId ? ' data-editnative="'+e.nativeId+'"' : '';
+        return '<'+tag+' class="week-event" style="background:'+e.color+'22;color:'+e.color+';display:block;text-decoration:none;"'+attrs+editAttr+'>'+escapeHtml(e.title)+'</'+tag+'>';
       }).join('')+
     '</div>';
   }
@@ -1122,8 +1519,9 @@ function displayTime(t){
 function agendaRowHtml(e){
   const tag = e.link ? 'a' : 'div';
   const attrs = e.link ? ' href="'+escapeHtml(e.link)+'" target="_blank" rel="noopener"' : '';
+  const editAttr = e.nativeId ? ' data-editnative="'+e.nativeId+'"' : '';
   const shownTime = displayTime(e.time);
-  return '<'+tag+' class="agenda-row" style="text-decoration:none;color:inherit;"'+attrs+'><div class="agenda-dot" style="background:'+e.color+';"></div>'+
+  return '<'+tag+' class="agenda-row" style="text-decoration:none;color:inherit;"'+attrs+editAttr+'><div class="agenda-dot" style="background:'+e.color+';"></div>'+
     '<div><div class="agenda-title">'+escapeHtml(e.title)+(e.link?' ↗':'')+'</div><div class="agenda-meta">'+e.source+(e.person?' · '+e.person:'')+(shownTime?' · '+shownTime:'')+'</div></div></'+tag+'>';
 }
 /* ---- DAY VIEW ---- */
