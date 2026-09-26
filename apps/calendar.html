@@ -58,6 +58,13 @@
      "Back to Hub" button in the viewer chrome already does this safely,
      so this in-page link is hidden whenever we detect we're embedded. */
   body.embedded .topbar .back{display:none}
+  /* Hidden entirely when embedded in the Hub's app viewer — the Hub's own
+     top bar already shows "Calendar" as the title there (see
+     app-frame-title in index.html), so repeating "Calendar / Everything,
+     in one place…" here would just be the same heading twice. Standalone
+     (opened in its own tab, no Hub bar around it) it's the only copy, so
+     it stays — same pattern already applied to Todo and Schedule. */
+  body.embedded header.app-head{display:none}
   header.app-head{text-align:center;margin-bottom:14px;}
   header.app-head h1{font-size:22px;font-weight:800;margin:0 0 2px;letter-spacing:-0.02em;background:linear-gradient(135deg,var(--accent-deep),var(--purnima));-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;}
   header.app-head p{margin:0;color:var(--text-soft);font-size:12.5px;}
