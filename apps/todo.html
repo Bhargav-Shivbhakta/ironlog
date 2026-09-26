@@ -115,22 +115,26 @@
   .command-actions{display:flex;gap:6px;margin-top:8px;}
   .command-actions button{border:0;border-radius:8px;padding:6px 9px;font-size:10.5px;font-weight:700;background:var(--gold);color:#fff;cursor:pointer;}
 
-  /* ===== CONTROL BAR — Views/Lists/Tools as one sticky horizontal strip,
-     replacing the old sticky left rail so the task list gets full width ===== */
-  .control-bar{position:sticky;top:8px;z-index:20;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:12px 16px;box-shadow:var(--shadow);display:flex;align-items:center;gap:22px;margin-bottom:16px;flex-wrap:wrap;}
+  /* ===== CONTROL BAR — Views/Tools on one row, Lists on its own row below
+     them (it was being squeezed to near-nothing when all three shared one
+     row), replacing the old sticky left rail so the task list gets full
+     width ===== */
+  .control-bar{position:sticky;top:8px;z-index:20;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:12px 16px;box-shadow:var(--shadow);margin-bottom:16px;}
+  .control-row{display:flex;align-items:center;gap:16px;}
+  .control-row-top{flex-wrap:wrap;justify-content:space-between;}
+  .control-row-bottom{margin-top:10px;padding-top:10px;border-top:1px solid var(--border-soft);}
   .control-bar .progress-ring-wrap{margin:0;flex:none;}
   .control-bar .progress-ring-card{box-shadow:none;padding:8px 12px;background:var(--surface-2);}
   .control-bar .ring-svg-wrap,.control-bar .ring-svg{width:46px;height:46px;}
   .control-bar .ring-pct{font-size:13px;}
   .control-bar .ring-side{display:none;}
   .control-group{display:flex;align-items:center;gap:9px;min-width:0;}
-  .control-group-lists{flex:1;min-width:0;}
   .nav-label{font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:var(--text-faint);font-weight:700;flex:none;}
   .control-bar .smart-tabs{display:flex;gap:3px;margin:0;border:0;flex-wrap:wrap;}
-  .control-bar .smart-tabs button{display:flex;align-items:center;gap:5px;border:0;padding:7px 10px;border-radius:9px;font-size:12.5px;background:transparent;color:var(--text-soft);cursor:pointer;}
+  .control-bar .smart-tabs button{display:flex;align-items:center;gap:5px;border:0;padding:7px 10px;border-radius:9px;font-size:12.5px;background:transparent;color:var(--text-soft);cursor:pointer;white-space:nowrap;}
   .control-bar .smart-tabs button.active{background:var(--accent-soft);color:var(--accent-deep);}
-  .control-bar .list-chips{display:flex;gap:5px;margin:0;overflow-x:auto;padding-bottom:0;flex:1;min-width:0;}
-  .control-bar .toolbar-row{display:flex;gap:5px;margin:0;overflow-x:auto;padding-bottom:0;}
+  .control-row-bottom .list-chips{display:flex;gap:6px;margin:0;overflow-x:auto;padding-bottom:2px;flex:1;min-width:0;}
+  .control-bar .toolbar-row{display:flex;gap:5px;margin:0;flex-wrap:wrap;}
   .control-bar .tool-btn{width:auto;border-radius:9px;padding:7px 10px;font-size:11px;white-space:nowrap;border:1px solid var(--border);background:var(--surface-2);color:var(--text-soft);cursor:pointer;}
   .control-bar .tool-btn:hover{background:var(--border-soft);color:var(--text);}
 
@@ -154,7 +158,11 @@
   .schedule-quick{position:relative;}
   .schedule-quick-btn{border:1px solid var(--border);background:var(--surface-2);color:var(--text-soft);border-radius:8px;padding:5px 9px;font-size:11px;font-weight:600;cursor:pointer;}
   .schedule-quick-btn:hover{background:var(--accent-soft);color:var(--accent-deep);}
-  .schedule-quick-menu{position:absolute;right:0;top:calc(100% + 4px);background:var(--surface);border:1px solid var(--border);border-radius:11px;box-shadow:0 14px 34px -10px rgba(0,0,0,0.22);padding:6px;z-index:40;min-width:150px;}
+  /* Rendered as position:fixed and appended straight to <body> (not left
+     inside the row) — .task-row has overflow:hidden for its rounded
+     corners/accent border, which was clipping this menu whenever it tried
+     to live inside the row. */
+  .schedule-quick-menu{position:fixed;background:var(--surface);border:1px solid var(--border);border-radius:11px;box-shadow:0 14px 34px -10px rgba(0,0,0,0.22);padding:6px;z-index:500;min-width:150px;}
   .schedule-quick-menu button{display:block;width:100%;text-align:left;border:0;background:transparent;color:var(--text);padding:7px 9px;border-radius:8px;font-size:12.5px;cursor:pointer;}
   .schedule-quick-menu button:hover{background:var(--surface-2);}
   .schedule-quick-menu input[type=date]{width:100%;margin-top:4px;border:1px solid var(--border);border-radius:8px;padding:5px 7px;font-size:12px;}
@@ -500,31 +508,33 @@
        width of the page. Stays pinned near the top while scrolling a long
        list, same idea the old rail had, just laid out sideways. -->
   <div class="control-bar" id="control-bar">
-    <div class="progress-ring-wrap" id="progress-ring-wrap"></div>
-    <div class="control-group">
-      <div class="nav-label">Views</div>
-      <div class="smart-tabs" id="smart-tabs">
-        <button data-view="today" class="active">Today <span class="count-badge" id="count-today">0</span></button>
-        <button data-view="pending">Pending <span class="count-badge" id="count-pending">0</span></button>
-        <button data-view="upcoming">Upcoming <span class="count-badge" id="count-upcoming">0</span></button>
-        <button data-view="week">Week</button>
-        <button data-view="all">All <span class="count-badge" id="count-all">0</span></button>
-        <button data-view="done">Done</button>
+    <div class="control-row control-row-top">
+      <div class="progress-ring-wrap" id="progress-ring-wrap"></div>
+      <div class="control-group">
+        <div class="nav-label">Views</div>
+        <div class="smart-tabs" id="smart-tabs">
+          <button data-view="today" class="active">Today <span class="count-badge" id="count-today">0</span></button>
+          <button data-view="pending">Pending <span class="count-badge" id="count-pending">0</span></button>
+          <button data-view="upcoming">Upcoming <span class="count-badge" id="count-upcoming">0</span></button>
+          <button data-view="week">Week</button>
+          <button data-view="all">All <span class="count-badge" id="count-all">0</span></button>
+          <button data-view="done">Done</button>
+        </div>
+      </div>
+      <div class="control-group control-group-tools">
+        <div class="nav-label">Tools</div>
+        <div class="toolbar-row">
+          <button class="tool-btn" id="search-toggle-btn">🔍 Search</button>
+          <button class="tool-btn" id="stats-toggle-btn">📊 Stats</button>
+          <button class="tool-btn" id="templates-toggle-btn">📋 Templates</button>
+          <button class="tool-btn" id="bulk-toggle-btn">☑ Select</button>
+          <button class="tool-btn" id="manage-tags-btn">🏷 Tags</button>
+        </div>
       </div>
     </div>
-    <div class="control-group control-group-lists">
+    <div class="control-row control-row-bottom">
       <div class="nav-label">Lists</div>
       <div class="list-chips" id="list-chips"></div>
-    </div>
-    <div class="control-group control-group-tools">
-      <div class="nav-label">Tools</div>
-      <div class="toolbar-row">
-        <button class="tool-btn" id="search-toggle-btn">🔍 Search</button>
-        <button class="tool-btn" id="stats-toggle-btn">📊 Stats</button>
-        <button class="tool-btn" id="templates-toggle-btn">📋 Templates</button>
-        <button class="tool-btn" id="bulk-toggle-btn">☑ Select</button>
-        <button class="tool-btn" id="manage-tags-btn">🏷 Tags</button>
-      </div>
     </div>
   </div>
 
@@ -1519,18 +1529,28 @@ function attachTaskHandlers(wrap){
   wrap.querySelectorAll('[data-scheduleq]').forEach(function(btn){
     btn.addEventListener('click', function(e){
       e.stopPropagation();
-      const wrapEl = btn.closest('[data-scheduleqwrap]');
-      const already = wrapEl.querySelector('.schedule-quick-menu');
-      document.querySelectorAll('.schedule-quick-menu').forEach(function(m){ m.remove(); });
-      if(already) return;
       const taskId = btn.dataset.scheduleq, listId = btn.dataset.listid;
+      const already = document.querySelector('.schedule-quick-menu[data-fortask="'+taskId+'"]');
+      document.querySelectorAll('.schedule-quick-menu').forEach(function(m){ m.remove(); });
+      window.removeEventListener('scroll', closeAllScheduleMenus, true);
+      if(already) return;
       const menu = document.createElement('div');
       menu.className = 'schedule-quick-menu';
+      menu.dataset.fortask = taskId;
       menu.innerHTML =
         '<button type="button" data-qset="today">Today</button>'+
         '<button type="button" data-qset="tomorrow">Tomorrow</button>'+
         '<div style="padding:4px 9px;"><label style="font-size:10.5px;color:var(--text-faint);">Pick a date</label><input type="date" data-qpick></div>';
-      wrapEl.appendChild(menu);
+      // Appended to <body>, not left inside the row — .task-row clips its
+      // own contents (overflow:hidden, for the rounded corners/accent
+      // border) which was cutting this menu off instead of showing it.
+      document.body.appendChild(menu);
+      const btnRect = btn.getBoundingClientRect();
+      const menuWidth = 150;
+      let left = btnRect.right - menuWidth;
+      if(left < 8) left = 8;
+      menu.style.left = left+'px';
+      menu.style.top = (btnRect.bottom + 4)+'px';
       async function reschedule(newDue){
         const arr = tasksArrFor(listId);
         const t = arr.find(function(x){ return x.id===taskId; });
@@ -1543,10 +1563,18 @@ function attachTaskHandlers(wrap){
       menu.querySelector('[data-qset="today"]').addEventListener('click', function(){ reschedule(todayStr()); });
       menu.querySelector('[data-qset="tomorrow"]').addEventListener('click', function(){ reschedule(addDays(todayStr(),1)); });
       menu.querySelector('[data-qpick]').addEventListener('change', function(e2){ if(e2.target.value) reschedule(e2.target.value); });
+      function closeAllScheduleMenus(){ document.querySelectorAll('.schedule-quick-menu').forEach(function(m){ m.remove(); }); window.removeEventListener('scroll', closeAllScheduleMenus, true); }
       const closeOnOutside = function(e2){
-        if(!menu.contains(e2.target) && e2.target!==btn){ menu.remove(); document.removeEventListener('click', closeOnOutside); }
+        if(!menu.contains(e2.target) && e2.target!==btn){
+          menu.remove();
+          document.removeEventListener('click', closeOnOutside);
+          window.removeEventListener('scroll', closeAllScheduleMenus, true);
+        }
       };
       setTimeout(function(){ document.addEventListener('click', closeOnOutside); }, 0);
+      // A fixed-position menu would otherwise drift away from its button
+      // as the list scrolls beneath it, so just close it on scroll.
+      window.addEventListener('scroll', closeAllScheduleMenus, true);
     });
   });
   wrap.querySelectorAll('.task-row').forEach(function(row){
