@@ -1,4 +1,4 @@
-const CACHE_NAME = 'fit-hub-v4';
+const CACHE_NAME = 'fit-hub-v5';
 const ASSETS = ['./', './index.html', './assets/app.css', './assets/app.js', './manifest.json', './icon-192.png', './icon-512.png'];
 
 self.addEventListener('install', (event) => {
@@ -19,22 +19,29 @@ self.addEventListener('activate', (event) => {
 
 self.addEventListener('fetch', (event) => {
   if (event.request.method !== 'GET') return;
+
+  // Only handle same-origin requests. Cross-origin requests (CDN scripts
+  // for the world map, Firebase, fonts, etc.) are left to the browser
+  // untouched — intercepting and caching those "opaque" cross-origin
+  // responses is fragile and was very likely why the world map's CDN
+  // scripts were silently failing to load.
+  const url = new URL(event.request.url);
+  if (url.origin !== self.location.origin) return;
+
+  // Network-first for our own pages/scripts, with the cache only as an
+  // offline fallback. The previous cache-first strategy ("return cached
+  // if we have it, refresh the cache in the background for next time")
+  // meant a fresh deploy was invisible until a *second* reload — the
+  // first reload would still serve the old cached HTML/JS while quietly
+  // updating the cache behind the scenes. Network-first means today's
+  // file is what you see today.
   event.respondWith(
-    caches.match(event.request).then((cached) => {
-      const fetchPromise = fetch(event.request)
-        .then((networkResponse) => {
-          // Clone immediately, before the response body is touched in any
-          // way — returning the original further down lets the browser
-          // start reading it, and cloning after that point throws exactly
-          // the "Response body is already used" error that was breaking
-          // network requests (including Firebase's own sign-in calls)
-          // across the whole site.
-          const responseClone = networkResponse.clone();
-          caches.open(CACHE_NAME).then((cache) => cache.put(event.request, responseClone)).catch(()=>{});
-          return networkResponse;
-        })
-        .catch(() => cached);
-      return cached || fetchPromise;
-    })
+    fetch(event.request)
+      .then((networkResponse) => {
+        const responseClone = networkResponse.clone();
+        caches.open(CACHE_NAME).then((cache) => cache.put(event.request, responseClone)).catch(()=>{});
+        return networkResponse;
+      })
+      .catch(() => caches.match(event.request))
   );
 });
