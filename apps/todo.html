@@ -73,6 +73,9 @@
   /* Hidden when embedded in the Hub's app viewer — see calendar.html/
      schedule.html for why: prevents the nested-Home-Hub bug. */
   body.embedded .topbar a.back{display:none}
+  body.embedded header.app-head{display:none}
+  header.app-head .who-badge{cursor:pointer;border:1px solid var(--border);font-family:inherit;}
+  header.app-head .who-badge:hover{background:var(--surface-2);}
 
   header.app-head{text-align:center;margin-bottom:16px;}
   header.app-head .who-badge{display:inline-flex;align-items:center;gap:7px;background:var(--surface);border:1px solid var(--border);border-radius:20px;padding:4px 14px 4px 5px;margin-bottom:9px;}
@@ -98,76 +101,94 @@
   .ring-streak{font-size:13.5px;font-weight:700;color:var(--text);display:flex;align-items:center;gap:5px;}
   .ring-msg{font-size:12px;color:var(--text-soft);margin-top:2px;}
 
-  /* ===== COMMAND CENTER — at-a-glance triage row (Now/Today/Upcoming/Overdue) ===== */
-  .command-center{display:grid;grid-template-columns:1.1fr 1fr 1fr 1fr;gap:12px;margin:14px 0 16px;}
+  /* ===== COMMAND CENTER — at-a-glance triage row (Today/Upcoming/Overdue/Notes) ===== */
+  .command-center{display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:12px;margin:14px 0 16px;}
   .command-lane{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:14px;min-width:0;box-shadow:var(--shadow);}
-  .command-lane.now{background:var(--accent);color:#fff;border-color:var(--accent-deep);}
   .command-lane-head{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:10px;}
   .command-lane-head span:first-child{font-size:10px;letter-spacing:.08em;text-transform:uppercase;font-weight:700;color:var(--text-soft);}
-  .command-lane.now .command-lane-head span:first-child{color:#D9E3DE;}
   .command-count{font-size:10px;color:var(--text-faint);background:var(--surface-2);border-radius:20px;padding:2px 7px;}
-  .command-lane.now .command-count{color:#D9E3DE;background:rgba(255,255,255,0.14);}
   .command-task{display:block;border:0;background:var(--surface-2);border-radius:10px;padding:9px 10px;width:100%;text-align:left;color:var(--text);margin-top:6px;cursor:pointer;}
   .command-task:first-of-type{margin-top:0;}
   .command-task strong{display:block;font-size:12px;font-weight:600;line-height:1.35;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
   .command-task small{display:block;font-size:10.5px;color:var(--text-soft);margin-top:3px;}
-  .command-lane.now .command-task{background:rgba(255,255,255,0.14);color:#fff;}
-  .command-lane.now .command-task small{color:#D9E3DE;}
   .command-empty{font-size:11.5px;color:var(--text-faint);line-height:1.45;padding:2px 0;}
-  .command-lane.now .command-empty{color:#D9E3DE;}
   .command-actions{display:flex;gap:6px;margin-top:8px;}
   .command-actions button{border:0;border-radius:8px;padding:6px 9px;font-size:10.5px;font-weight:700;background:var(--gold);color:#fff;cursor:pointer;}
 
-  /* ===== TWO-COLUMN WORKSPACE — sticky left rail + main task area ===== */
-  .todo-workspace{display:grid;grid-template-columns:252px minmax(0,1fr);gap:18px;align-items:start;}
-  .task-navigation{position:sticky;top:14px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:16px;box-shadow:var(--shadow);}
-  .task-navigation .progress-ring-wrap{margin:0 0 14px;}
-  .task-navigation .progress-ring-card{box-shadow:none;padding:12px;}
-  .task-navigation .ring-svg-wrap,.task-navigation .ring-svg{width:58px;height:58px;}
-  .task-navigation .ring-streak{font-size:12px;}
-  .task-navigation .ring-msg{font-size:11px;}
-  .nav-label{font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:var(--text-faint);font-weight:700;margin:16px 0 7px;}
-  .nav-label:first-of-type{margin-top:0;}
-  .task-navigation .smart-tabs{display:grid;gap:3px;margin:0;border:0;}
-  .task-navigation .smart-tabs button{width:100%;display:flex;justify-content:space-between;align-items:center;border:0;padding:8px 9px;border-radius:9px;font-size:12.5px;text-align:left;border-bottom:0;}
-  .task-navigation .smart-tabs button.active{background:var(--accent-soft);color:var(--accent-deep);}
-  .task-navigation .list-chips{display:grid;gap:3px;margin:0;overflow:visible;padding-bottom:0;}
-  .task-navigation .list-chip{width:100%;text-align:left;border:0;border-radius:9px;padding:7px 9px;background:transparent;white-space:normal;}
-  .task-navigation .list-chip.active{background:var(--surface-2);}
-  .task-navigation .list-chip.add-new{border:1px dashed var(--border);}
-  .task-navigation .toolbar-row{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin:0;overflow:visible;padding-bottom:0;}
-  .task-navigation .tool-btn{width:auto;border-radius:9px;padding:8px 6px;font-size:11px;text-align:center;}
+  /* ===== CONTROL BAR — Views/Lists/Tools as one sticky horizontal strip,
+     replacing the old sticky left rail so the task list gets full width ===== */
+  .control-bar{position:sticky;top:8px;z-index:20;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:12px 16px;box-shadow:var(--shadow);display:flex;align-items:center;gap:22px;margin-bottom:16px;flex-wrap:wrap;}
+  .control-bar .progress-ring-wrap{margin:0;flex:none;}
+  .control-bar .progress-ring-card{box-shadow:none;padding:8px 12px;background:var(--surface-2);}
+  .control-bar .ring-svg-wrap,.control-bar .ring-svg{width:46px;height:46px;}
+  .control-bar .ring-pct{font-size:13px;}
+  .control-bar .ring-side{display:none;}
+  .control-group{display:flex;align-items:center;gap:9px;min-width:0;}
+  .control-group-lists{flex:1;min-width:0;}
+  .nav-label{font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:var(--text-faint);font-weight:700;flex:none;}
+  .control-bar .smart-tabs{display:flex;gap:3px;margin:0;border:0;flex-wrap:wrap;}
+  .control-bar .smart-tabs button{display:flex;align-items:center;gap:5px;border:0;padding:7px 10px;border-radius:9px;font-size:12.5px;background:transparent;color:var(--text-soft);cursor:pointer;}
+  .control-bar .smart-tabs button.active{background:var(--accent-soft);color:var(--accent-deep);}
+  .control-bar .list-chips{display:flex;gap:5px;margin:0;overflow-x:auto;padding-bottom:0;flex:1;min-width:0;}
+  .control-bar .toolbar-row{display:flex;gap:5px;margin:0;overflow-x:auto;padding-bottom:0;}
+  .control-bar .tool-btn{width:auto;border-radius:9px;padding:7px 10px;font-size:11px;white-space:nowrap;border:1px solid var(--border);background:var(--surface-2);color:var(--text-soft);cursor:pointer;}
+  .control-bar .tool-btn:hover{background:var(--border-soft);color:var(--text);}
+
+  /* ===== SPLIT VIEW — task list + a detail panel beside it, instead of
+     each row expanding in place ===== */
+  .task-split{display:grid;grid-template-columns:minmax(0,1fr);gap:16px;align-items:start;}
+  .task-split.has-detail{grid-template-columns:minmax(0,0.85fr) minmax(0,1fr);}
   .task-work-area{min-width:0;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:18px;box-shadow:var(--shadow);}
   .task-work-head{display:flex;justify-content:space-between;align-items:flex-start;gap:14px;margin-bottom:6px;}
   .task-work-head h2{font-size:18px;margin:0 0 3px;}
   .task-work-head p{font-size:12px;color:var(--text-soft);margin:0;}
   .backup-button{border:1px solid var(--border);background:var(--surface-2);color:var(--text-soft);border-radius:9px;padding:8px 11px;font-size:11.5px;font-weight:600;cursor:pointer;white-space:nowrap;}
   .backup-button:hover{background:var(--border-soft);color:var(--text);}
+  .task-detail-panel{position:sticky;top:74px;min-width:0;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:18px;box-shadow:var(--shadow);max-height:calc(100vh - 90px);overflow-y:auto;}
+  .task-detail-panel[hidden]{display:none;}
+  .task-detail-panel-close{float:right;border:0;background:var(--surface-2);border-radius:8px;width:26px;height:26px;color:var(--text-soft);cursor:pointer;}
 
-  /* ===== STICKY NOTES PANEL — always visible in the left rail ===== */
+  /* ===== SCHEDULE QUICK-BUTTON — on a pending task row, jump straight to
+     "make it due today / tomorrow / pick a date" without opening the full
+     detail panel first ===== */
+  .schedule-quick{position:relative;}
+  .schedule-quick-btn{border:1px solid var(--border);background:var(--surface-2);color:var(--text-soft);border-radius:8px;padding:5px 9px;font-size:11px;font-weight:600;cursor:pointer;}
+  .schedule-quick-btn:hover{background:var(--accent-soft);color:var(--accent-deep);}
+  .schedule-quick-menu{position:absolute;right:0;top:calc(100% + 4px);background:var(--surface);border:1px solid var(--border);border-radius:11px;box-shadow:0 14px 34px -10px rgba(0,0,0,0.22);padding:6px;z-index:40;min-width:150px;}
+  .schedule-quick-menu button{display:block;width:100%;text-align:left;border:0;background:transparent;color:var(--text);padding:7px 9px;border-radius:8px;font-size:12.5px;cursor:pointer;}
+  .schedule-quick-menu button:hover{background:var(--surface-2);}
+  .schedule-quick-menu input[type=date]{width:100%;margin-top:4px;border:1px solid var(--border);border-radius:8px;padding:5px 7px;font-size:12px;}
+
+  /* ===== STICKY NOTES — now a modal reached from the command-center's
+     Notes tile, instead of an always-open sidebar block ===== */
+  .notes-modal-overlay{position:fixed;inset:0;z-index:220;background:rgba(20,20,17,.4);display:flex;align-items:center;justify-content:center;padding:20px;}
+  .notes-modal-overlay[hidden]{display:none;}
+  .notes-modal{width:100%;max-width:520px;max-height:80vh;overflow-y:auto;background:var(--surface);border-radius:var(--radius-lg);padding:18px;box-shadow:0 24px 70px rgba(0,0,0,0.22);}
+  .notes-modal-head{display:flex;align-items:center;gap:8px;margin-bottom:10px;}
+  .notes-modal-head h3{margin:0;font-size:16px;flex:1;}
+  .notes-modal-close{border:0;background:var(--surface-2);border-radius:8px;width:28px;height:28px;color:var(--text-soft);cursor:pointer;}
   .notes-panel-head{display:flex;justify-content:space-between;align-items:center;gap:8px;}
-  .notes-panel-list{max-height:260px;overflow-y:auto;margin-top:6px;padding-right:2px;}
+  .notes-panel-list{margin-top:6px;padding-right:2px;}
   .note-add-btn.inline{width:auto;padding:5px 10px;font-size:11px;margin:0;border-style:solid;border-color:var(--border);background:var(--surface-2);}
-  .note-card.compact{border-radius:11px;padding:9px 9px 6px;margin-bottom:8px;box-shadow:none;}
-  .note-card.compact textarea{min-height:46px;font-size:12.5px;}
-  .note-card.compact .nc-color-dot{width:12px;height:12px;}
-  .note-card.compact .nc-del-btn{width:20px;height:20px;font-size:10px;}
+  .command-lane.notes .command-note-preview{display:flex;align-items:flex-start;gap:6px;padding:6px 0;font-size:11.5px;color:var(--text);border-bottom:1px solid var(--border-soft);}
+  .command-lane.notes .command-note-preview:last-of-type{border-bottom:0;}
+  .command-lane.notes .command-note-dot{width:9px;height:9px;border-radius:50%;flex:none;margin-top:3px;}
+  .command-lane.notes .command-note-text{overflow:hidden;text-overflow:ellipsis;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;}
 
   /* ===== MOBILE TASK NAV — bottom tab bar on phones ===== */
   .mobile-task-nav{display:none;}
 
   @media(max-width:1000px){
     .command-center{grid-template-columns:1fr 1fr;}
-    .todo-workspace{grid-template-columns:220px minmax(0,1fr);}
   }
   @media(max-width:700px){
     .command-center{display:flex;overflow-x:auto;scroll-snap-type:x mandatory;gap:10px;margin-left:-14px;margin-right:-14px;padding:0 14px 4px;}
     .command-lane{min-width:220px;scroll-snap-align:start;}
-    .todo-workspace{display:block;}
-    .task-navigation{position:static;margin-bottom:12px;}
-    .task-navigation .smart-tabs{display:none;}
-    .task-navigation .list-chips{display:flex;overflow-x:auto;}
-    .task-navigation .list-chip{width:auto;white-space:nowrap;border:1px solid var(--border);}
+    .control-bar{position:static;overflow-x:auto;}
+    .control-bar .smart-tabs{display:none;}
+    .control-bar .list-chips{overflow-x:auto;}
+    .task-split.has-detail{grid-template-columns:minmax(0,1fr);}
+    .task-detail-panel{position:static;max-height:none;}
     .task-work-area{padding:14px;border-radius:14px;}
     body{padding-bottom:78px;}
     .mobile-task-nav{position:fixed;z-index:130;left:0;right:0;bottom:0;padding:6px 8px calc(6px + env(safe-area-inset-bottom));background:var(--surface);border-top:1px solid var(--border);display:grid;grid-template-columns:repeat(4,1fr);}
@@ -386,6 +407,11 @@
 
   .task-detail{display:none;padding:0 14px 14px 43px;border-top:1px dashed var(--border-soft);margin-top:2px;padding-top:12px;}
   .task-detail.open{display:block;}
+  /* Moved into the split-view panel (see openTaskDetailPanel), it's the
+     whole panel's content rather than an accordion under a row, so the
+     row-relative indent/border-top don't apply here. */
+  .task-detail-panel-inner .task-detail{padding:0;border-top:0;margin-top:0;}
+  .task-row.selected .task-main{background:var(--accent-soft);border-radius:10px;}
   .td-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px;}
   .td-grid .f{display:flex;flex-direction:column;gap:3px;}
   .td-grid label{font-size:9.5px;color:var(--text-faint);font-weight:700;text-transform:uppercase;letter-spacing:0.04em;}
@@ -438,11 +464,17 @@
 <div class="wrap wide" id="app-wrap" style="display:none;">
   <div class="topbar">
     <a class="back" href="../index.html">← All apps</a>
-    <button class="switch" id="switch-profile-btn">Switch profile</button>
   </div>
 
-  <header class="app-head">
-    <div class="who-badge" id="who-badge"></div>
+  <!-- Hidden entirely when embedded in the Hub's app viewer — the Hub's
+       own top bar already shows the profile capsule there (see
+       app-frame-profile in index.html/app.js), so repeating it here would
+       just be the same "who am I" chrome twice. Standalone (opened in its
+       own tab, no Hub bar around it) it's the only copy, so it stays and
+       doubles as the page's title bar: click it to jump straight to the
+       other profile instead of routing through the picker screen. -->
+  <header class="app-head" id="app-head">
+    <button type="button" class="who-badge" id="who-badge" title="Switch profile"></button>
     <h1>To-Do</h1>
   </header>
 
@@ -463,10 +495,13 @@
 
   <div class="command-center" id="command-center"></div>
 
-  <div class="todo-workspace">
-    <aside class="task-navigation">
-      <div class="progress-ring-wrap" id="progress-ring-wrap"></div>
-
+  <!-- Combined Views / Lists / Tools bar — one horizontal strip instead of
+       the old sticky left rail, so the task list below gets the full
+       width of the page. Stays pinned near the top while scrolling a long
+       list, same idea the old rail had, just laid out sideways. -->
+  <div class="control-bar" id="control-bar">
+    <div class="progress-ring-wrap" id="progress-ring-wrap"></div>
+    <div class="control-group">
       <div class="nav-label">Views</div>
       <div class="smart-tabs" id="smart-tabs">
         <button data-view="today" class="active">Today <span class="count-badge" id="count-today">0</span></button>
@@ -476,28 +511,24 @@
         <button data-view="all">All <span class="count-badge" id="count-all">0</span></button>
         <button data-view="done">Done</button>
       </div>
-
+    </div>
+    <div class="control-group control-group-lists">
       <div class="nav-label">Lists</div>
       <div class="list-chips" id="list-chips"></div>
-      <div style="text-align:left;margin:2px 0 0;"><button type="button" id="manage-tags-btn" style="background:none;border:none;color:var(--text-faint);font-size:11.5px;text-decoration:underline;cursor:pointer;">🏷 Manage tags</button></div>
-
-      <div class="nav-label">Sticky notes</div>
-      <div class="panel-card" style="margin-bottom:0;padding:12px;">
-        <div class="notes-panel-head">
-          <button type="button" class="note-add-btn inline" id="note-add-btn">+ New note</button>
-        </div>
-        <div class="notes-panel-list" id="notes-panel-list"></div>
-      </div>
-
+    </div>
+    <div class="control-group control-group-tools">
       <div class="nav-label">Tools</div>
       <div class="toolbar-row">
         <button class="tool-btn" id="search-toggle-btn">🔍 Search</button>
         <button class="tool-btn" id="stats-toggle-btn">📊 Stats</button>
         <button class="tool-btn" id="templates-toggle-btn">📋 Templates</button>
         <button class="tool-btn" id="bulk-toggle-btn">☑ Select</button>
+        <button class="tool-btn" id="manage-tags-btn">🏷 Tags</button>
       </div>
-    </aside>
+    </div>
+  </div>
 
+  <div class="task-split" id="task-split">
     <main class="task-work-area">
       <div class="task-work-head">
         <div><h2 id="task-view-title">Today</h2><p id="task-view-subtitle">What deserves your attention now.</p></div>
@@ -524,6 +555,27 @@
 
       <div id="task-list"></div>
     </main>
+
+    <!-- Detail panel — opens beside the list when a task is clicked,
+         instead of the row expanding in place (the old accordion). Hidden
+         entirely until something is selected. -->
+    <aside class="task-detail-panel" id="task-detail-panel" hidden>
+      <button type="button" class="task-detail-panel-close" id="task-detail-panel-close">✕</button>
+      <div class="task-detail-panel-inner" id="task-detail-panel-inner"></div>
+    </aside>
+  </div>
+
+  <!-- Sticky notes — a modal now rather than an always-open sidebar block,
+       reached from the Notes tile in the command-center row above. -->
+  <div class="notes-modal-overlay" id="notes-modal-overlay" hidden>
+    <div class="notes-modal">
+      <div class="notes-modal-head">
+        <h3>Sticky notes</h3>
+        <button type="button" class="note-add-btn inline" id="note-add-btn">+ New note</button>
+        <button type="button" class="notes-modal-close" id="notes-modal-close">✕</button>
+      </div>
+      <div class="notes-panel-list" id="notes-panel-list"></div>
+    </div>
   </div>
 
   <nav class="mobile-task-nav" aria-label="Todo views">
@@ -629,7 +681,7 @@ async function enterProfile(profileId){
   document.getElementById('profile-overlay').style.display = 'none';
   document.getElementById('app-wrap').style.display = 'block';
   document.getElementById('who-badge').innerHTML = '<span class="who-avatar av-'+(profileId==='Bhargav'?'b':'a')+'">'+profileId[0]+'</span><span class="who-name">'+profileId+'</span>';
-  document.getElementById('switch-profile-btn').onclick = showProfilePicker;
+  document.getElementById('who-badge').onclick = function(){ enterProfile(otherProfile(activeProfile)); };
   initControls();
   await loadLists();
   await loadTasks();
@@ -1080,29 +1132,37 @@ function renderCommandCenter(){
   const overdueList = sortTasks(active.filter(function(t){ return taskDueClass(t)==='overdue'; }));
   const todayList = sortTasks(active.filter(function(t){ return taskDueClass(t)==='today'; }));
   const upcomingList = sortTasks(active.filter(function(t){ return t.due && t.due>todayStr(); }));
-  const nowFound = focusTimer.taskId ? findTaskAnywhere(focusTimer.taskId) : null;
-  const nowTask = nowFound ? nowFound.t : null;
-  const nowBody = nowTask
-    ? commandTaskHtml(nowTask)+'<div class="command-actions"><button type="button" data-command-togglefocus="1">'+(focusTimer.running?'⏸ Pause focus':'▶ Resume focus')+'</button></div>'
-    : '<div class="command-empty">Nothing right now — start a 25m focus session from any task below.</div>';
+  const notesBody = stickyNotes.length
+    ? stickyNotes.slice(0,3).map(function(n){
+        const text = n.text ? escapeHtml(n.text) : '<span style="color:var(--text-faint);">Empty note</span>';
+        return '<div class="command-note-preview" data-command-opennotes="1"><span class="command-note-dot" style="background:'+n.color+';"></span><span class="command-note-text">'+text+'</span></div>';
+      }).join('')
+    : '<div class="command-empty">No notes yet — jot anything down.</div>';
   el.innerHTML =
-    '<section class="command-lane now"><div class="command-lane-head"><span>Now</span><span class="command-count">'+(nowTask?'focused':'idle')+'</span></div>'+nowBody+'</section>'+
     '<section class="command-lane"><div class="command-lane-head"><span>Today</span><span class="command-count">'+todayList.length+'</span></div>'+(todayList.length?todayList.slice(0,4).map(commandTaskHtml).join(''):'<div class="command-empty">Nothing due today.</div>')+'</section>'+
     '<section class="command-lane"><div class="command-lane-head"><span>Upcoming</span><span class="command-count">'+upcomingList.length+'</span></div>'+(upcomingList.length?upcomingList.slice(0,4).map(commandTaskHtml).join(''):'<div class="command-empty">Nothing scheduled ahead.</div>')+'</section>'+
-    '<section class="command-lane"><div class="command-lane-head"><span>Overdue</span><span class="command-count">'+overdueList.length+'</span></div>'+(overdueList.length?overdueList.slice(0,4).map(commandTaskHtml).join(''):'<div class="command-empty">Nothing overdue — you\'re caught up.</div>')+'</section>';
+    '<section class="command-lane"><div class="command-lane-head"><span>Overdue</span><span class="command-count">'+overdueList.length+'</span></div>'+(overdueList.length?overdueList.slice(0,4).map(commandTaskHtml).join(''):'<div class="command-empty">Nothing overdue — you\'re caught up.</div>')+'</section>'+
+    '<section class="command-lane notes"><div class="command-lane-head"><span>Notes</span><span class="command-count">'+stickyNotes.length+'</span></div>'+notesBody+
+      '<div class="command-actions"><button type="button" data-command-newnote="1">+ New</button><button type="button" data-command-opennotes="1" style="background:var(--surface-2);color:var(--text-soft);">View all</button></div>'+
+    '</section>';
   el.querySelectorAll('[data-command-open]').forEach(function(btn){
     btn.addEventListener('click', function(){ openTaskFromCommand(btn.dataset.commandOpen); });
   });
-  const toggleFocusBtn = el.querySelector('[data-command-togglefocus]');
-  if(toggleFocusBtn) toggleFocusBtn.addEventListener('click', function(){ togglePauseFocusTimer(); });
+  el.querySelectorAll('[data-command-opennotes]').forEach(function(btn){
+    btn.addEventListener('click', function(){ openNotesModal(); });
+  });
+  const newNoteBtn = el.querySelector('[data-command-newnote]');
+  if(newNoteBtn) newNoteBtn.addEventListener('click', function(){ openNotesModal(); addStickyNote(); });
 }
 function openTaskFromCommand(taskId){
   activeSmartView = 'all'; activeListFilter = 'all';
   document.querySelectorAll('#smart-tabs button').forEach(function(b){ b.classList.toggle('active', b.dataset.view==='all'); });
   render();
   setTimeout(function(){
-    const detail = document.getElementById('detail-'+taskId);
-    if(detail){ detail.classList.add('open'); detail.scrollIntoView({behavior:'smooth', block:'center'}); }
+    openDetailTaskId = taskId;
+    syncDetailPanel();
+    const panel = document.getElementById('task-detail-panel');
+    if(panel && !panel.hidden) panel.scrollIntoView({behavior:'smooth', block:'center'});
   }, 30);
 }
 function updateViewHeading(){
@@ -1228,11 +1288,60 @@ function render(){
   if(!shown.length){
     const emptyMsgs = { today:'Nothing on your list right now — add something above.', pending:'Nothing overdue — you\'re caught up.', upcoming:'Nothing scheduled for the next week.', all:'Add a task above to get started.', done:'Nothing completed yet.' };
     listEl.innerHTML = '<div class="empty-note">'+emptyMsgs[activeSmartView]+'</div>';
+    syncDetailPanel();
     return;
   }
   listEl.innerHTML = shown.map(taskRowHtml).join('');
   attachTaskHandlers(listEl);
   updateBulkBar();
+  syncDetailPanel();
+}
+
+/* =====================================================================
+   SPLIT-VIEW DETAIL PANEL — clicking a task's "…" opens its detail form
+   beside the list (task-detail-panel) instead of expanding the row in
+   place. Each row still gets its own hidden .task-detail div rendered by
+   taskDetailHtml/attachTaskHandlers (so every save/subtask/focus handler
+   is wired exactly like before); syncDetailPanel just relocates whichever
+   one is "open" into the panel via appendChild, which carries its event
+   listeners with it since the node itself isn't recreated.
+===================================================================== */
+let openDetailTaskId = null;
+function openTaskDetailPanel(taskId){
+  openDetailTaskId = (openDetailTaskId===taskId) ? null : taskId;
+  syncDetailPanel();
+}
+function closeTaskDetailPanel(){
+  openDetailTaskId = null;
+  syncDetailPanel();
+}
+function syncDetailPanel(){
+  const panel = document.getElementById('task-detail-panel');
+  const inner = document.getElementById('task-detail-panel-inner');
+  const split = document.getElementById('task-split');
+  if(!panel || !inner || !split) return;
+  document.querySelectorAll('.task-row.selected').forEach(function(r){ r.classList.remove('selected'); });
+  if(!openDetailTaskId){
+    panel.hidden = true;
+    split.classList.remove('has-detail');
+    inner.innerHTML = '';
+    return;
+  }
+  const detail = document.getElementById('detail-'+openDetailTaskId);
+  const row = document.querySelector('.task-row[data-taskid="'+openDetailTaskId+'"]');
+  if(!detail || !row){
+    openDetailTaskId = null;
+    panel.hidden = true;
+    split.classList.remove('has-detail');
+    inner.innerHTML = '';
+    return;
+  }
+  row.classList.add('selected');
+  inner.innerHTML = '';
+  inner.appendChild(detail);
+  detail.classList.add('open');
+  panel.hidden = false;
+  split.classList.add('has-detail');
 }
 
 function renderWeekView(listEl, scoped){
@@ -1319,6 +1428,7 @@ function taskRowHtml(t){
         (chips.length ? '<div class="task-meta">'+chips.join('')+'</div>' : '')+
       '</div>'+
       '<div class="task-actions">'+
+        (!t.done && dueClass==='overdue' ? '<div class="schedule-quick" data-scheduleqwrap="'+t.id+'"><button type="button" class="schedule-quick-btn" data-scheduleq="'+t.id+'" data-listid="'+t.listId+'" title="Reschedule">📆 Schedule</button></div>' : '')+
         '<button class="icon-btn" data-expand="'+t.id+'">…</button>'+
         '<button class="icon-btn" data-del="'+t.id+'" data-listid="'+t.listId+'">✕</button>'+
       '</div>'+
@@ -1401,7 +1511,42 @@ function attachTaskHandlers(wrap){
   });
   wrap.querySelectorAll('[data-expand]').forEach(function(btn){
     btn.addEventListener('click', function(){
-      document.getElementById('detail-'+btn.dataset.expand).classList.toggle('open');
+      openTaskDetailPanel(btn.dataset.expand);
+    });
+  });
+  // Quick-reschedule button on overdue rows — "make it due today / tomorrow
+  // / a date I pick" without opening the full detail panel first.
+  wrap.querySelectorAll('[data-scheduleq]').forEach(function(btn){
+    btn.addEventListener('click', function(e){
+      e.stopPropagation();
+      const wrapEl = btn.closest('[data-scheduleqwrap]');
+      const already = wrapEl.querySelector('.schedule-quick-menu');
+      document.querySelectorAll('.schedule-quick-menu').forEach(function(m){ m.remove(); });
+      if(already) return;
+      const taskId = btn.dataset.scheduleq, listId = btn.dataset.listid;
+      const menu = document.createElement('div');
+      menu.className = 'schedule-quick-menu';
+      menu.innerHTML =
+        '<button type="button" data-qset="today">Today</button>'+
+        '<button type="button" data-qset="tomorrow">Tomorrow</button>'+
+        '<div style="padding:4px 9px;"><label style="font-size:10.5px;color:var(--text-faint);">Pick a date</label><input type="date" data-qpick></div>';
+      wrapEl.appendChild(menu);
+      async function reschedule(newDue){
+        const arr = tasksArrFor(listId);
+        const t = arr.find(function(x){ return x.id===taskId; });
+        if(!t) return;
+        t.due = newDue;
+        await saveTasksFor(listId);
+        menu.remove();
+        render();
+      }
+      menu.querySelector('[data-qset="today"]').addEventListener('click', function(){ reschedule(todayStr()); });
+      menu.querySelector('[data-qset="tomorrow"]').addEventListener('click', function(){ reschedule(addDays(todayStr(),1)); });
+      menu.querySelector('[data-qpick]').addEventListener('change', function(e2){ if(e2.target.value) reschedule(e2.target.value); });
+      const closeOnOutside = function(e2){
+        if(!menu.contains(e2.target) && e2.target!==btn){ menu.remove(); document.removeEventListener('click', closeOnOutside); }
+      };
+      setTimeout(function(){ document.addEventListener('click', closeOnOutside); }, 0);
     });
   });
   wrap.querySelectorAll('.task-row').forEach(function(row){
@@ -1477,7 +1622,6 @@ function attachTaskHandlers(wrap){
         t.subtasks.push({ id:'sub-'+Date.now()+'-'+Math.floor(Math.random()*1000), text: text, done:false });
         await saveTasksFor(listId);
         render();
-        document.getElementById('detail-'+taskId).classList.add('open');
       });
     }
   });
@@ -1630,6 +1774,16 @@ function renderNotesPanel(){
       renderNotesPanel();
     });
   });
+}
+function openNotesModal(){
+  const overlay = document.getElementById('notes-modal-overlay');
+  if(!overlay) return;
+  renderNotesPanel();
+  overlay.hidden = false;
+}
+function closeNotesModal(){
+  const overlay = document.getElementById('notes-modal-overlay');
+  if(overlay) overlay.hidden = true;
 }
 async function addStickyNote(){
   stickyNotes.unshift({ id:'note-'+Date.now(), text:'', color: NOTE_COLORS[Math.floor(Math.random()*NOTE_COLORS.length)] });
@@ -1868,8 +2022,10 @@ function runSearch(query){
       document.querySelectorAll('#smart-tabs button').forEach(function(b){ b.classList.toggle('active', b.dataset.view==='all'); });
       render();
       setTimeout(function(){
-        const detail = document.getElementById('detail-'+row.dataset.jumpto);
-        if(detail){ detail.classList.add('open'); detail.scrollIntoView({behavior:'smooth', block:'center'}); }
+        openDetailTaskId = row.dataset.jumpto;
+        syncDetailPanel();
+        const panel = document.getElementById('task-detail-panel');
+        if(panel && !panel.hidden) panel.scrollIntoView({behavior:'smooth', block:'center'});
       }, 50);
     });
   });
@@ -1997,6 +2153,9 @@ function initControls(){
   document.getElementById('manage-tags-btn').addEventListener('click', openTagsPanel);
   document.getElementById('note-add-btn').addEventListener('click', addStickyNote);
   document.getElementById('backup-button').addEventListener('click', openBackupModal);
+  document.getElementById('task-detail-panel-close').addEventListener('click', closeTaskDetailPanel);
+  document.getElementById('notes-modal-close').addEventListener('click', closeNotesModal);
+  document.getElementById('notes-modal-overlay').addEventListener('click', function(e){ if(e.target.id==='notes-modal-overlay') closeNotesModal(); });
   document.querySelectorAll('[data-mobile-view]').forEach(function(btn){
     btn.addEventListener('click', function(){
       const target = document.querySelector('#smart-tabs button[data-view="'+btn.dataset.mobileView+'"]');

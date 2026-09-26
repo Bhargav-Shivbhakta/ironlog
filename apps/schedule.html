@@ -10,19 +10,27 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
 <style>
+  /* These match the Hub shell's own tokens exactly (assets/app.css's
+     :root), same as the Calendar/Todo restyle — Schedule was previously
+     running its own unrelated dark-green palette (#1F3B32 etc.). The
+     per-category routine colors (sleep/fitness/code/meal/…) stay
+     distinct on purpose, same reasoning as Calendar's per-source event
+     colors — only the page chrome changes here. */
   :root{
-    --bg:#F4F1EA; --surface:#FDFCF8; --surface-alt:#EDE8DA;
-    --border:#DDD5C0; --border-soft:#E7E1D0;
-    --text:#1F1B14; --text-soft:#6B6558; --text-faint:#9C9585;
-    --accent:#1F3B32; --accent-soft:#E3ECE8; --accent-deep:#14261F;
-    --gold:#9C7B0E; --gold-soft:#F3ECD6;
-    --danger:#A3402F; --danger-soft:#F5E6E1;
-    --radius-lg:14px; --radius-md:10px; --radius-sm:7px;
-    --shadow:0 1px 2px rgba(31,27,20,0.05), 0 6px 14px -10px rgba(31,27,20,0.18);
+    --bg:#F4F4F0; --surface:#FFFFFF; --surface-alt:#F2F0E9;
+    --border:#E3E3DC; --border-soft:#ECECE6;
+    --text:#20211E; --text-soft:#74766F; --text-faint:#9C9E97;
+    --accent:#AD7B20; --accent-soft:#F7EFD9; --accent-deep:#6F4A08;
+    --gold:#6F4A08; --gold-soft:#F7EFD9;
+    --danger:#B8493F; --danger-soft:#FAECEA;
+    --radius-lg:16px; --radius-md:11px; --radius-sm:8px;
+    --shadow:0 18px 50px rgba(37,38,32,.08);
   }
+  /* Same accent swap the Hub shell itself uses for Anusha's profile. */
+  body[data-profile="anusha"]{--accent:#B25C78;--accent-soft:#FAEAF0;--accent-deep:#813B53;--gold:#813B53;--gold-soft:#FAEAF0;}
   *{box-sizing:border-box;}
   body{margin:0;font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;padding:14px 12px 60px;-webkit-font-smoothing:antialiased;}
-  .wrap{max-width:980px;margin:0 auto;}
+  .wrap{max-width:1040px;margin:0 auto;}
   h1,h2,h3{font-family:'Manrope',sans-serif;}
   button,input,select{font-family:inherit;}
   a{color:var(--accent);}
@@ -43,24 +51,42 @@
   .profile-card{background:none;border:none;color:var(--text);display:flex;flex-direction:column;align-items:center;gap:10px;cursor:pointer;}
   .profile-avatar{width:92px;height:92px;border-radius:14px;display:flex;align-items:center;justify-content:center;font-size:34px;font-weight:800;color:#fff;border:3px solid transparent;font-family:'Manrope',sans-serif;}
   .profile-card:hover .profile-avatar{border-color:var(--accent);}
-  .av-b{background:linear-gradient(135deg,#1F3B32,#3E6B58);}
-  .av-a{background:linear-gradient(135deg,#9C7B0E,#C9A227);}
+  .av-b{background:linear-gradient(135deg,#AD7B20,#C9A227);}
+  .av-a{background:linear-gradient(135deg,#B25C78,#D68CA4);}
   .profile-name{font-size:16px;font-weight:600;color:var(--text-soft);}
 
-  .topbar{max-width:480px;margin:0 auto 12px;display:flex;align-items:center;justify-content:space-between;gap:8px;}
+  .topbar{margin:0 0 12px;display:flex;align-items:center;justify-content:space-between;gap:8px;}
   .topbar a.back,.topbar button.switch{font-size:14px;color:var(--text-soft);text-decoration:none;background:none;border:none;cursor:pointer;padding:0;}
+  /* Hidden when embedded in the Hub's app viewer — its own "Back to Hub"
+     button already handles this safely; this in-page link, if clicked
+     inside the iframe, would load a second copy of the whole Hub inside
+     itself instead (the nested-Home-Hub bug). */
+  body.embedded .topbar a.back{display:none}
 
+  /* Hidden entirely when embedded in the Hub's app viewer — the Hub's own
+     top bar already shows the profile capsule there (see app-frame-
+     profile in index.html/app.js), same pattern as Todo. Standalone
+     (opened in its own tab), it's the only copy, doubling as the click
+     -to-switch-profile control. */
+  body.embedded header.app-head{display:none}
   header.app-head{text-align:center;margin-bottom:12px;}
-  header.app-head .who-badge{display:inline-flex;align-items:center;gap:6px;background:var(--surface);border:1px solid var(--border);border-radius:20px;padding:3px 12px 3px 4px;margin-bottom:6px;}
+  header.app-head .who-badge{display:inline-flex;align-items:center;gap:6px;background:var(--surface);border:1px solid var(--border);border-radius:20px;padding:3px 12px 3px 4px;margin-bottom:6px;cursor:pointer;font-family:inherit;}
+  header.app-head .who-badge:hover{background:var(--accent-soft);}
   header.app-head .who-avatar{width:20px;height:20px;border-radius:6px;font-size:12.5px;font-weight:800;color:#fff;display:flex;align-items:center;justify-content:center;font-family:'Manrope',sans-serif;}
-  header.app-head .who-avatar.av-b{background:#1F3B32;}
-  header.app-head .who-avatar.av-a{background:#9C7B0E;}
+  header.app-head .who-avatar.av-b{background:#AD7B20;}
+  header.app-head .who-avatar.av-a{background:#B25C78;}
   header.app-head .who-name{font-size:14px;font-weight:700;}
   header.app-head h1{font-size:20px;font-weight:800;margin:0;letter-spacing:-0.01em;}
 
-  .segmented{max-width:280px;margin:0 auto 12px;background:var(--surface-alt);border-radius:999px;padding:3px;display:flex;gap:2px;}
-  .segmented button{flex:1;border:none;background:transparent;border-radius:999px;padding:7px 4px;font-size:14.5px;font-weight:700;color:var(--text-soft);cursor:pointer;}
+  .schedule-toolbar{display:flex;align-items:center;gap:12px;margin-bottom:10px;flex-wrap:wrap;}
+  .schedule-toolbar .search-bar{flex:1;min-width:220px;margin-bottom:0;}
+  .segmented{flex:none;max-width:320px;margin:0;background:var(--surface-alt);border-radius:999px;padding:3px;display:flex;gap:2px;}
+  .segmented button{flex:1;border:none;background:transparent;border-radius:999px;padding:7px 14px;font-size:14.5px;font-weight:700;color:var(--text-soft);cursor:pointer;white-space:nowrap;}
   .segmented button.active{background:var(--surface);color:var(--text);box-shadow:var(--shadow);}
+  @media(max-width:640px){
+    .schedule-toolbar{flex-direction:column;align-items:stretch;}
+    .segmented{max-width:none;}
+  }
 
   .notif-banner{background:var(--accent-soft);border:1px solid var(--accent);border-radius:var(--radius-md);padding:8px 12px;margin-bottom:10px;font-size:13.5px;color:var(--accent-deep);display:flex;align-items:center;gap:8px;flex-wrap:wrap;}
 
@@ -229,11 +255,12 @@
 </style>
 </head>
 <body>
+<script>try{ if(window.self !== window.top) document.body.classList.add('embedded'); }catch(e){ document.body.classList.add('embedded'); }</script>
 
-<div id="conn-loading" style="position:fixed;inset:0;z-index:250;background:#F4F1EA;display:flex;align-items:center;justify-content:center;padding:20px;">
+<div id="conn-loading" style="position:fixed;inset:0;z-index:250;background:#F4F4F0;display:flex;align-items:center;justify-content:center;padding:20px;">
   <div style="text-align:center;">
     <div style="font-family:'Manrope',sans-serif;font-size:18px;font-weight:700;margin-bottom:6px;">Schedule</div>
-    <div id="conn-loading-text" style="color:#6B6558;font-size:14px;">Connecting…</div>
+    <div id="conn-loading-text" style="color:#74766F;font-size:14px;">Connecting…</div>
   </div>
 </div>
 
@@ -261,26 +288,29 @@
 <div class="wrap" id="app-wrap" style="display:none;">
   <div class="topbar">
     <a class="back" href="../index.html">← All apps</a>
-    <button class="switch" id="switch-profile-btn">Switch profile</button>
   </div>
 
   <header class="app-head">
-    <div class="who-badge" id="who-badge"></div>
+    <button type="button" class="who-badge" id="who-badge" title="Switch profile"></button>
     <h1>Schedule</h1>
   </header>
 
   <div id="notif-banner-wrap"></div>
 
-  <div class="search-bar">
-    <input type="text" id="search-input" placeholder="Search events, chores, routine…">
+  <!-- Search + view switcher side by side on desktop instead of each
+       stacking full-width — same sticky-control-bar idea as Todo/Calendar,
+       just lighter since Schedule doesn't need Views/Lists/Tools. -->
+  <div class="schedule-toolbar">
+    <div class="search-bar">
+      <input type="text" id="search-input" placeholder="Search events, chores, routine…">
+    </div>
+    <div class="segmented">
+      <button id="view-today-btn" class="active">Today</button>
+      <button id="view-week-btn">Week</button>
+      <button id="view-stats-btn">Stats</button>
+    </div>
   </div>
   <div id="search-results" style="display:none;"></div>
-
-  <div class="segmented">
-    <button id="view-today-btn" class="active">Today</button>
-    <button id="view-week-btn">Week</button>
-    <button id="view-stats-btn">Stats</button>
-  </div>
 
   <div id="today-view"></div>
   <div id="week-view" style="display:none;"></div>
@@ -299,7 +329,7 @@ function showFirebaseLoadError(){
   if(!box || document.getElementById('fb-load-error')) return;
   const msg = document.createElement('div');
   msg.id = 'fb-load-error';
-  msg.style.cssText = 'background:#FCE1E5;color:#B23A4E;border-radius:10px;padding:11px 13px;font-size:12.5px;font-weight:600;margin-bottom:14px;';
+  msg.style.cssText = 'background:#FAECEA;color:#B8493F;border-radius:10px;padding:11px 13px;font-size:12.5px;font-weight:600;margin-bottom:14px;';
   msg.textContent = "Couldn't load — check your internet connection and refresh the page.";
   box.insertBefore(msg, box.firstChild.nextSibling);
 }
@@ -332,7 +362,7 @@ let authResolved = false;
 setTimeout(function(){
   if(authResolved) return;
   const txt = document.getElementById('conn-loading-text');
-  if(txt) txt.innerHTML = "This is taking longer than expected.<br>Check your connection, then <a href=\"#\" onclick=\"location.reload();return false;\" style=\"color:#9C7B0E;font-weight:700;\">tap here to retry</a>.";
+  if(txt) txt.innerHTML = "This is taking longer than expected.<br>Check your connection, then <a href=\"#\" onclick=\"location.reload();return false;\" style=\"color:#AD7B20;font-weight:700;\">tap here to retry</a>.";
 }, 7000);
 function hideConnLoading(){
   authResolved = true;
@@ -416,7 +446,7 @@ function showAuth(){
 auth.onAuthStateChanged(user=>{
   hideConnLoading();
   currentUser = user;
-  if(!user){ window.location.href = '../index.html'; return; }
+  if(!user){ if(window.self!==window.top) return; window.location.href = '../index.html'; return; }
   const params = new URLSearchParams(window.location.search);
   const fromUrl = params.get('profile');
   if(fromUrl === 'Bhargav' || fromUrl === 'Anusha'){ enterProfile(fromUrl); return; }
@@ -428,12 +458,12 @@ auth.onAuthStateChanged(user=>{
 
 async function enterProfile(profileId){
   activeProfile = profileId;
+  document.body.dataset.profile = profileId.toLowerCase();
   try{ localStorage.setItem('hub-active-profile', profileId); }catch(e){}
   document.getElementById('profile-overlay').style.display = 'none';
   document.getElementById('app-wrap').style.display = 'block';
   document.getElementById('who-badge').innerHTML = '<span class="who-avatar av-'+(profileId==='Bhargav'?'b':'a')+'">'+profileId[0]+'</span><span class="who-name">'+profileId+'</span>';
-  document.getElementById('switch-profile-btn').textContent = 'Switch to '+(profileId==='Bhargav'?'Anusha':'Bhargav');
-  document.getElementById('switch-profile-btn').onclick = function(){ enterProfile(profileId==='Bhargav'?'Anusha':'Bhargav'); };
+  document.getElementById('who-badge').onclick = function(){ enterProfile(otherProfile(profileId)); };
   initControls();
   await loadEvents();
   await loadChores();

@@ -10,12 +10,20 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
 <style>
+  /* These match the Hub shell's own tokens exactly (assets/app.css's
+     :root), same as the Todo restyle — Calendar was previously running an
+     unrelated blue/indigo palette (#5B5CE8 etc.) that didn't match the
+     rest of the suite at all. The per-source event colors (todo/gym/
+     chores/schedule/skin) stay distinct on purpose, so events on the grid
+     are still easy to tell apart at a glance; only the page chrome
+     (background/surface/border/text/accent/shadow/radius) changes. */
   :root{
-    --bg:#F5F6FB; --surface:#FFFFFF; --surface-alt:#EFF1F8;
-    --border:#E3E6F2; --border-soft:#ECEEF6;
-    --text:#181A29; --text-soft:#5C6079; --text-faint:#9599B0;
-    --accent:#5B5CE8; --accent-soft:#E9E9FD; --accent-deep:#4241C9;
-    --today-ring:#FF7A45;
+    --bg:#F4F4F0; --surface:#FFFFFF; --surface-alt:#F2F0E9;
+    --border:#E3E3DC; --border-soft:#ECECE6;
+    --text:#20211E; --text-soft:#74766F; --text-faint:#9C9E97;
+    --accent:#AD7B20; --accent-soft:#F7EFD9; --accent-deep:#6F4A08;
+    --danger:#B8493F; --danger-soft:#FAECEA;
+    --today-ring:#6F4A08;
     --amavasya:#3A3D52; --amavasya-soft:#E7E7ED;
     --purnima:#F5B942; --purnima-soft:#FDF1D6;
     --todo:#5B8DEF; --todo-soft:#E4ECFC;
@@ -23,9 +31,14 @@
     --chores:#16A37A; --chores-soft:#DDF4EC;
     --schedule:#A855F7; --schedule-soft:#F2E4FE;
     --skin:#EC3B87; --skin-soft:#FDE7F1;
-    --radius-lg:18px; --radius-md:13px; --radius-sm:9px;
-    --shadow:0 1px 2px rgba(20,20,50,0.04), 0 12px 26px -16px rgba(20,20,50,0.16);
+    --radius-lg:16px; --radius-md:11px; --radius-sm:8px;
+    --shadow:0 18px 50px rgba(37,38,32,.08);
   }
+  /* Same accent swap the Hub shell itself uses for Anusha's profile. This
+     affects the page's own chrome (accent buttons, "today" ring) — the
+     per-source event colors are unaffected since they're keyed to which
+     app an event came from, not who's viewing. */
+  body[data-profile="anusha"]{--accent:#B25C78;--accent-soft:#FAEAF0;--accent-deep:#813B53;--today-ring:#813B53;}
   *{box-sizing:border-box;}
   body{margin:0;font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;padding:16px 12px 70px;-webkit-font-smoothing:antialiased;}
   .wrap{max-width:920px;margin:0 auto;}
@@ -38,6 +51,13 @@
 
   .topbar{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;}
   .topbar a{font-size:12.5px;color:var(--text-soft);text-decoration:none;}
+  /* This app's own "All apps" link navigates the WHOLE page — fine when
+     opened standalone, but when the Hub has this open inside its app
+     viewer, that navigation loads a second full copy of the Hub inside
+     the iframe (the nested-Home-Hub-inside-Home-Hub bug). The Hub's own
+     "Back to Hub" button in the viewer chrome already does this safely,
+     so this in-page link is hidden whenever we detect we're embedded. */
+  body.embedded .topbar .back{display:none}
   header.app-head{text-align:center;margin-bottom:14px;}
   header.app-head h1{font-size:22px;font-weight:800;margin:0 0 2px;letter-spacing:-0.02em;background:linear-gradient(135deg,var(--accent-deep),var(--purnima));-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;}
   header.app-head p{margin:0;color:var(--text-soft);font-size:12.5px;}
@@ -132,11 +152,12 @@
 </style>
 </head>
 <body>
+<script>try{ if(window.self !== window.top) document.body.classList.add('embedded'); }catch(e){ document.body.classList.add('embedded'); }</script>
 
 <div id="loading-gate" class="loading-gate">Loading…</div>
 
 <div class="wrap" id="app-wrap" style="display:none;">
-  <div class="topbar"><a href="../index.html">← All apps</a></div>
+  <div class="topbar"><a class="back" href="../index.html">← All apps</a></div>
   <header class="app-head">
     <h1>Calendar</h1>
     <p>Everything, in one place — plus the Hindu Panchang</p>
@@ -196,8 +217,14 @@ let activeCalendarProfile = 'Bhargav';
 function detectActiveProfile(){
   const params = new URLSearchParams(window.location.search);
   const fromUrl = params.get('profile');
-  if(fromUrl === 'Bhargav' || fromUrl === 'Anusha'){ activeCalendarProfile = fromUrl; return; }
-  try{ const fromHub = localStorage.getItem('hub-active-profile'); if(fromHub==='Bhargav'||fromHub==='Anusha') activeCalendarProfile = fromHub; }catch(e){}
+  if(fromUrl === 'Bhargav' || fromUrl === 'Anusha'){ activeCalendarProfile = fromUrl; }
+  else{
+    try{ const fromHub = localStorage.getItem('hub-active-profile'); if(fromHub==='Bhargav'||fromHub==='Anusha') activeCalendarProfile = fromHub; }catch(e){}
+  }
+  // Just a cosmetic accent swap (same gold/rose the rest of the Hub uses
+  // per-profile) — Calendar itself still shows both profiles' events
+  // together, this only tints the page's own buttons/today-ring.
+  document.body.dataset.profile = activeCalendarProfile.toLowerCase();
 }
 
 function pad2(n){ return String(n).padStart(2,'0'); }
@@ -752,7 +779,7 @@ let activeDate = todayStr();
 
 auth.onAuthStateChanged(async function(user){
   currentUser = user;
-  if(!user){ window.location.href = '../index.html'; return; }
+  if(!user){ if(window.self!==window.top) return; window.location.href = '../index.html'; return; }
   detectActiveProfile();
   loadFilters();
   await loadAllEvents();
@@ -774,6 +801,7 @@ auth.onAuthStateChanged(async function(user){
     activeCalendarProfile = activeCalendarProfile==='Bhargav' ? 'Anusha' : 'Bhargav';
     try{ localStorage.setItem('hub-active-profile', activeCalendarProfile); }catch(e){}
     document.getElementById('cal-profile-switch-btn').textContent = activeCalendarProfile;
+    document.body.dataset.profile = activeCalendarProfile.toLowerCase();
     render();
   };
   render();
