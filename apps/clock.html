@@ -22,6 +22,12 @@
   body{background:var(--bg)}
   .main-nav button[data-hub-route="clock"]{background:#292925;color:#fff}
   .ck-main{padding-bottom:70px}
+  /* When opened inside the Hub's own app viewer (an iframe), the Hub
+     already shows its real sidebar around this page — so this page's
+     own copy of that sidebar would just be a second one nested inside
+     the first. Hide it and let the content take the full width. */
+  body.embedded .sidebar{display:none}
+  body.embedded .main{margin-left:0}
   .ck-tabbar{display:flex;gap:4px;overflow-x:auto;margin:22px 0 20px;border-bottom:1px solid var(--line);padding-bottom:0}
   .ck-tabbar button{border:0;background:transparent;color:var(--muted);font-size:13.5px;font-weight:600;padding:10px 14px;border-bottom:2px solid transparent;white-space:nowrap}
   .ck-tabbar button.active{color:var(--accent-ink);border-bottom-color:var(--accent)}
@@ -296,6 +302,10 @@
 <div id="fire-mount"></div>
 
 <script>
+// Opened inside the Hub's own in-page app viewer (an iframe)? Mark the
+// body so this page's own sidebar copy hides and the Hub's real one
+// (visible around this iframe) is the only one shown.
+try{ if(window.self !== window.top) document.body.classList.add('embedded'); }catch(e){ document.body.classList.add('embedded'); }
 window.addEventListener('error', function(e){
   const gate = document.getElementById('loading-gate');
   if(gate && gate.style.display !== 'none') gate.textContent = 'Something went wrong: ' + (e.message||'unknown error') + '. Try a hard refresh.';
@@ -521,7 +531,7 @@ function renderDashboard(){
           '<div class="ck-map-mini" id="dash-world-map"></div>'+
           (worldCities.length ? worldCities.slice(0,3).map(worldMiniRow).join('') : '<div class="empty-row">No cities added</div>')+
         '</section>'+
-        '<section class="surface"><div class="section-head"><div><p class="section-kicker">Stopwatch</p><h2>'+fmtStopwatch(swElapsedMs)+'</h2></div></div>'+
+        '<section class="surface"><div class="section-head"><div><p class="section-kicker">Stopwatch</p><h2 id="dash-stopwatch-time">'+fmtStopwatch(swElapsedMs)+'</h2></div></div>'+
           '<button type="button" class="button primary block" data-open-tab="stopwatch">Open stopwatch</button>'+
         '</section>'+
       '</div>'+
@@ -579,6 +589,8 @@ function tickDashboard(){
   const tzEl = document.getElementById('dash-tz');
   if(tzEl) tzEl.textContent = Intl.DateTimeFormat().resolvedOptions().timeZone.split('/').pop().replace('_',' ');
   worldCities.slice(0,3).forEach(tickOneCity);
+  const swEl = document.getElementById('dash-stopwatch-time');
+  if(swEl) swEl.textContent = fmtStopwatch(swElapsedMs);
   const runningTimer = timers.find(function(t){ return t.running; });
   if(runningTimer){
     const disp = document.getElementById('dash-timer-time');
