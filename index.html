@@ -45,7 +45,7 @@
 
   <div class="app-shell" id="app-shell" hidden>
     <aside class="sidebar">
-      <a class="brand" href="#today" data-route="today" aria-label="Home Hub"><span class="brand-mark small">H</span><span>Home Hub</span></a>
+      <button class="brand" id="sidebar-toggle" type="button" aria-label="Collapse or expand the sidebar"><span class="brand-mark small">H</span><span>Home Hub</span></button>
       <a href="apps/clock.html" class="hub-clock" id="hub-clock" data-profile-link>--:--:-- <small id="hub-clock-date">--</small></a>
       <nav class="main-nav" aria-label="Primary navigation">
         <button class="active" type="button" data-route="today"><i data-lucide="sun"></i><span>Today</span></button>
@@ -59,6 +59,15 @@
         <button class="signout" id="signout" type="button"><i data-lucide="log-out"></i><span>Sign out</span></button>
       </div>
     </aside>
+
+    <div class="app-frame-overlay" id="app-frame-overlay" hidden>
+      <div class="app-frame-bar">
+        <button type="button" class="app-frame-back" id="app-frame-back"><i data-lucide="arrow-left"></i><span>Back to Hub</span></button>
+        <div class="app-frame-title" id="app-frame-title">App</div>
+        <a class="app-frame-open" id="app-frame-open" target="_blank" rel="noopener"><i data-lucide="external-link"></i><span>Open in new tab</span></a>
+      </div>
+      <iframe id="app-frame-iframe" class="app-frame-iframe" src="about:blank" title="Opened app"></iframe>
+    </div>
 
     <header class="mobile-header">
       <a class="brand" href="#today" data-route="today"><span class="brand-mark small">H</span><span>Home Hub</span></a>
