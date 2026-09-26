@@ -338,6 +338,7 @@ function setSidebarCollapsed(collapsed){
 }
 if($('sidebar-toggle')){
   $('sidebar-toggle').addEventListener('click',()=>{
+    sidebarAutoCollapsed=false; // a manual click always overrides the auto-collapse-on-open behavior below
     setSidebarCollapsed(!$('app-shell').classList.contains('sidebar-collapsed'));
   });
   try{ if(localStorage.getItem(SIDEBAR_COLLAPSE_KEY)==='1') setSidebarCollapsed(true); }catch(e){}
@@ -357,7 +358,18 @@ function titleForAppUrl(u){
   if(found) return found.title;
   return titleFromFilename(file||'App');
 }
+// Opening an app auto-collapses the sidebar to give it more room (Diet,
+// Grocery etc. feel cramped otherwise) — but only when the sidebar was
+// actually expanded at the time, and only as a temporary state (not
+// saved to the persisted preference). If you manually re-expand it while
+// an app is open, that click clears this flag so closing the app won't
+// fight you by collapsing it again.
+let sidebarAutoCollapsed=false;
 function openAppFrame(url,title){
+  if(!$('app-shell').classList.contains('sidebar-collapsed')){
+    $('app-shell').classList.add('sidebar-collapsed');
+    sidebarAutoCollapsed=true;
+  }
   $('app-frame-iframe').src=url;
   $('app-frame-title').textContent=title;
   $('app-frame-open').href=url;
@@ -367,6 +379,10 @@ function openAppFrame(url,title){
 function closeAppFrame(){
   $('app-frame-overlay').hidden=true;
   $('app-frame-iframe').src='about:blank';
+  if(sidebarAutoCollapsed){
+    $('app-shell').classList.remove('sidebar-collapsed');
+    sidebarAutoCollapsed=false;
+  }
 }
 if($('app-frame-back')) $('app-frame-back').addEventListener('click',closeAppFrame);
 document.addEventListener('keydown',e=>{ if(e.key==='Escape' && $('app-frame-overlay') && !$('app-frame-overlay').hidden) closeAppFrame(); });
