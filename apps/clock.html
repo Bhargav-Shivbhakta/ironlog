@@ -41,9 +41,17 @@
   .clock-card-top{display:flex;justify-content:space-between;align-items:center;color:var(--muted);font-size:12px;position:relative;z-index:1}
   .live-tag{display:flex;align-items:center;gap:7px}
   .live-dot{width:7px;height:7px;border-radius:50%;background:var(--success,#3f8f5f)}
-  .big-time{font-size:clamp(58px,7.5vw,92px);letter-spacing:-.06em;line-height:.95;font-weight:700;font-variant-numeric:tabular-nums;color:var(--text);position:relative;z-index:1}
-  .big-time small{font-size:.22em;color:var(--muted);margin-left:8px;font-weight:600}
+  .big-time{font-size:clamp(58px,7.5vw,92px);letter-spacing:-.01em;line-height:.95;font-weight:700;font-variant-numeric:tabular-nums;color:var(--text);position:relative;z-index:1;display:flex;align-items:center;gap:2px}
+  .big-time .colon{animation:colonBlink 2s steps(1) infinite;display:inline-block}
+  .big-time small{font-size:.22em;color:var(--muted);margin-left:10px;font-weight:600;letter-spacing:0}
   .clock-date{font-size:13.5px;color:var(--muted);position:relative;z-index:1}
+  @keyframes colonBlink{0%,49%{opacity:1}50%,100%{opacity:.22}}
+  .sec-ring-wrap{width:28px;height:28px;position:relative;flex:none}
+  .sec-ring-wrap svg{width:100%;height:100%;transform:rotate(-90deg)}
+  .sec-ring-track,.sec-ring-sweep{fill:none}
+  .sec-ring-track{stroke:var(--line)}
+  .sec-ring-sweep{stroke:var(--accent);stroke-linecap:round;transition:stroke-dashoffset .28s linear}
+  .tring-sweep,.fring-sweep{transition:stroke-dashoffset .28s linear}
 
   /* Generic card, used throughout dashboard/alarms/timers/focus/world/history */
   .card{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius,18px);padding:18px;margin-bottom:14px}
@@ -164,6 +172,34 @@
   .profile-card{display:flex;flex-direction:column;align-items:center;gap:8px;cursor:pointer}
   .profile-avatar{width:64px;height:64px;border-radius:16px;background:var(--accent-soft);color:var(--accent-ink);display:grid;place-items:center;font-size:24px;font-weight:700}
   .profile-name{font-size:13px;font-weight:600;color:var(--muted)}
+
+  /* Sidebar collapse */
+  .shell{position:relative;transition:grid-template-columns .18s ease}
+  .sidebar-collapse-btn{position:absolute;top:20px;right:-12px;width:24px;height:24px;border-radius:50%;background:var(--surface);border:1px solid var(--line);color:var(--muted);display:grid;place-items:center;padding:0;z-index:5}
+  .sidebar-collapse-btn svg{width:12px;height:12px;transition:transform .18s ease}
+  .shell.sidebar-collapsed{grid-template-columns:64px 1fr}
+  .shell.sidebar-collapsed .sidebar-collapse-btn svg{transform:rotate(180deg)}
+  .shell.sidebar-collapsed .ck-brand .label,
+  .shell.sidebar-collapsed .back-link .label,
+  .shell.sidebar-collapsed .nav button .label,
+  .shell.sidebar-collapsed .ck-sidebar-foot{display:none}
+  .shell.sidebar-collapsed .ck-sidebar{padding-left:12px;padding-right:12px;overflow:visible}
+  .shell.sidebar-collapsed .ck-brand{justify-content:center;padding-left:0;padding-right:0}
+  .shell.sidebar-collapsed .back-link{text-align:center}
+  .shell.sidebar-collapsed .nav button{justify-content:center;padding:10px}
+  @media(max-width:880px){.sidebar-collapse-btn{display:none}}
+
+  /* World map pinpoint */
+  .modal-sheet.map-sheet{max-width:660px}
+  .map-wrap{position:relative;border-radius:14px;overflow:hidden;background:#e7edf3;border:1px solid var(--line)}
+  .map-wrap svg{width:100%;height:auto;display:block;cursor:crosshair}
+  .map-land{fill:var(--surface-soft,#f2f1ea);stroke:var(--line);stroke-width:.6}
+  .map-pin-dot{fill:var(--accent);stroke:#fff;stroke-width:2}
+  .map-pin-pulse{fill:none;stroke:var(--accent);stroke-width:1.4;opacity:.55}
+  .map-status{font-size:12.5px;color:var(--muted);margin:10px 0;min-height:18px}
+  .map-status b{color:var(--text)}
+  .map-loading{padding:60px 0;text-align:center;color:var(--muted);font-size:13px}
+  .map-alt-btn{background:none;border:none;color:var(--accent-ink);font-size:12.5px;font-weight:600;text-decoration:underline;padding:0;margin-top:4px}
 </style>
 </head>
 <body>
@@ -196,18 +232,19 @@
 </div>
 
 <div id="app-wrap" style="display:none;">
-  <div class="shell">
+  <div class="shell" id="app-shell">
     <aside class="ck-sidebar">
-      <div class="ck-brand"><span class="ck-brand-mark"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16.5 14"></polyline></svg></span>Clock</div>
-      <a href="../index.html" class="back-link">← All apps</a>
+      <button type="button" class="sidebar-collapse-btn" id="sidebar-collapse-btn" title="Collapse sidebar"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"></polyline></svg></button>
+      <div class="ck-brand"><span class="ck-brand-mark"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16.5 14"></polyline></svg></span><span class="label">Clock</span></div>
+      <a href="../index.html" class="back-link"><span class="label">← All apps</span></a>
       <nav class="nav" id="nav">
-        <button data-tab="dashboard" class="active"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="9" rx="1"></rect><rect x="14" y="3" width="7" height="5" rx="1"></rect><rect x="14" y="12" width="7" height="9" rx="1"></rect><rect x="3" y="16" width="7" height="5" rx="1"></rect></svg>Dashboard</button>
-        <button data-tab="alarms"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="13" r="8"></circle><path d="M5 3 2 6M22 6l-3-3M12 9v4l2 2"></path></svg>Alarms</button>
-        <button data-tab="timers"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="10" y1="2" x2="14" y2="2"></line><line x1="12" y1="14" x2="15" y2="11"></line><circle cx="12" cy="14" r="8"></circle></svg>Timers</button>
-        <button data-tab="focus"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><circle cx="12" cy="12" r="1"></circle></svg>Focus</button>
-        <button data-tab="world"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><path d="M2 12h20M12 2a15 15 0 0 1 0 20M12 2a15 15 0 0 0 0 20"></path></svg>World time</button>
-        <button data-tab="stopwatch"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="10" y1="2" x2="14" y2="2"></line><line x1="12" y1="14" x2="15" y2="11"></line><circle cx="12" cy="14" r="8"></circle></svg>Stopwatch</button>
-        <button data-tab="history"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"></path><path d="M3 3v5h5"></path><path d="M12 7v5l4 2"></path></svg>History</button>
+        <button data-tab="dashboard" class="active" title="Dashboard"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="9" rx="1"></rect><rect x="14" y="3" width="7" height="5" rx="1"></rect><rect x="14" y="12" width="7" height="9" rx="1"></rect><rect x="3" y="16" width="7" height="5" rx="1"></rect></svg><span class="label">Dashboard</span></button>
+        <button data-tab="alarms" title="Alarms"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="13" r="8"></circle><path d="M5 3 2 6M22 6l-3-3M12 9v4l2 2"></path></svg><span class="label">Alarms</span></button>
+        <button data-tab="timers" title="Timers"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="10" y1="2" x2="14" y2="2"></line><line x1="12" y1="14" x2="15" y2="11"></line><circle cx="12" cy="14" r="8"></circle></svg><span class="label">Timers</span></button>
+        <button data-tab="focus" title="Focus"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><circle cx="12" cy="12" r="1"></circle></svg><span class="label">Focus</span></button>
+        <button data-tab="world" title="World time"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><path d="M2 12h20M12 2a15 15 0 0 1 0 20M12 2a15 15 0 0 0 0 20"></path></svg><span class="label">World time</span></button>
+        <button data-tab="stopwatch" title="Stopwatch"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="10" y1="2" x2="14" y2="2"></line><line x1="12" y1="14" x2="15" y2="11"></line><circle cx="12" cy="14" r="8"></circle></svg><span class="label">Stopwatch</span></button>
+        <button data-tab="history" title="History"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"></path><path d="M3 3v5h5"></path><path d="M12 7v5l4 2"></path></svg><span class="label">History</span></button>
       </nav>
       <div class="ck-sidebar-foot">
         <div class="sf-status"><span class="sf-dot"></span>Synced</div>
@@ -295,15 +332,15 @@ function showProfilePicker(){
 }
 async function enterProfile(profileId){
   activeProfile = profileId;
+  document.body.dataset.profile = profileId;
   try{ localStorage.setItem('hub-active-profile', profileId); }catch(e){}
   document.getElementById('loading-gate').style.display = 'none';
   document.getElementById('auth-overlay').style.display = 'none';
   document.getElementById('profile-overlay').style.display = 'none';
   document.getElementById('app-wrap').style.display = 'block';
   document.getElementById('who-label').textContent = profileId;
-  const otherProfile = profileId==='Bhargav' ? 'Anusha' : 'Bhargav';
-  document.getElementById('switch-profile-btn').textContent = 'Switch to '+otherProfile;
-  document.getElementById('switch-profile-btn').onclick = function(){ enterProfile(otherProfile); };
+  document.getElementById('switch-profile-btn').textContent = 'Switch profile';
+  document.getElementById('switch-profile-btn').onclick = showProfilePicker;
   renderGreeting();
   await loadAlarms();
   await loadWorldCities();
@@ -311,6 +348,7 @@ async function enterProfile(profileId){
   await loadFocusData();
   await loadHistory();
   wireNav();
+  wireSidebarCollapse();
   showTab('dashboard');
   startMainLoop();
 }
@@ -418,7 +456,7 @@ function renderDashboard(){
       '<div class="stack">'+
         '<div class="card clock-hero-card">'+
           '<div class="clock-card-top"><span class="live-tag"><span class="live-dot"></span>Local time</span><span id="dash-tz"></span></div>'+
-          '<div class="big-time"><span id="dash-time">--:--</span><small id="dash-sec">--</small></div>'+
+          '<div class="big-time"><span class="sec-ring-wrap"><svg viewBox="0 0 28 28"><circle class="sec-ring-track" cx="14" cy="14" r="11.5"></circle><circle class="sec-ring-sweep" id="dash-sec-ring" cx="14" cy="14" r="11.5" stroke-dasharray="72.3" stroke-dashoffset="0"></circle></svg></span><span id="dash-time-h">--</span><span class="colon">:</span><span id="dash-time-m">--</span><small id="dash-sec">--</small></div>'+
           '<div class="clock-date" id="dash-date"></div>'+
           '<div class="hour-toggle-row">'+
             '<button type="button" class="hour-toggle '+(!use24h?'active':'')+'" data-hourmode="12">12-hour</button>'+
@@ -456,10 +494,14 @@ function tickDashboard(){
   const now = new Date();
   let h = now.getHours(); const m = now.getMinutes(), s = now.getSeconds();
   if(!use24h){ h = h%12; if(h===0) h=12; }
-  const timeEl = document.getElementById('dash-time');
-  if(timeEl) timeEl.textContent = pad2(h)+':'+pad2(m);
+  const hEl = document.getElementById('dash-time-h');
+  if(hEl) hEl.textContent = pad2(h);
+  const mEl = document.getElementById('dash-time-m');
+  if(mEl) mEl.textContent = pad2(m);
   const secEl = document.getElementById('dash-sec');
   if(secEl) secEl.textContent = pad2(s);
+  const secRing = document.getElementById('dash-sec-ring');
+  if(secRing) secRing.style.strokeDashoffset = 72.3*(1-(s/60));
   const dateEl = document.getElementById('dash-date');
   if(dateEl) dateEl.textContent = now.toLocaleDateString('en-US', {weekday:'long', month:'long', day:'numeric'});
   const tzEl = document.getElementById('dash-tz');
@@ -521,6 +563,192 @@ function allTimezones(){
   }catch(e){ return COMMON_TZ.map(function(c){ return {tz:c.tz, label:c.label, region:''}; }); }
 }
 const ALL_TZ = allTimezones();
+
+// --- World map pinpoint -----------------------------------------------
+// Real IANA timezone *boundaries* are irregular polygons (political
+// borders, not longitude bands), and there's no formula for lat/lng ->
+// zone. Rather than depend on an external lookup service at runtime,
+// this ships a compact table of ~150 well-known zones with their
+// representative city's coordinates. A click resolves to the nearest of
+// these by real great-circle distance — correct for the vast majority of
+// populated-world clicks, and always editable/re-clickable afterward.
+const TZ_COORDS = [
+  ["America/New_York",40.71,-74.01],["America/Chicago",41.88,-87.63],["America/Denver",39.74,-104.99],
+  ["America/Los_Angeles",34.05,-118.24],["America/Anchorage",61.22,-149.90],["America/Phoenix",33.45,-112.07],
+  ["America/Toronto",43.65,-79.38],["America/Vancouver",49.28,-123.12],["America/Winnipeg",49.90,-97.14],
+  ["America/Halifax",44.65,-63.57],["America/St_Johns",47.56,-52.71],["America/Mexico_City",19.43,-99.13],
+  ["America/Tijuana",32.53,-117.02],["America/Cancun",21.16,-86.85],["America/Monterrey",25.69,-100.32],
+  ["Pacific/Honolulu",21.31,-157.86],["America/Guatemala",14.63,-90.51],["America/Belize",17.50,-88.20],
+  ["America/Tegucigalpa",14.10,-87.22],["America/Managua",12.11,-86.24],["America/Costa_Rica",9.93,-84.08],
+  ["America/Panama",8.98,-79.52],["America/Havana",23.11,-82.37],["America/Santo_Domingo",18.49,-69.93],
+  ["America/Port-au-Prince",18.59,-72.31],["America/Jamaica",18.02,-76.80],["America/Nassau",25.06,-77.34],
+  ["America/Bogota",4.71,-74.07],["America/Lima",-12.05,-77.04],["America/Caracas",10.49,-66.88],
+  ["America/Guayaquil",-2.19,-79.89],["America/La_Paz",-16.50,-68.15],["America/Santiago",-33.45,-70.67],
+  ["America/Argentina/Buenos_Aires",-34.60,-58.38],["America/Montevideo",-34.90,-56.16],["America/Asuncion",-25.28,-57.63],
+  ["America/Sao_Paulo",-23.55,-46.63],["America/Manaus",-3.12,-60.02],["America/Recife",-8.05,-34.88],
+  ["America/Cayenne",4.94,-52.33],["America/Paramaribo",5.85,-55.20],["America/Guyana",6.80,-58.16],
+  ["Europe/London",51.51,-0.13],["Europe/Dublin",53.35,-6.26],["Europe/Lisbon",38.72,-9.14],
+  ["Europe/Madrid",40.42,-3.70],["Europe/Paris",48.86,2.35],["Europe/Brussels",50.85,4.35],
+  ["Europe/Amsterdam",52.37,4.90],["Europe/Berlin",52.52,13.40],["Europe/Zurich",47.38,8.54],
+  ["Europe/Rome",41.90,12.50],["Europe/Vienna",48.21,16.37],["Europe/Prague",50.08,14.44],
+  ["Europe/Warsaw",52.23,21.01],["Europe/Budapest",47.50,19.04],["Europe/Copenhagen",55.68,12.57],
+  ["Europe/Oslo",59.91,10.75],["Europe/Stockholm",59.33,18.07],["Europe/Helsinki",60.17,24.94],
+  ["Europe/Athens",37.98,23.73],["Europe/Bucharest",44.43,26.10],["Europe/Sofia",42.70,23.32],
+  ["Europe/Kyiv",50.45,30.52],["Europe/Moscow",55.76,37.62],["Europe/Istanbul",41.01,28.98],
+  ["Europe/Kaliningrad",54.71,20.51],["Europe/Samara",53.20,50.15],["Asia/Yekaterinburg",56.84,60.61],
+  ["Asia/Omsk",54.99,73.37],["Asia/Novosibirsk",55.03,82.92],["Asia/Krasnoyarsk",56.01,92.87],
+  ["Asia/Irkutsk",52.29,104.28],["Asia/Yakutsk",62.03,129.73],["Asia/Vladivostok",43.12,131.90],
+  ["Asia/Magadan",59.56,150.80],["Asia/Kamchatka",53.02,158.65],
+  ["Europe/Belgrade",44.79,20.45],["Europe/Zagreb",45.81,15.98],["Europe/Riga",56.95,24.11],
+  ["Europe/Vilnius",54.69,25.28],["Europe/Tallinn",59.44,24.75],["Europe/Minsk",53.90,27.57],
+  ["Africa/Casablanca",33.57,-7.59],["Africa/Algiers",36.75,3.06],["Africa/Tunis",36.80,10.18],
+  ["Africa/Tripoli",32.89,13.19],["Africa/Cairo",30.04,31.24],["Africa/Lagos",6.52,3.38],
+  ["Africa/Accra",5.60,-0.19],["Africa/Abidjan",5.36,-4.01],["Africa/Dakar",14.72,-17.47],
+  ["Africa/Khartoum",15.50,32.56],["Africa/Addis_Ababa",9.03,38.74],["Africa/Nairobi",-1.29,36.82],
+  ["Africa/Dar_es_Salaam",-6.79,39.21],["Africa/Kampala",0.35,32.58],["Africa/Kigali",-1.95,30.06],
+  ["Africa/Kinshasa",-4.32,15.31],["Africa/Lubumbashi",-11.66,27.48],["Africa/Luanda",-8.84,13.23],
+  ["Africa/Windhoek",-22.56,17.08],["Africa/Johannesburg",-26.20,28.05],["Africa/Harare",-17.83,31.05],
+  ["Africa/Lusaka",-15.39,28.32],["Africa/Maputo",-25.97,32.57],["Africa/Gaborone",-24.66,25.91],
+  ["Asia/Jerusalem",31.78,35.22],["Asia/Beirut",33.89,35.50],["Asia/Damascus",33.51,36.29],
+  ["Asia/Amman",31.95,35.93],["Asia/Baghdad",33.31,44.36],["Asia/Riyadh",24.71,46.68],
+  ["Asia/Kuwait",29.38,47.98],["Asia/Qatar",25.29,51.53],["Asia/Dubai",25.20,55.27],
+  ["Asia/Muscat",23.59,58.38],["Asia/Tehran",35.69,51.39],["Asia/Karachi",24.86,67.01],
+  ["Asia/Kolkata",22.57,88.36],["Asia/Kolkata",19.08,72.88],["Asia/Kolkata",28.61,77.21],
+  ["Asia/Kolkata",12.97,77.59],["Asia/Kolkata",13.08,80.27],["Asia/Kolkata",23.03,72.58],
+  ["Asia/Kolkata",26.85,80.95],["Asia/Kolkata",17.39,78.49],
+  ["Asia/Kathmandu",27.72,85.32],["Asia/Dhaka",23.81,90.41],
+  ["Asia/Colombo",6.93,79.85],["Asia/Kabul",34.56,69.21],["Asia/Tashkent",41.30,69.24],
+  ["Asia/Almaty",43.24,76.94],["Asia/Bishkek",42.87,74.59],["Asia/Dushanbe",38.56,68.79],
+  ["Asia/Ashgabat",37.95,58.38],["Asia/Yangon",16.87,96.20],["Asia/Bangkok",13.76,100.50],
+  ["Asia/Jakarta",-6.21,106.85],["Asia/Makassar",-5.15,119.43],["Asia/Jayapura",-2.53,140.72],
+  ["Asia/Kuala_Lumpur",3.14,101.69],["Asia/Singapore",1.35,103.82],["Asia/Manila",14.60,120.98],
+  ["Asia/Ho_Chi_Minh",10.82,106.63],["Asia/Phnom_Penh",11.55,104.92],["Asia/Vientiane",17.97,102.60],
+  ["Asia/Hong_Kong",22.32,114.17],["Asia/Macau",22.20,113.55],["Asia/Shanghai",31.23,121.47],
+  ["Asia/Taipei",25.03,121.57],["Asia/Seoul",37.57,126.98],["Asia/Tokyo",35.68,139.65],
+  ["Asia/Pyongyang",39.04,125.75],["Asia/Ulaanbaatar",47.89,106.91],
+  ["Asia/Shanghai",39.90,116.41],["Asia/Shanghai",30.57,104.07],["Asia/Shanghai",23.13,113.26],
+  ["Asia/Urumqi",43.83,87.62],["Asia/Urumqi",39.47,75.99],
+  ["Australia/Sydney",-33.87,151.21],["Australia/Melbourne",-37.81,144.96],["Australia/Brisbane",-27.47,153.03],
+  ["Australia/Perth",-31.95,115.86],["Australia/Adelaide",-34.93,138.60],["Australia/Darwin",-12.46,130.84],
+  ["Australia/Hobart",-42.88,147.33],["Pacific/Auckland",-36.85,174.76],["Pacific/Fiji",-18.14,178.44],
+  ["Pacific/Guam",13.44,144.79],["Pacific/Port_Moresby",-9.44,147.18],["Pacific/Noumea",-22.28,166.46],
+  ["Pacific/Tahiti",-17.65,-149.46],["Pacific/Apia",-13.83,-171.76],["Pacific/Guadalcanal",-9.43,159.95],
+  ["Pacific/Majuro",7.09,171.38],["Pacific/Tongatapu",-21.14,-175.20]
+];
+function haversineKm(lat1,lon1,lat2,lon2){
+  const R=6371, toRad=Math.PI/180;
+  const dLat=(lat2-lat1)*toRad, dLon=(lon2-lon1)*toRad;
+  const a=Math.sin(dLat/2)*Math.sin(dLat/2)+Math.cos(lat1*toRad)*Math.cos(lat2*toRad)*Math.sin(dLon/2)*Math.sin(dLon/2);
+  return 2*R*Math.asin(Math.sqrt(a));
+}
+function nearestTzFromLatLon(lat,lon){
+  let best=null, bestD=Infinity;
+  TZ_COORDS.forEach(function(e){
+    const d = haversineKm(lat,lon,e[1],e[2]);
+    if(d<bestD){ bestD=d; best=e; }
+  });
+  return best; // [tz, lat, lon]
+}
+function tzFriendlyLabel(tz){
+  const parts = tz.split('/'); return (parts[parts.length-1]||tz).replace(/_/g,' ');
+}
+
+// Map libs + land outline are loaded lazily, only the first time someone
+// opens the map picker, and cached after that.
+let mapLibsPromise = null;
+function loadMapLibs(){
+  if(mapLibsPromise) return mapLibsPromise;
+  mapLibsPromise = (function(){
+    function loadScript(src){
+      return new Promise(function(res, rej){
+        if(document.querySelector('script[data-mapsrc="'+src+'"]')){ res(); return; }
+        const s = document.createElement('script');
+        s.src = src; s.dataset.mapsrc = src;
+        s.onload = function(){ res(); }; s.onerror = function(){ rej(new Error('load fail: '+src)); };
+        document.head.appendChild(s);
+      });
+    }
+    return loadScript('https://cdn.jsdelivr.net/npm/d3-geo@3/dist/d3-geo.min.js')
+      .then(function(){ return loadScript('https://cdn.jsdelivr.net/npm/topojson-client@3/dist/topojson-client.min.js'); })
+      .then(function(){ return fetch('https://cdn.jsdelivr.net/npm/world-atlas@2/land-110m.json').then(function(r){ return r.json(); }); })
+      .then(function(landTopo){ return topojson.feature(landTopo, landTopo.objects.land); });
+  })();
+  return mapLibsPromise;
+}
+function openMapPickerModal(existingCity){
+  const mount = document.getElementById('modal-mount');
+  const picked = { lat:null, lon:null, tz:null };
+  let labelTouched = false;
+  if(existingCity && existingCity.lat!=null){ picked.lat = existingCity.lat; picked.lon = existingCity.lon; picked.tz = existingCity.tz; labelTouched = true; }
+  mount.innerHTML = '<div class="modal-overlay" id="map-overlay"><div class="modal-sheet map-sheet">'+
+    '<h3>'+(existingCity?'Edit location':'Pinpoint on the map')+'</h3>'+
+    '<div class="m-field" style="margin-bottom:8px;"><div class="row-sub">Click anywhere — I\'ll match it to the nearest real timezone. Click again to move the pin.</div></div>'+
+    '<div class="map-wrap" id="map-wrap"><div class="map-loading">Loading map…</div></div>'+
+    '<div class="map-status" id="map-status">'+(picked.tz?('<b>'+escapeHtml(tzFriendlyLabel(picked.tz))+'</b> · '+escapeHtml(picked.tz)):'No location picked yet.')+'</div>'+
+    '<div class="m-field"><label>Label</label><input type="text" id="map-label" placeholder="e.g. Nairobi office" value="'+escapeHtml(existingCity?existingCity.label:'')+'"></div>'+
+    '<div class="modal-actions"><button type="button" class="m-cancel" id="map-cancel">Cancel</button><button type="button" class="m-save" id="map-save" '+(picked.tz?'':'disabled')+'>'+(existingCity?'Save':'Add location')+'</button></div>'+
+  '</div></div>';
+  const labelInput = document.getElementById('map-label');
+  labelInput.addEventListener('input', function(){ labelTouched = labelInput.value.trim().length>0; });
+  document.getElementById('map-cancel').addEventListener('click', function(){ mount.innerHTML=''; });
+  document.getElementById('map-overlay').addEventListener('click', function(e){ if(e.target.id==='map-overlay') mount.innerHTML=''; });
+  const saveBtn = document.getElementById('map-save');
+  saveBtn.addEventListener('click', async function(){
+    if(!picked.tz) return;
+    const label = labelInput.value.trim() || tzFriendlyLabel(picked.tz);
+    if(existingCity){
+      const idx = worldCities.findIndex(function(c){ return c.id===existingCity.id; });
+      if(idx!==-1) worldCities[idx] = { id:existingCity.id, label:label, tz:picked.tz, lat:picked.lat, lon:picked.lon };
+    } else {
+      worldCities.push({ id:'city-'+Date.now(), label:label, tz:picked.tz, lat:picked.lat, lon:picked.lon });
+    }
+    await saveWorldCities(); mount.innerHTML=''; renderWorldPanel(); if(activeTab==='dashboard') renderDashboard();
+  });
+  loadMapLibs().then(function(landGeo){
+    const wrap = document.getElementById('map-wrap');
+    if(!wrap) return; // modal closed before load finished
+    const W = 620, H = 320;
+    const projection = d3.geoEquirectangular().fitSize([W,H], landGeo);
+    const path = d3.geoPath(projection);
+    let dAttr = '';
+    landGeo.features.forEach(function(f){ dAttr += path(f)||''; });
+    wrap.innerHTML = '<svg id="tz-map-svg" viewBox="0 0 '+W+' '+H+'">'+
+      '<rect width="'+W+'" height="'+H+'" fill="#e7edf3"></rect>'+
+      '<path class="map-land" d="'+dAttr+'"></path>'+
+      '<circle class="map-pin-pulse" id="map-pin-pulse" r="9" cx="-99" cy="-99" style="display:none"></circle>'+
+      '<circle class="map-pin-dot" id="map-pin-dot" r="5" cx="-99" cy="-99" style="display:none"></circle>'+
+    '</svg>';
+    const svg = document.getElementById('tz-map-svg');
+    function placePin(x,y){
+      ['map-pin-dot','map-pin-pulse'].forEach(function(id){ const el=document.getElementById(id); el.setAttribute('cx',x); el.setAttribute('cy',y); el.style.display=''; });
+    }
+    function handleClick(evt){
+      const rect = svg.getBoundingClientRect();
+      const px = ((evt.clientX-rect.left)/rect.width)*W;
+      const py = ((evt.clientY-rect.top)/rect.height)*H;
+      const inv = projection.invert([px,py]);
+      if(!inv) return;
+      const lon = inv[0], lat = inv[1];
+      if(lat<-90||lat>90||lon<-180||lon>180) return;
+      const nearest = nearestTzFromLatLon(lat,lon);
+      picked.lat = Math.round(lat*100)/100; picked.lon = Math.round(lon*100)/100; picked.tz = nearest[0];
+      placePin(px,py);
+      document.getElementById('map-status').innerHTML = '<b>'+escapeHtml(tzFriendlyLabel(nearest[0]))+'</b> · '+escapeHtml(nearest[0]);
+      if(!labelTouched) labelInput.value = tzFriendlyLabel(nearest[0]);
+      saveBtn.removeAttribute('disabled');
+    }
+    svg.addEventListener('click', handleClick);
+    if(picked.lat!=null){
+      const [px,py] = projection([picked.lon,picked.lat]);
+      placePin(px,py);
+    }
+  }).catch(function(){
+    const wrap = document.getElementById('map-wrap');
+    if(wrap) wrap.innerHTML = '<div class="map-loading">Couldn\'t load the map — check your connection.<br><button type="button" class="map-alt-btn" id="map-fallback-search">Use search instead</button></div>';
+    const fb = document.getElementById('map-fallback-search');
+    if(fb) fb.addEventListener('click', function(){ mount.innerHTML=''; openAddCityModal(); });
+  });
+}
 async function loadWorldCities(){
   try{ const d = await profileDoc('worldCities').get(); worldCities = (d.exists && d.data().json) ? JSON.parse(d.data().json) : []; }catch(e){ worldCities = []; }
 }
@@ -530,7 +758,9 @@ function renderWorldPanel(){
   let html = '<div class="card"><div class="card-head"><div class="card-title">World clock</div><span class="card-meta">'+worldCities.length+' cities</span></div>';
   html += worldCities.length ? worldCities.map(function(c){
     return '<div class="list-row"><div class="row-main"><div class="row-title">'+escapeHtml(c.label)+'</div><div class="row-sub" id="wc-zone-'+c.id+'"></div></div>'+
-      '<div style="display:flex;align-items:center;gap:12px;"><div class="wm-time" id="wc-time-'+c.id+'" style="font-size:18px;"></div><button type="button" class="icon-btn" data-delcity="'+c.id+'">✕</button></div></div>';
+      '<div style="display:flex;align-items:center;gap:10px;"><div class="wm-time" id="wc-time-'+c.id+'" style="font-size:18px;"></div>'+
+      (c.lat!=null ? '<button type="button" class="icon-btn" data-editcity="'+c.id+'" title="Edit pinned location">📍</button>' : '')+
+      '<button type="button" class="icon-btn" data-delcity="'+c.id+'" title="Remove">✕</button></div></div>';
   }).join('') : '<div class="empty-note">No cities added yet.</div>';
   html += '<button type="button" class="add-btn" id="add-city-btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg> Add a city</button></div>';
   el.innerHTML = html;
@@ -538,6 +768,12 @@ function renderWorldPanel(){
     btn.addEventListener('click', async function(){
       worldCities = worldCities.filter(function(c){ return c.id!==btn.dataset.delcity; });
       await saveWorldCities(); renderWorldPanel(); if(activeTab==='dashboard') renderDashboard();
+    });
+  });
+  el.querySelectorAll('[data-editcity]').forEach(function(btn){
+    btn.addEventListener('click', function(){
+      const city = worldCities.find(function(c){ return c.id===btn.dataset.editcity; });
+      if(city) openMapPickerModal(city);
     });
   });
   document.getElementById('add-city-btn').addEventListener('click', openAddCityModal);
@@ -564,6 +800,7 @@ function openAddCityModal(){
     '<h3>Add a city</h3>'+
     '<div class="m-field"><label>Search any city or region</label><input type="text" id="city-search" placeholder="e.g. Nairobi, Seoul, Auckland…" autocomplete="off"></div>'+
     '<div id="city-results" class="stack" style="max-height:260px;overflow-y:auto;"></div>'+
+    '<button type="button" class="add-btn" id="pin-map-btn">📍 Or pinpoint it on a map</button>'+
     '<div class="modal-actions"><button type="button" class="m-cancel" id="addcity-cancel">Close</button></div>'+
   '</div></div>';
   const resultsEl = document.getElementById('city-results');
@@ -583,6 +820,7 @@ function openAddCityModal(){
   }
   renderResults('');
   document.getElementById('city-search').addEventListener('input', function(e){ renderResults(e.target.value); });
+  document.getElementById('pin-map-btn').addEventListener('click', function(){ mount.innerHTML=''; openMapPickerModal(null); });
   document.getElementById('addcity-cancel').addEventListener('click', function(){ mount.innerHTML=''; });
   document.getElementById('addcity-overlay').addEventListener('click', function(e){ if(e.target.id==='addcity-overlay') mount.innerHTML=''; });
   setTimeout(function(){ document.getElementById('city-search').focus(); }, 50);
@@ -943,14 +1181,38 @@ function renderHistoryPanel(){
   });
 }
 
+// enterProfile() runs every time someone switches profile (or re-enters
+// one), and used to call this unconditionally — each call registered a
+// brand-new setInterval without ever clearing the last one. Every switch
+// stacked one more 1-second ticker on top, so timers/focus/the dashboard
+// clock would silently speed up (2x, 3x…) the more you switched profiles
+// in one session. Clearing the previous interval first keeps exactly one
+// ticker alive at all times.
+let mainLoopInterval = null;
 function startMainLoop(){
-  setInterval(function(){
+  if(mainLoopInterval) clearInterval(mainLoopInterval);
+  mainLoopInterval = setInterval(function(){
     if(activeTab==='dashboard') tickDashboard();
     if(activeTab==='world') tickWorldPanel();
     checkAlarms();
     tickTimers();
     tickFocus();
   }, 1000);
+}
+function wireSidebarCollapse(){
+  const shell = document.getElementById('app-shell');
+  const btn = document.getElementById('sidebar-collapse-btn');
+  if(!shell || !btn || btn.dataset.wired) return;
+  btn.dataset.wired = '1';
+  let collapsed = false;
+  try{ collapsed = localStorage.getItem('clock-sidebar-collapsed')==='1'; }catch(e){}
+  if(collapsed){ shell.classList.add('sidebar-collapsed'); btn.title = 'Expand sidebar'; }
+  btn.addEventListener('click', function(){
+    collapsed = !collapsed;
+    shell.classList.toggle('sidebar-collapsed', collapsed);
+    btn.title = collapsed ? 'Expand sidebar' : 'Collapse sidebar';
+    try{ localStorage.setItem('clock-sidebar-collapsed', collapsed?'1':'0'); }catch(e){}
+  });
 }
 
 } // end firebase-available guard
