@@ -86,8 +86,16 @@
   .day-chip{width:30px;height:30px;border-radius:50%;border:1px solid var(--line);background:var(--surface);color:var(--muted);font-size:11.5px;font-weight:700;cursor:pointer;display:inline-flex;align-items:center;justify-content:center}
   .day-chip.on{background:var(--accent);color:#fff;border-color:transparent}
   .day-picker{display:flex;gap:5px;flex-wrap:wrap;margin-top:4px}
-  .day-picker button{width:34px;height:34px;border-radius:50%;border:1px solid var(--line);background:var(--surface);color:var(--muted);font-size:12px;font-weight:700;cursor:pointer}
+  .day-picker button{position:relative;width:34px;height:34px;border-radius:50%;border:1px solid var(--line);background:var(--surface);color:var(--muted);font-size:12px;font-weight:700;cursor:pointer}
   .day-picker button.on{background:var(--accent);color:#fff;border-color:transparent}
+  .day-picker button.is-today:after{content:'';position:absolute;left:50%;bottom:-6px;transform:translateX(-50%);width:4px;height:4px;border-radius:50%;background:var(--accent)}
+  .day-presets{display:flex;gap:6px;flex-wrap:wrap;margin:8px 0 2px}
+  .day-preset-btn{border:1px solid var(--line);background:var(--surface);color:var(--muted);border-radius:999px;padding:5px 11px;font-size:11px;font-weight:600;cursor:pointer}
+  .day-preset-btn:hover{background:var(--surface-soft);color:var(--text)}
+  .sound-picker{display:flex;align-items:center;gap:8px}
+  .sound-picker select{flex:1;border:1px solid var(--line);border-radius:9px;padding:9px 10px;font-size:13px;background:var(--surface);color:var(--text)}
+  .sound-preview-btn{border:1px solid var(--line);background:var(--surface);color:var(--text);border-radius:9px;padding:9px 12px;font-size:12px;font-weight:600;white-space:nowrap;cursor:pointer}
+  .sound-preview-btn:hover{background:var(--surface-soft)}
   .hour-toggle-row{display:flex;gap:6px}
   .hour-toggle{border:1px solid var(--line);background:var(--surface);color:var(--muted);border-radius:9px;padding:7px 12px;font-size:11.5px;font-weight:600;white-space:nowrap}
   .hour-toggle.active{background:var(--accent-soft);color:var(--accent-ink);border-color:transparent}
@@ -450,31 +458,84 @@ function unlockAudio(){
 }
 document.addEventListener('click', unlockAudio, {once:false});
 document.addEventListener('touchstart', unlockAudio, {once:false});
-function playChimeOnce(){
+function ensureAudioCtx(){
+  if(!audioCtx) audioCtx = new (window.AudioContext||window.webkitAudioContext)();
+  if(audioCtx.state === 'suspended') audioCtx.resume();
+  return audioCtx;
+}
+function toneChime(){
+  const ctx = ensureAudioCtx();
+  [880, 1108].forEach(function(freq, i){
+    const osc = ctx.createOscillator(); const gain = ctx.createGain();
+    osc.type = 'sine'; osc.frequency.value = freq;
+    osc.connect(gain); gain.connect(ctx.destination);
+    const start = ctx.currentTime + i*0.22;
+    gain.gain.setValueAtTime(0.0001, start);
+    gain.gain.exponentialRampToValueAtTime(0.28, start+0.02);
+    gain.gain.exponentialRampToValueAtTime(0.0001, start+0.5);
+    osc.start(start); osc.stop(start+0.55);
+  });
+}
+function toneBells(){
+  const ctx = ensureAudioCtx();
+  [1320, 990, 660].forEach(function(freq, i){
+    const osc = ctx.createOscillator(); const gain = ctx.createGain();
+    osc.type = 'triangle'; osc.frequency.value = freq;
+    osc.connect(gain); gain.connect(ctx.destination);
+    const start = ctx.currentTime + i*0.16;
+    gain.gain.setValueAtTime(0.0001, start);
+    gain.gain.exponentialRampToValueAtTime(0.22, start+0.015);
+    gain.gain.exponentialRampToValueAtTime(0.0001, start+0.7);
+    osc.start(start); osc.stop(start+0.75);
+  });
+}
+function toneBeep(){
+  const ctx = ensureAudioCtx();
+  [0, 0.18, 0.36].forEach(function(offset){
+    const osc = ctx.createOscillator(); const gain = ctx.createGain();
+    osc.type = 'square'; osc.frequency.value = 1500;
+    osc.connect(gain); gain.connect(ctx.destination);
+    const start = ctx.currentTime + offset;
+    gain.gain.setValueAtTime(0.0001, start);
+    gain.gain.exponentialRampToValueAtTime(0.16, start+0.01);
+    gain.gain.exponentialRampToValueAtTime(0.0001, start+0.13);
+    osc.start(start); osc.stop(start+0.15);
+  });
+}
+function toneRising(){
+  const ctx = ensureAudioCtx();
+  const osc = ctx.createOscillator(); const gain = ctx.createGain();
+  osc.type = 'sawtooth'; osc.connect(gain); gain.connect(ctx.destination);
+  const start = ctx.currentTime;
+  osc.frequency.setValueAtTime(420, start);
+  osc.frequency.exponentialRampToValueAtTime(920, start+0.8);
+  gain.gain.setValueAtTime(0.0001, start);
+  gain.gain.exponentialRampToValueAtTime(0.22, start+0.05);
+  gain.gain.exponentialRampToValueAtTime(0.0001, start+0.85);
+  osc.start(start); osc.stop(start+0.9);
+}
+const ALARM_SOUNDS = [
+  {id:'chime', label:'Classic chime', play:toneChime},
+  {id:'bells', label:'Gentle bells', play:toneBells},
+  {id:'beep', label:'Digital beep', play:toneBeep},
+  {id:'rising', label:'Rising tone', play:toneRising}
+];
+function playAlarmSound(soundId){
   try{
-    if(!audioCtx) audioCtx = new (window.AudioContext||window.webkitAudioContext)();
-    if(audioCtx.state === 'suspended') audioCtx.resume();
-    [880, 1108].forEach(function(freq, i){
-      const osc = audioCtx.createOscillator(); const gain = audioCtx.createGain();
-      osc.type = 'sine'; osc.frequency.value = freq;
-      osc.connect(gain); gain.connect(audioCtx.destination);
-      const start = audioCtx.currentTime + i*0.22;
-      gain.gain.setValueAtTime(0.0001, start);
-      gain.gain.exponentialRampToValueAtTime(0.28, start+0.02);
-      gain.gain.exponentialRampToValueAtTime(0.0001, start+0.5);
-      osc.start(start); osc.stop(start+0.55);
-    });
+    const snd = ALARM_SOUNDS.find(function(s){ return s.id===soundId; }) || ALARM_SOUNDS[0];
+    snd.play();
   }catch(e){}
 }
+function playChimeOnce(){ playAlarmSound('chime'); }
 // A single short chime is easy to miss for something meant to wake you up
 // or flag a finished timer — a real alarm keeps ringing until you deal
-// with it, so this repeats the chime until dismissed or stopped.
+// with it, so this repeats the chosen sound until dismissed or stopped.
 let chimeLoopInterval = null;
 function playChime(){ playChimeOnce(); }
-function startRingingLoop(){
+function startRingingLoop(soundId){
   stopRingingLoop();
-  playChimeOnce();
-  chimeLoopInterval = setInterval(playChimeOnce, 1400);
+  playAlarmSound(soundId||'chime');
+  chimeLoopInterval = setInterval(function(){ playAlarmSound(soundId||'chime'); }, 1400);
 }
 function stopRingingLoop(){ clearInterval(chimeLoopInterval); chimeLoopInterval = null; }
 let notifPermission = (typeof Notification !== 'undefined') ? Notification.permission : 'unsupported';
@@ -1014,6 +1075,11 @@ async function loadAlarms(){
 }
 async function saveAlarms(){ try{ await profileDoc('alarms').set({json: JSON.stringify(alarms)}); }catch(e){} }
 const DAY_LETTERS = ['S','M','T','W','T','F','S'];
+// Sunday and Saturday both start with "S" — easy to tap the wrong one and
+// end up with an alarm a day off from what you meant. The day-picker
+// tooltips spell it out, and today's chip gets a small dot so it's
+// obvious which one is "today" at a glance.
+const DAY_NAMES = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
 function renderAlarmsPanel(){
   const el = document.getElementById('panel-alarms');
   let html = '<div class="card"><div class="card-head"><div class="card-title">Alarms</div><span class="card-meta">Rings while this is open somewhere</span></div>';
@@ -1056,20 +1122,50 @@ function alarmRowHtml(a){
 function openAlarmModal(existing){
   const mount = document.getElementById('modal-mount');
   const days = existing ? (existing.days||[]).slice() : [1,2,3,4,5];
+  const todayDow = new Date().getDay();
+  const sound = existing ? (existing.sound||'chime') : 'chime';
   mount.innerHTML = '<div class="modal-overlay" id="alarm-overlay"><div class="modal-sheet">'+
     '<h3>'+(existing?'Edit alarm':'New alarm')+'</h3>'+
     '<div class="m-field"><label>Time</label><input type="time" id="alarm-time-input" value="'+(existing?existing.time:'07:00')+'"></div>'+
     '<div class="m-field"><label>Label</label><input type="text" id="alarm-label-input" placeholder="e.g. Wake up" value="'+(existing?escapeHtml(existing.label||''):'')+'"></div>'+
-    '<div class="m-field"><label>Repeats</label><div class="day-picker" id="alarm-day-picker">'+DAY_LETTERS.map(function(d,i){ return '<button type="button" data-day="'+i+'" class="'+(days.indexOf(i)!==-1?'on':'')+'">'+d+'</button>'; }).join('')+'</div></div>'+
+    '<div class="m-field"><label>Ringtone</label><div class="sound-picker"><select id="alarm-sound-input">'+ALARM_SOUNDS.map(function(s){ return '<option value="'+s.id+'"'+(s.id===sound?' selected':'')+'>'+s.label+'</option>'; }).join('')+'</select><button type="button" class="sound-preview-btn" id="alarm-sound-preview">▶ Preview</button></div></div>'+
+    '<div class="m-field"><label>Repeats</label>'+
+      '<div class="day-presets">'+
+        '<button type="button" class="day-preset-btn" data-preset="all">Every day</button>'+
+        '<button type="button" class="day-preset-btn" data-preset="weekdays">Weekdays</button>'+
+        '<button type="button" class="day-preset-btn" data-preset="weekends">Weekends</button>'+
+        '<button type="button" class="day-preset-btn" data-preset="none">None</button>'+
+      '</div>'+
+      '<div class="day-picker" id="alarm-day-picker">'+DAY_LETTERS.map(function(d,i){ return '<button type="button" data-day="'+i+'" title="'+DAY_NAMES[i]+'" class="'+(days.indexOf(i)!==-1?'on':'')+(i===todayDow?' is-today':'')+'">'+d+'</button>'; }).join('')+'</div>'+
+    '</div>'+
     '<div class="modal-actions">'+(existing?'<button type="button" class="m-cancel" id="alarm-delete">Delete</button>':'<button type="button" class="m-cancel" id="alarm-cancel">Cancel</button>')+'<button type="button" class="m-save" id="alarm-save">Save</button></div>'+
   '</div></div>';
   let selectedDays = days;
+  function refreshDayButtons(){
+    mount.querySelectorAll('[data-day]').forEach(function(btn){
+      btn.classList.toggle('on', selectedDays.indexOf(parseInt(btn.dataset.day,10))!==-1);
+    });
+  }
   mount.querySelectorAll('[data-day]').forEach(function(btn){
     btn.addEventListener('click', function(){
       const d = parseInt(btn.dataset.day,10); const idx = selectedDays.indexOf(d);
       if(idx!==-1) selectedDays.splice(idx,1); else selectedDays.push(d);
       btn.classList.toggle('on');
     });
+  });
+  mount.querySelectorAll('[data-preset]').forEach(function(btn){
+    btn.addEventListener('click', function(){
+      const p = btn.dataset.preset;
+      if(p==='all') selectedDays = [0,1,2,3,4,5,6];
+      else if(p==='weekdays') selectedDays = [1,2,3,4,5];
+      else if(p==='weekends') selectedDays = [0,6];
+      else selectedDays = [];
+      refreshDayButtons();
+    });
+  });
+  const previewBtn = document.getElementById('alarm-sound-preview');
+  if(previewBtn) previewBtn.addEventListener('click', function(){
+    playAlarmSound(document.getElementById('alarm-sound-input').value);
   });
   function close(){ mount.innerHTML = ''; }
   if(document.getElementById('alarm-cancel')) document.getElementById('alarm-cancel').addEventListener('click', close);
@@ -1081,9 +1177,10 @@ function openAlarmModal(existing){
   document.getElementById('alarm-save').addEventListener('click', async function(){
     const time = document.getElementById('alarm-time-input').value;
     const label = document.getElementById('alarm-label-input').value.trim();
+    const soundId = document.getElementById('alarm-sound-input').value;
     if(!time) return;
-    if(existing){ existing.time=time; existing.label=label; existing.days=selectedDays; }
-    else alarms.push({ id:'alarm-'+Date.now(), time:time, label:label, days:selectedDays, on:true });
+    if(existing){ existing.time=time; existing.label=label; existing.days=selectedDays; existing.sound=soundId; }
+    else alarms.push({ id:'alarm-'+Date.now(), time:time, label:label, days:selectedDays, sound:soundId, on:true });
     await saveAlarms(); close(); renderAlarmsPanel();
   });
 }
@@ -1104,7 +1201,7 @@ function checkAlarms(){
 function fireAlarm(a){
   if(notifPermission==='granted'){ try{ new Notification('Alarm'+(a.label?' — '+a.label:''), {body:'It\'s '+a.time+'.'}); }catch(e){} }
   logHistory('alarm', (a.label||'Alarm'), 'Rang at '+a.time);
-  startRingingLoop();
+  startRingingLoop(a.sound||'chime');
   const mount = document.getElementById('fire-mount');
   mount.innerHTML = '<div class="fire-overlay"><div class="fire-box">'+
     '<div class="fb-label">'+(a.label?escapeHtml(a.label):'Alarm')+'</div>'+
@@ -1384,7 +1481,13 @@ function startMainLoop(){
   mainLoopInterval = setInterval(function(){
     if(activeTab==='dashboard') tickDashboard(); else updateStatusStrip();
     if(activeTab==='world') tickWorldPanel();
-    checkAlarms();
+    // Alarm firing now happens one level up, from the Hub's own shell
+    // (assets/app.js) instead of from in here — that way an alarm still
+    // rings full-screen even when a different app is open, not just
+    // while Clock itself happens to be the one on screen. Calling
+    // checkAlarms() here too would double-ring whenever Clock is open
+    // at the moment an alarm hits, so it's left in place (still used by
+    // history/testing) but no longer wired into the ticking loop.
     tickTimers();
     tickFocus();
   }, 1000);
