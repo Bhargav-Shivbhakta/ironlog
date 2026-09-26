@@ -190,6 +190,18 @@
   .alarm-preview-time small{font-size:15px;font-weight:600;color:var(--muted);margin-left:4px}
   .alarm-preview-label{font-size:13px;color:var(--muted)}
   .content-grid{display:grid}
+  /* Running-now focus card (dashboard) */
+  .running-now-card{background:var(--ink);color:#fff;border-color:transparent}
+  .running-now-card .section-kicker{color:var(--accent);opacity:1}
+  .running-now-card h2{color:#fff}
+  .running-now-card .card-meta{color:#cfcfc7}
+  .running-now-card .rn-sub{font-size:12.5px;color:#a9aaa2;margin:2px 0 10px}
+  .running-now-card .ti-time{font-size:36px;font-weight:700;letter-spacing:-.02em;color:#fff;margin:2px 0 14px}
+  .rn-progress-track{height:6px;border-radius:99px;background:#33332e;overflow:hidden;margin-bottom:16px}
+  .rn-progress-fill{height:100%;background:var(--accent);border-radius:99px;transition:width .6s linear}
+  .rn-controls{justify-content:flex-start;margin:0;gap:8px}
+  .rn-controls .ctrl-btn{background:#2c2c28;color:#fff;border-color:#3a3a34}
+  .rn-controls .ctrl-btn.danger{color:#ff9a86}
 </style>
 </head>
 <body>
@@ -483,11 +495,19 @@ function renderDashboard(){
         '</section>'+
       '</div>'+
       '<div class="stack" style="display:grid;gap:18px;">'+
-        (focusState.running ? '<section class="surface" style="background:var(--ink);color:#fff;border-color:transparent;">'+
-          '<div class="section-head"><div><p class="section-kicker" style="color:#cfcfc7;">Running now</p><h2 style="color:#fff;">'+escapeHtml(focusState.task||'Focus session')+'</h2></div><span class="card-meta" style="color:#cfcfc7;">'+Math.round(focusState.total/60)+' min</span></div>'+
-          '<div class="ti-time" id="dash-focus-time" style="font-size:32px;color:#fff;margin:6px 0 14px;">'+pad2(Math.floor(focusState.remaining/60))+':'+pad2(focusState.remaining%60)+'</div>'+
-          '<div class="control-row" style="justify-content:flex-start;margin:0;"><button type="button" class="ctrl-btn" id="dash-focus-pause" style="background:#2c2c28;color:#fff;border-color:#3a3a34;">'+(focusState.paused?'Resume':'Pause')+'</button><button type="button" class="ctrl-btn" id="dash-focus-plus" style="background:#2c2c28;color:#fff;border-color:#3a3a34;">+1 min</button><button type="button" class="ctrl-btn" id="dash-focus-end" style="background:#2c2c28;color:#fff;border-color:#3a3a34;">End</button></div>'+
-        '</section>' : '')+
+        (focusState.running ? (function(){
+          const elapsedSec = Math.max(0, focusState.total - focusState.remaining);
+          const elapsedMin = Math.floor(elapsedSec/60);
+          const startedLabel = elapsedMin<1 ? 'just started' : ('started '+elapsedMin+' minute'+(elapsedMin===1?'':'s')+' ago');
+          const pct = focusState.total ? Math.min(100, Math.round(100*elapsedSec/focusState.total)) : 0;
+          return '<section class="surface running-now-card">'+
+          '<div class="section-head"><div><p class="section-kicker">Running now</p><h2>'+escapeHtml(focusState.task||'Focus session')+'</h2></div><span class="card-meta">'+Math.round(focusState.total/60)+' min</span></div>'+
+          '<div class="rn-sub">'+(focusState.mode==='break'?'Break':'Focus timer')+' · '+startedLabel+'</div>'+
+          '<div class="ti-time" id="dash-focus-time">'+pad2(Math.floor(focusState.remaining/60))+':'+pad2(focusState.remaining%60)+'</div>'+
+          '<div class="rn-progress-track"><div class="rn-progress-fill" id="dash-focus-progress" style="width:'+pct+'%;"></div></div>'+
+          '<div class="control-row rn-controls"><button type="button" class="ctrl-btn" id="dash-focus-pause">'+(focusState.paused?'Resume':'Pause')+'</button><button type="button" class="ctrl-btn" id="dash-focus-plus">+1 min</button><button type="button" class="ctrl-btn danger" id="dash-focus-end">End</button></div>'+
+        '</section>';
+        })() : '')+
         '<section class="surface"><div class="section-head"><div><p class="section-kicker">Across time zones</p><h2>World time</h2></div><button type="button" class="text-link" data-open-tab="world">Manage →</button></div>'+
           '<div class="ck-map-mini" id="dash-world-map"></div>'+
           (worldCities.length ? worldCities.slice(0,3).map(worldMiniRow).join('') : '<div class="empty-row">No cities added</div>')+
@@ -526,7 +546,10 @@ function updateStatusStrip(){
   const activeTimerEl = document.getElementById('stat-active-timer');
   if(activeTimerEl) activeTimerEl.textContent = runningTimer ? (pad2(Math.floor(Math.max(0,runningTimer.remaining)/60))+':'+pad2(Math.max(0,runningTimer.remaining)%60)) : '—';
   const focusEl = document.getElementById('stat-focus-today');
-  if(focusEl) focusEl.textContent = todayFocusMinutes()+'m'+(focusState.running?' (running)':'');
+  if(focusEl){
+    const liveMin = focusState.running ? Math.floor((focusState._workedSeconds||0)/60) : 0;
+    focusEl.textContent = (todayFocusMinutes()+liveMin)+'m'+(focusState.running?' · running':'');
+  }
 }
 function tickDashboard(){
   updateStatusStrip();
@@ -557,6 +580,18 @@ function tickDashboard(){
   if(focusState.running){
     const fEl = document.getElementById('dash-focus-time');
     if(fEl) fEl.textContent = pad2(Math.floor(Math.max(0,focusState.remaining)/60))+':'+pad2(Math.max(0,focusState.remaining)%60);
+    const progEl = document.getElementById('dash-focus-progress');
+    const elapsedSec = Math.max(0, focusState.total - focusState.remaining);
+    if(progEl){
+      const pct = focusState.total ? Math.min(100, Math.round(100*elapsedSec/focusState.total)) : 0;
+      progEl.style.width = pct+'%';
+    }
+    const subEl = document.querySelector('.running-now-card .rn-sub');
+    if(subEl){
+      const elapsedMin = Math.floor(elapsedSec/60);
+      const startedLabel = elapsedMin<1 ? 'just started' : ('started '+elapsedMin+' minute'+(elapsedMin===1?'':'s')+' ago');
+      subEl.textContent = (focusState.mode==='break'?'Break':'Focus timer')+' · '+startedLabel;
+    }
   }
 }
 function nextUpcomingAlarm(){
@@ -1133,7 +1168,16 @@ function renderFocusPanel(){
     '</div>';
   if(!focusState.running){
     el.querySelectorAll('[data-workmin]').forEach(function(btn){
-      btn.addEventListener('click', function(){ focusState.workMin = parseInt(btn.dataset.workmin,10); focusState.breakMin = parseInt(btn.dataset.breakmin,10); renderFocusPanel(); });
+      btn.addEventListener('click', function(){
+        // Preserve whatever the person already typed before this re-render
+        // wipes the input — otherwise typing a task then picking a duration
+        // silently loses the task text.
+        const taskInput = document.getElementById('focus-task-input');
+        if(taskInput) focusState.task = taskInput.value;
+        focusState.workMin = parseInt(btn.dataset.workmin,10); focusState.breakMin = parseInt(btn.dataset.breakmin,10); renderFocusPanel();
+        const newInput = document.getElementById('focus-task-input');
+        if(newInput) newInput.focus();
+      });
     });
     document.getElementById('focus-goal-input').addEventListener('change', async function(e){ focusGoalMinutes = parseInt(e.target.value,10)||180; await saveFocusGoal(); });
     document.getElementById('focus-controls').innerHTML = '<button type="button" class="ctrl-btn primary" id="focus-start-btn">Start focusing</button>';
