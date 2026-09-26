@@ -64,7 +64,19 @@
       <div class="app-frame-bar">
         <button type="button" class="app-frame-back" id="app-frame-back"><i data-lucide="arrow-left"></i><span>Back to Hub</span></button>
         <div class="app-frame-title" id="app-frame-title">App</div>
-        <a class="app-frame-open" id="app-frame-open" target="_blank" rel="noopener"><i data-lucide="external-link"></i><span>Open in new tab</span></a>
+        <div class="app-frame-right">
+          <!-- Whichever profile is active hub-wide, shown here so the opened
+               app doesn't have to repeat its own "who am I" capsule — click
+               swaps the active profile everywhere and reloads the app fresh
+               under the new one. Each app hides its own in-page copy of this
+               while it detects it's embedded, and shows it again when opened
+               standalone (no bar like this one around it there). -->
+          <button type="button" class="app-frame-profile" id="app-frame-profile" title="Switch profile">
+            <span class="avatar" id="app-frame-profile-avatar">B</span>
+            <span id="app-frame-profile-name">Bhargav</span>
+          </button>
+          <a class="app-frame-open" id="app-frame-open" target="_blank" rel="noopener"><i data-lucide="external-link"></i><span>Open in new tab</span></a>
+        </div>
       </div>
       <iframe id="app-frame-iframe" class="app-frame-iframe" src="about:blank" title="Opened app"></iframe>
     </div>
