@@ -80,6 +80,10 @@ body[data-profile="Anusha"]{--accent:#b25c78;--accent-soft:#faeaf0;--accent-ink:
 
 /* ===== In-page app viewer (opens apps/* and gym/* inline instead of navigating away) ===== */
 .app-frame-overlay{position:fixed;top:0;right:0;bottom:0;left:var(--sidebar);z-index:25;background:var(--bg);display:flex;flex-direction:column;transition:left .22s ease}
+/* Same cascade-tie issue as .hub-alarm-overlay below: without this,
+   toggling the [hidden] attribute (used everywhere via .hidden=true/false
+   in openAppFrame/closeAppFrame) can lose to the display:flex rule above. */
+.app-frame-overlay[hidden]{display:none}
 .app-frame-bar{display:flex;align-items:center;justify-content:space-between;gap:14px;padding:14px 22px;border-bottom:1px solid var(--line);background:var(--surface)}
 .app-frame-back{display:flex;align-items:center;gap:7px;border:0;background:transparent;color:var(--text);font-size:13.5px;font-weight:600;padding:8px 10px;border-radius:9px}
 .app-frame-back:hover{background:var(--surface-soft)}
@@ -88,6 +92,10 @@ body[data-profile="Anusha"]{--accent:#b25c78;--accent-soft:#faeaf0;--accent-ink:
 .app-frame-open{display:flex;align-items:center;gap:6px;text-decoration:none;color:var(--muted);font-size:12.5px}
 .app-frame-open:hover{color:var(--text)}
 .app-frame-open svg{width:14px;height:14px}
+.app-frame-right{display:flex;align-items:center;gap:14px}
+.app-frame-profile{display:flex;align-items:center;gap:8px;border:1px solid var(--line);background:var(--surface-soft);border-radius:999px;padding:5px 12px 5px 5px;font-size:13px;font-weight:700;color:var(--text);cursor:pointer}
+.app-frame-profile:hover{background:var(--accent-soft)}
+.app-frame-profile .avatar{width:24px;height:24px;border-radius:8px;font-size:11px}
 .app-frame-iframe{flex:1;width:100%;border:0;background:var(--surface)}
 @media(max-width:700px){
   .app-frame-overlay{left:0}
@@ -104,6 +112,12 @@ body[data-profile="Anusha"]{--accent:#b25c78;--accent-soft:#faeaf0;--accent-ink:
    iframe) so it rings and covers the full screen no matter which app,
    if any, is open at the time. Sits above the sidebar and app viewer. */
 .hub-alarm-overlay{position:fixed;inset:0;z-index:200;background:rgba(16,16,13,.92);display:flex;align-items:center;justify-content:center;animation:hub-alarm-in .25s ease both}
+/* Without this, [hidden] loses the cascade tie against the rule above (same
+   specificity, and this file loads after the browser's own [hidden] rule),
+   so setting .hidden=true on dismiss never actually hid the overlay — it
+   stayed glued on top of the whole app (including Clock underneath it),
+   which is what looked like "Clock going blank" after dismissing an alarm. */
+.hub-alarm-overlay[hidden]{display:none}
 @keyframes hub-alarm-in{from{opacity:0}to{opacity:1}}
 .hub-alarm-box{text-align:center;color:#fff;padding:40px}
 .hub-alarm-eyebrow{margin:0 0 6px;text-transform:uppercase;letter-spacing:.14em;font-size:12px;font-weight:700;color:var(--accent)}

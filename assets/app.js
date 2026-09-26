@@ -20,7 +20,16 @@ function hubRef(key){return db.collection('users').doc(state.user.uid).collectio
 async function readJson(ref,fallback=[]){try{const snap=await ref.get();return snap.exists?safeJson(snap.data().json,fallback):fallback}catch(e){console.warn(e);return fallback}}
 
 function setGate(name){['loading','auth','profile'].forEach(x=>$(x+'-gate').hidden=x!==name);$('app-shell').hidden=!!name}
-function setProfile(name){state.profile=name;localStorage.setItem(PROFILE_KEY,name);document.body.dataset.profile=name;$('sidebar-profile').textContent=name;$('sidebar-avatar').textContent=name[0];$('sidebar-avatar').className='avatar '+name.toLowerCase();$('mobile-profile').textContent=name[0];$('mobile-profile').className='avatar '+name.toLowerCase();updateProfileLinks();startHubAlarmWatch()}
+function setProfile(name){state.profile=name;localStorage.setItem(PROFILE_KEY,name);document.body.dataset.profile=name;$('sidebar-profile').textContent=name;$('sidebar-avatar').textContent=name[0];$('sidebar-avatar').className='avatar '+name.toLowerCase();$('mobile-profile').textContent=name[0];$('mobile-profile').className='avatar '+name.toLowerCase();updateAppFrameProfile();updateProfileLinks();startHubAlarmWatch()}
+// Keeps the profile capsule in the app viewer's own top bar in sync with
+// the hub-wide active profile — it's shown there instead of repeated
+// inside every embedded app (see openAppFrame / app-frame-profile below).
+function updateAppFrameProfile(){
+  if(!state.profile || !$('app-frame-profile-name')) return;
+  $('app-frame-profile-name').textContent=state.profile;
+  $('app-frame-profile-avatar').textContent=state.profile[0];
+  $('app-frame-profile-avatar').className='avatar '+state.profile.toLowerCase();
+}
 function updateProfileLinks(){document.querySelectorAll('[data-profile-link]').forEach(link=>{const base=link.getAttribute('href').split('?')[0];link.href=base+'?profile='+encodeURIComponent(state.profile)})}
 
 /* =====================================================================
@@ -401,6 +410,7 @@ function openAppFrame(url,title){
   $('app-frame-title').textContent=title;
   $('app-frame-open').href=url;
   $('app-frame-overlay').hidden=false;
+  updateAppFrameProfile();
   // Clock has its own real spot in the nav (below Insights), so opening
   // it highlights that tab instead of leaving whichever page-route tab
   // was last active looking "current".
@@ -437,6 +447,27 @@ document.querySelectorAll('button[data-nav-clock]').forEach(btn=>{
   });
 });
 if($('app-frame-back')) $('app-frame-back').addEventListener('click',closeAppFrame);
+// The profile capsule shown in the app viewer's own top bar (see
+// app-frame-right in index.html) — clicking it switches the hub-wide
+// active profile and re-opens whichever app is currently sitting in the
+// iframe under the new profile's ?profile= param, so the app reloads
+// fresh with the other person's data without having to back out to the
+// Hub first.
+if($('app-frame-profile')){
+  $('app-frame-profile').addEventListener('click',()=>{
+    const next=state.profile==='Bhargav'?'Anusha':'Bhargav';
+    setProfile(next);
+    const openUrl=$('app-frame-open').href;
+    if(openUrl && !$('app-frame-overlay').hidden){
+      let u;
+      try{ u=new URL(openUrl); }catch(e){ u=null; }
+      if(u){
+        u.searchParams.set('profile',next);
+        openAppFrame(u.href,$('app-frame-title').textContent);
+      }
+    }
+  });
+}
 document.addEventListener('keydown',e=>{ if(e.key==='Escape' && $('app-frame-overlay') && !$('app-frame-overlay').hidden) closeAppFrame(); });
 document.addEventListener('click',e=>{
   if(e.button!==0||e.metaKey||e.ctrlKey||e.shiftKey||e.altKey||e.defaultPrevented) return;
