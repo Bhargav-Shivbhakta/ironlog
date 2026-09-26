@@ -393,7 +393,7 @@ function openAppFrame(url,title){
   // Clock has its own real spot in the nav (below Insights), so opening
   // it highlights that tab instead of leaving whichever page-route tab
   // was last active looking "current".
-  if(/\/apps\/clock\.html/.test(url)){
+  if(/apps\/clock\.html/.test(url)){
     document.querySelectorAll('[data-route]').forEach(b=>b.classList.remove('active'));
     document.querySelectorAll('[data-nav-clock]').forEach(b=>b.classList.add('active'));
   }
@@ -414,7 +414,12 @@ function closeAppFrame(){
     sidebarAutoCollapsed=false;
   }
 }
-document.querySelectorAll('[data-nav-clock]').forEach(btn=>{
+// The sidebar's own digital time display (#hub-clock, a plain <a href>)
+// is the one real entry point into Clock — it's already caught by the
+// generic /apps/ link interceptor below, so it only needs the active-
+// highlight wiring above. The bottom mobile-nav's Clock icon is a plain
+// <button> with no href, so it still needs its own click handler.
+document.querySelectorAll('button[data-nav-clock]').forEach(btn=>{
   btn.addEventListener('click',()=>{
     const url='apps/clock.html'+(state.profile?('?profile='+encodeURIComponent(state.profile)):'');
     openAppFrame(url,'Clock');
@@ -485,10 +490,28 @@ function hubStopRinging(){ clearInterval(hubRingInterval); hubRingInterval=null;
 
 let hubAlarms=[];
 let hubAlarmsUnsub=null;
-let hubFiredToday={};
+// Which alarms have already rung, keyed by alarm+day+time. Kept in
+// localStorage (not just memory) so refreshing the page mid-minute — e.g.
+// right after dismissing one — doesn't make the same alarm ring again;
+// only a genuinely new minute/day match will fire it.
+const HUB_FIRED_KEY='hub-alarms-fired';
+function loadHubFiredToday(){
+  try{ return JSON.parse(localStorage.getItem(HUB_FIRED_KEY)||'{}'); }catch(e){ return {}; }
+}
+function saveHubFiredToday(){
+  try{
+    // Trim to today's entries only so this never grows without bound.
+    const todayKey=new Date().toDateString();
+    const trimmed={};
+    Object.keys(hubFiredToday).forEach(k=>{ if(k.indexOf(':'+todayKey+':')!==-1) trimmed[k]=true; });
+    hubFiredToday=trimmed;
+    localStorage.setItem(HUB_FIRED_KEY, JSON.stringify(hubFiredToday));
+  }catch(e){}
+}
+let hubFiredToday=loadHubFiredToday();
 function startHubAlarmWatch(){
   if(hubAlarmsUnsub){ try{ hubAlarmsUnsub(); }catch(e){} hubAlarmsUnsub=null; }
-  hubAlarms=[]; hubFiredToday={};
+  hubAlarms=[];
   if(!state.user||!state.profile) return;
   try{
     hubAlarmsUnsub = profileRef('clock-profiles','alarms').onSnapshot(doc=>{
@@ -499,6 +522,8 @@ function startHubAlarmWatch(){
 function hubPad2(n){ return (n<10?'0':'')+n; }
 function hubCheckAlarms(){
   if(!hubAlarms.length) return;
+  // Never stack a second full-screen ring on top of one already showing.
+  if($('hub-alarm-overlay') && !$('hub-alarm-overlay').hidden) return;
   const now=new Date();
   const hhmm=hubPad2(now.getHours())+':'+hubPad2(now.getMinutes());
   const dow=now.getDay(), todayKey=now.toDateString();
@@ -509,16 +534,19 @@ function hubCheckAlarms(){
     const fireKey=a.id+':'+todayKey+':'+hhmm;
     if(hubFiredToday[fireKey]) return;
     hubFiredToday[fireKey]=true;
+    saveHubFiredToday();
     hubFireAlarm(a);
   });
 }
 function hubFireAlarm(a){
   hubStartRinging(a.sound||'chime');
-  const parts=(a.time||'00:00').split(':'); const hh=parseInt(parts[0],10), mm=parseInt(parts[1],10);
-  const ampm=hh>=12?'PM':'AM', h12=hh%12===0?12:hh%12;
-  $('hub-alarm-label').textContent = a.label || 'Alarm';
-  $('hub-alarm-time').textContent = h12+':'+hubPad2(mm)+' '+ampm;
-  $('hub-alarm-overlay').hidden=false;
+  try{
+    const parts=(a.time||'00:00').split(':'); const hh=parseInt(parts[0],10), mm=parseInt(parts[1],10);
+    const ampm=hh>=12?'PM':'AM', h12=hh%12===0?12:hh%12;
+    if($('hub-alarm-label')) $('hub-alarm-label').textContent = a.label || 'Alarm';
+    if($('hub-alarm-time')) $('hub-alarm-time').textContent = h12+':'+hubPad2(mm)+' '+ampm;
+    if($('hub-alarm-overlay')) $('hub-alarm-overlay').hidden=false;
+  }catch(e){}
 }
 if($('hub-alarm-dismiss')) $('hub-alarm-dismiss').addEventListener('click',()=>{
   hubStopRinging();
