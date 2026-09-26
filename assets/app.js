@@ -328,6 +328,61 @@ document.querySelectorAll('[data-route]').forEach(el=>el.addEventListener('click
 window.addEventListener('hashchange',()=>showRoute(location.hash.replace('#','')));
 
 /* =====================================================================
+   SIDEBAR COLLAPSE — toggled from the Home Hub brand button (top-left).
+   Persisted so it stays how you left it across reloads.
+===================================================================== */
+const SIDEBAR_COLLAPSE_KEY='hub-sidebar-collapsed';
+function setSidebarCollapsed(collapsed){
+  $('app-shell').classList.toggle('sidebar-collapsed',collapsed);
+  try{localStorage.setItem(SIDEBAR_COLLAPSE_KEY,collapsed?'1':'0')}catch(e){}
+}
+if($('sidebar-toggle')){
+  $('sidebar-toggle').addEventListener('click',()=>{
+    setSidebarCollapsed(!$('app-shell').classList.contains('sidebar-collapsed'));
+  });
+  try{ if(localStorage.getItem(SIDEBAR_COLLAPSE_KEY)==='1') setSidebarCollapsed(true); }catch(e){}
+}
+
+/* =====================================================================
+   IN-PAGE APP VIEWER — apps/* and gym/* open inline on the right instead
+   of navigating away from the Hub, so the sidebar stays put. Any link
+   whose path lives under apps/ or gym/ is intercepted automatically, so
+   new apps and new links to existing apps get this for free.
+===================================================================== */
+function titleForAppUrl(u){
+  const path=u.pathname;
+  if(/\/gym\/(index\.html)?$/.test(path)) return 'Gym';
+  const file=path.split('/').pop();
+  const found=state.apps.find(a=>a.file===file);
+  if(found) return found.title;
+  return titleFromFilename(file||'App');
+}
+function openAppFrame(url,title){
+  $('app-frame-iframe').src=url;
+  $('app-frame-title').textContent=title;
+  $('app-frame-open').href=url;
+  $('app-frame-overlay').hidden=false;
+  lucide.createIcons();
+}
+function closeAppFrame(){
+  $('app-frame-overlay').hidden=true;
+  $('app-frame-iframe').src='about:blank';
+}
+if($('app-frame-back')) $('app-frame-back').addEventListener('click',closeAppFrame);
+document.addEventListener('keydown',e=>{ if(e.key==='Escape' && $('app-frame-overlay') && !$('app-frame-overlay').hidden) closeAppFrame(); });
+document.addEventListener('click',e=>{
+  if(e.button!==0||e.metaKey||e.ctrlKey||e.shiftKey||e.altKey||e.defaultPrevented) return;
+  const a=e.target.closest('a[href]');
+  if(!a||a.closest('#app-frame-overlay')) return;
+  let u;
+  try{ u=new URL(a.href,location.href); }catch(err){ return; }
+  if(u.origin!==location.origin) return;
+  if(!/\/(apps|gym)\//.test(u.pathname)) return;
+  e.preventDefault();
+  openAppFrame(a.href,titleForAppUrl(u));
+});
+
+/* =====================================================================
    QUICK ADD
 ===================================================================== */
 function openQuickAdd(){$('qa-date').value=today();$('quick-add-modal').hidden=false;setTimeout(()=>$('qa-title').focus(),0)}

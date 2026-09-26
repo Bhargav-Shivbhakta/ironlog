@@ -49,3 +49,37 @@ body[data-profile="Anusha"]{--accent:#b25c78;--accent-soft:#faeaf0;--accent-ink:
 .chores-mini-row.overdue{color:var(--danger)}
 
 @media(max-width:700px){.app-grid{grid-template-columns:repeat(auto-fill,minmax(150px,1fr))}}
+
+/* ===== Sidebar collapse (toggled via the Home Hub brand button) ===== */
+:root{--sidebar-collapsed:76px}
+.brand{border:0;background:transparent;color:inherit;cursor:pointer;width:100%}
+.sidebar{transition:width .22s ease}
+.main{transition:margin-left .22s ease}
+.app-shell.sidebar-collapsed .sidebar{width:var(--sidebar-collapsed);padding-left:10px;padding-right:10px}
+.app-shell.sidebar-collapsed .main{margin-left:var(--sidebar-collapsed)}
+.app-shell.sidebar-collapsed .app-frame-overlay{left:var(--sidebar-collapsed)}
+.app-shell.sidebar-collapsed .brand{justify-content:center;padding:0}
+.app-shell.sidebar-collapsed .brand>span:not(.brand-mark){display:none}
+.app-shell.sidebar-collapsed .hub-clock{display:none}
+.app-shell.sidebar-collapsed .main-nav button{justify-content:center;padding:11px 6px}
+.app-shell.sidebar-collapsed .main-nav button span{display:none}
+.app-shell.sidebar-collapsed .profile-control{grid-template-columns:1fr;justify-items:center;padding:8px}
+.app-shell.sidebar-collapsed .profile-control>span:nth-child(2),.app-shell.sidebar-collapsed .profile-control>svg{display:none}
+.app-shell.sidebar-collapsed .signout{justify-content:center;padding:11px 6px}
+.app-shell.sidebar-collapsed .signout span{display:none}
+
+/* ===== In-page app viewer (opens apps/* and gym/* inline instead of navigating away) ===== */
+.app-frame-overlay{position:fixed;top:0;right:0;bottom:0;left:var(--sidebar);z-index:25;background:var(--bg);display:flex;flex-direction:column;transition:left .22s ease}
+.app-frame-bar{display:flex;align-items:center;justify-content:space-between;gap:14px;padding:14px 22px;border-bottom:1px solid var(--line);background:var(--surface)}
+.app-frame-back{display:flex;align-items:center;gap:7px;border:0;background:transparent;color:var(--text);font-size:13.5px;font-weight:600;padding:8px 10px;border-radius:9px}
+.app-frame-back:hover{background:var(--surface-soft)}
+.app-frame-back svg{width:16px;height:16px}
+.app-frame-title{font-size:14px;font-weight:600;color:var(--muted);letter-spacing:-.01em}
+.app-frame-open{display:flex;align-items:center;gap:6px;text-decoration:none;color:var(--muted);font-size:12.5px}
+.app-frame-open:hover{color:var(--text)}
+.app-frame-open svg{width:14px;height:14px}
+.app-frame-iframe{flex:1;width:100%;border:0;background:var(--surface)}
+@media(max-width:700px){
+  .app-frame-overlay{left:0}
+  .app-shell.sidebar-collapsed .app-frame-overlay{left:0}
+}
