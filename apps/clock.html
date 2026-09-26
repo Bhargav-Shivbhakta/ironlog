@@ -205,6 +205,12 @@
   .rn-controls{justify-content:flex-start;margin:0;gap:8px}
   .rn-controls .ctrl-btn{background:#2c2c28;color:#fff;border-color:#3a3a34}
   .rn-controls .ctrl-btn.danger{color:#ff9a86}
+  /* World time tab: map and city list side by side instead of stacked,
+     so the map doesn't eat the whole screen height. */
+  .world-split{display:grid;grid-template-columns:1.2fr 1fr;gap:18px;align-items:start}
+  .world-split-map .world-map-full{margin-bottom:0}
+  .world-split-list{max-height:none}
+  @media(max-width:880px){ .world-split{grid-template-columns:1fr} }
 </style>
 </head>
 <body>
@@ -912,16 +918,18 @@ async function loadWorldCities(){
 async function saveWorldCities(){ try{ await profileDoc('worldCities').set({json: JSON.stringify(worldCities)}); }catch(e){} }
 function renderWorldPanel(){
   const el = document.getElementById('panel-world');
-  let html = '<section class="surface" style="margin-bottom:18px;"><div class="section-head"><div><p class="section-kicker">Point anywhere</p><h2>World map</h2></div></div>'+
-    '<div class="world-map-full" id="world-map-full"></div></section>';
-  html += '<div class="card"><div class="card-head"><div class="card-title">World clock</div><span class="card-meta">'+worldCities.length+' cities</span></div>';
+  let html = '<div class="world-split">'+
+    '<section class="surface world-split-map"><div class="section-head"><div><p class="section-kicker">Point anywhere</p><h2>World map</h2></div></div>'+
+    '<div class="world-map-full" id="world-map-full"></div></section>'+
+    '<div class="card world-split-list"><div class="card-head"><div class="card-title">World clock</div><span class="card-meta">'+worldCities.length+' cities</span></div>';
   html += worldCities.length ? worldCities.map(function(c){
     return '<div class="list-row"><div class="row-main"><div class="row-title">'+escapeHtml(c.label)+'</div><div class="row-sub" id="wc-zone-'+c.id+'"></div></div>'+
       '<div style="display:flex;align-items:center;gap:10px;"><div class="wm-time" id="wc-time-'+c.id+'" style="font-size:18px;"></div>'+
       (c.lat!=null ? '<button type="button" class="icon-btn" data-editcity="'+c.id+'" title="Edit pinned location">📍</button>' : '')+
       '<button type="button" class="icon-btn" data-delcity="'+c.id+'" title="Remove">✕</button></div></div>';
   }).join('') : '<div class="empty-note">No cities added yet.</div>';
-  html += '<button type="button" class="add-btn" id="add-city-btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg> Add a city</button></div>';
+  html += '<button type="button" class="add-btn" id="add-city-btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg> Add a city</button></div>'+
+  '</div>';
   el.innerHTML = html;
   el.querySelectorAll('[data-delcity]').forEach(function(btn){
     btn.addEventListener('click', async function(){
@@ -937,7 +945,7 @@ function renderWorldPanel(){
   });
   document.getElementById('add-city-btn').addEventListener('click', openAddCityModal);
   const mapFull = document.getElementById('world-map-full');
-  if(mapFull) renderCityPinsMap(mapFull, worldCities, 340);
+  if(mapFull) renderCityPinsMap(mapFull, worldCities, 260);
   tickWorldPanel();
 }
 function tickOneCity(c){
