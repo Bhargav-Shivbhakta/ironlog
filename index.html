@@ -161,6 +161,19 @@
     </div>
   </div>
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+  <!-- Rings above everything — the sidebar, whatever app is open in the
+       viewer, all of it — so an alarm never gets missed just because you
+       were looking at Diet or Grocery instead of Clock when it went off. -->
+  <div class="hub-alarm-overlay" id="hub-alarm-overlay" hidden>
+    <div class="hub-alarm-box">
+      <p class="hub-alarm-eyebrow">Alarm</p>
+      <div class="hub-alarm-label" id="hub-alarm-label">Alarm</div>
+      <div class="hub-alarm-time" id="hub-alarm-time">--:--</div>
+      <button type="button" class="hub-alarm-dismiss" id="hub-alarm-dismiss">Dismiss</button>
+    </div>
+  </div>
+
   <script src="assets/app.js"></script>
 </body>
 </html>
