@@ -241,6 +241,11 @@
   .rb-time-dash{font-size:13px;color:var(--text-faint);}
   .rb-cat{font-size:11.5px;font-weight:700;border-radius:20px;padding:1px 7px;flex:none;}
   .now-badge{font-size:11px;font-weight:800;color:var(--gold);text-transform:uppercase;letter-spacing:0.04em;margin-left:4px;}
+  /* "Hide done" toggle on the routine panel — checked-off blocks pile up
+     as the day goes on and push what's actually next off the bottom of
+     the screen, so this collapses them out of the list (reversible with
+     the same button) instead of making you scroll past them. */
+  .routine-hide-done .routine-block.done{display:none;}
 
   .template-editor{margin-top:10px;}
   .te-daygroup{margin-bottom:12px;}
@@ -513,6 +518,144 @@ async function syncChoreToHousehold(scheduleChoreId, profile, dateStr){
 }
 
 /* =====================================================================
+   HOUSEHOLD CHORES — Schedule's Chores panel is no longer its own
+   separate list. It reads and writes the SAME chores/history documents
+   as the Household Chores app (same Firestore path as householdChoresDoc
+   above), so a chore added, completed, or deleted from either app shows
+   up in both. Due-date logic below is ported verbatim from that app's
+   own nextDueFor()/statusFor() so "due today / overdue" agree exactly.
+===================================================================== */
+let householdChores = [];
+let householdChoreHistory = [];
+async function loadHouseholdChores(){
+  try{ const doc = await householdChoresDoc('chores').get(); householdChores = (doc.exists && doc.data().json) ? JSON.parse(doc.data().json) : []; }
+  catch(e){ householdChores = []; }
+}
+async function saveHouseholdChores(){
+  try{ await householdChoresDoc('chores').set({json: JSON.stringify(householdChores)}); }
+  catch(e){ console.error('household chores save failed', e); }
+}
+async function loadHouseholdChoreHistory(){
+  try{ const doc = await householdChoresDoc('history').get(); householdChoreHistory = (doc.exists && doc.data().json) ? JSON.parse(doc.data().json) : []; }
+  catch(e){ householdChoreHistory = []; }
+}
+async function saveHouseholdChoreHistory(){
+  try{ await householdChoresDoc('history').set({json: JSON.stringify(householdChoreHistory)}); }
+  catch(e){ console.error('household chore history save failed', e); }
+}
+function hcNextDue(chore){
+  const today = todayStr();
+  if(chore.freqType === 'asNeeded') return null;
+  if(!chore.lastCompleted && chore.dueOverride) return chore.dueOverride;
+  if(chore.freqType === 'daily') return chore.lastCompleted ? addDays(chore.lastCompleted,1) : today;
+  if(chore.freqType === 'everyNDays') return chore.lastCompleted ? addDays(chore.lastCompleted, chore.freqDays) : today;
+  if(chore.freqType === 'specificDays'){
+    const start = chore.lastCompleted ? addDays(chore.lastCompleted,1) : today;
+    for(let i=0;i<14;i++){
+      const dd = addDays(start,i);
+      if((chore.days||[]).indexOf(weekdayOf(dd)) !== -1) return dd;
+    }
+  }
+  return today;
+}
+function hcStatusFor(chore){
+  const nd = hcNextDue(chore);
+  if(nd === null) return 'asneeded';
+  const today = todayStr();
+  if(nd < today) return 'overdue';
+  if(nd === today) return 'today';
+  return 'upcoming';
+}
+function hcFreqLabel(chore){
+  if(chore.freqType==='asNeeded') return 'As needed';
+  if(chore.freqType==='daily') return 'Every day';
+  if(chore.freqType==='everyNDays') return 'Every '+chore.freqDays+' days';
+  if(chore.freqType==='specificDays') return (chore.days||[]).map(w=>DAY_SHORT[w]).join(' ');
+  return '';
+}
+function choresForProfileToday(){
+  return householdChores.filter(c=>{
+    if(!(c.assignedTo||[]).includes(activeProfile)) return false;
+    const st = hcStatusFor(c);
+    return st==='today' || st==='overdue';
+  }).map(c=>Object.assign({}, c, { hcStatus: hcStatusFor(c) }));
+}
+function householdChoreDueOnDate(dateStrTarget){
+  return householdChores.filter(c=>(c.assignedTo||[]).includes(activeProfile) && hcNextDue(c)===dateStrTarget);
+}
+function householdChoreRowHtml(c){
+  const isShared = (c.assignedTo||[]).length>1;
+  return '<div class="row-item">'+
+    '<input type="checkbox" class="chk" data-hchoreid="'+c.id+'">'+
+    '<div class="row-body">'+
+      '<span class="row-title">'+escapeHtml(c.name)+'</span>'+
+      '<div class="row-meta">'+hcFreqLabel(c)+(c.hcStatus==='overdue'?' · <span style="color:var(--danger);font-weight:700;">overdue</span>':'')+(isShared?' <span class="tag shared">'+(c.assignedTo||[]).join(' & ')+'</span>':'')+'</div></div>'+
+    '<div class="row-actions"><button class="icon-btn" data-delhchore="'+c.id+'">✕</button></div>'+
+    '</div>';
+}
+function attachHouseholdChoreHandlers(wrap){
+  wrap.querySelectorAll('[data-hchoreid]').forEach(cb=>cb.addEventListener('change', async e=>{
+    if(!e.target.checked) return;
+    const chore = householdChores.find(c=>c.id===e.target.dataset.hchoreid);
+    if(!chore) return;
+    const today = todayStr();
+    chore.lastCompleted = today;
+    householdChoreHistory.unshift({date:today, task:chore.name, by:activeProfile, rating:null, notes:'Completed from Schedule', recordedBy:activeProfile});
+    await saveHouseholdChores();
+    await saveHouseholdChoreHistory();
+    showView(activeView);
+  }));
+  wrap.querySelectorAll('[data-delhchore]').forEach(btn=>btn.addEventListener('click', async ()=>{
+    const chore = householdChores.find(c=>c.id===btn.dataset.delhchore);
+    if(!chore || !window.confirm('Delete chore "'+chore.name+'"?')) return;
+    householdChores = householdChores.filter(c=>c.id!==chore.id);
+    await saveHouseholdChores();
+    showView(activeView);
+  }));
+}
+
+/* =====================================================================
+   TODO TASKS — Schedule's Task panel reads and writes the SAME
+   personal/shared task documents as the Todo app (todo-profiles/<id>/
+   data/tasks and todo-shared/data/tasks), so a task added, edited, or
+   completed from either app shows up in both instead of Schedule
+   keeping its own separate copy.
+===================================================================== */
+function todoProfileDoc(profileId, key){
+  return db.collection('users').doc(currentUser.uid).collection('todo-profiles').doc(profileId).collection('data').doc(key);
+}
+function todoSharedDoc(key){
+  return db.collection('users').doc(currentUser.uid).collection('todo-shared').doc(key);
+}
+let todoPersonalTasks = [];
+let todoSharedTasks = [];
+async function loadTodoTasks(){
+  try{ const doc = await todoProfileDoc(activeProfile,'tasks').get(); todoPersonalTasks = (doc.exists && doc.data().json) ? JSON.parse(doc.data().json) : []; }
+  catch(e){ todoPersonalTasks = []; }
+  try{ const doc2 = await todoSharedDoc('tasks').get(); todoSharedTasks = (doc2.exists && doc2.data().json) ? JSON.parse(doc2.data().json) : []; }
+  catch(e){ todoSharedTasks = []; }
+}
+async function saveTodoPersonalTasks(){
+  try{ await todoProfileDoc(activeProfile,'tasks').set({json: JSON.stringify(todoPersonalTasks)}); }
+  catch(e){ console.error('todo personal tasks save failed', e); }
+}
+async function saveTodoSharedTasks(){
+  try{ await todoSharedDoc('tasks').set({json: JSON.stringify(todoSharedTasks)}); }
+  catch(e){ console.error('todo shared tasks save failed', e); }
+}
+async function saveTodoTasksFor(shared){ return shared ? saveTodoSharedTasks() : saveTodoPersonalTasks(); }
+function allTodoTasks(){ return todoPersonalTasks.concat(todoSharedTasks); }
+function findTodoTaskAnywhere(id){
+  let t = todoPersonalTasks.find(x=>x.id===id);
+  if(t) return {arr:todoPersonalTasks, t:t, shared:false};
+  t = todoSharedTasks.find(x=>x.id===id);
+  if(t) return {arr:todoSharedTasks, t:t, shared:true};
+  return null;
+}
+function todoPriorityDotClass(p){ return p===1?'high':p===2?'medium':p===3?'low':''; }
+function todoPriorityLabel(p){ return p===1?'P1':p===2?'P2':p===3?'P3':'No priority'; }
+
+/* =====================================================================
    AUTH
 ===================================================================== */
 let authMode = 'signin';
@@ -582,6 +725,9 @@ async function enterProfile(profileId){
   await loadAutoConfig();
   await loadDayTemplates();
   await loadTemplateLog();
+  await loadTodoTasks();
+  await loadHouseholdChores();
+  await loadHouseholdChoreHistory();
   renderNotifBanner();
   showView('today');
   startNotificationLoop();
@@ -948,6 +1094,7 @@ let templateLog = {};
 let autoConfig = { workoutsOn:true, groceryOn:true, groceryWeekday:6 };
 let activeView = 'today';
 let selectedDay = todayStr(); // which day the Today view is showing — lets you flip forward/back instead of always showing the actual today
+let hideCompletedRoutine = false; // toggle to collapse checked-off routine blocks so you don't have to scroll past them to reach what's next
 let notifPermission = (typeof Notification !== 'undefined') ? Notification.permission : 'unsupported';
 let notifiedToday = new Set();
 const NOTIFIED_KEY = 'schedule-notified-'+todayStr();
@@ -1181,8 +1328,8 @@ function checkUpcoming(){
   if(now.getHours()===20 && now.getMinutes()<5){
     const key = 'chore-evening-'+today;
     if(!notifiedToday.has(key)){
-      const due = choresDueOn(today).filter(c=>!c.done);
-      if(due.length){ fireNotification('Chores left today', due.map(c=>c.title).join(', '), key); notifiedToday.add(key); saveNotifiedToday(); }
+      const due = choresForProfileToday();
+      if(due.length){ fireNotification('Chores left today', due.map(c=>c.name).join(', '), key); notifiedToday.add(key); saveNotifiedToday(); }
     }
   }
 }
@@ -1232,12 +1379,17 @@ function runSearch(query){
   const results = [];
   events.forEach(ev=>{
     if(ev.title.toLowerCase().includes(q) || (ev.notes||'').toLowerCase().includes(q)){
-      results.push({ type:ev.kind==='task'?'Task':'Event', title:ev.title, meta: ev.recurring ? 'Weekly on '+DAY_NAMES[ev.weekday] : fmtHeaderDate(ev.date) });
+      results.push({ type:'Event', title:ev.title, meta: ev.recurring ? 'Weekly on '+DAY_NAMES[ev.weekday] : fmtHeaderDate(ev.date) });
     }
   });
-  chores.forEach(c=>{
-    if(c.title.toLowerCase().includes(q)){
-      results.push({ type:'Chore', title:c.title, meta: (c.weekdays||[]).map(w=>DAY_SHORT[w]).join(' ') });
+  allTodoTasks().forEach(t=>{
+    if(t.title.toLowerCase().includes(q) || (t.notes||'').toLowerCase().includes(q)){
+      results.push({ type:'Task', title:t.title, meta: t.due ? fmtHeaderDate(t.due) : 'No due date' });
+    }
+  });
+  householdChores.forEach(c=>{
+    if(c.name.toLowerCase().includes(q)){
+      results.push({ type:'Chore', title:c.name, meta: hcFreqLabel(c) });
     }
   });
   Object.entries(dayTemplates).forEach(([day, blocks])=>{
@@ -1559,58 +1711,61 @@ function renderStats(){
    code needs zero changes to also carry tasks.
 ===================================================================== */
 function taskRowHtml(task, viewDate){
-  const isOverdue = !task.completed && task.date && task.date < todayStr();
-  const priority = task.priority || 'medium';
+  const isOverdue = !task.done && task.due && task.due < todayStr();
+  const priorityClass = todoPriorityDotClass(task.priority);
+  const priorityLabel = todoPriorityLabel(task.priority);
   const estimate = task.estimate ? task.estimate+' min' : 'Flexible time';
-  return '<div class="task-row '+(task.completed?'done ':'')+(isOverdue?'overdue':'')+'">'+
-    '<input type="checkbox" class="chk" data-taskcheck="'+task.id+'" '+(task.completed?'checked':'')+'>'+
-    '<div><div class="task-title">'+escapeHtml(task.title)+'</div><div class="task-meta"><span><i class="priority-dot '+priority+'"></i>'+priority+'</span><span>'+escapeHtml(estimate)+'</span>'+(task.time?'<span class="task-time">'+fmt12(task.time)+(task.endTime?'–'+fmt12(task.endTime):'')+'</span>':'')+(isOverdue?'<span>Overdue · '+fmtHeaderDate(task.date)+'</span>':'')+(task.shared?'<span class="tag shared">shared</span>':'')+'</div></div>'+
-    '<div class="task-actions"><button data-edittask="'+task.id+'">Edit</button>'+(!task.completed?'<button data-movetask="'+task.id+'" data-moveto="'+addDays(viewDate||todayStr(),1)+'"><span class="move-label">Move </span>→</button>':'')+'<button data-deltask="'+task.id+'" aria-label="Delete task">×</button></div></div>';
+  return '<div class="task-row '+(task.done?'done ':'')+(isOverdue?'overdue':'')+'">'+
+    '<input type="checkbox" class="chk" data-taskcheck="'+task.id+'" '+(task.done?'checked':'')+'>'+
+    '<div><div class="task-title">'+escapeHtml(task.title)+'</div><div class="task-meta">'+(priorityClass?'<span><i class="priority-dot '+priorityClass+'"></i>'+priorityLabel+'</span>':'')+'<span>'+escapeHtml(estimate)+'</span>'+(task.dueTime?'<span class="task-time">'+fmt12(task.dueTime)+(task.endTime?'–'+fmt12(task.endTime):'')+'</span>':'')+(isOverdue?'<span>Overdue · '+fmtHeaderDate(task.due)+'</span>':'')+(task.listId==='shared'?'<span class="tag shared">shared</span>':'')+'</div></div>'+
+    '<div class="task-actions"><button data-edittask="'+task.id+'">Edit</button>'+(!task.done?'<button data-movetask="'+task.id+'" data-moveto="'+addDays(viewDate||todayStr(),1)+'"><span class="move-label">Move </span>→</button>':'')+'<button data-deltask="'+task.id+'" aria-label="Delete task">×</button></div></div>';
 }
 function attachTaskHandlers(wrap, viewDate){
   wrap.querySelectorAll('[data-taskcheck]').forEach(cb=>cb.addEventListener('change', async ()=>{
-    const task = events.find(e=>e.id===cb.dataset.taskcheck);
-    if(!task) return;
-    task.completed = cb.checked;
-    task.completedAt = cb.checked ? new Date().toISOString() : null;
-    await saveEvents();
-    if(task.shared) await mirrorToPartner('event', task, false);
+    const found = findTodoTaskAnywhere(cb.dataset.taskcheck);
+    if(!found) return;
+    found.t.done = cb.checked;
+    found.t.completedOn = cb.checked ? todayStr() : null;
+    await saveTodoTasksFor(found.shared);
     showView(activeView);
   }));
   wrap.querySelectorAll('[data-movetask]').forEach(btn=>btn.addEventListener('click', async ()=>{
-    const task = events.find(e=>e.id===btn.dataset.movetask);
-    if(!task) return;
-    task.date = btn.dataset.moveto;
-    task.completed = false;
-    await saveEvents();
-    if(task.shared) await mirrorToPartner('event', task, false);
+    const found = findTodoTaskAnywhere(btn.dataset.movetask);
+    if(!found) return;
+    found.t.due = btn.dataset.moveto;
+    found.t.done = false;
+    await saveTodoTasksFor(found.shared);
     showView(activeView);
   }));
   wrap.querySelectorAll('[data-edittask]').forEach(btn=>btn.addEventListener('click', ()=>{
-    const task = events.find(e=>e.id===btn.dataset.edittask);
+    const found = findTodoTaskAnywhere(btn.dataset.edittask);
     const mountId = document.getElementById('task-form-mount-today') ? 'task-form-mount-today' : 'event-form-mount-week';
-    if(task) openTaskForm(mountId, task.date || viewDate || todayStr(), task);
+    if(found) openTaskForm(mountId, found.t.due || viewDate || todayStr(), found.t);
   }));
   wrap.querySelectorAll('[data-deltask]').forEach(btn=>btn.addEventListener('click', async ()=>{
-    const task = events.find(e=>e.id===btn.dataset.deltask);
-    if(!task || !window.confirm('Delete task "'+task.title+'"?')) return;
-    events = events.filter(e=>e.id!==task.id);
-    await saveEvents();
-    if(task.shared) await mirrorToPartner('event', task, true);
+    const found = findTodoTaskAnywhere(btn.dataset.deltask);
+    if(!found || !window.confirm('Delete task "'+found.t.title+'"?')) return;
+    found.arr.splice(found.arr.indexOf(found.t),1);
+    await saveTodoTasksFor(found.shared);
     showView(activeView);
   }));
 }
+// Tasks created/edited here are written straight into the Todo app's own
+// personal/shared task documents (see todoProfileDoc/todoSharedDoc above)
+// — this IS the Todo list, not a copy of it, so anything added from
+// Schedule shows up in the Todo app immediately and vice versa.
 function openTaskForm(mountId, defaultDate, existingTask){
   const mount = document.getElementById(mountId);
   if(!mount) return;
   const task = existingTask || null;
+  const priorityVal = task ? (task.priority||0) : 2;
   mount.innerHTML = '<div class="inline-form"><h3>'+(task?'Edit task':'Add task')+'</h3><div class="ff-grid">'+
     '<div class="f"><label>Task</label><input type="text" id="tf-title" placeholder="e.g. Submit assignment" value="'+(task?escapeHtml(task.title):'')+'"></div>'+
-    '<div class="f"><label>Due date</label><input type="date" id="tf-date" value="'+(task&&task.date?task.date:defaultDate||todayStr())+'"></div>'+
-    '<div class="f"><label>Optional time</label><input type="time" id="tf-time" value="'+(task&&task.time?task.time:'')+'"></div>'+
-    '<div class="f"><label>Priority</label><select id="tf-priority"><option value="high" '+(task&&task.priority==='high'?'selected':'')+'>High</option><option value="medium" '+(!task||!task.priority||task.priority==='medium'?'selected':'')+'>Medium</option><option value="low" '+(task&&task.priority==='low'?'selected':'')+'>Low</option></select></div>'+
+    '<div class="f"><label>Due date</label><input type="date" id="tf-date" value="'+(task&&task.due?task.due:defaultDate||todayStr())+'"></div>'+
+    '<div class="f"><label>Optional time</label><input type="time" id="tf-time" value="'+(task&&task.dueTime?task.dueTime:'')+'"></div>'+
+    '<div class="f"><label>Priority</label><select id="tf-priority"><option value="1" '+(priorityVal===1?'selected':'')+'>P1 – urgent</option><option value="2" '+(priorityVal===2?'selected':'')+'>P2 – high</option><option value="3" '+(priorityVal===3?'selected':'')+'>P3 – medium</option><option value="0" '+(priorityVal===0?'selected':'')+'>None</option></select></div>'+
     '<div class="f"><label>Estimate</label><select id="tf-estimate">'+[15,30,45,60,90,120].map(n=>'<option value="'+n+'" '+(task&&Number(task.estimate)===n?'selected':'')+'>'+n+' minutes</option>').join('')+'</select></div>'+
-    '<label class="ff-check"><input type="checkbox" id="tf-shared" '+(task&&task.shared?'checked':'')+'> Share with '+otherProfile(activeProfile)+'</label>'+
+    '<label class="ff-check"><input type="checkbox" id="tf-shared" '+((task?task.listId==='shared':false)?'checked':'')+'> Share with '+otherProfile(activeProfile)+'</label>'+
     '<div class="f" style="grid-column:1/-1"><label>Notes</label><input type="text" id="tf-notes" placeholder="Optional context" value="'+(task?escapeHtml(task.notes||''):'')+'"></div>'+
     '<div class="ff-actions"><button class="btn primary" id="tf-save">'+(task?'Save task':'Add task')+'</button><button class="btn ghost" id="tf-cancel">Cancel</button></div></div></div>';
   mount.scrollIntoView({behavior:'smooth',block:'center'});
@@ -1618,16 +1773,31 @@ function openTaskForm(mountId, defaultDate, existingTask){
   document.getElementById('tf-save').onclick = async ()=>{
     const title = document.getElementById('tf-title').value.trim();
     if(!title){ document.getElementById('tf-title').style.outline='2px solid var(--danger)'; return; }
-    const item = Object.assign({}, task||{}, {
-      id:task?task.id:'task-'+Date.now()+'-'+Math.floor(Math.random()*1000), kind:'task', title,
-      date:document.getElementById('tf-date').value||todayStr(), time:document.getElementById('tf-time').value,
-      priority:document.getElementById('tf-priority').value, estimate:Number(document.getElementById('tf-estimate').value),
-      notes:document.getElementById('tf-notes').value.trim(), shared:document.getElementById('tf-shared').checked,
-      recurring:false, completed:task?!!task.completed:false
+    const wantsShared = document.getElementById('tf-shared').checked;
+    const base = task || {
+      id:'task-'+Date.now()+'-'+Math.floor(Math.random()*1000), done:false,
+      startDate: todayStr(), repeat:'none', notes:'', link:'', tags:[], subtasks:[],
+      createdBy: activeProfile, order: Date.now(), createdAt: new Date().toISOString()
+    };
+    const item = Object.assign({}, base, {
+      title,
+      due: document.getElementById('tf-date').value || todayStr(),
+      dueTime: document.getElementById('tf-time').value || null,
+      priority: Number(document.getElementById('tf-priority').value),
+      estimate: Number(document.getElementById('tf-estimate').value),
+      notes: document.getElementById('tf-notes').value.trim(),
+      listId: wantsShared ? 'shared' : 'personal'
     });
-    if(task) events = events.map(e=>e.id===task.id?item:e); else events.push(item);
-    await saveEvents();
-    await mirrorToPartner('event', item, false);
+    if(task){
+      const wasShared = task.listId === 'shared';
+      const fromArr = wasShared ? todoSharedTasks : todoPersonalTasks;
+      const idx = fromArr.findIndex(t=>t.id===task.id);
+      if(idx>-1) fromArr.splice(idx,1);
+      if(wasShared !== wantsShared) await saveTodoTasksFor(wasShared);
+    }
+    const toArr = wantsShared ? todoSharedTasks : todoPersonalTasks;
+    toArr.push(item);
+    await saveTodoTasksFor(wantsShared);
     mount.innerHTML=''; showView(activeView);
   };
 }
@@ -1649,6 +1819,11 @@ function findScheduleConflicts(dateStr, startTime, endTime, excludeId){
   todaysBlocksFor(dateStr).forEach(block=>{
     const a=toMinutes(block.start), b=toMinutes(block.end);
     if(start<b && end>a) conflicts.push(block.activity);
+  });
+  allTodoTasks().forEach(t=>{
+    if(t.id===excludeId || t.done || t.due!==dateStr || !t.dueTime) return;
+    const a=toMinutes(t.dueTime), b=t.endTime&&toMinutes(t.endTime)>a?toMinutes(t.endTime):a+(Number(t.estimate)||45);
+    if(start<b && end>a) conflicts.push(t.title);
   });
   return [...new Set(conflicts)];
 }
@@ -1692,7 +1867,12 @@ function freeWindowsForDate(dateStr){
   eventsForDate(dateStr).forEach(item=>{
     if(!item.time) return;
     const start=toMinutes(item.time);
-    const fallback = item.kind==='task' ? Number(item.estimate)||30 : 45;
+    const end=item.endTime&&toMinutes(item.endTime)>start ? toMinutes(item.endTime) : start+45;
+    busy.push({start:Math.max(dayStart,start),end:Math.min(dayEnd,end)});
+  });
+  allTodoTasks().filter(t=>t.due===dateStr && t.dueTime && !t.done).forEach(item=>{
+    const start=toMinutes(item.dueTime);
+    const fallback = Number(item.estimate)||30;
     const end=item.endTime&&toMinutes(item.endTime)>start ? toMinutes(item.endTime) : start+fallback;
     busy.push({start:Math.max(dayStart,start),end:Math.min(dayEnd,end)});
   });
@@ -1712,9 +1892,9 @@ function freeWindowsForDate(dateStr){
   })).filter(slot=>slot.end-slot.start>=20);
 }
 function rankedOpenTasks(tasks){
-  const rank={high:0,medium:1,low:2};
-  return tasks.filter(t=>!t.completed).slice().sort((a,b)=>
-    (rank[a.priority||'medium']-rank[b.priority||'medium']) ||
+  const rankOf = t=> (!t.priority) ? 99 : t.priority; // Todo's own scheme: P1 is most urgent, lower number first
+  return tasks.filter(t=>!t.done).slice().sort((a,b)=>
+    (rankOf(a)-rankOf(b)) ||
     ((Number(a.estimate)||30)-(Number(b.estimate)||30))
   );
 }
@@ -1724,8 +1904,6 @@ function renderDayIntelligenceHtml(dateStr,tasks){
   const nextSlot=windows[0];
   const ranked=rankedOpenTasks(tasks);
   const fitTask=nextSlot ? ranked.find(task=>(Number(task.estimate)||30)<=nextSlot.end-nextSlot.start) : null;
-  const nowHour=new Date().getHours();
-  const greeting=dateStr===todayStr() ? (nowHour<12?'Morning plan':nowHour<18?'Afternoon check-in':'Evening close') : 'Day plan';
   let title='Your day has breathing room.';
   let copy='Use the open windows for focused work, recovery, or anything unexpected.';
   if(fitTask && nextSlot){
@@ -1740,7 +1918,7 @@ function renderDayIntelligenceHtml(dateStr,tasks){
   }
   const focusHref='clock.html?profile='+encodeURIComponent(activeProfile||'');
   return '<div class="day-intelligence">'+
-    '<section class="briefing-card"><div class="briefing-kicker">'+greeting+'</div><div class="briefing-title">'+title+'</div><div class="briefing-copy">'+copy+'</div><div class="intel-actions"><button class="intel-button primary" id="find-time-btn">🔎 Find time</button><a class="intel-link" href="'+focusHref+'">⏱ Open Focus clock</a></div></section>'+
+    '<section class="briefing-card"><div class="briefing-title">'+title+'</div><div class="briefing-copy">'+copy+'</div><div class="intel-actions"><button class="intel-button primary" id="find-time-btn">🔎 Find time</button><a class="intel-link" href="'+focusHref+'">⏱ Open Focus clock</a></div></section>'+
     '<section class="free-time-card"><div class="briefing-kicker">Capacity</div><div class="free-time-summary"><div><strong>'+formatMinutesCompact(totalFree)+'</strong><span>Open time left</span></div><div><strong>'+(nextSlot?fmt12(minutesToTime(nextSlot.start)):'—')+'</strong><span>Next opening</span></div></div><div class="briefing-copy">'+ranked.length+' open task'+(ranked.length===1?'':'s')+' · '+windows.length+' usable window'+(windows.length===1?'':'s')+'</div></section>'+
     '<section class="free-time-panel" id="free-time-panel" hidden>'+renderFreeTimePanelHtml(dateStr,windows,ranked)+'</section></div>';
 }
@@ -1759,16 +1937,16 @@ function attachDayIntelligenceHandlers(wrap,dateStr){
   if(open&&panel) open.onclick=()=>{ panel.hidden=false; };
   if(close&&panel) close.onclick=()=>{ panel.hidden=true; };
   wrap.querySelectorAll('[data-fit-task]').forEach(btn=>btn.addEventListener('click',async ()=>{
-    const task=events.find(item=>item.id===btn.dataset.fitTask);
-    if(!task) return;
+    const found=findTodoTaskAnywhere(btn.dataset.fitTask);
+    if(!found) return;
+    const task=found.t;
     const start=toMinutes(btn.dataset.fitStart);
     const estimate=Math.max(15,Number(task.estimate)||30);
-    task.date=btn.dataset.fitDate;
-    task.time=minutesToTime(start);
+    task.due=btn.dataset.fitDate;
+    task.dueTime=minutesToTime(start);
     task.endTime=minutesToTime(Math.min(start+estimate,1439));
-    task.completed=false;
-    await saveEvents();
-    if(task.shared) await mirrorToPartner('event',task,false);
+    task.done=false;
+    await saveTodoTasksFor(found.shared);
     renderToday();
   }));
 }
@@ -1792,13 +1970,12 @@ function renderToday(){
   const actualToday = todayStr();
   const isActualToday = today === actualToday;
   const el = document.getElementById('today-view');
-  const dayItems = eventsForDate(today);
-  const todaysEvents = dayItems.filter(e=>e.kind!=='task');
-  const datedTasks = events.filter(e=>e.kind==='task' && e.date===today);
-  const overdueTasks = isActualToday ? events.filter(e=>e.kind==='task' && !e.completed && e.date && e.date<actualToday) : [];
+  const todaysEvents = eventsForDate(today);
+  const allTasks = allTodoTasks();
+  const datedTasks = allTasks.filter(t=>t.due===today);
+  const overdueTasks = isActualToday ? allTasks.filter(t=>!t.done && t.due && t.due<actualToday) : [];
   const todaysTasks = [...overdueTasks, ...datedTasks.filter(t=>!overdueTasks.some(o=>o.id===t.id))];
-  const todaysChores = choresDueOn(today);
-  const doneCount = todaysChores.filter(c=>c.done).length;
+  const todaysChores = isActualToday ? choresForProfileToday() : householdChoreDueOnDate(today);
   const now = new Date();
   const upcoming = isActualToday ? todaysEvents.filter(e=>e.time).find(e=>{
     const parts = e.time.split(':').map(Number);
@@ -1822,25 +1999,27 @@ function renderToday(){
     '</section>'+
     '<div class="today-metrics">'+
       '<div class="metric"><div class="metric-label">Routine</div><div class="metric-value">'+routineProg.done+' / '+routineProg.total+'</div></div>'+
-      '<div class="metric"><div class="metric-label">Chores</div><div class="metric-value">'+doneCount+' / '+todaysChores.length+'</div></div>'+
-      '<div class="metric"><div class="metric-label">Open tasks</div><div class="metric-value">'+todaysTasks.filter(t=>!t.completed).length+'</div></div>'+
+      '<div class="metric"><div class="metric-label">Chores</div><div class="metric-value">'+todaysChores.length+' due</div></div>'+
+      '<div class="metric"><div class="metric-label">Open tasks</div><div class="metric-value">'+todaysTasks.filter(t=>!t.done).length+'</div></div>'+
     '</div>'+
     renderDayIntelligenceHtml(today,todaysTasks)+
     '<div class="today-layout">'+
-      '<main class="panel"><div class="panel-head"><div><div class="panel-title">Today’s routine</div><div class="panel-subtitle">Check off blocks as you move through the day</div></div><button class="panel-action" id="edit-routine-today">Edit routine</button></div><div id="today-routine"></div><div id="routine-form-mount-today"></div></main>'+
-      '<aside><section class="panel"><div class="panel-head"><div><div class="panel-title">Tasks</div><div class="panel-subtitle">'+(overdueTasks.length?overdueTasks.length+' overdue · ':'')+'Flexible work for this day</div></div><button class="panel-action" id="add-task-today">+ Task</button></div><div id="today-tasks"></div><div id="task-form-mount-today"></div></section>'+
+      '<main class="panel"><div class="panel-head"><div><div class="panel-title">Today’s routine</div><div class="panel-subtitle">Check off blocks as you move through the day</div></div><div style="display:flex;gap:6px;"><button class="panel-action" id="toggle-done-routine">'+(hideCompletedRoutine?'Show done':'Hide done')+'</button><button class="panel-action" id="edit-routine-today">Edit routine</button></div></div><div id="today-routine" class="'+(hideCompletedRoutine?'routine-hide-done':'')+'"></div><div id="routine-form-mount-today"></div></main>'+
+      '<aside><section class="panel"><div class="panel-head"><div><div class="panel-title">Tasks</div><div class="panel-subtitle">'+(overdueTasks.length?overdueTasks.length+' overdue · ':'')+'Synced with your To-Do list</div></div><button class="panel-action" id="add-task-today">+ Task</button></div><div id="today-tasks"></div><div id="task-form-mount-today"></div></section>'+
       '<section class="panel"><div class="panel-head"><div><div class="panel-title">Events</div><div class="panel-subtitle">Appointments and one-offs</div></div><button class="panel-action" id="add-event-today">+ Event</button></div><div id="today-events"></div><div id="event-form-mount-today"></div></section>'+
-      '<section class="panel"><div class="panel-head"><div><div class="panel-title">Chores</div><div class="panel-subtitle">Due today</div></div><button class="panel-action" id="add-chore-today">+ New</button></div><div id="today-chores"></div><div id="chore-form-mount-today"></div></section></aside>'+
+      '<section class="panel"><div class="panel-head"><div><div class="panel-title">Chores</div><div class="panel-subtitle">Synced with Household Chores</div></div><button class="panel-action" id="add-chore-today">+ New</button></div><div id="today-chores"></div><div id="chore-form-mount-today"></div></section></aside>'+
     '</div>';
 
   document.getElementById('today-events').innerHTML = todaysEvents.length ? todaysEvents.map(eventRowHtml).join('') : '<div class="empty-note">Nothing scheduled.</div>';
   document.getElementById('today-tasks').innerHTML = todaysTasks.length ? todaysTasks.map(t=>taskRowHtml(t,today)).join('') : '<div class="empty-note">No tasks for this day.</div>';
   document.getElementById('today-routine').innerHTML = renderDailyRoutineHtml(today);
-  document.getElementById('today-chores').innerHTML = todaysChores.length ? todaysChores.map(choreRowHtml).join('') : '<div class="empty-note">No chores due today.</div>';
+  document.getElementById('today-chores').innerHTML = todaysChores.length ? todaysChores.map(householdChoreRowHtml).join('') : '<div class="empty-note">Nothing due today.</div>';
   attachRowHandlers(el, today);
   attachTaskHandlers(el, today);
   attachRoutineHandlers(el, today);
+  attachHouseholdChoreHandlers(el);
   attachDayIntelligenceHandlers(el, today);
+  document.getElementById('toggle-done-routine').addEventListener('click', ()=>{ hideCompletedRoutine = !hideCompletedRoutine; renderToday(); });
 
   document.getElementById('day-prev').onclick = ()=>{ selectedDay=addDays(selectedDay,-1); renderToday(); };
   document.getElementById('day-next').onclick = ()=>{ selectedDay=addDays(selectedDay,1); renderToday(); };
@@ -1865,16 +2044,15 @@ function renderWeek(){
   for(let i=0;i<7;i++){
     const d = addDays(start, i);
     const isToday = d === today;
-    const dayItems = eventsForDate(d);
-    const dayEvents = dayItems.filter(e=>e.kind!=='task');
-    const dayTasks = events.filter(e=>e.kind==='task' && e.date===d);
-    const dayChores = choresDueOn(d);
+    const dayEvents = eventsForDate(d);
+    const dayTasks = allTodoTasks().filter(t=>t.due===d);
+    const dayChores = isToday ? choresForProfileToday() : householdChoreDueOnDate(d);
     const routineProg = routineProgress(d);
     const total = dayEvents.length + dayTasks.length + dayChores.length + routineProg.total;
     daysHtml += '<div class="day-block"><div class="day-head '+(isToday?'today':'')+'" data-daytoggle="'+d+'"><div><span class="dh-name">'+DAY_NAMES[i]+'</span><span class="dh-date">'+fmtHeaderDate(d)+'</span></div><span class="dh-count">'+(routineProg.total ? routineProg.done+'/'+routineProg.total+' routine · ' : '')+(dayEvents.length+dayTasks.length+dayChores.length)+' other</span></div><div class="day-content '+(isToday?'open':'')+'" id="daycontent-'+d+'">'+
       (dayEvents.length ? dayEvents.map(eventRowHtml).join('') : '')+
       (dayTasks.length ? '<div class="section-title" style="margin-top:8px;">Tasks</div>'+dayTasks.map(t=>taskRowHtml(t,d)).join('') : '')+
-      (dayChores.length ? dayChores.map(choreRowHtml).join('') : '')+
+      (dayChores.length ? dayChores.map(householdChoreRowHtml).join('') : '')+
       (total===0 ? '<div class="empty-note">Nothing scheduled.</div>' : '')+
       '<div class="add-bar"><button class="btn ghost" data-addfor="'+d+'">+ Add to '+DAY_NAMES[i]+'</button></div>'+
       (routineProg.total ? '<div class="section-title" style="margin-top:10px;">Daily routine</div><div class="day-routine" data-routinedate="'+d+'">'+renderDailyRoutineHtml(d)+'</div>' : '')+
@@ -1916,6 +2094,7 @@ function renderWeek(){
   });
   attachRowHandlers(el, today);
   attachTaskHandlers(el, today);
+  attachHouseholdChoreHandlers(el);
 }
 
 /* =====================================================================
@@ -2106,14 +2285,16 @@ function openEventForm(mountId, defaultDate, existingEvent, defaultTime){
   });
 }
 
+// Writes straight into the Household Chores app's own chore list (see
+// householdChoresDoc above) — this IS that app's list, so a chore added
+// from Schedule shows up in Household Chores immediately and vice versa.
 function openChoreForm(mountId){
   const mount = document.getElementById(mountId);
   const daySet = new Set();
-  mount.innerHTML = '<div class="inline-form"><h3>New recurring chore</h3><div class="ff-grid">'+
+  mount.innerHTML = '<div class="inline-form"><h3>New household chore</h3><div class="ff-grid">'+
     '<div class="f" style="grid-column:1/-1;"><label>Title</label><input type="text" id="cf-title" required placeholder="e.g. Take out trash"></div>'+
     '<div class="weekday-picker" id="cf-weekdays">'+DAY_SHORT.map(function(s,i){ return '<button type="button" data-day="'+i+'">'+s+'</button>'; }).join('')+'</div>'+
-    '<label class="ff-check"><input type="checkbox" id="cf-shared"> Share with '+otherProfile(activeProfile)+'</label>'+
-    '<label class="ff-check" id="cf-rotate-wrap" style="display:none;"><input type="checkbox" id="cf-rotates"> Alternate whose turn each week</label>'+
+    '<label class="ff-check"><input type="checkbox" id="cf-shared" checked> Share with '+otherProfile(activeProfile)+'</label>'+
     '<div class="ff-actions"><button class="btn primary" id="cf-save">Add chore</button><button class="btn ghost" id="cf-cancel">Cancel</button></div>'+
     '</div></div>';
   mount.scrollIntoView({behavior:'smooth', block:'center'});
@@ -2125,9 +2306,6 @@ function openChoreForm(mountId){
       else{ daySet.add(d); btn.classList.add('on'); }
     });
   });
-  document.getElementById('cf-shared').addEventListener('change', e=>{
-    document.getElementById('cf-rotate-wrap').style.display = e.target.checked ? 'flex' : 'none';
-  });
   document.getElementById('cf-cancel').addEventListener('click', ()=>{ mount.innerHTML=''; });
   document.getElementById('cf-save').addEventListener('click', async ()=>{
     const title = document.getElementById('cf-title').value.trim();
@@ -2135,16 +2313,14 @@ function openChoreForm(mountId){
       if(!title) document.getElementById('cf-title').style.outline='2px solid var(--danger)';
       return;
     }
+    const assignedTo = document.getElementById('cf-shared').checked ? [activeProfile, otherProfile(activeProfile)] : [activeProfile];
     const newChore = {
       id: 'chore-'+Date.now()+'-'+Math.floor(Math.random()*1000),
-      title, weekdays: [...daySet].sort(),
-      shared: document.getElementById('cf-shared').checked,
-      rotates: document.getElementById('cf-shared').checked ? document.getElementById('cf-rotates').checked : false,
-      rotateStart: todayStr()
+      name: title, freqType: 'specificDays', days: [...daySet].sort(),
+      assignedTo, lastCompleted: null, notes: null
     };
-    chores.push(newChore);
-    await saveChores();
-    await mirrorToPartner('chore', newChore, false);
+    householdChores.push(newChore);
+    await saveHouseholdChores();
     mount.innerHTML = '';
     showView(activeView);
   });
