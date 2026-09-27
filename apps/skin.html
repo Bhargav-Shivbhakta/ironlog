@@ -23,7 +23,7 @@
   }
   *{box-sizing:border-box;}
   body{margin:0;font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;padding:16px 14px 60px;-webkit-font-smoothing:antialiased;}
-  .wrap{max-width:640px;margin:0 auto;}
+  .wrap{max-width:min(90vw,960px);margin:0 auto;}
   h1,h2,h3{font-family:'Manrope',sans-serif;}
   button,input,select,textarea{font-family:inherit;}
   a{color:var(--accent-deep);}
@@ -190,7 +190,12 @@ const FIREBASE_CONFIG = {
 firebase.initializeApp(FIREBASE_CONFIG);
 const auth = firebase.auth();
 const db = firebase.firestore();
-try{ db.enablePersistence({synchronizeTabs:true}).catch(function(){}); }catch(e){}
+// See clock.html for why this is skipped when embedded in the Hub's app
+// viewer — its iframe-reuse reload pattern can leave a stale multi-tab
+// persistence lock that hangs the next load.
+if(window.self === window.top){
+  try{ db.enablePersistence({synchronizeTabs:true}).catch(function(){}); }catch(e){}
+}
 let currentUser = null;
 let activeProfile = null;
 const LAST_PROFILE_KEY = 'skin-last-profile';
@@ -281,7 +286,7 @@ async function enterProfile(profileId){
 
 auth.onAuthStateChanged(function(user){
   currentUser = user;
-  if(!user){ window.location.href = '../index.html'; return; }
+  if(!user){ if(window.self!==window.top) return; window.location.href = '../index.html'; return; }
   const params = new URLSearchParams(window.location.search);
   const fromUrl = params.get('profile');
   if(fromUrl === 'Bhargav' || fromUrl === 'Anusha'){ enterProfile(fromUrl); return; }
@@ -438,10 +443,16 @@ let checkins = { weight:[], waist:[], photos:[], pimples:[] };
 let activeTab = 'today';
 
 async function loadAll(){
-  try{ const d = await skinDoc('stepLog').get(); stepLog = (d.exists && d.data().json) ? JSON.parse(d.data().json) : {}; }catch(e){ stepLog = {}; }
-  try{ const d = await skinDoc('shoppingLog').get(); shoppingLog = (d.exists && d.data().json) ? JSON.parse(d.data().json) : {}; }catch(e){ shoppingLog = {}; }
-  try{ const d = await skinDoc('milestoneLog').get(); milestoneLog = (d.exists && d.data().json) ? JSON.parse(d.data().json) : {}; }catch(e){ milestoneLog = {}; }
-  try{ const d = await skinDoc('checkins').get(); checkins = (d.exists && d.data().json) ? JSON.parse(d.data().json) : {weight:[],waist:[],photos:[],pimples:[]}; }catch(e){ checkins = {weight:[],waist:[],photos:[],pimples:[]}; }
+  const [stepRes, shopRes, milestoneRes, checkinRes] = await Promise.all([
+    skinDoc('stepLog').get().catch(function(){ return null; }),
+    skinDoc('shoppingLog').get().catch(function(){ return null; }),
+    skinDoc('milestoneLog').get().catch(function(){ return null; }),
+    skinDoc('checkins').get().catch(function(){ return null; })
+  ]);
+  try{ stepLog = (stepRes && stepRes.exists && stepRes.data().json) ? JSON.parse(stepRes.data().json) : {}; }catch(e){ stepLog = {}; }
+  try{ shoppingLog = (shopRes && shopRes.exists && shopRes.data().json) ? JSON.parse(shopRes.data().json) : {}; }catch(e){ shoppingLog = {}; }
+  try{ milestoneLog = (milestoneRes && milestoneRes.exists && milestoneRes.data().json) ? JSON.parse(milestoneRes.data().json) : {}; }catch(e){ milestoneLog = {}; }
+  try{ checkins = (checkinRes && checkinRes.exists && checkinRes.data().json) ? JSON.parse(checkinRes.data().json) : {weight:[],waist:[],photos:[],pimples:[]}; }catch(e){ checkins = {weight:[],waist:[],photos:[],pimples:[]}; }
 }
 async function saveStepLog(){ try{ await skinDoc('stepLog').set({json: JSON.stringify(stepLog)}); }catch(e){} }
 async function saveShoppingLog(){ try{ await skinDoc('shoppingLog').set({json: JSON.stringify(shoppingLog)}); }catch(e){} }
@@ -456,9 +467,8 @@ function escapeHtml(s){
    INIT / TABS
 ===================================================================== */
 async function init(){
-  await loadAll();
-  await loadGymLogs();
-  await loadSkinStartDate();
+  // Three independent reads, previously sequential — run together.
+  await Promise.all([loadAll(), loadGymLogs(), loadSkinStartDate()]);
   document.getElementById('tab-today-btn').onclick = function(){ showTab('today'); };
   document.getElementById('tab-shopping-btn').onclick = function(){ showTab('shopping'); };
   document.getElementById('tab-milestones-btn').onclick = function(){ showTab('milestones'); };

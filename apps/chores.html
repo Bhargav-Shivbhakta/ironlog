@@ -23,7 +23,7 @@
   }
   *{box-sizing:border-box;}
   body{margin:0;font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;padding:16px 14px 60px;-webkit-font-smoothing:antialiased;}
-  .wrap{max-width:660px;margin:0 auto;}
+  .wrap{max-width:min(90vw,980px);margin:0 auto;}
   h1,h2,h3{font-family:'Manrope',sans-serif;}
   button,input,select,textarea{font-family:inherit;}
   a{color:var(--accent-deep);}
@@ -206,7 +206,12 @@ const FIREBASE_CONFIG = {
 firebase.initializeApp(FIREBASE_CONFIG);
 const auth = firebase.auth();
 const db = firebase.firestore();
-try{ db.enablePersistence({synchronizeTabs:true}).catch(function(){}); }catch(e){}
+// See clock.html for why this is skipped when embedded in the Hub's app
+// viewer — its iframe-reuse reload pattern can leave a stale multi-tab
+// persistence lock that hangs the next load.
+if(window.self === window.top){
+  try{ db.enablePersistence({synchronizeTabs:true}).catch(function(){}); }catch(e){}
+}
 let currentUser = null;
 const WHO_KEY = 'chores-who-am-i';
 
@@ -216,7 +221,7 @@ function choresDoc(key){
 
 auth.onAuthStateChanged(function(user){
   currentUser = user;
-  if(!user){ window.location.href = '../index.html'; return; }
+  if(!user){ if(window.self!==window.top) return; window.location.href = '../index.html'; return; }
   document.getElementById('loading-gate').style.display = 'none';
   document.getElementById('app-wrap').style.display = 'block';
   init();
@@ -287,14 +292,16 @@ let activeTab = 'today';
 let showAddForm = false;
 
 async function loadAll(){
+  const [choresDocRes, historyDocRes] = await Promise.all([
+    choresDoc('chores').get().catch(function(){ return null; }),
+    choresDoc('history').get().catch(function(){ return null; })
+  ]);
   try{
-    const doc = await choresDoc('chores').get();
-    if(doc.exists && doc.data().json) chores = JSON.parse(doc.data().json);
+    if(choresDocRes && choresDocRes.exists && choresDocRes.data().json) chores = JSON.parse(choresDocRes.data().json);
     else { chores = JSON.parse(JSON.stringify(CHORES_SEED)); await saveChores(); }
   }catch(e){ chores = JSON.parse(JSON.stringify(CHORES_SEED)); }
   try{
-    const doc = await choresDoc('history').get();
-    if(doc.exists && doc.data().json) history = JSON.parse(doc.data().json);
+    if(historyDocRes && historyDocRes.exists && historyDocRes.data().json) history = JSON.parse(historyDocRes.data().json);
     else { history = JSON.parse(JSON.stringify(HISTORY_SEED)); await saveHistory(); }
   }catch(e){ history = JSON.parse(JSON.stringify(HISTORY_SEED)); }
 }
@@ -900,8 +907,10 @@ async function init(){
   document.getElementById('tab-history-btn').onclick = function(){ showTab('history'); };
 
   await loadAll();
-  await preloadScheduleSyncData();
-  await loadScheduleChores();
+  // Both of these are independent of each other — only loadAll (the
+  // chores list itself) has to finish first, since preloadScheduleSyncData
+  // reads which chores are sync-linked.
+  await Promise.all([preloadScheduleSyncData(), loadScheduleChores()]);
   const linkChoreId = params.get('chore');
   if(linkChoreId) jumpToChore(linkChoreId);
   else showTab('today');
