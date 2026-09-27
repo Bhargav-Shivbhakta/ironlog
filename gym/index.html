@@ -77,9 +77,11 @@
   .account-badge button{background:none;border:none;color:var(--text-soft);text-decoration:underline;font-size:12px;padding:0;}
   .sync-dot{width:7px;height:7px;border-radius:50%;background:var(--text-faint);display:inline-block;margin-right:5px;}
   .sync-dot.online{background:var(--success);}
+  /* The Hub already shows the app name and lets you switch profiles when
+     this runs inside its iframe, so both would be redundant there — only
+     shown when the gym app is opened on its own, in a new tab. */
   header.app-head{display:flex;align-items:center;justify-content:center;gap:12px;margin-bottom:12px;flex-wrap:wrap;text-align:center;}
-  .who-badge{display:inline-flex;align-items:center;gap:6px;background:var(--surface);border:1px solid var(--border);border-radius:20px;padding:3px 12px 3px 4px;cursor:pointer;font-family:inherit;color:var(--text);}
-  .who-badge:hover{background:var(--accent-soft);}
+  body.embedded header.app-head{display:none;}
   .who-avatar{width:22px;height:22px;border-radius:6px;font-size:12px;font-weight:800;color:#fff;display:flex;align-items:center;justify-content:center;font-family:'Manrope',sans-serif;}
   .who-avatar.av-b{background:#AD7B20;} .who-avatar.av-a{background:#B25C78;}
   .who-name{font-size:13.5px;font-weight:700;}
@@ -445,6 +447,50 @@
   .exercises-detail .ex-breakdown-row:first-child{border-top:none;}
   .exercises-detail .ex-breakdown-name{font-weight:700;}
   .exercises-detail .ex-breakdown-sets{color:var(--text-soft);margin-left:6px;}
+  /* history: toolbar, week groups, row actions, bulk select (same bar as Tasks) */
+  .hist-toolbar{align-items:flex-end;margin-bottom:0;}
+  .hist-toolbar .field{margin-bottom:8px;}
+  .history-filter-row .hist-sort-field{flex:none;min-width:0;max-width:none;}
+  .hist-sort{padding:3px;}
+  .hist-sort .unit-opt{padding:6px 10px;font-size:11.5px;}
+  .history-filter-row .hist-jump-field{max-width:280px;}
+  .hist-jump{display:flex;gap:6px;}
+  .hist-panel-actions{display:flex;gap:6px;flex-wrap:wrap;}
+  .hist-panel-actions .btn-mini.active{background:var(--accent);color:#fff;}
+  .bulk-bar{position:sticky;top:8px;z-index:20;display:flex;align-items:center;gap:8px;background:var(--surface-2);border:1px solid var(--border);border-radius:var(--radius-md);padding:9px 12px;margin-bottom:10px;box-shadow:var(--shadow);flex-wrap:wrap;}
+  .bulk-bar span{font-size:12.5px;color:var(--text-soft);font-weight:600;margin-right:auto;}
+  .hist-trash-row{display:flex;align-items:center;gap:10px;padding:8px 4px;border-bottom:1px solid var(--border-soft);flex-wrap:wrap;}
+  .hist-trash-row:last-child{border-bottom:none;}
+  .hist-trash-label{flex:1;min-width:160px;font-size:13px;font-weight:600;}
+  .hist-trash-ago{font-size:11.5px;color:var(--text-faint);white-space:nowrap;}
+  table.plain td.hist-chk,table.plain th.hist-chk{width:28px;padding-right:0;}
+  .hist-chk input{width:16px;height:16px;accent-color:var(--accent);cursor:pointer;margin:0;}
+  table.plain td.hist-act{white-space:nowrap;text-align:right;width:1%;}
+  .hist-act .icon-btn{font-size:13px;padding:2px 5px;}
+  .hist-act .icon-btn.edit:hover{color:var(--accent-deep);}
+  table.plain tr.hist-week-row td{background:var(--surface-alt);padding:7px 10px;border-bottom:1px solid var(--border);}
+  table.plain tr.hist-week-row:hover td{background:var(--surface-alt);}
+  .hist-week-head{display:flex;align-items:center;gap:10px;flex-wrap:wrap;}
+  .hist-week-toggle{border:0;background:none;padding:0;font-family:'Manrope',sans-serif;font-weight:800;font-size:13px;color:var(--text);display:flex;align-items:center;gap:6px;}
+  .hist-week-toggle .caret{color:var(--text-faint);font-size:11px;width:10px;display:inline-block;}
+  .hist-week-count{font-size:11.5px;color:var(--text-faint);font-weight:600;margin-right:auto;}
+  .hist-week-head .btn-mini{padding:4px 9px;font-size:11px;}
+  table.plain tr.hist-flash td{background:var(--accent-soft);transition:background .6s ease;}
+  table.plain tr.hist-selected td{background:var(--accent-soft);}
+  .hist-edit-grid{display:grid;grid-template-columns:1fr 1fr;gap:0 10px;}
+  .hist-edit-ex{border-top:1px solid var(--border-soft);padding:10px 0 4px;}
+  .hist-edit-ex:first-child{border-top:none;padding-top:0;}
+  .hist-edit-ex-name{font-weight:800;font-size:13px;margin-bottom:6px;}
+  .hist-edit-set{display:grid;grid-template-columns:22px 1fr 1fr 28px;gap:6px;align-items:center;margin-bottom:6px;font-size:12px;color:var(--text-faint);}
+  .hist-edit-set input{padding:6px 8px;font-size:13px;}
+  .undo-toast{
+    position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:var(--surface-2);border:1px solid var(--border);
+    border-radius:var(--radius-md);padding:10px 16px;display:flex;align-items:center;gap:12px;box-shadow:var(--shadow);
+    font-size:13px;z-index:150;opacity:0;pointer-events:none;transition:opacity .2s ease;max-width:calc(100vw - 32px);
+  }
+  .undo-toast.show{opacity:1;pointer-events:auto;}
+  .undo-toast button{background:none;border:none;color:var(--accent-deep);font-weight:700;font-size:13px;cursor:pointer;flex:none;}
+  body:has(.live-session) .undo-toast{bottom:84px;}
 
   /* ---------- progress ---------- */
   .chart-card{background:var(--surface);border:1px solid var(--border-soft);border-radius:var(--radius-lg);padding:16px;box-shadow:var(--shadow);min-width:0;}
@@ -452,17 +498,32 @@
   canvas{max-width:100%;}
   .chart-controls{display:flex;gap:12px;flex-wrap:wrap;}
   .chart-controls .field{flex:1;min-width:150px;max-width:280px;}
-  .trophy-shelf{display:grid;grid-template-columns:repeat(auto-fill,minmax(128px,1fr));gap:8px;}
-  .trophy{border-radius:var(--radius-md);padding:11px 10px;text-align:center;background:linear-gradient(160deg,#FFF8E6,#F7EFD9);border:1px solid #EFDDAE;}
-  .trophy.locked{background:var(--surface-alt);border-color:var(--border-soft);opacity:.62;filter:grayscale(1);}
-  .trophy .t-icon{font-size:24px;line-height:1;}
-  .trophy .t-name{font-family:'Manrope',sans-serif;font-weight:800;font-size:12.5px;margin-top:6px;line-height:1.25;}
-  .trophy .t-date{font-size:10.5px;color:var(--text-faint);margin-top:3px;}
+  .medal-shelf{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:9px;}
+  .medal{border-radius:var(--radius-md);padding:12px 12px 11px;background:var(--surface-alt);border:1px solid var(--border-soft);position:relative;overflow:hidden;}
+  .medal.tier-bronze{background:linear-gradient(160deg,#F6E4D3,#E7C29C);border-color:#D8A876;}
+  .medal.tier-silver{background:linear-gradient(160deg,#F5F6F8,#DCE1E7);border-color:#B9C1CB;}
+  .medal.tier-gold{background:linear-gradient(160deg,#FFF4C6,#F3CF6B);border-color:#E0B438;}
+  .medal.tier-platinum{background:linear-gradient(160deg,#EAFBFF,#C7E8F2);border-color:#8FC7D6;box-shadow:0 0 0 1px #fff inset;}
+  .medal.tier-none{opacity:.6;}
+  .medal.new-tier{animation:medalpop .65s cubic-bezier(.2,1.6,.4,1);}
+  .medal .m-icon{font-size:23px;line-height:1;}
+  .medal .m-name{font-family:'Manrope',sans-serif;font-weight:800;font-size:12px;margin-top:6px;line-height:1.25;}
+  .medal .m-tier{font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.06em;margin-top:2px;color:var(--text-soft);}
+  .medal .m-stat{font-size:10.5px;color:var(--text-soft);margin-top:5px;line-height:1.35;}
+  .medal .m-track{height:4px;border-radius:2px;background:rgba(0,0,0,.09);margin-top:8px;overflow:hidden;}
+  .medal .m-fill{height:100%;border-radius:2px;background:rgba(0,0,0,.4);}
+  @keyframes medalpop{0%{transform:scale(.5) rotate(-8deg);opacity:0;}60%{transform:scale(1.08) rotate(3deg);}100%{transform:scale(1) rotate(0);opacity:1;}}
   .muscle-row{display:grid;grid-template-columns:84px minmax(0,1fr) 92px;gap:10px;align-items:center;margin-bottom:8px;font-size:12.5px;}
   .muscle-row .m-name{font-weight:700;}
   .muscle-track{height:10px;background:var(--surface-alt);border-radius:20px;overflow:hidden;}
   .muscle-fill{height:100%;border-radius:20px;background:var(--accent);}
   .muscle-val{text-align:right;color:var(--text-soft);font-variant-numeric:tabular-nums;font-size:11.5px;}
+  .heatmap-wrap{overflow-x:auto;padding-bottom:2px;}
+  .heatmap-grid{display:grid;grid-auto-flow:column;grid-template-rows:repeat(7,12px);gap:3px;width:max-content;}
+  .heatmap-cell{width:12px;height:12px;border-radius:3px;}
+  .heatmap-legend{display:flex;align-items:center;gap:5px;font-size:10.5px;color:var(--text-faint);margin-top:9px;}
+  .heatmap-legend .heatmap-cell{width:10px;height:10px;}
+  .chart-card.narrow{max-width:380px;margin:0 auto;}
   .muscle-flags{margin-top:10px;display:flex;flex-direction:column;gap:6px;}
 
   footer.foot{max-width:1280px;margin:30px auto 0;padding:16px;text-align:center;color:var(--text-faint);font-size:11.5px;}
@@ -493,7 +554,6 @@
   </div>
 
   <header class="app-head">
-    <button type="button" class="who-badge" id="who-badge" title="Switch profile"></button>
     <div class="app-title">
       <h1 id="header-b1">Gym</h1>
       <div class="app-sub" id="header-b2"></div>
@@ -862,8 +922,14 @@
     </div>
 
     <div class="panel">
-      <div class="panel-head"><div><div class="panel-title">Trophy case</div><div class="panel-subtitle">Milestones picked up automatically from your own history.</div></div><span class="meta-chip accent" id="trophy-count"></span></div>
-      <div class="trophy-shelf" id="trophy-shelf"><div class="empty-note">Loading…</div></div>
+      <div class="panel-head"><div><div class="panel-title">Medal case</div><div class="panel-subtitle">Bronze → Silver → Gold → Platinum, earned automatically from your own history.</div></div><span class="meta-chip accent" id="trophy-count"></span></div>
+      <div class="medal-shelf" id="trophy-shelf"><div class="empty-note">Loading…</div></div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-head"><div><div class="panel-title">Training consistency</div><div class="panel-subtitle">Every day you logged something, over the last ~13 weeks.</div></div></div>
+      <div class="heatmap-wrap"><div class="heatmap-grid" id="consistency-heatmap"></div></div>
+      <div class="heatmap-legend">Less <div class="heatmap-cell" style="background:var(--surface-alt)"></div><div class="heatmap-cell" style="background:var(--accent);opacity:.22"></div><div class="heatmap-cell" style="background:var(--accent);opacity:.5"></div><div class="heatmap-cell" style="background:var(--accent);opacity:.85"></div> More</div>
     </div>
 
     <div class="grid-2">
@@ -873,9 +939,23 @@
         <div class="muscle-flags" id="muscle-flags"></div>
       </div>
       <div class="panel">
+        <div class="panel-head"><div><div class="panel-title">Muscle balance</div><div class="panel-subtitle">Same 7-day volume, shaped to show over/under-worked groups at a glance.</div></div></div>
+        <canvas id="chart-muscle-radar" height="220"></canvas>
+        <div class="empty-note" id="muscle-radar-empty" style="display:none;">No sets logged in the last 7 days.</div>
+      </div>
+    </div>
+
+    <div class="grid-2">
+      <div class="panel">
         <div class="panel-head"><div><div class="panel-title">Guided session length</div><div class="panel-subtitle">Timed start-to-finish whenever you run a guided session.</div></div><span class="meta-chip" id="session-avg-chip">—</span></div>
         <canvas id="chart-session" height="200"></canvas>
         <div class="empty-note" id="session-empty" style="display:none;margin-top:8px;">No timed sessions yet — start one from Train → Guided session.</div>
+      </div>
+      <div class="chart-card">
+        <h3>Weekly Tonnage</h3>
+        <div class="panel-subtitle" style="margin:-8px 0 12px;">Total weight × reps lifted per week, in kg — the single best number for "am I actually progressing."</div>
+        <canvas id="chart-tonnage" height="200"></canvas>
+        <div class="empty-note" id="tonnage-empty" style="display:none;">Log some sets to see this fill in.</div>
       </div>
     </div>
 
@@ -906,6 +986,13 @@
       <div class="chart-card"><h3>Weekly Cardio Calories (active)</h3><canvas id="chart-cardio-kcal" height="200"></canvas></div>
     </div>
 
+    <div class="chart-card narrow" style="margin-bottom:14px;">
+      <h3>Training Split</h3>
+      <div class="panel-subtitle" style="margin:-8px 0 12px;">Share of sets by muscle group, last 30 days — where your training time is actually going.</div>
+      <canvas id="chart-split" height="220"></canvas>
+      <div class="empty-note" id="split-empty" style="display:none;">Log some sets to see this fill in.</div>
+    </div>
+
     <div class="chart-card">
       <h3>Strength Progression</h3>
       <div class="chart-controls">
@@ -929,11 +1016,50 @@
       <p>Every day and every workout you've saved.</p>
     </div>
     <div class="panel">
-      <div class="panel-head"><div class="panel-title">Daily log</div></div>
-      <div class="table-wrap"><table class="plain" id="history-daily"></table></div>
+      <div class="panel-head">
+        <div><div class="panel-title">Filters</div><div class="panel-subtitle">Date range and sort apply to all three logs below.</div></div>
+        <button type="button" class="btn-mini ghost" id="hist-clear-filters">Clear filters</button>
+      </div>
+      <div class="history-filter-row hist-toolbar">
+        <div class="field"><label class="field-label" for="hist-from">From</label><input type="date" id="hist-from"></div>
+        <div class="field"><label class="field-label" for="hist-to">To</label><input type="date" id="hist-to"></div>
+        <div class="field hist-sort-field">
+          <label class="field-label">Sort</label>
+          <div class="ex-unit-toggle hist-sort" id="hist-sort">
+            <button type="button" class="unit-opt active" data-sort="desc">Newest first</button>
+            <button type="button" class="unit-opt" data-sort="asc">Oldest first</button>
+          </div>
+        </div>
+        <div class="field hist-jump-field">
+          <label class="field-label" for="hist-jump">Jump to date</label>
+          <div class="hist-jump"><input type="date" id="hist-jump"><button type="button" class="btn-mini soft" id="hist-jump-go">Go</button></div>
+        </div>
+        <div class="field">
+          <label class="field-label" for="hist-search">Search</label>
+          <input type="text" id="hist-search" placeholder="Exercise, machine, notes, day…">
+        </div>
+      </div>
+      <div class="save-msg" id="hist-jump-msg"></div>
     </div>
     <div class="panel">
-      <div class="panel-head"><div class="panel-title">Workout log</div></div>
+      <div class="panel-head">
+        <div><div class="panel-title">Daily log</div><div class="panel-subtitle" id="hist-daily-sub"></div></div>
+        <div class="hist-panel-actions">
+          <button type="button" class="btn-mini ghost" data-hist-csv="daily">Export CSV</button>
+          <button type="button" class="btn-mini ghost" data-hist-select="daily">Select</button>
+        </div>
+      </div>
+      <div class="bulk-bar hist-bulk-bar" id="hist-bulk-daily" style="display:none;"></div>
+      <div class="table-wrap" id="history-daily"></div>
+    </div>
+    <div class="panel">
+      <div class="panel-head">
+        <div><div class="panel-title">Workout log</div><div class="panel-subtitle" id="hist-lift-sub"></div></div>
+        <div class="hist-panel-actions">
+          <button type="button" class="btn-mini ghost" data-hist-csv="lift">Export CSV</button>
+          <button type="button" class="btn-mini ghost" data-hist-select="lift">Select</button>
+        </div>
+      </div>
       <div class="history-filter-row">
         <div class="field">
           <label class="field-label">Day</label>
@@ -944,11 +1070,27 @@
           <select id="history-workout-filter"><option value="all">All workouts</option></select>
         </div>
       </div>
-      <div class="table-wrap"><table class="plain" id="history-lift"></table></div>
+      <div class="bulk-bar hist-bulk-bar" id="hist-bulk-lift" style="display:none;"></div>
+      <div class="table-wrap" id="history-lift"></div>
     </div>
     <div class="panel">
-      <div class="panel-head"><div class="panel-title">Cardio log</div></div>
-      <div class="table-wrap"><table class="plain" id="history-cardio"></table></div>
+      <div class="panel-head">
+        <div><div class="panel-title">Cardio log</div><div class="panel-subtitle" id="hist-cardio-sub"></div></div>
+        <div class="hist-panel-actions">
+          <button type="button" class="btn-mini ghost" data-hist-csv="cardio">Export CSV</button>
+          <button type="button" class="btn-mini ghost" data-hist-select="cardio">Select</button>
+        </div>
+      </div>
+      <div class="bulk-bar hist-bulk-bar" id="hist-bulk-cardio" style="display:none;"></div>
+      <div class="table-wrap" id="history-cardio"></div>
+    </div>
+    <div class="panel" id="hist-trash-panel" style="display:none;">
+      <div class="panel-head">
+        <div><div class="panel-title">Recently deleted</div><div class="panel-subtitle">Kept for 30 days (or the last 50 items) — restore anytime, or delete for good.</div></div>
+        <span class="meta-chip" id="hist-trash-count"></span>
+      </div>
+      <div id="hist-trash-list"></div>
+      <div style="margin-top:10px;"><button type="button" class="btn-mini ghost" id="hist-trash-clear">Delete all forever</button></div>
     </div>
   </section>
 
@@ -1386,11 +1528,6 @@ function enterProfile(profileId){
   document.getElementById('header-b1').innerHTML = activeProfile.brand.b1html;
   document.getElementById('header-b2').textContent = activeProfile.brand.b2;
   document.title = activeProfile.brand.b2;
-  const other = otherProfileId(profileId);
-  const badge = document.getElementById('who-badge');
-  badge.innerHTML = `<span class="who-avatar ${avatarCls(profileId)}">${activeProfile.name[0]}</span><span class="who-name">${activeProfile.name}</span><span class="who-swap">⇄ ${PROFILES[other].name}</span>`;
-  badge.title = 'Switch to '+PROFILES[other].name;
-  badge.onclick = ()=> enterProfile(other);
   document.getElementById('account-badge').innerHTML =
     `<span><span class="sync-dot online"></span>${escHtml(currentUser.email||'')}</span><button id="signout-btn">Sign out</button>`;
   document.getElementById('signout-btn').addEventListener('click', ()=> auth.signOut());
@@ -2962,51 +3099,192 @@ function renderStrengthChart(exId, lifts, chartColors){
 }
 
 /* =====================================================================
-   HISTORY
+   HISTORY — week-grouped logs with filters, sort, jump-to-date, CSV
+   export, inline edit, and delete (single / bulk / whole week). Every
+   destructive write goes through histCommit with a before/after snapshot
+   of each touched doc, so the undo toast can put things back exactly.
 ===================================================================== */
 let historyDayFilter = 'all';
 let historyWorkoutFilter = 'all';
+let histFrom = '', histTo = '', histSort = 'desc';
+let histSearch = ''; // lowercased free-text filter, applied across all three tables at once
+let histData = {daily:[], lift:[], cardio:[]};   // raw docs as stored: [{id, data}]
+let histLoadFailed = false;
+let histProfileId = null;
+let histFlashDate = null;
+let histWired = false;
+const HIST_TABLES = ['daily','lift','cardio'];
+const histBulk = {daily:{on:false, ids:new Set()}, lift:{on:false, ids:new Set()}, cardio:{on:false, ids:new Set()}};
+let histWeekOpen = {daily:{}, lift:{}, cardio:{}};  // weekKey -> explicit open/closed toggle
+let histVisibleIds = {daily:[], lift:[], cardio:[]};
+const HIST_UNDO_MS = 7000;
+const HIST_ICON_TRASH = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6M14 11v6"/></svg>';
+const HIST_ICON_EDIT = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>';
 
-async function renderHistory(){
-  const daily = await listDaily();
-  const dt = document.getElementById('history-daily');
-  if(!daily.length){
-    dt.outerHTML = '<div class="empty-note" id="history-daily">No daily logs yet — save your first day from the check-in on Today.</div>';
-  } else {
-    dt.innerHTML = `<tr><th>Date</th><th>Day</th><th>Weight</th><th>Water</th><th>Adherence</th><th>Notes</th></tr>` +
-      daily.map(d=>`<tr>
-        <td>${d.date}</td><td>${d.day||''}</td><td>${d.weight??'—'}</td><td>${d.water?d.water+'L':'—'}</td>
-        <td><span class="badge ${d.adherence>=85?'done':'pending'}">${d.adherence??0}%</span></td>
-        <td style="max-width:220px;">${d.notes||''}</td>
-      </tr>`).join('');
-  }
-
-  const lifts = await listLift();
-  populateHistoryFilters(lifts);
-  renderHistoryLiftTable(lifts);
-
-  const cardioLog = await listCardio();
-  renderHistoryCardioTable(cardioLog);
+async function listHistoryDocs(col){
+  const snap = await userCol(col).get();
+  const out = []; snap.forEach(d=>out.push({id:d.id, data:d.data()}));
+  return out;
 }
-function renderHistoryCardioTable(cardioLog){
-  const ct = document.getElementById('history-cardio');
-  if(!cardioLog.length){
-    ct.outerHTML = '<div class="empty-note" id="history-cardio">No cardio logged yet — add a session from the Train tab.</div>';
-    return;
-  }
+function histCardioEntries(data){ return Array.isArray(data.entries) ? data.entries : (data.machine ? [data] : []); }
+function histDateOf(table, doc){
+  if(table==='lift') return doc.data.date || doc.id.split(':')[0];
+  return doc.data.date || doc.id;
+}
+// Read-only view with exercises guaranteed to be an array; the raw doc is
+// what gets snapshotted for undo, so it's never normalised in place.
+function histLiftView(data){ return Array.isArray(data.exercises) ? data : Object.assign({}, data, {exercises:[]}); }
+function histUnit(exId){ return unitForExercise(exId)==='kg' ? 'kg' : 'lb'; }
+function histInRange(date){ return (!histFrom || date>=histFrom) && (!histTo || date<=histTo); }
+function histCmp(a, b){
+  const dir = histSort==='asc' ? 1 : -1;
+  if(a.date!==b.date) return (a.date<b.date ? -1 : 1) * dir;
+  if(a.idx!=null && b.idx!=null && a.rowId.split('|')[0]===b.rowId.split('|')[0]) return (a.idx-b.idx) * dir;
+  return (a.rowId<b.rowId ? -1 : a.rowId>b.rowId ? 1 : 0) * dir;
+}
+function histWeekKey(date){ const d = new Date(date+'T00:00:00'); d.setDate(d.getDate()-((d.getDay()+6)%7)); return fmtDate(d); }
+function histWeekEnd(wk){ const d = new Date(wk+'T00:00:00'); d.setDate(d.getDate()+6); return fmtDate(d); }
+function histShortDate(date, withYear){
+  const d = new Date(date+'T00:00:00');
+  return d.toLocaleDateString('en-US', withYear ? {month:'short', day:'numeric', year:'numeric'} : {month:'short', day:'numeric'});
+}
+function histWeekLabel(wk){
+  const end = histWeekEnd(wk);
+  const thisYear = String(new Date().getFullYear());
+  const yr = (wk.slice(0,4)!==thisYear || end.slice(0,4)!==thisYear) ? ', '+end.slice(0,4) : '';
+  return histShortDate(wk)+' – '+histShortDate(end)+yr;
+}
+function histGroupByWeek(rows){
+  const groups = []; let cur = null;
+  rows.forEach(r=>{ const k = histWeekKey(r.date); if(!cur || cur.key!==k){ cur = {key:k, rows:[]}; groups.push(cur); } cur.rows.push(r); });
+  return groups;
+}
+function histIsWeekOpen(table, key, idx){
+  const t = histWeekOpen[table];
+  if(Object.prototype.hasOwnProperty.call(t, key)) return t[key];
+  if(histFrom || histTo) return true;
+  return idx < 2;
+}
+function histPlural(n, word, plural){ return n+' '+(n===1 ? word : (plural || word+'s')); }
+
+/* ---------- row models (filtered + sorted) ---------- */
+function histMatchesSearch(text){ return !histSearch || (text||'').toLowerCase().includes(histSearch); }
+function histDailyRows(){
+  return histData.daily.map(doc=>({rowId:doc.id, date:histDateOf('daily', doc), doc}))
+    .filter(r=>histInRange(r.date))
+    .filter(r=>histMatchesSearch((r.doc.data.day||dayNameFor(r.date))+' '+(r.doc.data.notes||'')))
+    .sort(histCmp);
+}
+function histLiftRowsInRange(){
+  return histData.lift.map(doc=>({rowId:doc.id, date:histDateOf('lift', doc), doc, w:histLiftView(doc.data)}))
+    .filter(r=>histInRange(r.date));
+}
+function histLiftRows(){
+  return histLiftRowsInRange().filter(r=>{
+    const w = r.w, exs = w.exercises || [];
+    if(historyDayFilter!=='all' && w.day!==historyDayFilter) return false;
+    if(historyWorkoutFilter!=='all' && !exs.some(e=>e.name===historyWorkoutFilter)) return false;
+    if(!histMatchesSearch((w.day||'')+' '+exs.map(e=>e.name).join(' '))) return false;
+    return true;
+  }).sort(histCmp);
+}
+function histCardioRows(){
   const rows = [];
-  cardioLog.forEach(day=>{
-    day.entries.forEach(e=>{
-      const kcal = estimateCardioKcal(e.machine, e.duration, e.speed, e.incline);
-      rows.push({ date: day.date, machine: e.machine, duration: e.duration, speed: e.speed, incline: e.incline, kcal });
+  histData.cardio.forEach(doc=>{
+    const date = histDateOf('cardio', doc);
+    if(!histInRange(date)) return;
+    histCardioEntries(doc.data).forEach((e, i)=>{
+      if(!histMatchesSearch((e.machine||'')+' '+(e.notes||''))) return;
+      rows.push({rowId:doc.id+'|'+i, date, doc, idx:i, e});
     });
   });
-  ct.innerHTML = `<tr><th>Date</th><th>Machine</th><th>Duration</th><th>Speed</th><th>Incline</th><th>Calories</th></tr>` +
-    rows.map(r=>`<tr>
-      <td>${r.date}</td><td>${r.machine}</td><td>${r.duration?r.duration+' min':'—'}</td>
-      <td>${r.speed?r.speed+' mph':'—'}</td><td>${r.incline?r.incline+'%':'—'}</td>
-      <td>${r.kcal ? r.kcal.gross+' kcal gross ('+r.kcal.active+' active)' : '—'}</td>
-    </tr>`).join('');
+  return rows.sort(histCmp);
+}
+function histRowsFor(table){ return table==='daily' ? histDailyRows() : table==='lift' ? histLiftRows() : histCardioRows(); }
+
+/* ---------- load + render ---------- */
+async function renderHistory(){
+  histWire();
+  if(histProfileId!==activeProfile.id){
+    histProfileId = activeProfile.id;
+    HIST_TABLES.forEach(t=>{ histBulk[t].on = false; histBulk[t].ids.clear(); });
+    histWeekOpen = {daily:{}, lift:{}, cardio:{}};
+  }
+  try{
+    const [daily, lift, cardio] = await Promise.all([listHistoryDocs('dailyLogs'), listHistoryDocs('workoutLogs'), listHistoryDocs('cardioLogs')]);
+    histData = {
+      daily,
+      lift,
+      cardio: cardio.filter(d=>histCardioEntries(d.data).length)
+    };
+    histLoadFailed = false;
+  }catch(e){ console.error(e); histLoadFailed = true; histData = {daily:[], lift:[], cardio:[]}; }
+  populateHistoryFilters(histLiftRowsInRange().map(r=>r.w));
+  renderHistoryTables();
+  loadHistTrash().then(renderHistTrash);
+}
+function renderHistoryTables(){
+  renderHistoryDailyTable();
+  renderHistoryLiftTable();
+  renderHistoryCardioTable();
+}
+function histPruneSelection(table, rows){
+  const valid = new Set(rows.map(r=>r.rowId));
+  [...histBulk[table].ids].forEach(id=>{ if(!valid.has(id)) histBulk[table].ids.delete(id); });
+}
+function histTableHTML(table, cols, rows, cellsFn, countFn){
+  const bulk = histBulk[table].on, sel = histBulk[table].ids;
+  const ncol = cols.length + 1 + (bulk ? 1 : 0);
+  const visible = [];
+  let html = '<table class="plain"><thead><tr>' +
+    (bulk ? '<th class="hist-chk"><input type="checkbox" data-hist-all="'+table+'" aria-label="Select all shown rows"></th>' : '') +
+    cols.map(c=>'<th>'+c+'</th>').join('') + '<th></th></tr></thead>';
+  histGroupByWeek(rows).forEach((g, i)=>{
+    const open = histIsWeekOpen(table, g.key, i);
+    html += '<tbody><tr class="hist-week-row"><td colspan="'+ncol+'"><div class="hist-week-head">' +
+      '<button type="button" class="hist-week-toggle" data-hist-week-toggle="'+table+'|'+g.key+'" aria-expanded="'+open+'"><span class="caret">'+(open?'▾':'▸')+'</span>'+histWeekLabel(g.key)+'</button>' +
+      '<span class="hist-week-count">'+countFn(g.rows)+'</span>' +
+      '<button type="button" class="btn-mini danger" data-hist-delweek="'+g.key+'" title="Delete every daily log, workout and cardio session in this week">Delete week</button>' +
+      '</div></td></tr>';
+    if(open){
+      html += g.rows.map(r=>{
+        visible.push(r.rowId);
+        const rid = escHtml(r.rowId);
+        const cls = [sel.has(r.rowId) ? 'hist-selected' : '', histFlashDate===r.date ? 'hist-flash' : ''].filter(Boolean).join(' ');
+        return '<tr data-hist-row="'+rid+'" data-date="'+r.date+'"'+(cls?' class="'+cls+'"':'')+'>' +
+          (bulk ? '<td class="hist-chk"><input type="checkbox" data-hist-sel="'+table+'" value="'+rid+'" '+(sel.has(r.rowId)?'checked':'')+' aria-label="Select row"></td>' : '') +
+          cellsFn(r) +
+          '<td class="hist-act">' +
+            '<button type="button" class="icon-btn edit" data-hist-edit="'+table+'" data-id="'+rid+'" title="Edit" aria-label="Edit">'+HIST_ICON_EDIT+'</button>' +
+            '<button type="button" class="icon-btn" data-hist-del="'+table+'" data-id="'+rid+'" title="Delete" aria-label="Delete">'+HIST_ICON_TRASH+'</button>' +
+          '</td></tr>';
+      }).join('');
+    }
+    html += '</tbody>';
+  });
+  histVisibleIds[table] = visible;
+  return html + '</table>';
+}
+function histEmpty(el, subEl, msg){ el.innerHTML = '<div class="empty-note">'+msg+'</div>'; if(subEl) subEl.textContent = ''; }
+
+function renderHistoryDailyTable(){
+  const el = document.getElementById('history-daily'), sub = document.getElementById('hist-daily-sub');
+  if(!el) return;
+  const rows = histDailyRows();
+  histPruneSelection('daily', rows);
+  if(histLoadFailed) histEmpty(el, sub, 'Could not load history — check your connection and reopen this tab.');
+  else if(!histData.daily.length) histEmpty(el, sub, 'No daily logs yet — save your first day from the check-in on Today.');
+  else if(!rows.length) histEmpty(el, sub, 'No daily logs in this date range.');
+  else {
+    sub.textContent = histPlural(rows.length, 'day')+' shown';
+    el.innerHTML = histTableHTML('daily', ['Date','Day','Weight','Waist','Water','Adherence','Notes'], rows, r=>{
+      const d = r.doc.data;
+      return `<td>${r.date}</td><td>${escHtml(d.day||dayNameFor(r.date))}</td><td>${d.weight??'—'}</td><td>${d.waist??'—'}</td><td>${d.water?d.water+'L':'—'}</td>
+        <td><span class="badge ${d.adherence>=85?'done':'pending'}">${d.adherence??0}%</span></td>
+        <td style="max-width:220px;">${escHtml(d.notes||'')}</td>`;
+    }, g=>histPlural(g.length, 'day'));
+  }
+  histUpdateBulkBar('daily');
 }
 
 function populateHistoryFilters(lifts){
@@ -3021,44 +3299,559 @@ function populateHistoryFilters(lifts){
     orderedDays.map(d=>`<option value="${d}" ${historyDayFilter===d?'selected':''}>${d}</option>`).join('');
 
   const relevantLifts = historyDayFilter==='all' ? lifts : lifts.filter(w=>w.day===historyDayFilter);
-  const exerciseNames = [...new Set(relevantLifts.flatMap(w=>w.exercises.map(e=>e.name)))].sort();
+  const exerciseNames = [...new Set(relevantLifts.flatMap(w=>(w.exercises||[]).map(e=>e.name)))].filter(Boolean).sort();
   if(!exerciseNames.includes(historyWorkoutFilter)) historyWorkoutFilter = 'all';
   workoutFilterEl.innerHTML = '<option value="all">All workouts</option>' +
-    exerciseNames.map(n=>`<option value="${n}" ${historyWorkoutFilter===n?'selected':''}>${n}</option>`).join('');
+    exerciseNames.map(n=>`<option value="${escHtml(n)}" ${historyWorkoutFilter===n?'selected':''}>${escHtml(n)}</option>`).join('');
 
-  dayFilterEl.onchange = function(){ historyDayFilter = dayFilterEl.value; historyWorkoutFilter = 'all'; renderHistory(); };
-  workoutFilterEl.onchange = function(){ historyWorkoutFilter = workoutFilterEl.value; renderHistoryLiftTable(lifts); };
+  dayFilterEl.onchange = function(){ historyDayFilter = dayFilterEl.value; historyWorkoutFilter = 'all'; populateHistoryFilters(histLiftRowsInRange().map(r=>r.w)); renderHistoryLiftTable(); };
+  workoutFilterEl.onchange = function(){ historyWorkoutFilter = workoutFilterEl.value; renderHistoryLiftTable(); };
 }
 
-function renderHistoryLiftTable(lifts){
-  const lt = document.getElementById('history-lift');
-  if(!lifts.length){
-    lt.outerHTML = '<div class="empty-note" id="history-lift">No workouts logged yet — head to the Train tab.</div>';
-    return;
-  }
-  const unit = activeProfile.liftUnit==='kg' ? 'kg' : 'lb';
-  const filtered = lifts.filter(w=>{
-    if(historyDayFilter!=='all' && w.day!==historyDayFilter) return false;
-    if(historyWorkoutFilter!=='all' && !w.exercises.some(e=>e.name===historyWorkoutFilter)) return false;
-    return true;
-  });
-  if(!filtered.length){
-    lt.innerHTML = `<tr><th>Date</th><th>Day</th><th>Mode</th><th>Exercises</th><th>Total Sets</th></tr>` +
-      `<tr><td colspan="5" style="text-align:center;color:var(--text-dim);padding:16px;">No workouts match this filter.</td></tr>`;
-    return;
-  }
-  lt.innerHTML = `<tr><th>Date</th><th>Day</th><th>Mode</th><th>Exercises</th><th>Total Sets</th></tr>` +
-    filtered.map(w=>{
+function renderHistoryLiftTable(){
+  const el = document.getElementById('history-lift'), sub = document.getElementById('hist-lift-sub');
+  if(!el) return;
+  const rows = histLiftRows();
+  histPruneSelection('lift', rows);
+  if(histLoadFailed) histEmpty(el, sub, 'Could not load history — check your connection and reopen this tab.');
+  else if(!histData.lift.length) histEmpty(el, sub, 'No workouts logged yet — head to the Train tab.');
+  else if(!rows.length) histEmpty(el, sub, 'No workouts match these filters.');
+  else {
+    const setCount = rs=>rs.reduce((s,r)=>s+r.w.exercises.reduce((a,e)=>a+(e.sets||[]).length,0),0);
+    sub.textContent = histPlural(rows.length, 'workout')+' · '+histPlural(setCount(rows), 'set')+' shown';
+    el.innerHTML = histTableHTML('lift', ['Date','Day','Mode','Exercises','Total Sets'], rows, r=>{
+      const w = r.w;
       const breakdown = w.exercises.map(e=>{
-        const setsStr = e.sets.map(s=>`${s.weight??'—'}${unit}×${s.reps??'—'}`).join(', ') || 'no sets logged';
-        return `<div class="ex-breakdown-row"><span class="ex-breakdown-name">${e.name}</span><span class="ex-breakdown-sets">${setsStr}</span></div>`;
+        const unit = histUnit(e.id);
+        const setsStr = (e.sets||[]).map(s=>`${s.weight??'—'}${unit}×${s.reps??'—'}`).join(', ') || 'no sets logged';
+        return `<div class="ex-breakdown-row"><span class="ex-breakdown-name">${escHtml(e.name)}</span><span class="ex-breakdown-sets">${setsStr}</span></div>`;
       }).join('');
-      return `<tr>
-        <td>${w.date}</td><td>${w.day}</td><td>${w.mode==='period'?'Period':'Regular'}</td>
-        <td><details class="exercises-detail"><summary>${w.exercises.length} exercise${w.exercises.length===1?'':'s'}</summary><div class="ex-breakdown">${breakdown}</div></details></td>
-        <td>${w.exercises.reduce((s,e)=>s+e.sets.length,0)}</td>
-      </tr>`;
-    }).join('');
+      return `<td>${r.date}</td><td>${escHtml(w.day||'')}</td><td>${w.mode==='period'?'Period':'Regular'}</td>
+        <td><details class="exercises-detail"><summary>${histPlural(w.exercises.length, 'exercise')}</summary><div class="ex-breakdown">${breakdown}</div></details></td>
+        <td>${w.exercises.reduce((s,e)=>s+(e.sets||[]).length,0)}</td>`;
+    }, g=>{
+      const days = new Set(g.map(r=>r.date)).size;
+      return histPlural(days, 'day')+' · '+histPlural(g.length, 'workout')+' · '+histPlural(setCount(g), 'set');
+    });
+  }
+  histUpdateBulkBar('lift');
+}
+
+function renderHistoryCardioTable(){
+  const el = document.getElementById('history-cardio'), sub = document.getElementById('hist-cardio-sub');
+  if(!el) return;
+  const rows = histCardioRows();
+  histPruneSelection('cardio', rows);
+  if(histLoadFailed) histEmpty(el, sub, 'Could not load history — check your connection and reopen this tab.');
+  else if(!histData.cardio.length) histEmpty(el, sub, 'No cardio logged yet — add a session from the Train tab.');
+  else if(!rows.length) histEmpty(el, sub, 'No cardio sessions in this date range.');
+  else {
+    const mins = rs=>Math.round(rs.reduce((s,r)=>s+(parseFloat(r.e.duration)||0),0));
+    sub.textContent = histPlural(rows.length, 'session')+' · '+mins(rows)+' min shown';
+    el.innerHTML = histTableHTML('cardio', ['Date','Machine','Duration','Speed','Incline','Calories'], rows, r=>{
+      const e = r.e, kcal = estimateCardioKcal(e.machine, e.duration, e.speed, e.incline);
+      return `<td>${r.date}</td><td>${escHtml(e.machine||'')}</td><td>${e.duration?e.duration+' min':'—'}</td>
+        <td>${e.speed?e.speed+' mph':'—'}</td><td>${e.incline?e.incline+'%':'—'}</td>
+        <td>${kcal ? kcal.gross+' kcal gross ('+kcal.active+' active)' : '—'}</td>`;
+    }, g=>histPlural(g.length, 'session')+' · '+mins(g)+' min');
+  }
+  histUpdateBulkBar('cardio');
+}
+
+/* ---------- bulk select ---------- */
+function histUpdateBulkBar(table){
+  const bar = document.getElementById('hist-bulk-'+table);
+  const btn = document.querySelector('[data-hist-select="'+table+'"]');
+  const b = histBulk[table];
+  if(btn){ btn.textContent = b.on ? 'Done' : 'Select'; btn.classList.toggle('active', b.on); }
+  if(!bar) return;
+  if(!b.on || !b.ids.size){ bar.style.display = 'none'; bar.innerHTML = ''; }
+  else {
+    bar.style.display = 'flex';
+    bar.innerHTML = '<span>'+b.ids.size+' selected</span>' +
+      '<button type="button" class="btn-mini danger" data-hist-bulk-del="'+table+'">Delete selected</button>' +
+      '<button type="button" class="btn-mini ghost" data-hist-bulk-cancel="'+table+'">Cancel</button>';
+  }
+  const all = document.querySelector('[data-hist-all="'+table+'"]');
+  if(all){
+    const vis = histVisibleIds[table];
+    const n = vis.filter(id=>b.ids.has(id)).length;
+    all.checked = vis.length>0 && n===vis.length;
+    all.indeterminate = n>0 && n<vis.length;
+  }
+}
+function histRenderTable(table){
+  if(table==='daily') renderHistoryDailyTable();
+  else if(table==='lift') renderHistoryLiftTable();
+  else renderHistoryCardioTable();
+}
+
+/* ---------- writes + undo ---------- */
+function histFindDoc(table, id){ return histData[table].find(d=>d.id===id) || null; }
+const HIST_COL = {daily:'dailyLogs', lift:'workoutLogs', cardio:'cardioLogs'};
+// Refs are captured at delete time so an Undo after a profile switch still
+// restores into the profile the data came from.
+function histOp(table, id, before, after){ return {ref:userCol(HIST_COL[table]).doc(id), before, after}; }
+function histOpsForRows(table, rowIds){
+  if(table!=='cardio'){
+    return rowIds.map(id=>{ const doc = histFindDoc(table, id); return doc ? histOp(table, id, doc.data, null) : null; }).filter(Boolean);
+  }
+  const byDoc = {};
+  rowIds.forEach(rid=>{ const cut = rid.lastIndexOf('|'); const docId = rid.slice(0, cut); (byDoc[docId] = byDoc[docId] || new Set()).add(parseInt(rid.slice(cut+1), 10)); });
+  return Object.keys(byDoc).map(docId=>{
+    const doc = histFindDoc('cardio', docId); if(!doc) return null;
+    const remaining = histCardioEntries(doc.data).filter((e, i)=>!byDoc[docId].has(i));
+    return histOp('cardio', docId, doc.data, remaining.length ? {date: doc.data.date || docId, entries: remaining} : null);
+  }).filter(Boolean);
+}
+async function histCommit(ops, dir){
+  for(let i=0;i<ops.length;i+=400){
+    const batch = db.batch();
+    ops.slice(i, i+400).forEach(op=>{
+      const val = dir==='revert' ? op.before : op.after;
+      if(val==null) batch.delete(op.ref); else batch.set(op.ref, val);
+    });
+    await batch.commit();
+  }
+}
+let histUndoOps = null, histUndoTimer = null;
+function showHistToast(msg, ops){
+  const toast = document.getElementById('hist-undo-toast');
+  if(!toast) return;
+  document.getElementById('hist-undo-text').textContent = msg;
+  document.getElementById('hist-undo-btn').style.display = ops ? '' : 'none';
+  histUndoOps = ops || null;
+  toast.classList.add('show');
+  clearTimeout(histUndoTimer);
+  histUndoTimer = setTimeout(()=>{ toast.classList.remove('show'); histUndoOps = null; }, ops ? HIST_UNDO_MS : 3500);
+}
+async function histUndo(){
+  if(!histUndoOps) return;
+  const ops = histUndoOps; histUndoOps = null;
+  clearTimeout(histUndoTimer);
+  document.getElementById('hist-undo-toast').classList.remove('show');
+  try{ await histCommit(ops, 'revert'); showHistToast('Restored ✓'); }
+  catch(e){ console.error(e); showHistToast('Could not undo — check your connection.'); }
+  if(document.getElementById('view-history').classList.contains('active')) renderHistory();
+}
+async function histApply(ops, confirmMsg, toastMsg){
+  if(!ops.length) return false;
+  if(confirmMsg && !confirm(confirmMsg)) return false;
+  try{ await histCommit(ops, 'apply'); }
+  catch(e){ console.error(e); showHistToast('Could not save that change — check your connection and try again.'); return false; }
+  showHistToast(toastMsg, ops);
+  await renderHistory();
+  return true;
+}
+const HIST_UNDO_NOTE = '\n\nYou\'ll have a few seconds to undo.';
+function histDeleteRows(table, rowIds){
+  const ops = histOpsForRows(table, rowIds);
+  if(!ops.length) return;
+  let msg, toast;
+  if(rowIds.length===1){
+    const id = rowIds[0];
+    if(table==='daily'){ msg = 'Delete the daily log for '+id+'?'; toast = 'Daily log deleted'; }
+    else if(table==='lift'){
+      const w = histLiftView(histFindDoc('lift', id).data);
+      const sets = w.exercises.reduce((s,e)=>s+(e.sets||[]).length,0);
+      msg = 'Delete the '+(w.day||'')+' '+(w.mode==='period'?'(Period) ':'')+'workout on '+(w.date||id.split(':')[0])+'? ('+histPlural(w.exercises.length,'exercise')+', '+histPlural(sets,'set')+')';
+      toast = 'Workout deleted';
+    } else {
+      const row = histCardioRows().find(r=>r.rowId===id);
+      msg = 'Delete this '+((row && row.e.machine) || 'cardio')+' session'+(row && row.e.duration ? ' ('+row.e.duration+' min)' : '')+' on '+(row ? row.date : '')+'?';
+      toast = 'Cardio session deleted';
+    }
+  } else {
+    const noun = {daily:['daily log','daily logs'], lift:['workout','workouts'], cardio:['cardio session','cardio sessions']}[table];
+    msg = 'Delete '+rowIds.length+' selected '+noun[1]+'?';
+    toast = histPlural(rowIds.length, noun[0], noun[1])+' deleted';
+  }
+  histApply(ops, msg+HIST_UNDO_NOTE, toast).then(async ok=>{
+    if(!ok) return;
+    await histWriteTrash(histTrashItemsForRows(table, rowIds));
+    await loadHistTrash(); renderHistTrash();
+    if(rowIds.length>1){ histBulk[table].ids.clear(); histBulk[table].on = false; histUpdateBulkBar(table); histRenderTable(table); }
+  });
+}
+function histDeleteWeek(wk){
+  const end = histWeekEnd(wk);
+  const inWeek = (table, doc)=>{ const d = histDateOf(table, doc); return d>=wk && d<=end; };
+  const daily = histData.daily.filter(d=>inWeek('daily', d));
+  const lift = histData.lift.filter(d=>inWeek('lift', d));
+  const cardio = histData.cardio.filter(d=>inWeek('cardio', d));
+  const cardioSessions = cardio.reduce((s,d)=>s+histCardioEntries(d.data).length,0);
+  const ops = [].concat(
+    daily.map(d=>histOp('daily', d.id, d.data, null)),
+    lift.map(d=>histOp('lift', d.id, d.data, null)),
+    cardio.map(d=>histOp('cardio', d.id, d.data, null))
+  );
+  if(!ops.length) return;
+  const msg = 'Delete everything logged '+histWeekLabel(wk)+' (Mon–Sun)?\n\nThis permanently removes:\n' +
+    '• '+histPlural(daily.length, 'daily log')+'\n' +
+    '• '+histPlural(lift.length, 'workout')+'\n' +
+    '• '+histPlural(cardioSessions, 'cardio session')+'\n\n' +
+    'from all three logs — the Day / Workout / date filters are ignored.'+HIST_UNDO_NOTE;
+  histApply(ops, msg, 'Week of '+histShortDate(wk)+' deleted ('+histPlural(ops.length, 'record')+')').then(async ok=>{
+    if(!ok) return;
+    await histWriteTrash([].concat(
+      daily.map(d=>({table:'daily', docId:d.id, data:d.data})),
+      lift.map(d=>({table:'lift', docId:d.id, data:d.data})),
+      cardio.map(d=>({table:'cardio', docId:d.id, data:d.data}))
+    ));
+    await loadHistTrash(); renderHistTrash();
+  });
+}
+
+/* ---------- recently deleted (trash) — a longer-lived safety net than the
+   7-second undo toast above. Every real delete (single row, bulk, or a
+   whole week) also drops a copy here; it survives leaving the tab, and is
+   only cleared out after 30 days or once there are more than 50 of them.
+   A daily/lift row keeps its full original doc; a single cardio session
+   keeps just that one entry (cardioEntry) so restoring it doesn't clobber
+   whatever else got logged that day in the meantime. ---------- */
+const HIST_TRASH_LIMIT = 50;
+const HIST_TRASH_DAYS = 30;
+let histTrashCache = [];
+function histTrashItemsForRows(table, rowIds){
+  if(table!=='cardio'){
+    return rowIds.map(id=>{ const doc = histFindDoc(table, id); return doc ? {table, docId:id, data:doc.data} : null; }).filter(Boolean);
+  }
+  return rowIds.map(rid=>{
+    const cut = rid.lastIndexOf('|'), docId = rid.slice(0, cut), idx = parseInt(rid.slice(cut+1), 10);
+    const doc = histFindDoc('cardio', docId); if(!doc) return null;
+    const entry = histCardioEntries(doc.data)[idx]; if(!entry) return null;
+    return {table:'cardio', docId, data:{date: doc.data.date || docId}, cardioEntry: entry};
+  }).filter(Boolean);
+}
+async function histWriteTrash(items){
+  if(!items.length) return;
+  try{
+    const batch = db.batch(), now = Date.now();
+    items.forEach(it=>{ batch.set(userCol('trash').doc(), Object.assign({}, it, {deletedAt: now})); });
+    await batch.commit();
+  }catch(e){ console.error('trash write failed', e); }
+  await histTrimTrash();
+}
+async function histTrimTrash(){
+  try{
+    const snap = await userCol('trash').orderBy('deletedAt','desc').get();
+    const docs = []; snap.forEach(d=>docs.push(d));
+    const cutoff = Date.now() - HIST_TRASH_DAYS*86400000;
+    const overflow = docs.filter((d,i)=> i>=HIST_TRASH_LIMIT || d.data().deletedAt < cutoff);
+    if(!overflow.length) return;
+    const batch = db.batch();
+    overflow.forEach(d=>batch.delete(d.ref));
+    await batch.commit();
+  }catch(e){ console.error('trash trim failed', e); }
+}
+async function loadHistTrash(){
+  await histTrimTrash();
+  try{
+    const snap = await userCol('trash').orderBy('deletedAt','desc').get();
+    histTrashCache = []; snap.forEach(d=>histTrashCache.push(Object.assign({id:d.id}, d.data())));
+  }catch(e){ histTrashCache = []; }
+}
+function histTimeAgo(ts){
+  const m = Math.round((Date.now()-ts)/60000);
+  if(m<1) return 'just now';
+  if(m<60) return m+'m ago';
+  const h = Math.round(m/60); if(h<24) return h+'h ago';
+  return Math.round(h/24)+'d ago';
+}
+function histTrashLabel(item){
+  if(item.table==='daily') return 'Daily log · '+(item.data.date||item.docId);
+  if(item.table==='lift'){
+    const w = item.data, sets = (w.exercises||[]).reduce((s,e)=>s+(e.sets||[]).length,0);
+    return (w.day||'Workout')+' · '+(w.date||item.docId.split(':')[0])+' · '+histPlural((w.exercises||[]).length,'exercise')+', '+histPlural(sets,'set');
+  }
+  if(item.cardioEntry) return (item.cardioEntry.machine||'Cardio')+' · '+(item.data.date||item.docId)+(item.cardioEntry.duration?' · '+item.cardioEntry.duration+' min':'');
+  return 'Cardio day · '+(item.data.date||item.docId)+' · '+histPlural((item.data.entries||[]).length,'session');
+}
+function renderHistTrash(){
+  const panel = document.getElementById('hist-trash-panel'), list = document.getElementById('hist-trash-list'), count = document.getElementById('hist-trash-count');
+  if(!panel) return;
+  if(!histTrashCache.length){ panel.style.display = 'none'; return; }
+  panel.style.display = '';
+  count.textContent = histTrashCache.length;
+  list.innerHTML = histTrashCache.map(item=>
+    '<div class="hist-trash-row"><span class="hist-trash-label">'+escHtml(histTrashLabel(item))+'</span>'+
+    '<span class="hist-trash-ago">'+histTimeAgo(item.deletedAt)+'</span>'+
+    '<button type="button" class="btn-mini soft" data-hist-restore="'+item.id+'">Restore</button>'+
+    '<button type="button" class="icon-btn" data-hist-purge="'+item.id+'" title="Delete forever" aria-label="Delete forever">'+HIST_ICON_TRASH+'</button></div>'
+  ).join('');
+}
+async function histRestoreTrash(trashId){
+  const item = histTrashCache.find(t=>t.id===trashId); if(!item) return;
+  try{
+    if(item.cardioEntry){
+      const ref = userCol('cardioLogs').doc(item.docId);
+      const snap = await ref.get();
+      const entries = (snap.exists && Array.isArray(snap.data().entries)) ? snap.data().entries.slice() : [];
+      entries.push(item.cardioEntry);
+      await ref.set({date: item.data.date || item.docId, entries});
+    } else {
+      await userCol(HIST_COL[item.table]).doc(item.docId).set(item.data);
+    }
+    await userCol('trash').doc(item.id).delete();
+    showHistToast('Restored ✓');
+    await renderHistory();
+  }catch(e){ console.error(e); showHistToast('Could not restore — check your connection.'); }
+}
+async function histPurgeTrash(trashId){
+  if(!confirm('Permanently delete this? This cannot be undone.')) return;
+  try{ await userCol('trash').doc(trashId).delete(); await loadHistTrash(); renderHistTrash(); }
+  catch(e){ showHistToast('Could not delete that — check your connection.'); }
+}
+async function histPurgeAllTrash(){
+  if(!histTrashCache.length) return;
+  if(!confirm('Permanently delete all '+histTrashCache.length+' item(s) in Recently deleted? This cannot be undone.')) return;
+  try{
+    const batch = db.batch();
+    histTrashCache.forEach(t=>batch.delete(userCol('trash').doc(t.id)));
+    await batch.commit();
+    await loadHistTrash(); renderHistTrash();
+  }catch(e){ showHistToast('Could not clear trash — check your connection.'); }
+}
+
+/* ---------- inline edit (modal, same pattern as the plate calculator) ---------- */
+function histOpenModal(title, subtitle, bodyHtml, onSave){
+  const mount = document.getElementById('modal-mount');
+  mount.innerHTML = `<div class="modal-overlay" id="hist-edit-overlay"><div class="modal-sheet">
+    <div class="modal-head"><div><h3>${escHtml(title)}</h3><div class="panel-subtitle">${escHtml(subtitle)}</div></div><button class="modal-close" id="hist-edit-close" aria-label="Close">✕</button></div>
+    <div id="hist-edit-body">${bodyHtml}</div>
+    <div class="modal-actions" style="margin-top:6px;">
+      <button type="button" class="btn-mini primary" id="hist-edit-save">Save changes</button>
+      <button type="button" class="btn-mini ghost" id="hist-edit-cancel">Cancel</button>
+    </div>
+    <div class="save-msg" id="hist-edit-msg" style="margin-top:10px;color:var(--danger);"></div>
+  </div></div>`;
+  const close = ()=>{ mount.innerHTML=''; };
+  document.getElementById('hist-edit-close').onclick = close;
+  document.getElementById('hist-edit-cancel').onclick = close;
+  document.getElementById('hist-edit-overlay').onclick = (e)=>{ if(e.target.id==='hist-edit-overlay') close(); };
+  document.getElementById('hist-edit-save').onclick = async ()=>{
+    const msgEl = document.getElementById('hist-edit-msg');
+    const res = onSave();
+    if(typeof res==='string'){ msgEl.textContent = res; return; }
+    if(!res){ close(); return; }
+    const btn = document.getElementById('hist-edit-save'); btn.disabled = true;
+    const ok = await histApply(res.ops, null, res.toast);
+    if(ok) close(); else btn.disabled = false;
+  };
+}
+function histEditDaily(id){
+  const doc = histFindDoc('daily', id); if(!doc) return;
+  const d = doc.data, date = histDateOf('daily', doc);
+  const num = (key, label, step)=>`<div class="field"><label class="field-label" for="he-${key}">${label}</label><input type="number" step="${step}" id="he-${key}" value="${d[key]??''}"></div>`;
+  const body = '<div class="hist-edit-grid">' + num('weight','Weight (kg)','0.1') + num('waist','Waist (cm)','0.1') + num('steps','Steps','1') + num('sleep','Sleep (h)','0.5') + num('water','Water (L)','0.1') + '</div>' +
+    `<div class="field"><label class="field-label" for="he-notes">Notes</label><textarea id="he-notes" rows="3">${escHtml(d.notes||'')}</textarea></div>`;
+  histOpenModal('Edit daily log', date+' · '+(d.day||dayNameFor(date)), body, ()=>{
+    const val = k=>document.getElementById('he-'+k).value;
+    const water = parseFloat(val('water')) || 0;
+    const next = Object.assign({}, d, {
+      weight: parseFloat(val('weight')) || null,
+      waist: parseFloat(val('waist')) || null,
+      steps: parseInt(val('steps')) || null,
+      sleep: parseFloat(val('sleep')) || null,
+      water,
+      notes: val('notes') || ''
+    });
+    if(d.habits && typeof d.habits==='object') next.adherence = calcAdherence(date, d.habits, water);
+    return {ops:[histOp('daily', id, d, next)], toast:'Daily log updated'};
+  });
+}
+function histEditLift(id){
+  const doc = histFindDoc('lift', id); if(!doc) return;
+  const raw = doc.data, w = histLiftView(raw), date = histDateOf('lift', doc);
+  const body = w.exercises.map((e, ei)=>{
+    const unit = histUnit(e.id);
+    return `<div class="hist-edit-ex" data-ex="${ei}"><div class="hist-edit-ex-name">${escHtml(e.name)} <span class="panel-subtitle" style="display:inline;">· ${unit} × reps</span></div>` +
+      (e.sets||[]).map((s, si)=>`<div class="hist-edit-set" data-set="${si}"><span>${si+1}</span>
+        <input type="number" step="0.5" class="he-w" value="${s.weight??''}" aria-label="Weight, set ${si+1}" placeholder="${unit}">
+        <input type="number" step="1" class="he-r" value="${s.reps??''}" aria-label="Reps, set ${si+1}" placeholder="reps">
+        <button type="button" class="icon-btn" data-he-remove title="Remove set" aria-label="Remove set">✕</button></div>`).join('') +
+      '</div>';
+  }).join('') || '<p>This workout has no exercises.</p>';
+  histOpenModal('Edit workout', date+' · '+(w.day||'')+(w.mode==='period'?' · Period':''), '<p>Fix a weight or rep count, or remove a set. Clear both boxes of a set to drop it.</p>'+body, ()=>{
+    const exercises = [];
+    for(let ei=0; ei<w.exercises.length; ei++){
+      const e = w.exercises[ei];
+      const wrap = document.querySelector('#hist-edit-body [data-ex="'+ei+'"]');
+      const sets = [];
+      for(const row of (wrap ? wrap.querySelectorAll('.hist-edit-set') : [])){
+        const orig = (e.sets||[])[parseInt(row.dataset.set, 10)] || {};
+        const wr = row.querySelector('.he-w').value.trim(), rr = row.querySelector('.he-r').value.trim();
+        if(wr==='' && rr==='') continue;
+        if(wr==='' || rr==='') return e.name+' set '+(parseInt(row.dataset.set,10)+1)+' needs both weight and reps (or clear both to remove it).';
+        sets.push(Object.assign({}, orig, {weight: parseFloat(wr), reps: parseInt(rr)}));
+      }
+      if(sets.length) exercises.push(Object.assign({}, e, {sets}));
+    }
+    if(!exercises.length) return 'That would leave no sets — use the delete button on the row instead.';
+    return {ops:[histOp('lift', id, raw, Object.assign({}, raw, {exercises}))], toast:'Workout updated'};
+  });
+  document.querySelectorAll('#hist-edit-body [data-he-remove]').forEach(btn=>{
+    btn.onclick = ()=>{ btn.closest('.hist-edit-set').remove(); };
+  });
+}
+function histEditCardio(id){
+  const cut = id.lastIndexOf('|'), docId = id.slice(0, cut), idx = parseInt(id.slice(cut+1), 10);
+  const doc = histFindDoc('cardio', docId); if(!doc) return;
+  const entries = histCardioEntries(doc.data), e = entries[idx]; if(!e) return;
+  const date = histDateOf('cardio', doc);
+  const num = (key, label, step, unit)=>`<div class="field"><label class="field-label" for="he-${key}">${label}</label><input type="number" step="${step}" id="he-${key}" value="${e[key]??''}" placeholder="${unit||''}"></div>`;
+  const body = `<div class="field"><label class="field-label" for="he-machine">Machine</label><input type="text" id="he-machine" value="${escHtml(e.machine||'')}"></div>` +
+    '<div class="hist-edit-grid">' + num('duration','Duration','1','min') + num('speed','Speed','0.1','mph') + num('incline','Incline','0.5','%') + '</div>' +
+    `<div class="field"><label class="field-label" for="he-notes">Notes</label><textarea id="he-notes" rows="2">${escHtml(e.notes||'')}</textarea></div>`;
+  histOpenModal('Edit cardio session', date, body, ()=>{
+    const val = k=>document.getElementById('he-'+k).value;
+    const machine = val('machine').trim();
+    if(!machine) return 'Machine name is required.';
+    const nextEntry = Object.assign({}, e, {
+      machine,
+      duration: parseFloat(val('duration')) || null,
+      speed: parseFloat(val('speed')) || null,
+      incline: parseFloat(val('incline')) || null,
+      notes: val('notes') || ''
+    });
+    const nextEntries = entries.slice(); nextEntries[idx] = nextEntry;
+    return {ops:[histOp('cardio', docId, doc.data, {date: doc.data.date || docId, entries: nextEntries})], toast:'Cardio session updated'};
+  });
+}
+
+/* ---------- CSV export (current filtered view of one table) ---------- */
+function histCsvCell(v){
+  if(v==null) return '';
+  let s = String(v);
+  if(typeof v==='string' && /^[=+\-@]/.test(s) && isNaN(Number(s))) s = "'"+s;
+  return /[",\r\n]/.test(s) ? '"'+s.replace(/"/g,'""')+'"' : s;
+}
+function histExportCsv(table){
+  let header, rows;
+  if(table==='daily'){
+    header = ['date','day','weight_kg','waist_cm','steps','sleep_h','water_l','energy','hunger','adherence_pct','notes'];
+    rows = histDailyRows().map(r=>{ const d = r.doc.data; return [r.date, d.day||dayNameFor(r.date), d.weight, d.waist, d.steps, d.sleep, d.water, d.energy, d.hunger, d.adherence, d.notes||'']; });
+  } else if(table==='lift'){
+    header = ['date','day','mode','exercise','set','weight','unit','reps','effort','session_min'];
+    rows = [];
+    histLiftRows().forEach(r=>{
+      const w = r.w, mins = w.sessionDurationSec ? Math.round(w.sessionDurationSec/60) : '';
+      w.exercises.forEach(e=>(e.sets||[]).forEach((s, i)=>rows.push([r.date, w.day, w.mode==='period'?'period':'regular', e.name, i+1, s.weight, histUnit(e.id), s.reps, s.effort, mins])));
+    });
+  } else {
+    header = ['date','machine','duration_min','speed_mph','incline_pct','kcal_gross','kcal_active','notes'];
+    rows = histCardioRows().map(r=>{ const e = r.e, k = estimateCardioKcal(e.machine, e.duration, e.speed, e.incline); return [r.date, e.machine, e.duration, e.speed, e.incline, k?k.gross:'', k?k.active:'', e.notes||'']; });
+  }
+  if(!rows.length){ showHistToast('Nothing to export with the current filters.'); return; }
+  const csv = '﻿' + [header].concat(rows).map(r=>r.map(histCsvCell).join(',')).join('\r\n');
+  const blob = new Blob([csv], {type:'text/csv;charset=utf-8'});
+  const url = URL.createObjectURL(blob), a = document.createElement('a');
+  const range = (histFrom||histTo) ? '-'+(histFrom||'start')+'_to_'+(histTo||'now') : '';
+  a.href = url; a.download = 'gym-'+activeProfile.id+'-'+{daily:'daily',lift:'workouts',cardio:'cardio'}[table]+range+'-'+todayStr()+'.csv';
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(()=>URL.revokeObjectURL(url), 1000);
+  showHistToast('Exported '+histPlural(rows.length, 'row')+' ✓');
+}
+
+/* ---------- jump to date ---------- */
+function histJump(){
+  const input = document.getElementById('hist-jump'), msg = document.getElementById('hist-jump-msg');
+  const d = input.value;
+  msg.style.color = 'var(--text-soft)';
+  if(!d){ msg.textContent = 'Pick a date first.'; return; }
+  const has = t=>histData[t].some(doc=>histDateOf(t, doc)===d);
+  if(!HIST_TABLES.some(has)){ msg.textContent = 'Nothing logged on '+histShortDate(d, true)+'.'; return; }
+  const notes = [];
+  if(!histInRange(d)){ histFrom = ''; histTo = ''; document.getElementById('hist-from').value = ''; document.getElementById('hist-to').value = ''; notes.push('date range cleared'); }
+  if(has('lift') && !histLiftRows().some(r=>r.date===d) && (historyDayFilter!=='all' || historyWorkoutFilter!=='all')){
+    historyDayFilter = 'all'; historyWorkoutFilter = 'all'; notes.push('workout filters reset');
+  }
+  const wk = histWeekKey(d);
+  HIST_TABLES.forEach(t=>{ histWeekOpen[t][wk] = true; });
+  histFlashDate = d;
+  populateHistoryFilters(histLiftRowsInRange().map(r=>r.w));
+  renderHistoryTables();
+  msg.textContent = 'Showing '+histShortDate(d, true)+(notes.length ? ' ('+notes.join(', ')+')' : '')+'.';
+  const first = document.querySelector('#view-history tr[data-date="'+d+'"]');
+  if(first) first.scrollIntoView({behavior:'smooth', block:'center'});
+  setTimeout(()=>{
+    if(histFlashDate!==d) return;
+    histFlashDate = null;
+    document.querySelectorAll('#view-history tr.hist-flash').forEach(tr=>tr.classList.remove('hist-flash'));
+  }, 2400);
+}
+
+/* ---------- event wiring (delegated, once) ---------- */
+function histWire(){
+  if(histWired) return;
+  histWired = true;
+  const view = document.getElementById('view-history');
+  const undoBtn = document.getElementById('hist-undo-btn');
+  if(undoBtn) undoBtn.addEventListener('click', histUndo);
+  view.addEventListener('click', e=>{
+    const t = e.target.closest('button');
+    if(!t || !view.contains(t)) return;
+    const ds = t.dataset;
+    if(ds.histSelect){
+      const b = histBulk[ds.histSelect]; b.on = !b.on; b.ids.clear(); histRenderTable(ds.histSelect);
+    } else if(ds.histBulkCancel){
+      const b = histBulk[ds.histBulkCancel]; b.on = false; b.ids.clear(); histRenderTable(ds.histBulkCancel);
+    } else if(ds.histBulkDel){
+      const ids = [...histBulk[ds.histBulkDel].ids]; if(ids.length) histDeleteRows(ds.histBulkDel, ids);
+    } else if(ds.histCsv){
+      histExportCsv(ds.histCsv);
+    } else if(ds.histWeekToggle){
+      const [table, wk] = ds.histWeekToggle.split('|');
+      histWeekOpen[table][wk] = t.getAttribute('aria-expanded')!=='true';
+      histRenderTable(table);
+    } else if(ds.histDelweek){
+      histDeleteWeek(ds.histDelweek);
+    } else if(ds.histDel){
+      histDeleteRows(ds.histDel, [ds.id]);
+    } else if(ds.histEdit){
+      if(ds.histEdit==='daily') histEditDaily(ds.id); else if(ds.histEdit==='lift') histEditLift(ds.id); else histEditCardio(ds.id);
+    } else if(ds.sort){
+      histSort = ds.sort;
+      document.querySelectorAll('#hist-sort .unit-opt').forEach(b=>b.classList.toggle('active', b.dataset.sort===histSort));
+      renderHistoryTables();
+    } else if(t.id==='hist-jump-go'){
+      histJump();
+    } else if(t.id==='hist-clear-filters'){
+      histFrom = ''; histTo = ''; historyDayFilter = 'all'; historyWorkoutFilter = 'all'; histSearch = '';
+      document.getElementById('hist-from').value = ''; document.getElementById('hist-to').value = '';
+      document.getElementById('hist-search').value = '';
+      document.getElementById('hist-jump-msg').textContent = '';
+      populateHistoryFilters(histLiftRowsInRange().map(r=>r.w));
+      renderHistoryTables();
+    } else if(ds.histRestore){
+      histRestoreTrash(ds.histRestore);
+    } else if(ds.histPurge){
+      histPurgeTrash(ds.histPurge);
+    } else if(t.id==='hist-trash-clear'){
+      histPurgeAllTrash();
+    }
+  });
+  view.addEventListener('change', e=>{
+    const t = e.target;
+    if(t.dataset.histSel){
+      const table = t.dataset.histSel, ids = histBulk[table].ids;
+      if(t.checked) ids.add(t.value); else ids.delete(t.value);
+      const tr = t.closest('tr'); if(tr) tr.classList.toggle('hist-selected', t.checked);
+      histUpdateBulkBar(table);
+    } else if(t.dataset.histAll){
+      const table = t.dataset.histAll, ids = histBulk[table].ids;
+      histVisibleIds[table].forEach(id=>{ if(t.checked) ids.add(id); else ids.delete(id); });
+      histRenderTable(table);
+    } else if(t.id==='hist-from' || t.id==='hist-to'){
+      histFrom = document.getElementById('hist-from').value;
+      histTo = document.getElementById('hist-to').value;
+      if(histFrom && histTo && histFrom>histTo){ const x = histFrom; histFrom = histTo; histTo = x; document.getElementById('hist-from').value = histFrom; document.getElementById('hist-to').value = histTo; }
+      populateHistoryFilters(histLiftRowsInRange().map(r=>r.w));
+      renderHistoryTables();
+    }
+  });
+  document.getElementById('hist-jump').addEventListener('keydown', e=>{ if(e.key==='Enter'){ e.preventDefault(); histJump(); } });
+  document.getElementById('hist-search').addEventListener('input', e=>{ histSearch = e.target.value.trim().toLowerCase(); renderHistoryTables(); });
 }
 
 /* =====================================================================
@@ -3664,84 +4457,168 @@ document.getElementById('backup-open').addEventListener('click', openBackup);
    All computed on the fly from existing logs; nothing new is stored.
 ===================================================================== */
 function ordinal(n){ const s=['th','st','nd','rd'], v=n%100; return n+(s[(v-20)%10]||s[v]||s[0]); }
-function computeTrophies(daily, lifts, cardio){
-  const earned = [], next = [];
-  const add = (icon, name, date)=> earned.push({icon, name, date});
-  const goal = (icon, name, sub)=> next.push({icon, name, sub});
+
+/* ---------------- Medal case — Bronze/Silver/Gold/Platinum per category ----------------
+   Why tiers instead of one trophy per absolute threshold (the old design):
+   flat thresholds only ever grow (500 workouts alone was 9 separate trophies,
+   and every compound-lift PR added another that never went away), so the
+   shelf got more cluttered the longer you used the app. Tiering collapses
+   each category into one card that always shows "where am I now" plus a
+   progress bar to the next tier — same milestones, constant shelf size. */
+const MEDAL_TIERS = ['bronze','silver','gold','platinum'];
+const MEDAL_TIER_LABEL = {bronze:'Bronze', silver:'Silver', gold:'Gold', platinum:'Platinum'};
+const MEDAL_SEEN_KEY = 'ironlog-gym-medals-seen-v1';
+function tierIndexFor(value, steps){ let idx = -1; steps.forEach((s,i)=>{ if(value>=s) idx = i; }); return idx; }
+function firstDatesForSteps(points, steps){
+  // points: [{date, cum}] ascending with cum non-decreasing.
+  const out = steps.map(()=>null);
+  points.forEach(p=> steps.forEach((s,i)=>{ if(out[i]==null && p.cum>=s) out[i] = p.date; }));
+  return out;
+}
+function computeMedals(daily, lifts, cardio){
   const liftsAsc = lifts.filter(w=>(w.exercises||[]).some(e=>(e.sets||[]).length)).sort((a,b)=> a.date<b.date?-1:1);
+  const cats = [];
+  function addCat(key, icon, name, points, steps, fmt){
+    fmt = fmt || (v=>v.toLocaleString());
+    const cum = points.length ? points[points.length-1].cum : 0;
+    const tierIdx = tierIndexFor(cum, steps);
+    const dates = firstDatesForSteps(points, steps);
+    const nextIdx = tierIdx+1;
+    const next = nextIdx < steps.length ? steps[nextIdx] : null;
+    const floor = tierIdx>=0 ? steps[tierIdx] : 0;
+    cats.push({
+      key, icon, name, cum, tierIdx, tier: tierIdx>=0 ? MEDAL_TIERS[tierIdx] : null,
+      date: tierIdx>=0 ? dates[tierIdx] : null,
+      next, toGo: next!=null ? Math.max(0, next-cum) : null,
+      pct: next!=null ? Math.max(2, Math.min(100, Math.round(100*(cum-floor)/(next-floor)))) : 100,
+      fmt
+    });
+  }
 
   // Workouts logged
-  const W = [1,10,25,50,100,150,200,300,500];
-  W.forEach(m=>{ if(liftsAsc.length>=m) add('🏋️', m===1?'First workout':ordinal(m)+' workout', liftsAsc[m-1].date); });
-  const nw = W.find(m=>liftsAsc.length<m); if(nw) goal('🏋️', ordinal(nw)+' workout', (nw-liftsAsc.length)+' to go');
+  addCat('workouts', '🏋️', 'Workouts logged', liftsAsc.map((w,i)=>({date:w.date, cum:i+1})), [10,50,150,300]);
 
   // Sets logged
-  const S = [100,500,1000,2500,5000]; let setsRun = 0; const setHit = {};
-  liftsAsc.forEach(w=>{ (w.exercises||[]).forEach(e=>{ setsRun += (e.sets||[]).length; }); S.forEach(m=>{ if(!setHit[m] && setsRun>=m) setHit[m] = w.date; }); });
-  S.forEach(m=>{ if(setHit[m]) add('📈', m.toLocaleString()+' sets', setHit[m]); });
-  const ns = S.find(m=>!setHit[m]); if(ns) goal('📈', ns.toLocaleString()+' sets', (ns-setsRun).toLocaleString()+' to go');
+  let setsRun = 0;
+  const setPts = liftsAsc.map(w=>{ (w.exercises||[]).forEach(e=>{ setsRun += (e.sets||[]).length; }); return {date:w.date, cum:setsRun}; });
+  addCat('sets', '📈', 'Sets logged', setPts, [250,1000,3000,6000]);
 
-  // Round-number weights on major (compound) lifts — highest one per lift
-  const perEx = {};
+  // Strength milestones — each time a compound lift reaches a new all-time
+  // round-number weight, once per exercise per crossing (not every session).
+  const perEx = {}, msEvents = [];
   liftsAsc.forEach(w=>{ (w.exercises||[]).forEach(e=>{
     if(exercisePriority({name:e.name}) !== 0) return;
     const unit = normUnit(unitForExercise(e.id)), step = unit==='kg' ? 10 : 25, min = unit==='kg' ? 20 : 50;
     const top = Math.max(0, ...(e.sets||[]).map(s=>+s.weight||0));
-    const th = Math.floor(top/step)*step;
-    if(th >= min && (!perEx[e.id] || th > perEx[e.id].th)) perEx[e.id] = {th, unit, name:e.name, date:w.date};
+    const floor = Math.floor(top/step)*step;
+    if(floor < min) return;
+    const prevFloor = perEx[e.id] ? perEx[e.id].th : 0;
+    if(!perEx[e.id] || floor > perEx[e.id].th) perEx[e.id] = {th:floor, unit, name:e.name, date:w.date};
+    if(floor > prevFloor) msEvents.push({date:w.date});
   }); });
-  Object.values(perEx).forEach(x=> add('🥇', x.name+' · '+x.th+' '+x.unit, x.date));
+  const msPts = msEvents.sort((a,b)=> a.date<b.date?-1:1).map((ev,i)=>({date:ev.date, cum:i+1}));
+  addCat('strength', '🥇', 'Strength milestones', msPts, [1,3,6,10]);
 
-  // Cardio
+  // Cardio sessions / minutes
   const cardioAsc = cardio.slice().sort((a,b)=> a.date<b.date?-1:1);
-  let cSessions = 0, cMinutes = 0; const cHit = {}, mHit = {};
-  const C = [1,10,50,100], M = [1000,2500,5000];
-  cardioAsc.forEach(d=>{ d.entries.forEach(e=>{ cSessions++; cMinutes += (e.duration||0); C.forEach(m=>{ if(!cHit[m] && cSessions>=m) cHit[m]=d.date; }); M.forEach(m=>{ if(!mHit[m] && cMinutes>=m) mHit[m]=d.date; }); }); });
-  C.forEach(m=>{ if(cHit[m]) add('🏃', m===1?'First cardio session':m+' cardio sessions', cHit[m]); });
-  M.forEach(m=>{ if(mHit[m]) add('⏱️', m.toLocaleString()+' cardio minutes', mHit[m]); });
-  const nc = C.find(m=>!cHit[m]); if(nc) goal('🏃', nc===1?'First cardio session':nc+' cardio sessions', (nc-cSessions)+' to go');
+  let cSessions = 0, cMinutes = 0;
+  const cPts = [], mPts = [];
+  cardioAsc.forEach(d=>{ d.entries.forEach(e=>{ cSessions++; cMinutes += (e.duration||0); cPts.push({date:d.date, cum:cSessions}); mPts.push({date:d.date, cum:cMinutes}); }); });
+  addCat('cardioSessions', '🏃', 'Cardio sessions', cPts, [5,20,50,100]);
+  addCat('cardioMinutes', '⏱️', 'Cardio minutes', mPts, [250,1000,2500,5000]);
 
-  // Check-in streaks (best ever)
+  // Check-in streak — best ever (monotonic, so cum works directly as "best so far")
   const dates = [...new Set(daily.map(d=>d.date))].sort();
-  let run = 0, prev = null, best = 0; const stHit = {}; const ST = [7,30,60,100];
-  dates.forEach(ds=>{ run = (prev && addDaysStr(prev,1)===ds) ? run+1 : 1; prev = ds; best = Math.max(best, run); ST.forEach(m=>{ if(!stHit[m] && run>=m) stHit[m] = ds; }); });
-  ST.forEach(m=>{ if(stHit[m]) add('🔥', m+'-day check-in streak', stHit[m]); });
-  const nst = ST.find(m=>!stHit[m]); if(nst) goal('🔥', nst+'-day check-in streak', 'best so far '+best);
+  let run = 0, prev = null, best = 0;
+  const stPts = dates.map(ds=>{ run = (prev && addDaysStr(prev,1)===ds) ? run+1 : 1; prev = ds; best = Math.max(best, run); return {date:ds, cum:best}; });
+  addCat('streak', '🔥', 'Check-in streak (best)', stPts, [7,30,60,100], v=>v+'d');
 
-  // Weight lost from the program's starting weight
+  // Weight down from the program's starting weight — best (lowest) ever
   const start = activeProfile.program.startWeight;
-  const weighAsc = daily.filter(d=>d.weight).sort((a,b)=> a.date<b.date?-1:1);
-  const L = [2.5,5,10,15,20]; const lHit = {};
-  weighAsc.forEach(d=>{ L.forEach(m=>{ if(!lHit[m] && start - d.weight >= m) lHit[m] = d.date; }); });
-  L.forEach(m=>{ if(lHit[m]) add('⚖️', m+' kg down', lHit[m]); });
-  const nl = L.find(m=>!lHit[m] && start - activeProfile.program.targetWeight >= m);
-  if(nl) goal('⚖️', nl+' kg down', weighAsc.length ? (Math.max(0, nl-(start-weighAsc[weighAsc.length-1].weight))).toFixed(1)+' kg to go' : 'log a weigh-in');
+  if(start){
+    const weighAsc = daily.filter(d=>d.weight).sort((a,b)=> a.date<b.date?-1:1);
+    let bestDown = 0;
+    const wPts = weighAsc.map(d=>{ bestDown = Math.max(bestDown, start-d.weight); return {date:d.date, cum:bestDown}; });
+    addCat('weightDown', '⚖️', 'Weight down', wPts, [2.5,5,10,20], v=>v.toFixed(1)+'kg');
+  }
 
-  earned.sort((a,b)=> a.date<b.date?1:-1);
-  return {earned, next};
+  return {cats, perEx};
 }
-function renderTrophies(daily, lifts, cardio){
-  const {earned, next} = computeTrophies(daily, lifts, cardio);
+function renderMedalShelf(daily, lifts, cardio){
+  const {cats, perEx} = computeMedals(daily, lifts, cardio);
   const shelf = document.getElementById('trophy-shelf');
-  document.getElementById('trophy-count').textContent = earned.length+' earned';
-  shelf.innerHTML = earned.map(t=>`<div class="trophy" title="${escHtml(t.name)}"><div class="t-icon">${t.icon}</div><div class="t-name">${escHtml(t.name)}</div><div class="t-date">${fmtHuman(t.date)}</div></div>`).join('')
-    + next.slice(0,4).map(t=>`<div class="trophy locked" title="Next up"><div class="t-icon">${t.icon}</div><div class="t-name">${escHtml(t.name)}</div><div class="t-date">${escHtml(t.sub)}</div></div>`).join('');
-  if(!earned.length && !next.length) shelf.innerHTML = '<div class="empty-note">Log a workout to start your trophy case.</div>';
+  const earnedCount = cats.filter(c=>c.tierIdx>=0).length;
+  document.getElementById('trophy-count').textContent = earnedCount+' of '+cats.length+' medaled';
+  let lastSeen = {};
+  try{ lastSeen = JSON.parse(localStorage.getItem(MEDAL_SEEN_KEY)||'{}'); }catch(e){}
+  const seenNow = Object.assign({}, lastSeen);
+  const strengthDetail = Object.values(perEx).sort((a,b)=> b.date<a.date?-1:1)[0];
+  shelf.innerHTML = cats.map(c=>{
+    seenNow[c.key] = c.tier;
+    const isNew = c.tier && lastSeen[c.key] !== c.tier;
+    const tierCls = c.tier ? 'tier-'+c.tier : 'tier-none';
+    const tierLabel = c.tier ? MEDAL_TIER_LABEL[c.tier] : 'Not started';
+    let statLine;
+    if(c.tierIdx>=0){
+      statLine = c.fmt(c.cum) + (c.next!=null ? ' · '+c.fmt(c.toGo)+' to '+MEDAL_TIER_LABEL[MEDAL_TIERS[c.tierIdx+1]] : ' · maxed out');
+      if(c.key==='strength' && strengthDetail) statLine += ' · latest '+strengthDetail.name+' '+strengthDetail.th+strengthDetail.unit;
+    } else {
+      statLine = c.next!=null ? c.fmt(c.next)+' for Bronze' : '';
+    }
+    return `<div class="medal ${tierCls}${isNew?' new-tier':''}" title="${escHtml(c.name)}">
+      <div class="m-icon">${c.icon}</div>
+      <div class="m-name">${escHtml(c.name)}</div>
+      <div class="m-tier">${tierLabel}</div>
+      <div class="m-stat">${escHtml(statLine)}</div>
+      <div class="m-track"><div class="m-fill" style="width:${c.pct}%"></div></div>
+    </div>`;
+  }).join('') || '<div class="empty-note">Log a workout to start your medal case.</div>';
+  try{ localStorage.setItem(MEDAL_SEEN_KEY, JSON.stringify(seenNow)); }catch(e){}
 }
-function renderMuscleRecovery(lifts){
+
+/* ---------------- Training consistency heatmap (last ~13 weeks) ---------------- */
+function renderConsistencyHeatmap(daily, lifts, cardio){
+  const wrap = document.getElementById('consistency-heatmap');
+  if(!wrap) return;
+  const today = new Date(todayStr()+'T00:00:00');
+  const start = new Date(today); start.setDate(start.getDate()-90); start.setDate(start.getDate()-start.getDay());
+  const dailySet = new Set(daily.map(d=>d.date));
+  const liftSet = new Set(lifts.filter(w=>(w.exercises||[]).some(e=>(e.sets||[]).length)).map(w=>w.date));
+  const cardioSet = new Set(cardio.filter(c=>(c.entries||[]).length).map(c=>c.date));
+  const cs = getComputedStyle(document.body);
+  const accent = cs.getPropertyValue('--accent').trim();
+  const opac = ['1','.22','.5','.85'];
+  let cursor = new Date(start), html = '';
+  while(cursor <= today){
+    const ds = fmtDate(cursor);
+    const level = (dailySet.has(ds)?1:0) + (liftSet.has(ds)?1:0) + (cardioSet.has(ds)?1:0);
+    const bg = level ? accent : 'var(--surface-alt)';
+    const label = level ? (fmtHuman(ds)+' · '+level+' log type'+(level>1?'s':'')) : (fmtHuman(ds)+' · nothing logged');
+    html += `<div class="heatmap-cell" style="background:${bg};opacity:${opac[level]}" title="${escHtml(label)}"></div>`;
+    cursor.setDate(cursor.getDate()+1);
+  }
+  wrap.innerHTML = html;
+}
+
+function computeMuscleVolume(lifts){
   const today = todayStr();
   const from = addDaysStr(today, -6);
   const vol = {}, days = {};
   lifts.forEach(w=>{
     if(w.date < from || w.date > today) return;
     (w.exercises||[]).forEach(e=>{
+      if(!(e.sets||[]).length) return;
       const g = muscleGroupFor(e);
       const v = (e.sets||[]).reduce((s,set)=> s + setVolumeKg(e.id, set), 0);
-      if(!(e.sets||[]).length) return;
       vol[g] = (vol[g]||0) + v;
       (days[g] = days[g] || new Set()).add(w.date);
     });
   });
+  return {vol, days};
+}
+function renderMuscleRecovery(lifts, mv){
+  const {vol, days} = mv;
+  const today = todayStr();
   const groups = MUSCLE_ORDER.filter(g=> vol[g]!=null);
   const wrap = document.getElementById('muscle-volume');
   if(!groups.length){ wrap.innerHTML = '<div class="empty-note">No sets logged in the last 7 days.</div>'; }
@@ -3760,6 +4637,69 @@ function renderMuscleRecovery(lifts){
       : `<div class="meta-chip info" style="white-space:normal;">${joinNice(both)} back-to-back · ${fmtShort(d1)} → ${fmtShort(d2)}</div>`);
   }
   document.getElementById('muscle-flags').innerHTML = flags.reverse().join('') || (groups.length ? '<div class="meta-chip good">No muscle group trained on back-to-back days this week.</div>' : '');
+}
+function renderMuscleRadar(mv){
+  destroyChart('muscleRadar');
+  const canvas = document.getElementById('chart-muscle-radar'), empty = document.getElementById('muscle-radar-empty');
+  if(!canvas) return;
+  const {vol} = mv;
+  const groups = MUSCLE_ORDER.filter(g=> g!=='Other' && vol[g]!=null);
+  if(groups.length < 3){ canvas.style.display = 'none'; empty.style.display = 'block'; empty.textContent = groups.length ? 'Log a couple more muscle groups this week to see the shape.' : 'No sets logged in the last 7 days.'; return; }
+  canvas.style.display = ''; empty.style.display = 'none';
+  const cs = getComputedStyle(document.body);
+  const a = cs.getPropertyValue('--accent').trim(), grid = cs.getPropertyValue('--border').trim();
+  charts.muscleRadar = new Chart(canvas, {
+    type:'radar',
+    data:{ labels:groups, datasets:[{ label:'kg (7d)', data:groups.map(g=>Math.round(vol[g])), backgroundColor:a+'33', borderColor:a, pointBackgroundColor:a }]},
+    options:{ responsive:true, scales:{ r:{ beginAtZero:true, grid:{color:grid}, angleLines:{color:grid}, pointLabels:{font:{size:10.5}} } }, plugins:{legend:{display:false}} }
+  });
+}
+function renderTonnageTrend(lifts){
+  destroyChart('tonnage');
+  const canvas = document.getElementById('chart-tonnage'), empty = document.getElementById('tonnage-empty');
+  if(!canvas) return;
+  const weekMap = {};
+  lifts.forEach(w=>{
+    const dt = new Date(w.date+'T00:00:00'); const ws = new Date(dt); ws.setDate(dt.getDate()-dt.getDay());
+    const key = fmtDate(ws);
+    let t = 0;
+    (w.exercises||[]).forEach(e=> (e.sets||[]).forEach(set=> t += setVolumeKg(e.id, set)));
+    weekMap[key] = (weekMap[key]||0) + t;
+  });
+  const keys = Object.keys(weekMap).sort();
+  if(!keys.length){ canvas.style.display = 'none'; empty.style.display = 'block'; return; }
+  canvas.style.display = ''; empty.style.display = 'none';
+  const cs = getComputedStyle(document.body);
+  const b = cs.getPropertyValue('--accent-deep').trim(), grid = cs.getPropertyValue('--border').trim();
+  charts.tonnage = new Chart(canvas, {
+    type:'bar',
+    data:{ labels:keys, datasets:[{ label:'Total kg lifted', data:keys.map(k=>Math.round(weekMap[k])), backgroundColor:b, borderRadius:4 }]},
+    options:{ responsive:true, scales:{ y:{grid:{color:grid}}, x:{grid:{display:false}} }, plugins:{legend:{display:false}} }
+  });
+}
+function renderTrainingSplit(lifts){
+  destroyChart('split');
+  const canvas = document.getElementById('chart-split'), empty = document.getElementById('split-empty');
+  if(!canvas) return;
+  const today = todayStr(), from = addDaysStr(today, -29);
+  const counts = {};
+  lifts.forEach(w=>{
+    if(w.date < from || w.date > today) return;
+    (w.exercises||[]).forEach(e=>{
+      if(!(e.sets||[]).length) return;
+      const g = muscleGroupFor(e);
+      counts[g] = (counts[g]||0) + e.sets.length;
+    });
+  });
+  const groups = MUSCLE_ORDER.filter(g=>counts[g]);
+  if(!groups.length){ canvas.style.display = 'none'; empty.style.display = 'block'; return; }
+  canvas.style.display = ''; empty.style.display = 'none';
+  const palette = ['#D98C3D','#4E8FB0','#8B6BB1','#5FAE6E','#D65F6F','#C9A227','#4F7DBF','#7C7C7C','#B15FAE','#5FB1A0'];
+  charts.split = new Chart(canvas, {
+    type:'doughnut',
+    data:{ labels:groups, datasets:[{ data:groups.map(g=>counts[g]), backgroundColor:groups.map((g,i)=>palette[i%palette.length]) }]},
+    options:{ responsive:true, plugins:{legend:{position:'bottom', labels:{boxWidth:10,font:{size:10.5}}}} }
+  });
 }
 function renderSessionTrend(lifts){
   destroyChart('session');
@@ -3787,9 +4727,14 @@ function renderSessionTrend(lifts){
 }
 async function renderProgressExtras(){
   const [daily, lifts, cardio] = await Promise.all([listDaily(), listLift(), listCardio()]);
-  renderTrophies(daily, lifts, cardio);
-  renderMuscleRecovery(lifts);
+  renderMedalShelf(daily, lifts, cardio);
+  renderConsistencyHeatmap(daily, lifts, cardio);
+  const mv = computeMuscleVolume(lifts);
+  renderMuscleRecovery(lifts, mv);
+  renderMuscleRadar(mv);
   renderSessionTrend(lifts);
+  renderTonnageTrend(lifts);
+  renderTrainingSplit(lifts);
 }
 
 /* =====================================================================
@@ -3837,5 +4782,9 @@ if('serviceWorker' in navigator){
 <div id="preview-modal-mount"></div>
 <div id="modal-mount"></div>
 <div id="live-session-mount"></div>
+<div class="undo-toast" id="hist-undo-toast" role="status" aria-live="polite">
+  <span id="hist-undo-text">Deleted</span>
+  <button type="button" id="hist-undo-btn">Undo</button>
+</div>
 </body>
 </html>
