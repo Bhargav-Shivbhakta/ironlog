@@ -518,11 +518,17 @@
   .muscle-track{height:10px;background:var(--surface-alt);border-radius:20px;overflow:hidden;}
   .muscle-fill{height:100%;border-radius:20px;background:var(--accent);}
   .muscle-val{text-align:right;color:var(--text-soft);font-variant-numeric:tabular-nums;font-size:11.5px;}
-  .heatmap-wrap{overflow-x:auto;padding-bottom:2px;}
-  .heatmap-grid{display:grid;grid-auto-flow:column;grid-template-rows:repeat(7,12px);gap:3px;width:max-content;}
-  .heatmap-cell{width:12px;height:12px;border-radius:3px;}
+  .macro-bars{margin-top:12px;}
+  .macro-bars .muscle-row{grid-template-columns:70px minmax(0,1fr) 118px;}
+  .heatmap-row{display:flex;gap:28px;align-items:center;flex-wrap:wrap;}
+  .heatmap-wrap{overflow-x:auto;padding-bottom:2px;flex:1;min-width:220px;}
+  .heatmap-grid{display:grid;grid-auto-flow:column;grid-template-rows:repeat(7,13px);gap:3px;width:max-content;}
+  .heatmap-cell{width:13px;height:13px;border-radius:3px;}
   .heatmap-legend{display:flex;align-items:center;gap:5px;font-size:10.5px;color:var(--text-faint);margin-top:9px;}
   .heatmap-legend .heatmap-cell{width:10px;height:10px;}
+  .heatmap-stats{display:flex;gap:10px;flex-wrap:wrap;margin-left:auto;}
+  .heatmap-stats .metric{min-width:108px;box-shadow:none;}
+  @media(max-width:640px){.heatmap-stats{margin-left:0;}}
   .chart-card.narrow{max-width:380px;margin:0 auto;}
   .muscle-flags{margin-top:10px;display:flex;flex-direction:column;gap:6px;}
 
@@ -883,6 +889,45 @@
       <h2 id="diet-title">Diet Plan</h2>
       <p id="diet-sub"></p>
     </div>
+
+    <div class="panel" id="diet-today-panel">
+      <div class="panel-head">
+        <div><div class="panel-title">Today's Nutrition &amp; Training</div><div class="panel-subtitle">Live from the Diet app's diary and today's gym log — actual logging still happens in Diet.</div></div>
+        <a href="../apps/diet.html" id="diet-log-link" target="_blank" rel="noopener" class="btn-mini primary" style="display:inline-block;text-decoration:none;white-space:nowrap;">Log in Diet app →</a>
+      </div>
+      <div class="today-metrics" id="diet-today-metrics"></div>
+      <div class="macro-bars" id="diet-macro-bars" style="margin-top:4px;"></div>
+    </div>
+
+    <div class="grid-2" style="margin:14px 0;">
+      <div class="chart-card">
+        <h3>Macro Split (today)</h3>
+        <div class="panel-subtitle" style="margin:-8px 0 12px;">Share of today's calories by macro.</div>
+        <canvas id="chart-macro-split" height="200"></canvas>
+        <div class="empty-note" id="macro-split-empty" style="display:none;">Nothing logged in Diet today yet.</div>
+      </div>
+      <div class="chart-card">
+        <h3>Calories — 14 days</h3>
+        <div class="panel-subtitle" style="margin:-8px 0 12px;">Actual vs target (dashed), from the Diet app's diary.</div>
+        <canvas id="chart-cal-trend" height="200"></canvas>
+        <div class="empty-note" id="cal-trend-empty" style="display:none;">No meals logged in Diet yet.</div>
+      </div>
+    </div>
+    <div class="grid-2" style="margin:14px 0;">
+      <div class="chart-card">
+        <h3>Protein — 14 days</h3>
+        <div class="panel-subtitle" style="margin:-8px 0 12px;">Actual vs target (dashed), grams per day.</div>
+        <canvas id="chart-protein-trend" height="200"></canvas>
+        <div class="empty-note" id="protein-trend-empty" style="display:none;">No meals logged in Diet yet.</div>
+      </div>
+      <div class="chart-card">
+        <h3>Water — 14 days</h3>
+        <div class="panel-subtitle" style="margin:-8px 0 12px;">Logged from your daily check-in, vs target (dashed).</div>
+        <canvas id="chart-water-trend" height="200"></canvas>
+        <div class="empty-note" id="water-trend-empty" style="display:none;">No water logged in the last 14 days.</div>
+      </div>
+    </div>
+
     <div id="diet-meals"></div>
     <div class="day-total" id="day-total-wrap" style="display:none;">
       <div class="dt-label">Meal Plan Total</div>
@@ -928,8 +973,13 @@
 
     <div class="panel">
       <div class="panel-head"><div><div class="panel-title">Training consistency</div><div class="panel-subtitle">Every day you logged something, over the last ~13 weeks.</div></div></div>
-      <div class="heatmap-wrap"><div class="heatmap-grid" id="consistency-heatmap"></div></div>
-      <div class="heatmap-legend">Less <div class="heatmap-cell" style="background:var(--surface-alt)"></div><div class="heatmap-cell" style="background:var(--accent);opacity:.22"></div><div class="heatmap-cell" style="background:var(--accent);opacity:.5"></div><div class="heatmap-cell" style="background:var(--accent);opacity:.85"></div> More</div>
+      <div class="heatmap-row">
+        <div class="heatmap-wrap">
+          <div class="heatmap-grid" id="consistency-heatmap"></div>
+          <div class="heatmap-legend">Less <div class="heatmap-cell" style="background:var(--surface-alt)"></div><div class="heatmap-cell" style="background:var(--accent);opacity:.22"></div><div class="heatmap-cell" style="background:var(--accent);opacity:.5"></div><div class="heatmap-cell" style="background:var(--accent);opacity:.85"></div> More</div>
+        </div>
+        <div class="heatmap-stats" id="heatmap-stats"></div>
+      </div>
     </div>
 
     <div class="grid-2">
@@ -2843,8 +2893,124 @@ async function saveDietMealsOrder(){
     if(msg) msg.textContent = 'Could not save the new order — try again.';
   }
 }
+/* ---------------- Today's Nutrition & Training dashboard ----------------
+   Reads the Diet app's diary (already loaded by loadLiveDietData) plus
+   this app's own dailyLogs/cardioLogs/workoutLogs — nothing new is
+   stored here, this is a detailed read-only view over live data. */
+function dietDayTotals(entries){
+  const t = {calories:0, protein:0, carbs:0, fat:0, fiber:0};
+  entries.forEach(function(e){
+    const factor = (e.servings!=null?e.servings:1) / (e.recipeServings||1);
+    const n = e.nutrition || {};
+    t.calories += (n.calories||0)*factor;
+    t.protein  += (n.protein||0)*factor;
+    t.carbs    += (n.carbs||0)*factor;
+    t.fat      += (n.fat||0)*factor;
+    t.fiber    += (n.fiber||0)*factor;
+  });
+  return t;
+}
+function macroBarRow(label, val, target, unit, decimals){
+  if(!target) return '';
+  const pct = Math.max(3, Math.min(100, Math.round(100*val/target)));
+  const over = val > target;
+  return '<div class="muscle-row"><span class="m-name">'+escHtml(label)+'</span><div class="muscle-track"><div class="muscle-fill" style="width:'+pct+'%;'+(over?'background:var(--accent-deep);':'')+'"></div></div><span class="muscle-val">'+val.toFixed(decimals)+unit+' / '+target+unit+'</span></div>';
+}
+async function renderDietToday(){
+  const panel = document.getElementById('diet-today-panel');
+  if(!panel) return;
+  const p = activeProfile;
+  const today = todayStr();
+  const link = document.getElementById('diet-log-link');
+  if(link) link.href = '../apps/diet.html?profile='+(p.id==='bhargav'?'Bhargav':'Anusha');
+
+  const profileGoals = (dietStateLive && dietStateLive.profiles && dietStateLive.profiles[p.id] && dietStateLive.profiles[p.id].goals) || (dietStateLive && dietStateLive.goals) || {};
+  const diary = ((dietStateLive && dietStateLive.diary) || []).filter(function(e){ return e.profileId===p.id; });
+  const todayTotals = dietDayTotals(diary.filter(function(e){ return e.date===today; }));
+
+  const [dailyLog, cardioToday, lifts, dailyAll] = await Promise.all([getDaily(today), getCardio(today), listLift(), listDaily()]);
+  const water = (dailyLog && dailyLog.water) || 0;
+  const cardioActiveKcal = (cardioToday||[]).reduce(function(s,e){ const k = estimateCardioKcal(e.machine,e.duration,e.speed,e.incline); return s + (k?k.active:0); }, 0);
+  const cardioMinutes = (cardioToday||[]).reduce(function(s,e){ return s+(e.duration||0); }, 0);
+  const liftsToday = (lifts||[]).filter(function(w){ return w.date===today && (w.exercises||[]).some(function(e){ return (e.sets||[]).length; }); });
+  let tonnageToday = 0, setsToday = 0;
+  liftsToday.forEach(function(w){ (w.exercises||[]).forEach(function(e){ (e.sets||[]).forEach(function(s){ tonnageToday += setVolumeKg(e.id, s); setsToday++; }); }); });
+  const netCal = todayTotals.calories - cardioActiveKcal;
+
+  const metricsEl = document.getElementById('diet-today-metrics');
+  if(metricsEl) metricsEl.innerHTML = [
+    ['Calories in', Math.round(todayTotals.calories)+'<small>kcal</small>'],
+    ['Protein', todayTotals.protein.toFixed(0)+'<small>g</small>'],
+    ['Carbs', todayTotals.carbs.toFixed(0)+'<small>g</small>'],
+    ['Fat', todayTotals.fat.toFixed(0)+'<small>g</small>'],
+    ['Fiber', todayTotals.fiber.toFixed(0)+'<small>g</small>'],
+    ['Water', water ? water.toFixed(1)+'<small>L</small>' : '—'],
+    ['Trained today', (tonnageToday||cardioMinutes) ? (Math.round(tonnageToday).toLocaleString()+'<small>kg lifted</small>') : '—'],
+    ['Active kcal out', Math.round(cardioActiveKcal)+'<small>kcal</small>'],
+    ['Net calories', Math.round(netCal)+'<small>kcal</small>']
+  ].map(function(pair){ return '<div class="metric"><div class="metric-label">'+escHtml(pair[0])+'</div><div class="metric-value">'+pair[1]+'</div></div>'; }).join('');
+
+  const barsEl = document.getElementById('diet-macro-bars');
+  if(barsEl){
+    const bars = macroBarRow('Calories', todayTotals.calories, profileGoals.calories, '', 0)
+      + macroBarRow('Protein', todayTotals.protein, profileGoals.protein, 'g', 0)
+      + macroBarRow('Carbs', todayTotals.carbs, profileGoals.carbs, 'g', 0)
+      + macroBarRow('Fat', todayTotals.fat, profileGoals.fat, 'g', 0)
+      + macroBarRow('Water', water, p.waterTarget, 'L', 1);
+    barsEl.innerHTML = bars || '<div class="empty-note">Set calorie/macro targets in the Diet app to see progress bars here.</div>';
+  }
+
+  // Macro split donut — calories contributed by protein/carbs/fat today.
+  destroyChart('macroSplit');
+  const msCanvas = document.getElementById('chart-macro-split'), msEmpty = document.getElementById('macro-split-empty');
+  const calP = todayTotals.protein*4, calC = todayTotals.carbs*4, calF = todayTotals.fat*9;
+  if(msCanvas){
+    if(calP+calC+calF <= 0){ msCanvas.style.display='none'; if(msEmpty) msEmpty.style.display='block'; }
+    else{
+      msCanvas.style.display=''; if(msEmpty) msEmpty.style.display='none';
+      charts.macroSplit = new Chart(msCanvas, {
+        type:'doughnut',
+        data:{ labels:['Protein','Carbs','Fat'], datasets:[{ data:[Math.round(calP),Math.round(calC),Math.round(calF)], backgroundColor:['#2a78d6','#eb6834','#1baf7a'], borderColor:'#fff', borderWidth:2 }]},
+        options:{ responsive:true, plugins:{legend:{position:'bottom', labels:{boxWidth:10,font:{size:10.5}}}} }
+      });
+    }
+  }
+
+  // 14-day trends — each single-axis, with a dashed target reference line
+  // rather than mixing a second scale into the same chart.
+  const dates14 = Array.from({length:14}, function(_,i){ return addDaysStr(today, -13+i); });
+  const xLabels = dates14.map(function(d){ return d.slice(5).replace('-','/'); });
+  const trendVals = dates14.map(function(d){ return dietDayTotals(diary.filter(function(e){ return e.date===d; })); });
+  const cs = getComputedStyle(document.body);
+  const accentA = cs.getPropertyValue('--accent').trim(), accentB = cs.getPropertyValue('--accent-deep').trim(), gridColor = cs.getPropertyValue('--border').trim();
+
+  function singleLineChart(chartKey, canvasId, emptyId, values, target, label, color, hasData){
+    destroyChart(chartKey);
+    const canvas = document.getElementById(canvasId), empty = document.getElementById(emptyId);
+    if(!canvas) return;
+    if(!hasData){ canvas.style.display='none'; if(empty) empty.style.display='block'; return; }
+    canvas.style.display=''; if(empty) empty.style.display='none';
+    const datasets = [{ label:label, data:values, borderColor:color, backgroundColor:color+'22', fill:true, tension:0.3, pointRadius:2 }];
+    if(target) datasets.push({ label:'Target', data:xLabels.map(function(){ return target; }), borderColor:gridColor, borderDash:[5,4], pointRadius:0, fill:false });
+    charts[chartKey] = new Chart(canvas, {
+      type:'line',
+      data:{ labels:xLabels, datasets:datasets },
+      options:{ responsive:true, scales:{ y:{ beginAtZero:true, grid:{color:gridColor} }, x:{ grid:{display:false} } }, plugins:{ legend:{ display:!!target, position:'bottom', labels:{boxWidth:10,font:{size:10.5}} } } }
+    });
+  }
+  const calVals = trendVals.map(function(t){ return Math.round(t.calories); });
+  const proVals = trendVals.map(function(t){ return Math.round(t.protein); });
+  singleLineChart('calTrend', 'chart-cal-trend', 'cal-trend-empty', calVals, profileGoals.calories, 'Calories', accentA, calVals.some(function(v){ return v>0; }));
+  singleLineChart('proteinTrend', 'chart-protein-trend', 'protein-trend-empty', proVals, profileGoals.protein, 'Protein (g)', accentB, proVals.some(function(v){ return v>0; }));
+
+  const waterByDate = {};
+  (dailyAll||[]).forEach(function(d){ if(d.water) waterByDate[d.date] = d.water; });
+  const waterVals = dates14.map(function(d){ return waterByDate[d] || 0; });
+  singleLineChart('waterTrend', 'chart-water-trend', 'water-trend-empty', waterVals, p.waterTarget, 'Water (L)', accentA, waterVals.some(function(v){ return v>0; }));
+}
 async function renderDiet(){
   const p = activeProfile;
+  renderDietToday().catch(function(e){ console.error('renderDietToday failed', e); });
   document.getElementById('diet-title').textContent = p.id === 'bhargav' ? 'Phase 1 Diet' : 'Daily Diet Plan';
   document.getElementById('diet-sub').textContent = p.id === 'bhargav'
     ? fmtHuman(p.phases[0].start).replace(', 2026','')+' – '+fmtHuman(p.phases[0].end)+' · All rice and dal weights are cooked weights.'
@@ -4588,16 +4754,30 @@ function renderConsistencyHeatmap(daily, lifts, cardio){
   const cs = getComputedStyle(document.body);
   const accent = cs.getPropertyValue('--accent').trim();
   const opac = ['1','.22','.5','.85'];
-  let cursor = new Date(start), html = '';
+  let cursor = new Date(start), html = '', activeDays = 0, longest = 0, running = 0, current = 0;
+  const todayDs = fmtDate(today);
+  const cells = [];
   while(cursor <= today){
     const ds = fmtDate(cursor);
     const level = (dailySet.has(ds)?1:0) + (liftSet.has(ds)?1:0) + (cardioSet.has(ds)?1:0);
+    cells.push({ds, level});
+    if(level){ activeDays++; running++; longest = Math.max(longest, running); } else { running = 0; }
     const bg = level ? accent : 'var(--surface-alt)';
     const label = level ? (fmtHuman(ds)+' · '+level+' log type'+(level>1?'s':'')) : (fmtHuman(ds)+' · nothing logged');
     html += `<div class="heatmap-cell" style="background:${bg};opacity:${opac[level]}" title="${escHtml(label)}"></div>`;
     cursor.setDate(cursor.getDate()+1);
   }
   wrap.innerHTML = html;
+  // Current streak: walk back from today (or yesterday, if today has nothing logged yet).
+  let ci = cells.length-1;
+  if(cells[ci] && cells[ci].ds===todayDs && !cells[ci].level) ci--;
+  current = 0;
+  while(ci>=0 && cells[ci].level){ current++; ci--; }
+  const statsEl = document.getElementById('heatmap-stats');
+  if(statsEl) statsEl.innerHTML =
+    `<div class="metric"><div class="metric-label">Active days</div><div class="metric-value">${activeDays}<small>/ ${cells.length}</small></div></div>`+
+    `<div class="metric"><div class="metric-label">Current streak</div><div class="metric-value">${current}<small>d</small></div></div>`+
+    `<div class="metric"><div class="metric-label">Best streak</div><div class="metric-value">${longest}<small>d</small></div></div>`;
 }
 
 function computeMuscleVolume(lifts){
@@ -4691,13 +4871,26 @@ function renderTrainingSplit(lifts){
       counts[g] = (counts[g]||0) + e.sets.length;
     });
   });
-  const groups = MUSCLE_ORDER.filter(g=>counts[g]);
+  let groups = MUSCLE_ORDER.filter(g=>counts[g]);
   if(!groups.length){ canvas.style.display = 'none'; empty.style.display = 'block'; return; }
   canvas.style.display = ''; empty.style.display = 'none';
-  const palette = ['#D98C3D','#4E8FB0','#8B6BB1','#5FAE6E','#D65F6F','#C9A227','#4F7DBF','#7C7C7C','#B15FAE','#5FB1A0'];
+  // Validated categorical order (blue/orange/aqua/yellow/magenta/green/violet/red) —
+  // CVD-safe up to 8 adjacent slices; a 9th+ group folds into "Other" rather
+  // than reusing a hue or cycling the ramp.
+  const THEME = ['#2a78d6','#eb6834','#1baf7a','#eda100','#e87ba4','#008300','#4a3aa7','#e34948'];
+  let dataMap = counts;
+  if(groups.length > 8){
+    const bySize = groups.slice().sort((a,b)=> counts[b]-counts[a]);
+    const keepSet = new Set(bySize.slice(0,7));
+    let otherSum = 0;
+    groups.forEach(g=>{ if(!keepSet.has(g)) otherSum += counts[g]; });
+    groups = MUSCLE_ORDER.filter(g=>keepSet.has(g));
+    dataMap = {}; groups.forEach(g=>dataMap[g]=counts[g]); dataMap['Other'] = otherSum;
+    groups = groups.concat(['Other']);
+  }
   charts.split = new Chart(canvas, {
     type:'doughnut',
-    data:{ labels:groups, datasets:[{ data:groups.map(g=>counts[g]), backgroundColor:groups.map((g,i)=>palette[i%palette.length]) }]},
+    data:{ labels:groups, datasets:[{ data:groups.map(g=>dataMap[g]), backgroundColor:groups.map((g,i)=>THEME[i%THEME.length]), borderColor:'#fff', borderWidth:2 }]},
     options:{ responsive:true, plugins:{legend:{position:'bottom', labels:{boxWidth:10,font:{size:10.5}}}} }
   });
 }
