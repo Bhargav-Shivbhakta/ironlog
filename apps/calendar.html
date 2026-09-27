@@ -210,7 +210,7 @@
   .cal-timelabel{position:absolute;right:6px;font-size:10.5px;color:var(--text-faint);transform:translateY(-50%);white-space:nowrap;line-height:1;}
   .cal-daycol{position:relative;border-right:1px solid var(--border-soft);background-image:repeating-linear-gradient(to bottom, var(--border-soft) 0, var(--border-soft) 1px, transparent 1px, transparent 56px);}
   .cal-daycol.today{background-color:rgba(173,123,32,0.04);}
-  .cal-block{position:absolute;left:2px;right:2px;border-radius:5px;border-left:3px solid;padding:2px 5px;overflow:hidden;font-size:11.5px;line-height:1.25;cursor:pointer;}
+  .cal-block{position:absolute;left:2px;right:2px;border-radius:5px;border-left:3px solid;padding:2px 5px;overflow:hidden;font-size:11.5px;line-height:1.25;cursor:pointer;box-shadow:0 0 0 1px var(--surface);}
   .cal-block .cb-title{font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
   .cal-block-native{cursor:grab;user-select:none;}
   .cal-block-native:active{cursor:grabbing;}
@@ -1312,19 +1312,24 @@ function renderGridCalendarView(mountEl, rangeStart, dayCount){
       const durMin = item.end - item.start;
       if(startMin+durMin < 0 || startMin > totalHours*60) return;
       const top = Math.max(0,(startMin/60))*GRID_HOUR_PX;
-      const height = Math.max(20, (durMin/60)*GRID_HOUR_PX);
+      // Trim 2px off the bottom of every block (and nudge it 1px down from
+      // its true top) so two back-to-back blocks — which don't count as an
+      // "overlap" since one ends exactly when the other starts — get a
+      // visible seam between them instead of touching edge-to-edge and
+      // reading as one merged, garbled block.
+      const height = Math.max(20, (durMin/60)*GRID_HOUR_PX - 2);
       const laneCount = item.laneCount||1;
       const laneWidth = 100/laneCount;
       const posStyle = laneCount>1
-        ? 'left:calc('+(item.lane*laneWidth)+'% + 2px);width:calc('+laneWidth+'% - 4px);'
-        : 'left:2px;right:2px;';
+        ? 'top:'+(top+1)+'px;left:calc('+(item.lane*laneWidth)+'% + 2px);width:calc('+laneWidth+'% - 4px);'
+        : 'top:'+(top+1)+'px;left:2px;right:2px;';
       const isNative = !!e.nativeId;
       const editAttr = isNative ? ' data-editnative="'+e.nativeId+'"' : '';
       const handles = isNative ? '<div class="cal-resize-handle top" data-resize="top"></div><div class="cal-resize-handle bottom" data-resize="bottom"></div>' : '';
       const linkIcon = e.meetingLink ? '<a class="cal-block-link" href="'+escapeHtml(e.meetingLink)+'" target="_blank" rel="noopener" onclick="event.stopPropagation()" title="Open link">🔗</a>' : '';
       const taskTitles = (e.linkedTasks||[]).map(function(lt){ return lt.title; }).join(', ');
       const taskIcon = (e.linkedTasks&&e.linkedTasks.length) ? '<span class="cal-block-link cal-block-task" title="Linked task: '+escapeHtml(taskTitles)+'">📋</span>' : '';
-      blocksHtml += '<div class="cal-block'+(isNative?' cal-block-native':'')+'" style="top:'+top+'px;height:'+height+'px;'+posStyle+'border-left-color:'+e.color+';background:'+e.color+'22;color:'+e.color+';"'+editAttr+'><div class="cb-title">'+escapeHtml(e.title)+'</div>'+linkIcon+taskIcon+handles+'</div>';
+      blocksHtml += '<div class="cal-block'+(isNative?' cal-block-native':'')+'" style="height:'+height+'px;'+posStyle+'border-left-color:'+e.color+';background:'+e.color+'22;color:'+e.color+';"'+editAttr+'><div class="cb-title">'+escapeHtml(e.title)+'</div>'+linkIcon+taskIcon+handles+'</div>';
     });
     if(isToday){
       const now = new Date();

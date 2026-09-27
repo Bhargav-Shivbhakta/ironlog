@@ -439,6 +439,27 @@
   .btn-mini.danger{background:var(--danger-soft);color:var(--danger);}
   .btn-mini.ghost{background:var(--surface-2);color:var(--text-soft);}
 
+  /* Schedule-block picker: a trigger button that opens a searchable,
+     day-by-day collapsible panel instead of one long native <select> with
+     every block from every day flattened together. */
+  .sbp{position:relative;}
+  .sbp-trigger{width:100%;text-align:left;font-size:13px;padding:7px 9px;border-radius:7px;border:1px solid var(--border);background:var(--surface-2);color:var(--text);cursor:pointer;display:flex;align-items:center;justify-content:space-between;gap:6px;}
+  .sbp-caret{color:var(--text-faint);font-size:10px;}
+  .sbp-clear{position:absolute;right:26px;top:6px;background:none;border:none;color:var(--text-faint);cursor:pointer;font-size:12px;padding:2px 4px;}
+  .sbp-panel{position:absolute;z-index:40;top:calc(100% + 4px);left:0;right:0;background:var(--surface);border:1px solid var(--border);border-radius:10px;box-shadow:var(--shadow);padding:8px;max-height:280px;display:flex;flex-direction:column;gap:6px;}
+  .sbp-search{font-size:12.5px;padding:7px 9px;border-radius:7px;border:1px solid var(--border);background:var(--surface-2);color:var(--text);width:100%;}
+  .sbp-results{overflow-y:auto;flex:1;}
+  .sbp-day-head{width:100%;display:flex;align-items:center;gap:6px;background:none;border:none;color:var(--text);font-size:12.5px;font-weight:700;padding:6px 4px;cursor:pointer;text-align:left;}
+  .sbp-daycount{color:var(--text-faint);font-weight:500;}
+  .sbp-day-caret{margin-left:auto;color:var(--text-faint);font-size:10px;}
+  .sbp-day-blocks{padding-left:6px;}
+  .sbp-block-row{display:flex;align-items:center;gap:8px;padding:6px 8px;border-radius:7px;cursor:pointer;font-size:12.5px;}
+  .sbp-block-row:hover{background:var(--surface-2);}
+  .sbp-block-row.selected{background:var(--accent-soft);color:var(--accent-deep);font-weight:700;}
+  .sbp-block-label{flex:1;}
+  .sbp-block-day{font-size:10px;font-weight:700;color:var(--text-faint);text-transform:uppercase;width:28px;flex:none;}
+  .sbp-block-time{color:var(--text-faint);font-size:11px;flex:none;}
+
   .empty-note{color:var(--text-faint);font-size:13.5px;padding:22px 6px;text-align:center;}
 
   .new-list-form{display:flex;gap:6px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-md);padding:10px;margin-bottom:10px;}
@@ -676,23 +697,147 @@ async function loadScheduleDayTemplatesForBlockPicker(){
   }catch(e){ scheduleDayTemplatesCache = {}; }
 }
 const SCHEDULE_WEEKDAY_ORDER = ['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'];
-function scheduleBlockOptionsHtml(selWd, selLabel){
-  let html = '<option value="">— None —</option>';
+
+/* ---- Schedule-block picker: trigger button + searchable, collapsible-by-day panel ----
+   Replaces a single flat <select> (every block from every day in one long
+   list) with a compact control: closed by default showing just the current
+   pick, opening into weekday sections you expand one at a time, or a
+   dedicated search box that matches across every day at once. Used both
+   from the quick-add form (da-scheduleblock-*) and from each task's detail
+   view (td-scheduleblock-*), so it's built generically off a fieldId — the
+   hidden input's own value (encoded "Weekday||Label") is the single source
+   of truth for what's selected, read back out by whichever save handler
+   owns that field. */
+function scheduleBlockTriggerLabel(wd, label){
+  return (wd && label) ? (wd.slice(0,3)+' · '+label) : 'Attach to schedule block';
+}
+function scheduleBlockPickerHtml(fieldId, selWd, selLabel){
+  const val = (selWd && selLabel) ? (selWd+'||'+selLabel) : '';
+  return '<div class="sbp" data-sbp="'+fieldId+'">'+
+    '<input type="hidden" id="'+fieldId+'" value="'+escapeHtml(val)+'">'+
+    '<button type="button" class="sbp-trigger" id="'+fieldId+'-trigger">'+
+      '<span>'+escapeHtml(scheduleBlockTriggerLabel(selWd,selLabel))+'</span><span class="sbp-caret">▾</span>'+
+    '</button>'+
+    (val ? '<button type="button" class="sbp-clear" id="'+fieldId+'-clear" title="Remove link">✕</button>' : '')+
+    '<div class="sbp-panel" id="'+fieldId+'-panel" style="display:none;">'+
+      '<input type="text" class="sbp-search" id="'+fieldId+'-search" placeholder="Search by name, day, or keyword…">'+
+      '<div class="sbp-results" id="'+fieldId+'-results"></div>'+
+    '</div>'+
+  '</div>';
+}
+function scheduleBlockPickerSelection(fieldId){
+  const input = document.getElementById(fieldId);
+  const val = input ? input.value : '';
+  if(!val) return {wd:null, label:null};
+  const sep = val.indexOf('||');
+  return {wd: val.slice(0,sep), label: val.slice(sep+2)};
+}
+function scheduleBlockAccordionHtml(fieldId){
+  const sel = scheduleBlockPickerSelection(fieldId);
+  let html = '';
   SCHEDULE_WEEKDAY_ORDER.forEach(function(wd){
-    const blocks = scheduleDayTemplatesCache[wd] || [];
+    const blocks = (scheduleDayTemplatesCache[wd]||[]).filter(function(b){ return b.activity || b.title; });
     if(!blocks.length) return;
-    html += '<optgroup label="'+wd+'">';
-    blocks.forEach(function(b){
-      const label = b.activity || b.title || '';
-      if(!label) return;
-      const val = wd+'||'+label;
-      const timeRange = b.start ? (fmt12(b.start)+(b.end?'–'+fmt12(b.end):'')) : '';
-      const selected = (wd===selWd && label===selLabel) ? ' selected' : '';
-      html += '<option value="'+escapeHtml(val)+'"'+selected+'>'+escapeHtml(label)+(timeRange?' ('+timeRange+')':'')+'</option>';
-    });
-    html += '</optgroup>';
+    const isOpenDay = (wd===sel.wd);
+    html += '<div class="sbp-day">'+
+      '<button type="button" class="sbp-day-head" data-sbptoggle="'+wd+'">'+wd+' <span class="sbp-daycount">('+blocks.length+')</span><span class="sbp-day-caret">'+(isOpenDay?'▾':'▸')+'</span></button>'+
+      '<div class="sbp-day-blocks" data-sbpblocks="'+wd+'" style="display:'+(isOpenDay?'block':'none')+';">'+
+        blocks.map(function(b){
+          const label = b.activity || b.title;
+          const timeRange = b.start ? (fmt12(b.start)+(b.end?'–'+fmt12(b.end):'')) : '';
+          const isSel = (wd===sel.wd && label===sel.label);
+          return '<div class="sbp-block-row'+(isSel?' selected':'')+'" data-sbpwd="'+escapeHtml(wd)+'" data-sbplabel="'+escapeHtml(label)+'">'+
+            '<span class="sbp-block-label">'+escapeHtml(label)+'</span>'+(timeRange?'<span class="sbp-block-time">'+escapeHtml(timeRange)+'</span>':'')+
+          '</div>';
+        }).join('')+
+      '</div>'+
+    '</div>';
   });
-  return html;
+  return html || '<div class="empty-note" style="padding:16px 6px;">No routine blocks set up yet in Schedule.</div>';
+}
+function scheduleBlockSearchResultsHtml(fieldId, query){
+  const sel = scheduleBlockPickerSelection(fieldId);
+  const qWords = query.trim().toLowerCase().split(/\s+/).filter(Boolean);
+  const rows = [];
+  SCHEDULE_WEEKDAY_ORDER.forEach(function(wd){
+    (scheduleDayTemplatesCache[wd]||[]).forEach(function(b){
+      const label = b.activity || b.title;
+      if(!label) return;
+      // Every typed word just has to appear somewhere in "weekday + label"
+      // — order-independent, so "160 cs" and "cs160" both find a block
+      // whose activity is "CS160 lecture", and a single word like "gym"
+      // finds every Gym block across the whole week.
+      const hay = (wd+' '+label).toLowerCase();
+      if(qWords.every(function(w){ return hay.indexOf(w)!==-1; })) rows.push({wd:wd, label:label, b:b});
+    });
+  });
+  if(!rows.length) return '<div class="empty-note" style="padding:16px 6px;">No matching schedule blocks.</div>';
+  return rows.map(function(r){
+    const timeRange = r.b.start ? (fmt12(r.b.start)+(r.b.end?'–'+fmt12(r.b.end):'')) : '';
+    const isSel = (r.wd===sel.wd && r.label===sel.label);
+    return '<div class="sbp-block-row'+(isSel?' selected':'')+'" data-sbpwd="'+escapeHtml(r.wd)+'" data-sbplabel="'+escapeHtml(r.label)+'">'+
+      '<span class="sbp-block-day">'+r.wd.slice(0,3)+'</span><span class="sbp-block-label">'+escapeHtml(r.label)+'</span>'+(timeRange?'<span class="sbp-block-time">'+escapeHtml(timeRange)+'</span>':'')+
+    '</div>';
+  }).join('');
+}
+function wireScheduleBlockPicker(fieldId){
+  const hidden = document.getElementById(fieldId);
+  const trigger = document.getElementById(fieldId+'-trigger');
+  const panel = document.getElementById(fieldId+'-panel');
+  const search = document.getElementById(fieldId+'-search');
+  const results = document.getElementById(fieldId+'-results');
+  if(!hidden || !trigger || !panel || !search || !results) return;
+  const wrapEl = trigger.closest('.sbp');
+
+  function setSelection(wd, label){
+    hidden.value = (wd && label) ? (wd+'||'+label) : '';
+    trigger.querySelector('span').textContent = scheduleBlockTriggerLabel(wd, label);
+    let clearBtn = document.getElementById(fieldId+'-clear');
+    if(hidden.value && !clearBtn){
+      clearBtn = document.createElement('button');
+      clearBtn.type = 'button'; clearBtn.className = 'sbp-clear'; clearBtn.id = fieldId+'-clear'; clearBtn.title = 'Remove link'; clearBtn.textContent = '✕';
+      trigger.insertAdjacentElement('afterend', clearBtn);
+      wireClearBtn(clearBtn);
+    } else if(!hidden.value && clearBtn){
+      clearBtn.remove();
+    }
+  }
+  function wireClearBtn(btn){
+    btn.addEventListener('click', function(e){ e.stopPropagation(); setSelection(null,null); renderResults(); });
+  }
+  const existingClear = document.getElementById(fieldId+'-clear');
+  if(existingClear) wireClearBtn(existingClear);
+
+  function wireRows(){
+    results.querySelectorAll('[data-sbptoggle]').forEach(function(btn){
+      btn.addEventListener('click', function(){
+        const blocksEl = results.querySelector('[data-sbpblocks="'+btn.dataset.sbptoggle+'"]');
+        const caret = btn.querySelector('.sbp-day-caret');
+        const opening = blocksEl.style.display === 'none';
+        blocksEl.style.display = opening ? 'block' : 'none';
+        if(caret) caret.textContent = opening ? '▾' : '▸';
+      });
+    });
+    results.querySelectorAll('[data-sbpwd]').forEach(function(row){
+      row.addEventListener('click', function(){
+        setSelection(row.dataset.sbpwd, row.dataset.sbplabel);
+        closePanel();
+      });
+    });
+  }
+  function renderResults(){
+    results.innerHTML = search.value.trim() ? scheduleBlockSearchResultsHtml(fieldId, search.value) : scheduleBlockAccordionHtml(fieldId);
+    wireRows();
+  }
+  function outsideClick(e){ if(wrapEl && !wrapEl.contains(e.target)) closePanel(); }
+  function openPanel(){ panel.style.display = 'block'; search.value=''; renderResults(); search.focus(); document.addEventListener('click', outsideClick); }
+  function closePanel(){ panel.style.display = 'none'; document.removeEventListener('click', outsideClick); }
+
+  trigger.addEventListener('click', function(e){
+    e.stopPropagation();
+    if(panel.style.display === 'none') openPanel(); else closePanel();
+  });
+  search.addEventListener('input', renderResults);
 }
 
 /* =====================================================================
@@ -1509,7 +1654,7 @@ function taskDetailHtml(t){
     '<div class="f"><label>Priority</label><select class="td-priority"><option value="0" '+(t.priority===0?'selected':'')+'>None</option><option value="1" '+(t.priority===1?'selected':'')+'>P1 - urgent</option><option value="2" '+(t.priority===2?'selected':'')+'>P2 - high</option><option value="3" '+(t.priority===3?'selected':'')+'>P3 - medium</option></select></div>'+
     '<div class="f"><label>Repeats</label><select class="td-repeat"><option value="none" '+(t.repeat==='none'?'selected':'')+'>Never</option><option value="daily" '+(t.repeat==='daily'?'selected':'')+'>Daily</option><option value="weekdays" '+(t.repeat==='weekdays'?'selected':'')+'>Weekdays</option><option value="weekly" '+(t.repeat==='weekly'?'selected':'')+'>Weekly</option><option value="monthly" '+(t.repeat==='monthly'?'selected':'')+'>Monthly</option></select></div>'+
     '<div class="f"><label>List</label><select class="td-list">'+listOpts+'</select></div>'+
-    '<div class="f" style="grid-column:1/-1;"><label>Attach to schedule block</label><select class="td-scheduleblock">'+scheduleBlockOptionsHtml(t.scheduleBlock?t.scheduleBlock.weekday:null, t.scheduleBlock?t.scheduleBlock.label:null)+'</select></div>'+
+    '<div class="f" style="grid-column:1/-1;"><label>Attach to schedule block</label>'+scheduleBlockPickerHtml('td-scheduleblock-'+t.id, t.scheduleBlock?t.scheduleBlock.weekday:null, t.scheduleBlock?t.scheduleBlock.label:null)+'</div>'+
     '<div class="f" style="grid-column:1/-1;"><label>Tags</label><input type="text" class="td-tags" placeholder="urgent, school (comma separated)" value="'+escapeHtml((t.tags||[]).join(', '))+'"></div>'+
     '<div class="f" style="grid-column:1/-1;"><label>Link</label><input type="text" class="td-link" placeholder="https://…" value="'+escapeHtml(t.link||'')+'"></div>'+
     '<div class="f" style="grid-column:1/-1;"><label>Notes</label><textarea class="td-notes">'+escapeHtml(t.notes||'')+'</textarea></div>'+
@@ -1572,6 +1717,7 @@ function attachTaskHandlers(wrap){
       openTaskDetailPanel(btn.dataset.expand);
     });
   });
+  wrap.querySelectorAll('[data-sbp]').forEach(function(el){ wireScheduleBlockPicker(el.dataset.sbp); });
   // Quick-reschedule button on overdue rows — "make it due today / tomorrow
   // / a date I pick" without opening the full detail panel first.
   wrap.querySelectorAll('[data-scheduleq]').forEach(function(btn){
@@ -1650,7 +1796,8 @@ function attachTaskHandlers(wrap){
       t.notes = detail.querySelector('.td-notes').value.trim();
       t.link = detail.querySelector('.td-link').value.trim();
       t.tags = detail.querySelector('.td-tags').value.split(',').map(function(s){ return s.trim().toLowerCase(); }).filter(Boolean);
-      const sbVal = detail.querySelector('.td-scheduleblock') ? detail.querySelector('.td-scheduleblock').value : '';
+      const sbInput = detail.querySelector('[id^="td-scheduleblock-"]');
+      const sbVal = sbInput ? sbInput.value : '';
       if(sbVal){
         const sep = sbVal.indexOf('||');
         t.scheduleBlock = { weekday: sbVal.slice(0,sep), label: sbVal.slice(sep+2) };
@@ -2277,7 +2424,7 @@ function initControls(){
       '<div class="f"><label>Priority</label><select id="da-priority"><option value="0">None</option><option value="1">P1 - urgent</option><option value="2">P2 - high</option><option value="3">P3 - medium</option></select></div>'+
       '<div class="f"><label>Repeats</label><select id="da-repeat"><option value="none">Never</option><option value="daily">Daily</option><option value="weekdays">Weekdays</option><option value="weekly">Weekly</option><option value="monthly">Monthly</option></select></div>'+
       '<div class="f"><label>List</label><select id="da-list">'+listOpts+'</select></div>'+
-      '<div class="f" style="grid-column:1/-1;"><label>Attach to schedule block</label><select id="da-scheduleblock">'+scheduleBlockOptionsHtml(null,null)+'</select></div>'+
+      '<div class="f" style="grid-column:1/-1;"><label>Attach to schedule block</label>'+scheduleBlockPickerHtml('da-scheduleblock',null,null)+'</div>'+
       '<div class="f" style="grid-column:1/-1;"><label>Tags</label><input type="text" id="da-tags" placeholder="urgent, school (comma separated)"></div>'+
       '<div class="f" style="grid-column:1/-1;"><label>Link</label><input type="text" id="da-link" placeholder="https://…"></div>'+
       '<div class="f" style="grid-column:1/-1;"><label>Notes</label><textarea id="da-notes"></textarea></div>'+
@@ -2290,6 +2437,7 @@ function initControls(){
     if(opening){
       panel.innerHTML = detailedAddFormHtml();
       panel.style.display = 'block';
+      wireScheduleBlockPicker('da-scheduleblock');
       // Carry over whatever's already typed in the quick-add box instead of
       // making them retype the title in a second field.
       const quickText = document.getElementById('quick-add-input').value.trim();
