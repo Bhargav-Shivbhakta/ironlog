@@ -233,7 +233,8 @@
   .rb-title.strike{text-decoration:line-through;color:var(--text-faint);}
   .rb-time-edit{display:flex;align-items:center;gap:5px;margin-top:4px;}
   .rb-linked-tasks{display:flex;flex-wrap:wrap;gap:4px;margin-top:5px;}
-  .rb-linked-task{font-size:10.5px;font-weight:600;padding:2px 7px;border-radius:999px;background:var(--accent-soft, rgba(91,108,255,.1));color:var(--accent-ink, var(--gold));}
+  .rb-linked-task{font-size:10.5px;font-weight:600;padding:2px 7px;border-radius:999px;background:var(--accent-soft, rgba(91,108,255,.1));color:var(--accent-ink, var(--gold));text-decoration:none;cursor:pointer;}
+  .rb-linked-task:hover{filter:brightness(0.95);text-decoration:underline;}
   .rb-time-input{
     font-size:13px;color:var(--text-faint);background:transparent;border:none;padding:2px 3px;
     border-radius:4px;width:98px;font-family:'Inter',sans-serif;
@@ -272,20 +273,25 @@
   /* ---- Horizontal control bar — one slim strip under the hero card,
      holding date-nav + Today/+Add/Weekly + the routine/chores/open-task
      counts + Find-time/Focus, all inline, instead of a separate card. ---- */
-  .control-bar{display:flex;align-items:center;flex-wrap:wrap;gap:14px;background:var(--surface);border:1px solid var(--border-soft);border-radius:var(--radius-lg);padding:10px 14px;box-shadow:var(--shadow);margin-bottom:16px;position:relative;}
+  /* Three-zone layout: stats pinned left, date-nav + Today/Add/Weekly
+     centered (the part you use most, dead center over the day below),
+     Find-time/Focus pinned right for balance. */
+  .control-bar{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:14px;background:var(--surface);border:1px solid var(--border-soft);border-radius:var(--radius-lg);padding:10px 14px;box-shadow:var(--shadow);margin-bottom:16px;position:relative;}
   .cb-group{display:flex;align-items:center;gap:6px;flex-wrap:wrap;}
+  .cb-left{justify-content:flex-start;}
+  .cb-center{justify-content:center;gap:14px;}
+  .cb-right{justify-content:flex-end;}
   .cb-nav button{width:30px;height:30px;border:1px solid var(--border);background:var(--surface-alt);border-radius:var(--radius-sm);color:var(--text);font-size:15px;cursor:pointer;flex:none;}
   .cb-nav input{height:30px;border:1px solid var(--border);background:var(--surface);border-radius:var(--radius-sm);padding:0 8px;color:var(--text);font-weight:700;font-size:12.5px;width:132px;}
   .cb-pill{border:0;border-radius:var(--radius-sm);padding:7px 12px;font-size:12px;font-weight:800;cursor:pointer;white-space:nowrap;}
   .cb-today{background:var(--accent-soft);color:var(--accent-deep);}
   .cb-add{background:var(--accent);color:#fff;}
   .cb-weekly,.cb-tool{background:var(--surface-alt);color:var(--text-soft);}
-  .cb-metrics{gap:14px;padding-left:12px;border-left:1px solid var(--border-soft);}
   .cb-metric{font-size:12px;color:var(--text-faint);white-space:nowrap;}
   .cb-metric strong{color:var(--text);font-family:'Manrope',sans-serif;font-weight:800;}
-  .cb-tools{margin-left:auto;padding-left:12px;border-left:1px solid var(--border-soft);}
   @media(max-width:900px){
-    .cb-metrics,.cb-tools{border-left:0;padding-left:0;margin-left:0;}
+    .control-bar{grid-template-columns:1fr;justify-items:center;}
+    .cb-left,.cb-center,.cb-right{justify-content:center;}
   }
 
   .today-hero{position:relative;overflow:hidden;display:grid;grid-template-columns:minmax(0,1.3fr) minmax(230px,.7fr);gap:16px;background:var(--accent-deep);color:#fff;border-radius:var(--radius-lg);padding:22px 24px;margin-bottom:16px;box-shadow:var(--shadow);}
@@ -1638,7 +1644,7 @@ function renderDailyRoutineHtml(dateStr){
     const hiddenByFilter = activeCategoryFilter && cat !== activeCategoryFilter;
     const statusBadge = isDone ? '<span class="rb-status done" title="Done">✓</span>' : (isPast ? '<span class="rb-status missed" title="Time passed, not checked off">✗</span>' : '');
     const linkedTasks = linkedTasksForBlock(tKey, b.activity);
-    const linkedTasksHtml = linkedTasks.length ? '<div class="rb-linked-tasks">'+linkedTasks.map(lt=>'<span class="rb-linked-task">📋 '+escapeHtml(lt.title)+'</span>').join('')+'</div>' : '';
+    const linkedTasksHtml = linkedTasks.length ? '<div class="rb-linked-tasks">'+linkedTasks.map(lt=>'<a class="rb-linked-task" href="todo.html?task='+encodeURIComponent(lt.id)+'&profile='+encodeURIComponent(activeProfile)+'" title="Open in To-Do" onclick="event.stopPropagation()">📋 '+escapeHtml(lt.title)+'</a>').join('')+'</div>' : '';
     return '<div class="routine-block '+(isDone?'done':'')+' '+(isNow?'now':'')+' '+(isPast?'past':'')+'" style="border-left-color:'+meta.color+';'+(hiddenByFilter?'display:none;':'')+'">'+
       '<input type="checkbox" class="routine-chk" data-blockkey="'+key+'" '+(isDone?'checked':'')+'>'+
       '<div class="rb-body">'+
@@ -2224,10 +2230,12 @@ function renderToday(){
     // Horizontal control bar — date nav, Today/Add/Weekly, the routine/
     // chores/open-task counts, and Find time/Focus, all inline in one strip.
     '<div class="control-bar">'+
-      '<div class="cb-group cb-nav"><button id="day-prev" aria-label="Previous day">‹</button><input id="day-picker" type="date" value="'+today+'" aria-label="Selected date"><button id="day-next" aria-label="Next day">›</button></div>'+
-      '<div class="cb-group cb-actions">'+(isActualToday?'':'<button class="cb-pill cb-today" id="day-today">Today</button>')+'<button class="cb-pill cb-add" id="quick-add-today">+ Add</button><button class="cb-pill cb-weekly" id="open-weekly-btn">Weekly</button></div>'+
-      '<div class="cb-group cb-metrics"><span class="cb-metric"><strong>'+routineProg.done+'/'+routineProg.total+'</strong> routine</span><span class="cb-metric"><strong>'+todaysChores.length+'</strong> chores due</span><span class="cb-metric"><strong>'+todaysTasks.filter(t=>!t.done).length+'</strong> open tasks</span></div>'+
-      '<div class="cb-group cb-tools"><button class="cb-pill cb-tool" id="find-time-btn">🔎 Find time</button><button class="cb-pill cb-tool" id="open-focus-btn">⏱ Focus</button></div>'+
+      '<div class="cb-group cb-metrics cb-left"><span class="cb-metric"><strong>'+routineProg.done+'/'+routineProg.total+'</strong> routine</span><span class="cb-metric"><strong>'+todaysChores.length+'</strong> chores due</span><span class="cb-metric"><strong>'+todaysTasks.filter(t=>!t.done).length+'</strong> open tasks</span></div>'+
+      '<div class="cb-center">'+
+        '<div class="cb-group cb-nav"><button id="day-prev" aria-label="Previous day">‹</button><input id="day-picker" type="date" value="'+today+'" aria-label="Selected date"><button id="day-next" aria-label="Next day">›</button></div>'+
+        '<div class="cb-group cb-actions">'+(isActualToday?'':'<button class="cb-pill cb-today" id="day-today">Today</button>')+'<button class="cb-pill cb-add" id="quick-add-today">+ Add</button><button class="cb-pill cb-weekly" id="open-weekly-btn">Weekly</button></div>'+
+      '</div>'+
+      '<div class="cb-group cb-tools cb-right"><button class="cb-pill cb-tool" id="find-time-btn">🔎 Find time</button><button class="cb-pill cb-tool" id="open-focus-btn">⏱ Focus</button></div>'+
       '<section class="free-time-panel" id="free-time-panel" hidden>'+renderFreeTimePanelHtml(today,freeWindows,rankedFreeTasks)+'</section>'+
     '</div>'+
     '<div class="today-layout">'+

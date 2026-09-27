@@ -220,7 +220,7 @@
   .cal-block-native:hover .cal-resize-handle{background:rgba(255,255,255,.4);}
   .cal-dragsel{position:absolute;left:2px;right:2px;background:var(--accent);opacity:0.25;border-radius:5px;pointer-events:none;}
   .cal-block-link{position:absolute;top:1px;right:1px;font-size:10.5px;text-decoration:none;line-height:1;background:rgba(255,255,255,.65);border-radius:3px;padding:0 2px;}
-  .cal-block-task{right:14px;cursor:default;}
+  .cal-block-task{right:14px;}
   .cal-now-line{position:absolute;left:0;right:0;height:0;border-top:2px solid #E0567E;z-index:6;pointer-events:none;}
   .cal-now-line::before{content:'';position:absolute;left:-4px;top:-4px;width:8px;height:8px;border-radius:50%;background:#E0567E;}
 
@@ -1328,7 +1328,12 @@ function renderGridCalendarView(mountEl, rangeStart, dayCount){
       const handles = isNative ? '<div class="cal-resize-handle top" data-resize="top"></div><div class="cal-resize-handle bottom" data-resize="bottom"></div>' : '';
       const linkIcon = e.meetingLink ? '<a class="cal-block-link" href="'+escapeHtml(e.meetingLink)+'" target="_blank" rel="noopener" onclick="event.stopPropagation()" title="Open link">🔗</a>' : '';
       const taskTitles = (e.linkedTasks||[]).map(function(lt){ return lt.title; }).join(', ');
-      const taskIcon = (e.linkedTasks&&e.linkedTasks.length) ? '<span class="cal-block-link cal-block-task" title="Linked task: '+escapeHtml(taskTitles)+'">📋</span>' : '';
+      // Multiple tasks can link to the same block, but there's only room
+      // for one small icon here — it opens the first; the full list is
+      // still in the tooltip, and every one of them is a separate link in
+      // the agenda/list view below.
+      const firstLinkedTask = (e.linkedTasks&&e.linkedTasks.length) ? e.linkedTasks[0] : null;
+      const taskIcon = firstLinkedTask ? '<a class="cal-block-link cal-block-task" href="todo.html?task='+encodeURIComponent(firstLinkedTask.id)+'&profile='+encodeURIComponent(activeCalendarProfile)+'" onclick="event.stopPropagation()" title="Linked task: '+escapeHtml(taskTitles)+'">📋</a>' : '';
       blocksHtml += '<div class="cal-block'+(isNative?' cal-block-native':'')+'" style="height:'+height+'px;'+posStyle+'border-left-color:'+e.color+';background:'+e.color+'22;color:'+e.color+';"'+editAttr+'><div class="cb-title">'+escapeHtml(e.title)+'</div>'+linkIcon+taskIcon+handles+'</div>';
     });
     if(isToday){
@@ -1994,7 +1999,7 @@ function agendaRowHtml(e){
   const editAttr = e.nativeId ? ' data-editnative="'+e.nativeId+'"' : '';
   const shownTime = e.displayTime || displayTime(e.time);
   const linkHtml = e.meetingLink ? ' · <a href="'+escapeHtml(e.meetingLink)+'" target="_blank" rel="noopener" onclick="event.stopPropagation()">🔗 open link</a>' : '';
-  const taskHtml = (e.linkedTasks&&e.linkedTasks.length) ? ' · 📋 '+e.linkedTasks.map(function(lt){ return escapeHtml(lt.title); }).join(', ') : '';
+  const taskHtml = (e.linkedTasks&&e.linkedTasks.length) ? ' · 📋 '+e.linkedTasks.map(function(lt){ return '<a href="todo.html?task='+encodeURIComponent(lt.id)+'&profile='+encodeURIComponent(activeCalendarProfile)+'" onclick="event.stopPropagation()">'+escapeHtml(lt.title)+'</a>'; }).join(', ') : '';
   const extraMeta = (e.location?' · 📍'+escapeHtml(e.location):'')+linkHtml+taskHtml;
   return '<'+tag+' class="agenda-row" style="text-decoration:none;color:inherit;"'+attrs+editAttr+'><div class="agenda-dot" style="background:'+e.color+';"></div>'+
     '<div><div class="agenda-title">'+escapeHtml(e.title)+(e.link?' ↗':'')+'</div><div class="agenda-meta">'+e.source+(e.person?' · '+e.person:'')+(shownTime?' · '+shownTime:'')+extraMeta+'</div></div></'+tag+'>';
