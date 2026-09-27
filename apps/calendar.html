@@ -202,11 +202,12 @@
   .cal-mode-toggle button{border:none;background:transparent;color:var(--text-soft);font-size:12.5px;font-weight:700;padding:6px 14px;border-radius:999px;cursor:pointer;}
   .cal-mode-toggle button.active{background:var(--surface);color:var(--text);box-shadow:var(--shadow);}
   .cal-wrap{overflow-x:auto;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-md);box-shadow:var(--shadow);}
-  .cal-grid{display:grid;grid-template-columns:44px repeat(7,minmax(84px,1fr));min-width:680px;}
-  .cal-daylabel{font-size:12px;font-weight:700;color:var(--text-soft);text-align:center;padding:6px 2px;border-bottom:1px solid var(--border);position:sticky;top:0;background:var(--surface);}
+  .cal-grid{display:grid;grid-template-columns:58px repeat(7,minmax(84px,1fr));min-width:700px;}
+  .cal-daylabel{font-size:12px;font-weight:700;color:var(--text-soft);text-align:center;padding:6px 2px;border-bottom:1px solid var(--border);position:sticky;top:0;background:var(--surface);display:flex;flex-direction:column;gap:1px;}
   .cal-daylabel.today{color:var(--accent-deep);}
+  .cal-daylabel-sub{font-size:9px;font-weight:600;color:var(--text-faint);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
   .cal-timecol{position:relative;border-right:1px solid var(--border-soft);}
-  .cal-timelabel{position:absolute;right:4px;font-size:11px;color:var(--text-faint);transform:translateY(-50%);}
+  .cal-timelabel{position:absolute;right:6px;font-size:10.5px;color:var(--text-faint);transform:translateY(-50%);white-space:nowrap;line-height:1;}
   .cal-daycol{position:relative;border-right:1px solid var(--border-soft);background-image:repeating-linear-gradient(to bottom, var(--border-soft) 0, var(--border-soft) 1px, transparent 1px, transparent 56px);}
   .cal-daycol.today{background-color:rgba(173,123,32,0.04);}
   .cal-block{position:absolute;left:2px;right:2px;border-radius:5px;border-left:3px solid;padding:2px 5px;overflow:hidden;font-size:11.5px;line-height:1.25;cursor:pointer;}
@@ -1210,9 +1211,16 @@ function renderGridCalendarView(mountEl, rangeStart, dayCount){
   const gridHeight = totalHours * GRID_HOUR_PX;
   const today = todayStr();
 
+  // Compact on-the-hour label ("4 AM" not "4:00 AM") — the grid's time
+  // column only ever shows whole hours, so the ":00" was just noise that
+  // made the label wrap onto two lines in a narrow column.
+  function gridHourLabel(h){
+    let hh = h%12; if(hh===0) hh=12;
+    return hh+' '+(h>=12?'PM':'AM');
+  }
   let timeLabels = '';
   for(let h=GRID_START_HOUR; h<GRID_END_HOUR; h++){
-    timeLabels += '<div class="cal-timelabel" style="top:'+((h-GRID_START_HOUR)*GRID_HOUR_PX)+'px;">'+fmtScheduleTime(String(h).padStart(2,'0')+':00')+'</div>';
+    timeLabels += '<div class="cal-timelabel" style="top:'+((h-GRID_START_HOUR)*GRID_HOUR_PX)+'px;">'+gridHourLabel(h)+'</div>';
   }
 
   let headHtml = '<div class="cal-daylabel"></div>';
@@ -1221,7 +1229,18 @@ function renderGridCalendarView(mountEl, rangeStart, dayCount){
     const d = addDays(rangeStart, i);
     const dd = new Date(d+'T00:00:00');
     const isToday = d === today;
-    headHtml += '<div class="cal-daylabel '+(isToday?'today':'')+'">'+WEEKDAY_NAMES[dd.getDay()].slice(0,3)+' '+dd.getDate()+'</div>';
+    // A one-line Panchang/Auspicious summary under the date, instead of
+    // separate checklist toggles that don't do much in a grid of timed
+    // blocks (neither has a real clock time to place on the timeline).
+    const tithi = getTithiInfo(d);
+    const festList = festivalList(d);
+    const ausp = auspiciousInfo(d);
+    let subBits = [];
+    if(festList.length) subBits.push(festList[0]);
+    else if(tithi) subBits.push(tithi.name);
+    if(ausp) subBits.push('☀️');
+    const subLine = subBits.length ? '<div class="cal-daylabel-sub" title="'+escapeHtml(subBits.join(' · '))+'">'+escapeHtml(subBits.join(' · '))+'</div>' : '';
+    headHtml += '<div class="cal-daylabel '+(isToday?'today':'')+'"><div>'+WEEKDAY_NAMES[dd.getDay()].slice(0,3)+' '+dd.getDate()+'</div>'+subLine+'</div>';
 
     // Only keep events with a real, parseable start time — anything
     // else can't be placed on a timeline and, left in, used to collapse
@@ -1295,7 +1314,7 @@ function renderGridCalendarView(mountEl, rangeStart, dayCount){
     colsHtml += '<div class="cal-daycol '+(isToday?'today':'')+'" style="height:'+gridHeight+'px;" data-daycol="'+d+'">'+blocksHtml+'</div>';
   }
 
-  const colTemplate = dayCount===1 ? '44px minmax(280px,1fr)' : '44px repeat('+dayCount+',minmax(84px,1fr))';
+  const colTemplate = dayCount===1 ? '58px minmax(280px,1fr)' : '58px repeat('+dayCount+',minmax(84px,1fr))';
   const minWidth = dayCount===1 ? '0' : '680px';
   mountEl.innerHTML = '<div class="cal-wrap"><div class="cal-grid" style="grid-template-columns:'+colTemplate+';min-width:'+minWidth+';">'+
     headHtml+
@@ -1525,7 +1544,11 @@ function renderMiniMonthHtml(){
   return '<div class="mini-cal"><div class="mini-cal-head"><button type="button" id="mini-prev">‹</button><div class="mini-cal-title">'+MONTH_NAMES[m]+' '+y+'</div><button type="button" id="mini-next">›</button></div><div class="mini-cal-grid">'+cells+'</div></div>';
 }
 function renderSidebarFilterListHtml(){
-  return FILTER_DEFS.map(function(f){
+  // Panchang and Auspicious never have a real clock time, so they never
+  // showed up as grid blocks anyway — they get their own compact line
+  // under each day's date instead (see renderGridCalendarView) rather
+  // than a checkbox here that didn't do anything.
+  return FILTER_DEFS.filter(function(f){ return f.key!=='hindu' && f.key!=='auspicious'; }).map(function(f){
     const on = activeFilters.has(f.key);
     return '<label class="filter-check-row"><input type="checkbox" data-sbfilter="'+f.key+'" '+(on?'checked':'')+'><span class="filter-swatch" style="background:'+f.color+';"></span><span>'+f.icon+' '+f.label+'</span></label>';
   }).join('');
