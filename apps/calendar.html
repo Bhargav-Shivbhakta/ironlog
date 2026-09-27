@@ -68,6 +68,12 @@
   header.app-head{text-align:center;margin-bottom:14px;}
   header.app-head h1{font-size:22px;font-weight:800;margin:0 0 2px;letter-spacing:-0.02em;background:linear-gradient(135deg,var(--accent-deep),var(--purnima));-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;}
   header.app-head p{margin:0;color:var(--text-soft);font-size:12.5px;}
+  header.app-head .who-badge{display:inline-flex;align-items:center;gap:6px;background:var(--surface);border:1px solid var(--border);border-radius:20px;padding:3px 12px 3px 4px;margin-bottom:6px;cursor:pointer;font-family:inherit;}
+  header.app-head .who-badge:hover{background:var(--accent-soft);}
+  header.app-head .who-avatar{width:20px;height:20px;border-radius:6px;font-size:12.5px;font-weight:800;color:#fff;display:flex;align-items:center;justify-content:center;font-family:'Manrope',sans-serif;}
+  header.app-head .who-avatar.av-b{background:#AD7B20;}
+  header.app-head .who-avatar.av-a{background:#B25C78;}
+  header.app-head .who-name{font-size:14px;font-weight:700;}
 
   .segmented{max-width:420px;margin:0 auto 14px;background:var(--surface-alt);border-radius:999px;padding:4px;display:flex;gap:2px;}
   .segmented button{flex:1;border:none;background:transparent;border-radius:999px;padding:8px 4px;font-size:12.5px;font-weight:700;color:var(--text-soft);}
@@ -192,9 +198,9 @@
      pattern as Schedule's own week grid), shown only for meetings since
      that's what has real clock times; List mode (unchanged, existing
      behavior) still shows every source (Todo/Chores/Schedule/Panchang). */
-  .week-mode-toggle{display:flex;gap:4px;background:var(--surface-alt);border-radius:999px;padding:3px;width:fit-content;margin:0 auto 12px;}
-  .week-mode-toggle button{border:none;background:transparent;color:var(--text-soft);font-size:12.5px;font-weight:700;padding:5px 12px;border-radius:999px;cursor:pointer;}
-  .week-mode-toggle button.active{background:var(--surface);color:var(--text);box-shadow:var(--shadow);}
+  .cal-mode-toggle{display:flex;gap:4px;background:var(--surface-alt);border-radius:999px;padding:3px;width:fit-content;margin:0 auto 12px;}
+  .cal-mode-toggle button{border:none;background:transparent;color:var(--text-soft);font-size:12.5px;font-weight:700;padding:6px 14px;border-radius:999px;cursor:pointer;}
+  .cal-mode-toggle button.active{background:var(--surface);color:var(--text);box-shadow:var(--shadow);}
   .cal-wrap{overflow-x:auto;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-md);box-shadow:var(--shadow);}
   .cal-grid{display:grid;grid-template-columns:44px repeat(7,minmax(84px,1fr));min-width:680px;}
   .cal-daylabel{font-size:12px;font-weight:700;color:var(--text-soft);text-align:center;padding:6px 2px;border-bottom:1px solid var(--border);position:sticky;top:0;background:var(--surface);}
@@ -205,6 +211,12 @@
   .cal-daycol.today{background-color:rgba(173,123,32,0.04);}
   .cal-block{position:absolute;left:2px;right:2px;border-radius:5px;border-left:3px solid;padding:2px 5px;overflow:hidden;font-size:11.5px;line-height:1.25;cursor:pointer;}
   .cal-block .cb-title{font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .cal-block-native{cursor:grab;user-select:none;}
+  .cal-block-native:active{cursor:grabbing;}
+  .cal-resize-handle{position:absolute;left:0;right:0;height:7px;cursor:ns-resize;}
+  .cal-resize-handle.top{top:0;}
+  .cal-resize-handle.bottom{bottom:0;}
+  .cal-block-native:hover .cal-resize-handle{background:rgba(255,255,255,.4);}
   .cal-dragsel{position:absolute;left:2px;right:2px;background:var(--accent);opacity:0.25;border-radius:5px;pointer-events:none;}
 </style>
 </head>
@@ -216,13 +228,19 @@
 <div class="wrap" id="app-wrap" style="display:none;">
   <div class="topbar"><a class="back" href="../index.html">← All apps</a></div>
   <header class="app-head">
+    <button type="button" class="who-badge" id="who-badge" title="Switch profile"></button>
     <h1>Calendar</h1>
     <p>Everything, in one place — plus the Hindu Panchang</p>
   </header>
 
   <div id="birthday-banner" style="display:none;"></div>
 
-  <div class="segmented">
+  <div class="cal-mode-toggle" id="cal-mode-toggle">
+    <button type="button" id="mode-grid-btn">🗓 Grid</button>
+    <button type="button" id="mode-classic-btn">Classic</button>
+  </div>
+
+  <div class="segmented" id="classic-view-tabs" style="display:none;">
     <button id="view-month-btn" class="active">Month</button>
     <button id="view-week-btn">Week</button>
     <button id="view-day-btn">Day</button>
@@ -240,9 +258,7 @@
     <button type="button" class="new-event-btn" id="new-event-btn">+ Schedule a meeting</button>
   </div>
   <div style="text-align:center;margin:-6px 0 14px;"><button type="button" id="manage-birthdays-btn" style="background:none;border:none;color:var(--text-faint);font-size:11.5px;text-decoration:underline;">🔔 Manage reminders</button></div>
-  <div style="text-align:center;margin:-8px 0 14px;font-size:11px;color:var(--text-faint);">Schedule shown for: <button type="button" id="cal-profile-switch-btn" style="background:var(--surface-alt);border:none;border-radius:999px;padding:3px 10px;font-size:11px;font-weight:700;color:var(--text);"></button></div>
 
-  <div id="week-mode-mount"></div>
   <div id="view-mount"></div>
 </div>
 
@@ -898,7 +914,8 @@ function nativeEventsForDate(dateStr){
       out.push({
         title: ev.title, source:'Meetings', color: ev.color || 'var(--schedule)',
         person: owner, time: ev.time||'', sortKey: ev.time||'', link:null,
-        nativeId: ev.id, ownerProfile: owner, endTime: ev.endTime||'', notes: ev.notes||''
+        nativeId: ev.id, ownerProfile: owner, endTime: ev.endTime||'', notes: ev.notes||'',
+        location: ev.location||'', meetingLink: ev.link||''
       });
     });
   });
@@ -947,6 +964,8 @@ function openEventModal(existing, defaultDate, defaultTime){
     const color = ev ? (ev.color || EVT_COLORS[0]) : EVT_COLORS[0];
     const shared = ev ? !!ev.shared : false;
     const notes = ev ? (ev.notes||'') : '';
+    const location = ev ? (ev.location||'') : '';
+    const link = ev ? (ev.link||'') : '';
     const reminderMin = ev && ev.reminderMinutes!=null ? String(ev.reminderMinutes) : '';
 
     mount.innerHTML = '<div class="evt-overlay" id="evt-overlay"><div class="evt-modal">'+
@@ -968,7 +987,9 @@ function openEventModal(existing, defaultDate, defaultTime){
         '<div class="f full"><label>Reminder</label><select id="evt-reminder"><option value="">No reminder</option>'+
           [0,5,10,15,30,60,1440].map(function(m){ return '<option value="'+m+'" '+(String(m)===reminderMin?'selected':'')+'>'+(m===0?'At time of event':m<60?m+' minutes before':m===1440?'1 day before':(m/60)+' hour before')+'</option>'; }).join('')+
         '</select></div>'+
-        '<div class="f full"><label>Notes</label><textarea id="evt-notes" rows="2" placeholder="Location, agenda...">'+escapeHtml(notes)+'</textarea></div>'+
+        '<div class="f"><label>Location</label><input type="text" id="evt-location" value="'+escapeHtml(location)+'" placeholder="e.g. Conference room, address"></div>'+
+        '<div class="f"><label>Link</label><input type="url" id="evt-link" value="'+escapeHtml(link)+'" placeholder="Video call / doc URL"></div>'+
+        '<div class="f full"><label>Notes</label><textarea id="evt-notes" rows="2" placeholder="Agenda, extra details...">'+escapeHtml(notes)+'</textarea></div>'+
       '</div>'+
       '<div class="evt-conflict" id="evt-conflict" style="display:none;"></div>'+
       '<div class="evt-actions">'+
@@ -1029,6 +1050,8 @@ function openEventModal(existing, defaultDate, defaultTime){
       const shared2 = document.getElementById('evt-shared').checked;
       const reminderVal = document.getElementById('evt-reminder').value;
       const notes2 = document.getElementById('evt-notes').value.trim();
+      const location2 = document.getElementById('evt-location').value.trim();
+      const link2 = document.getElementById('evt-link').value.trim();
       const isRecurring = repeatType !== 'none';
       const wasShared = ev ? !!ev.shared : false;
       const id = ev ? ev.id : 'meet-'+Date.now()+'-'+Math.floor(Math.random()*1000);
@@ -1041,6 +1064,7 @@ function openEventModal(existing, defaultDate, defaultTime){
         repeat: isRecurring ? {type: repeatType, until: until2 || null} : null,
         time: start2 || null, endTime: end2 || null,
         color: color2, shared: shared2, notes: notes2 || null,
+        location: location2 || null, link: link2 || null,
         reminderMinutes: reminderVal === '' ? null : parseInt(reminderVal,10)
       };
       // Meeting moved to a different owner — pull it out of the old
@@ -1064,13 +1088,44 @@ function openEventModal(existing, defaultDate, defaultTime){
 }
 
 /* =====================================================================
-   WEEK GRID MODE — an hour-by-hour week grid (ported from Schedule's
-   own drag-to-create calendar grid) for scheduling meetings visually.
+   GRID CALENDAR — a real Google-Calendar-style hour-by-hour week grid:
+   drag existing meetings to move them (including across days), drag
+   their top/bottom edge to resize, and drag on empty space to create a
+   new one. Only native meetings (this app's own, linked to Schedule)
+   are draggable — everything else (Todo/Chores/routine/Panchang/
+   birthdays) is shown for context but stays read-only, since it isn't
+   this app's data to move.
 ===================================================================== */
 const GRID_START_HOUR = 4;
 const GRID_END_HOUR = 23;
 const GRID_HOUR_PX = 56;
-function renderWeekGridView(mountEl, weekStart){
+const GRID_SNAP_PX = GRID_HOUR_PX/4; // 15-minute snap
+async function applyNativeMove(id, newDate, newStartTime){
+  const found = findNativeEvent(id);
+  if(!found) return;
+  const ev = found.ev, owner = found.owner;
+  const durMin = ev.endTime && toMinutes(ev.endTime)>toMinutes(ev.time||'00:00') ? toMinutes(ev.endTime)-toMinutes(ev.time) : 45;
+  const newStartMin = toMinutes(newStartTime);
+  ev.time = newStartTime;
+  ev.endTime = minutesToTime(Math.min(newStartMin+durMin,1439));
+  if(ev.recurring){ ev.startDate = newDate; ev.weekday = weekdayOf(newDate); }
+  else { ev.date = newDate; }
+  await saveNativeMeetingEvents(owner);
+  if(ev.shared) await mirrorMeetingToPartner(owner, ev, false);
+  await loadAllEvents();
+  render();
+}
+async function applyNativeResize(id, newStart, newEnd){
+  const found = findNativeEvent(id);
+  if(!found) return;
+  const ev = found.ev, owner = found.owner;
+  ev.time = newStart; ev.endTime = newEnd;
+  await saveNativeMeetingEvents(owner);
+  if(ev.shared) await mirrorMeetingToPartner(owner, ev, false);
+  await loadAllEvents();
+  render();
+}
+function renderGridCalendarView(mountEl, weekStart){
   const totalHours = GRID_END_HOUR - GRID_START_HOUR;
   const gridHeight = totalHours * GRID_HOUR_PX;
   const today = todayStr();
@@ -1096,8 +1151,10 @@ function renderWeekGridView(mountEl, weekStart){
       if(startMin+durMin < 0 || startMin > totalHours*60) return;
       const top = Math.max(0,(startMin/60))*GRID_HOUR_PX;
       const height = Math.max(20, (durMin/60)*GRID_HOUR_PX);
-      const editAttr = e.nativeId ? ' data-editnative="'+e.nativeId+'"' : '';
-      blocksHtml += '<div class="cal-block" style="top:'+top+'px;height:'+height+'px;border-left-color:'+e.color+';background:'+e.color+'22;color:'+e.color+';"'+editAttr+'><div class="cb-title">'+escapeHtml(e.title)+'</div></div>';
+      const isNative = !!e.nativeId;
+      const editAttr = isNative ? ' data-editnative="'+e.nativeId+'"' : '';
+      const handles = isNative ? '<div class="cal-resize-handle top" data-resize="top"></div><div class="cal-resize-handle bottom" data-resize="bottom"></div>' : '';
+      blocksHtml += '<div class="cal-block'+(isNative?' cal-block-native':'')+'" style="top:'+top+'px;height:'+height+'px;border-left-color:'+e.color+';background:'+e.color+'22;color:'+e.color+';"'+editAttr+'><div class="cb-title">'+escapeHtml(e.title)+'</div>'+handles+'</div>';
     });
     colsHtml += '<div class="cal-daycol '+(isToday?'today':'')+'" style="height:'+gridHeight+'px;" data-daycol="'+d+'">'+blocksHtml+'</div>';
   }
@@ -1108,16 +1165,108 @@ function renderWeekGridView(mountEl, weekStart){
     colsHtml+
     '</div></div>';
 
-  mountEl.querySelectorAll('[data-editnative]').forEach(function(pill){
-    pill.addEventListener('click', function(e){
+  const cols = Array.prototype.slice.call(mountEl.querySelectorAll('.cal-daycol'));
+  function colForClientX(clientX){
+    let best = cols[0], bestDist = Infinity;
+    cols.forEach(function(c){
+      const r = c.getBoundingClientRect();
+      if(clientX >= r.left && clientX < r.right){ best = c; bestDist = -1; }
+      else{ const dist = Math.abs(clientX - (r.left+r.width/2)); if(dist < bestDist){ best = c; bestDist = dist; } }
+    });
+    return best;
+  }
+
+  // Click an existing meeting to edit it — suppressed right after a drag
+  // or resize so releasing the mouse doesn't also pop the edit modal.
+  mountEl.querySelectorAll('[data-editnative]').forEach(function(block){
+    block.addEventListener('click', function(e){
+      if(block.dataset.suppressClick){ delete block.dataset.suppressClick; return; }
       e.stopPropagation();
-      const found = findNativeEvent(pill.dataset.editnative);
+      const found = findNativeEvent(block.dataset.editnative);
       if(found) openEventModal(found);
     });
   });
 
-  // Drag-to-create on empty grid space — mirrors Schedule's own grid.
-  mountEl.querySelectorAll('.cal-daycol').forEach(function(col){
+  // Drag an existing meeting to move it — across times and across days.
+  mountEl.querySelectorAll('.cal-block-native').forEach(function(block){
+    block.addEventListener('mousedown', function(e){
+      if(e.target.closest('.cal-resize-handle')) return;
+      e.preventDefault();
+      const startCol = block.closest('.cal-daycol');
+      const startRect = startCol.getBoundingClientRect();
+      const blockStartTop = parseFloat(block.style.top);
+      const grabOffsetY = e.clientY - startRect.top - blockStartTop;
+      const startX = e.clientX, startPageY = e.clientY;
+      let dragging = false, currentCol = startCol;
+      const onMove = function(me){
+        if(!dragging && (Math.abs(me.clientX-startX)>4 || Math.abs(me.clientY-startPageY)>4)){
+          dragging = true; block.style.zIndex = 20; block.style.opacity = '0.85';
+        }
+        if(!dragging) return;
+        currentCol = colForClientX(me.clientX);
+        const rect = currentCol.getBoundingClientRect();
+        let newTop = me.clientY - rect.top - grabOffsetY;
+        newTop = Math.round(newTop/GRID_SNAP_PX)*GRID_SNAP_PX;
+        newTop = Math.max(0, Math.min(newTop, gridHeight - parseFloat(block.style.height)));
+        if(currentCol !== block.parentElement) currentCol.appendChild(block);
+        block.style.top = newTop+'px';
+      };
+      const onUp = function(){
+        document.removeEventListener('mousemove', onMove);
+        document.removeEventListener('mouseup', onUp);
+        block.style.zIndex = ''; block.style.opacity = '';
+        if(!dragging) return;
+        block.dataset.suppressClick = '1';
+        const newDate = currentCol.dataset.daycol;
+        const startMinutes = GRID_START_HOUR*60 + Math.round(parseFloat(block.style.top)/GRID_HOUR_PX*60);
+        applyNativeMove(block.dataset.editnative, newDate, minutesToTime(startMinutes));
+      };
+      document.addEventListener('mousemove', onMove);
+      document.addEventListener('mouseup', onUp);
+    });
+  });
+
+  // Drag the top/bottom edge of a meeting to resize it (change start or
+  // end time) — literal Google-Calendar-style gridline adjustment.
+  mountEl.querySelectorAll('.cal-resize-handle').forEach(function(handle){
+    handle.addEventListener('mousedown', function(e){
+      e.preventDefault(); e.stopPropagation();
+      const block = handle.closest('.cal-block');
+      const col = block.closest('.cal-daycol');
+      const rect = col.getBoundingClientRect();
+      const edge = handle.dataset.resize;
+      const startTop = parseFloat(block.style.top);
+      const startHeight = parseFloat(block.style.height);
+      const onMove = function(me){
+        const y = Math.max(0, Math.min(gridHeight, me.clientY - rect.top));
+        if(edge==='bottom'){
+          let newHeight = Math.round((y-startTop)/GRID_SNAP_PX)*GRID_SNAP_PX;
+          newHeight = Math.max(GRID_SNAP_PX, newHeight);
+          block.style.height = newHeight+'px';
+        } else {
+          let newTop = Math.round(y/GRID_SNAP_PX)*GRID_SNAP_PX;
+          newTop = Math.min(newTop, startTop+startHeight-GRID_SNAP_PX);
+          block.style.top = newTop+'px';
+          block.style.height = (startTop+startHeight-newTop)+'px';
+        }
+      };
+      const onUp = function(){
+        document.removeEventListener('mousemove', onMove);
+        document.removeEventListener('mouseup', onUp);
+        block.dataset.suppressClick = '1';
+        const newTop = parseFloat(block.style.top);
+        const newHeight = parseFloat(block.style.height);
+        const startMinutes = GRID_START_HOUR*60 + Math.round(newTop/GRID_HOUR_PX*60);
+        const endMinutes = Math.min(1439, startMinutes + Math.round(newHeight/GRID_HOUR_PX*60));
+        applyNativeResize(block.dataset.editnative, minutesToTime(startMinutes), minutesToTime(endMinutes));
+      };
+      document.addEventListener('mousemove', onMove);
+      document.addEventListener('mouseup', onUp);
+    });
+  });
+
+  // Drag-to-create on empty grid space.
+  cols.forEach(function(col){
     let dragEl = null, startY = 0;
     col.addEventListener('mousedown', function(e){
       if(e.target.closest('.cal-block')) return;
@@ -1155,6 +1304,26 @@ function renderWeekGridView(mountEl, weekStart){
 ===================================================================== */
 let activeView = 'month';
 let activeDate = todayStr();
+// Grid (a real drag/resize Google-Calendar-style week view) is the
+// default; Classic (the original Month/Week/Day/Agenda tabs, plus the
+// Panchang-aware aggregation) stays one click away via the toggle.
+let calendarMode = 'grid';
+try{ const v = localStorage.getItem('cal-mode'); if(v==='classic'||v==='grid') calendarMode = v; }catch(e){}
+function applyModeUI(){
+  document.getElementById('mode-grid-btn').classList.toggle('active', calendarMode==='grid');
+  document.getElementById('mode-classic-btn').classList.toggle('active', calendarMode==='classic');
+  document.getElementById('classic-view-tabs').style.display = calendarMode==='classic' ? '' : 'none';
+}
+function setCalendarMode(mode){
+  calendarMode = mode;
+  try{ localStorage.setItem('cal-mode', mode); }catch(e){}
+  applyModeUI();
+  render();
+}
+function setWhoBadge(){
+  const badge = document.getElementById('who-badge');
+  badge.innerHTML = '<span class="who-avatar av-'+(activeCalendarProfile==='Bhargav'?'b':'a')+'">'+activeCalendarProfile[0]+'</span><span class="who-name">'+activeCalendarProfile+'</span>';
+}
 
 auth.onAuthStateChanged(async function(user){
   currentUser = user;
@@ -1176,54 +1345,53 @@ auth.onAuthStateChanged(async function(user){
   document.getElementById('nav-today-btn').onclick = function(){ activeDate = todayStr(); render(); };
   document.getElementById('manage-birthdays-btn').onclick = openBirthdaysPanel;
   document.getElementById('new-event-btn').onclick = function(){ openEventModal(null, activeDate); };
-  document.getElementById('cal-profile-switch-btn').textContent = activeCalendarProfile;
-  document.getElementById('cal-profile-switch-btn').onclick = function(){
+  document.getElementById('mode-grid-btn').onclick = function(){ setCalendarMode('grid'); };
+  document.getElementById('mode-classic-btn').onclick = function(){ setCalendarMode('classic'); };
+  setWhoBadge();
+  document.getElementById('who-badge').onclick = function(){
     activeCalendarProfile = activeCalendarProfile==='Bhargav' ? 'Anusha' : 'Bhargav';
     try{ localStorage.setItem('hub-active-profile', activeCalendarProfile); }catch(e){}
-    document.getElementById('cal-profile-switch-btn').textContent = activeCalendarProfile;
+    setWhoBadge();
     document.body.dataset.profile = activeCalendarProfile.toLowerCase();
     render();
   };
+  applyModeUI();
   render();
 });
 function showView(v){ activeView = v; ['month','week','day','agenda'].forEach(function(x){ document.getElementById('view-'+x+'-btn').classList.toggle('active', x===v); }); render(); }
 function navigate(dir){
+  if(calendarMode==='grid'){ activeDate = addDays(activeDate, dir*7); render(); return; }
   if(activeView==='month'){ const d = new Date(activeDate+'T00:00:00'); d.setMonth(d.getMonth()+dir); activeDate = ymd(d.getFullYear(), d.getMonth()+1, 1); }
   else if(activeView==='week'){ activeDate = addDays(activeDate, dir*7); }
   else { activeDate = addDays(activeDate, dir); }
   render();
 }
-let weekModeGrid = false;
 function render(){
   const mount = document.getElementById('view-mount');
-  const weekModeMount = document.getElementById('week-mode-mount');
+  if(calendarMode==='grid'){
+    const weekStart = addDays(activeDate, -weekdayOf(activeDate));
+    const weekEnd = addDays(weekStart, 6);
+    document.getElementById('date-title').textContent = fmtShort(weekStart)+' – '+fmtShort(weekEnd);
+    mount.innerHTML = '';
+    renderGridCalendarView(mount, weekStart);
+    return;
+  }
   const d = new Date(activeDate+'T00:00:00');
   if(activeView==='month'){
     document.getElementById('date-title').textContent = MONTH_NAMES[d.getMonth()]+' '+d.getFullYear();
     mount.innerHTML = ''; mount.appendChild(renderMonthView(d.getFullYear(), d.getMonth()));
-    weekModeMount.innerHTML = '';
   } else if(activeView==='week'){
     const weekStart = addDays(activeDate, -d.getDay());
     const weekEnd = addDays(weekStart, 6);
     document.getElementById('date-title').textContent = fmtShort(weekStart)+' – '+fmtShort(weekEnd);
-    weekModeMount.innerHTML = '<div class="week-mode-toggle">'+
-      '<button type="button" data-weekmode="list" class="'+(weekModeGrid?'':'active')+'">List</button>'+
-      '<button type="button" data-weekmode="grid" class="'+(weekModeGrid?'active':'')+'">Grid</button>'+
-    '</div>';
-    weekModeMount.querySelectorAll('[data-weekmode]').forEach(function(btn){
-      btn.addEventListener('click', function(){ weekModeGrid = btn.dataset.weekmode==='grid'; render(); });
-    });
     mount.innerHTML = '';
-    if(weekModeGrid) renderWeekGridView(mount, weekStart);
-    else mount.appendChild(renderWeekView(weekStart));
+    mount.appendChild(renderWeekView(weekStart));
   } else if(activeView==='day'){
     document.getElementById('date-title').textContent = fmtLong(activeDate);
     mount.innerHTML = renderDayView(activeDate);
-    weekModeMount.innerHTML = '';
   } else {
     document.getElementById('date-title').textContent = 'Next 30 days';
     mount.innerHTML = renderAgendaView();
-    weekModeMount.innerHTML = '';
   }
   mount.querySelectorAll('[data-editnative]').forEach(function(pill){
     pill.addEventListener('click', function(e){
@@ -1521,8 +1689,9 @@ function agendaRowHtml(e){
   const attrs = e.link ? ' href="'+escapeHtml(e.link)+'" target="_blank" rel="noopener"' : '';
   const editAttr = e.nativeId ? ' data-editnative="'+e.nativeId+'"' : '';
   const shownTime = displayTime(e.time);
+  const extraMeta = (e.location?' · 📍'+escapeHtml(e.location):'')+(e.meetingLink?' · 🔗 link':'');
   return '<'+tag+' class="agenda-row" style="text-decoration:none;color:inherit;"'+attrs+editAttr+'><div class="agenda-dot" style="background:'+e.color+';"></div>'+
-    '<div><div class="agenda-title">'+escapeHtml(e.title)+(e.link?' ↗':'')+'</div><div class="agenda-meta">'+e.source+(e.person?' · '+e.person:'')+(shownTime?' · '+shownTime:'')+'</div></div></'+tag+'>';
+    '<div><div class="agenda-title">'+escapeHtml(e.title)+(e.link?' ↗':'')+'</div><div class="agenda-meta">'+e.source+(e.person?' · '+e.person:'')+(shownTime?' · '+shownTime:'')+extraMeta+'</div></div></'+tag+'>';
 }
 /* ---- DAY VIEW ---- */
 function renderDayView(dateStr){
