@@ -110,6 +110,7 @@
   .hero-chips{position:relative;z-index:1;display:flex;gap:6px;flex-wrap:wrap;margin-top:12px;}
   .hero-chips .meta-chip{background:rgba(255,255,255,.14);color:#fff;}
   .hero-chips .meta-chip.good{background:rgba(255,255,255,.92);color:var(--success);}
+  .hero-chips .meta-chip.chip-train{cursor:pointer;}
   .hero-actions{position:relative;z-index:1;display:flex;gap:8px;flex-wrap:wrap;margin-top:16px;}
   .hero-btn{border:0;border-radius:var(--radius-sm);padding:9px 14px;font-size:13px;font-weight:800;}
   .hero-btn.primary{background:#fff;color:var(--accent-deep);}
@@ -160,6 +161,15 @@
   .metric-value small{font-size:12px;color:var(--text-soft);font-weight:600;margin-left:3px;font-family:'Inter',sans-serif;}
   .metric-foot{font-size:11.5px;color:var(--text-faint);margin-top:2px;}
   @media(max-width:760px){.today-metrics,.today-metrics.cols-3{grid-template-columns:1fr 1fr;gap:6px;} .metric{padding:9px 10px;} .metric-value{font-size:17px;}}
+  .today-metrics.dash .metric{padding:8px 10px;}
+  .today-metrics.dash .metric-value{font-size:16px;margin-top:2px;}
+  .today-metrics.dash .metric-label{font-size:9.5px;}
+  .today-metrics.dash .metric-foot{font-size:10px;}
+  .metric.clickable{cursor:pointer;}
+  .metric.clickable:hover{border-color:var(--accent);}
+  .dash-detail{background:var(--surface);border:1px solid var(--border-soft);border-radius:var(--radius-lg);padding:14px 16px;box-shadow:var(--shadow);margin-bottom:14px;}
+  .control-bar.mini{padding:7px 12px;margin-bottom:10px;}
+  .control-bar.mini .cb-nav input{width:120px;}
 
   .layout-2{display:grid;grid-template-columns:minmax(0,1.35fr) minmax(0,1fr);gap:14px;align-items:start;}
   .layout-train{display:grid;grid-template-columns:minmax(0,1fr) 360px;gap:14px;align-items:start;}
@@ -344,6 +354,9 @@
   .floor-last{display:flex;gap:10px;align-items:baseline;flex-wrap:wrap;}
   .floor-last .fl-lbl{font-size:12px;font-weight:800;text-transform:uppercase;letter-spacing:.08em;color:rgba(255,255,255,.55);}
   .floor-last .fl-val{font-family:'Manrope',sans-serif;font-weight:800;font-size:clamp(28px,8vw,44px);font-variant-numeric:tabular-nums;}
+  #floor-unit-toggle{background:rgba(255,255,255,.14);}
+  #floor-unit-toggle .unit-opt{color:rgba(255,255,255,.75);}
+  #floor-unit-toggle .unit-opt.active{background:rgba(255,255,255,.92);color:#141412;}
   .floor-inputs{display:grid;grid-template-columns:1fr 1fr 0.8fr;gap:10px;}
   .floor-inputs label{display:block;font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.06em;color:rgba(255,255,255,.55);margin-bottom:4px;}
   .floor-inputs input,.floor-inputs select{background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.18);color:#fff;border-radius:12px;font-size:28px;font-weight:800;text-align:center;padding:12px 6px;font-family:'Manrope',sans-serif;}
@@ -520,6 +533,22 @@
   .muscle-val{text-align:right;color:var(--text-soft);font-variant-numeric:tabular-nums;font-size:11.5px;}
   .macro-bars{margin-top:12px;}
   .macro-bars .muscle-row{grid-template-columns:70px minmax(0,1fr) 118px;}
+  .diet-meal-row{display:flex;justify-content:space-between;gap:10px;align-items:baseline;padding:8px 0;border-bottom:1px solid var(--border-soft);font-size:12.5px;}
+  .diet-meal-row:last-child{border-bottom:none;}
+  .diet-meal-row .dm-name{font-weight:700;}
+  .diet-meal-row .dm-time{color:var(--text-faint);font-weight:600;margin-left:6px;font-size:11px;}
+  .diet-meal-row .dm-macro{color:var(--text-soft);white-space:nowrap;font-variant-numeric:tabular-nums;}
+  .target-bars{display:flex;flex-direction:column;gap:9px;}
+  .target-row{display:grid;grid-template-columns:78px minmax(0,1fr) 158px;gap:10px;align-items:center;font-size:12.5px;}
+  .target-row .tg-name{font-weight:700;}
+  .target-track{height:10px;background:var(--surface-alt);border-radius:20px;overflow:hidden;}
+  .target-fill{height:100%;border-radius:20px;background:var(--accent);transition:opacity .3s;}
+  .tg-val{text-align:right;color:var(--text-soft);font-variant-numeric:tabular-nums;font-size:11.5px;white-space:nowrap;}
+  .tg-plain{text-align:right;color:var(--text-soft);font-size:12px;}
+  .tg-edit{background:none;border:none;cursor:pointer;font-size:11px;color:var(--text-faint);padding:0 0 0 4px;}
+  .tg-edit:hover{color:var(--accent);}
+  .tg-edit-input{font-size:12px;padding:2px 5px;border:1px solid var(--border);border-radius:6px;width:64px;}
+  @media(max-width:600px){.target-row{grid-template-columns:64px minmax(0,1fr) 132px;}}
   .heatmap-row{display:flex;gap:28px;align-items:center;flex-wrap:wrap;}
   .heatmap-wrap{overflow-x:auto;padding-bottom:2px;flex:1;min-width:220px;}
   .heatmap-grid{display:grid;grid-auto-flow:column;grid-template-rows:repeat(7,13px);gap:3px;width:max-content;}
@@ -530,6 +559,13 @@
   .heatmap-stats .metric{min-width:108px;box-shadow:none;}
   @media(max-width:640px){.heatmap-stats{margin-left:0;}}
   .chart-card.narrow{max-width:380px;margin:0 auto;}
+  .split-row{display:flex;gap:26px;align-items:center;flex-wrap:wrap;}
+  .split-canvas-wrap{width:200px;flex:none;margin:0 auto;}
+  .split-legend{flex:1;min-width:190px;display:flex;flex-direction:column;gap:9px;}
+  .split-legend-row{display:flex;align-items:center;gap:9px;font-size:12.5px;}
+  .split-legend-dot{width:10px;height:10px;border-radius:3px;flex:none;}
+  .split-legend-name{font-weight:700;flex:1;}
+  .split-legend-val{color:var(--text-soft);font-variant-numeric:tabular-nums;white-space:nowrap;}
   .muscle-flags{margin-top:10px;display:flex;flex-direction:column;gap:6px;}
 
   footer.foot{max-width:1280px;margin:30px auto 0;padding:16px;text-align:center;color:var(--text-faint);font-size:11.5px;}
@@ -606,34 +642,68 @@
       </div>
     </div>
 
-    <div class="control-bar">
-      <div class="cb-group cb-left">
-        <span class="cb-metric">Streak <strong id="stat-streak">0</strong> days</span>
-        <span class="cb-metric">7-day adherence <strong id="stat-adherence">—%</strong></span>
-      </div>
-      <div class="cb-center">
-        <div class="cb-nav">
-          <button type="button" id="log-date-prev" aria-label="Previous day">‹</button>
-          <input type="date" id="log-date" aria-label="Check-in date">
-          <button type="button" id="log-date-next" aria-label="Next day">›</button>
+    <div class="today-metrics dash">
+      <div class="metric"><div class="metric-label">Latest weight</div><div class="metric-value" id="stat-weight">—</div><div class="metric-foot" id="stat-weight-foot">No entries yet</div></div>
+      <div class="metric"><div class="metric-label" id="stat-togo-label">To target</div><div class="metric-value" id="stat-togo">—</div><div class="metric-foot" id="stat-togo-foot"></div></div>
+      <div class="metric clickable" id="tile-progday"><div class="metric-label">Program day</div><div class="metric-value" id="stat-progday">—</div><div class="metric-foot" id="stat-progday-foot"></div></div>
+      <div class="metric clickable" id="tile-couple"><div class="metric-label">Couple streak</div><div class="metric-value" id="stat-couple">—</div><div class="metric-foot" id="stat-couple-foot">Tap for details ⌄</div></div>
+    </div>
+
+    <div class="dash-detail" id="phase-detail" hidden>
+      <div class="program-row">
+        <div class="program-text" style="flex:1;">
+          <div class="p-eyebrow" id="phase-eyebrow"></div>
+          <div class="p-title" id="hero-h2"></div>
+          <p id="hero-p"></p>
         </div>
-        <button type="button" class="cb-pill cb-today" id="log-date-today">Today</button>
       </div>
-      <div class="cb-group cb-right">
-        <button type="button" class="cb-pill cb-tool" id="backup-open">Backup</button>
-        <button type="button" class="cb-pill cb-add" id="cb-start-workout">Train</button>
+      <button type="button" class="link-btn" id="edit-start-btn">✎ Change start date</button>
+      <div id="start-date-form" style="display:none;margin-top:8px;">
+        <div class="detail-row">
+          <input type="date" id="start-date-input" style="max-width:170px;">
+          <button id="save-start-date-btn" class="btn-mini primary">Save</button>
+          <button id="cancel-start-date-btn" class="btn-mini ghost">Cancel</button>
+        </div>
+        <div style="font-size:11px;color:var(--text-faint);">Shifts the whole program — every phase moves by the same amount, keeping their lengths.</div>
+      </div>
+      <div id="phase-track-wrap">
+        <div class="phase-track" id="phase-track"></div>
+        <div class="phase-labels" id="phase-labels"></div>
+      </div>
+      <div id="weight-journey-wrap" style="display:none;">
+        <div class="wj-bar"><div class="wj-fill" id="wj-fill"></div></div>
+        <div class="wj-labels"><span id="wj-start"></span><span id="wj-current"></span><span id="wj-goal"></span></div>
       </div>
     </div>
 
-    <div class="today-metrics">
-      <div class="metric"><div class="metric-label">Latest weight</div><div class="metric-value" id="stat-weight">—</div><div class="metric-foot" id="stat-weight-foot">No entries yet</div></div>
-      <div class="metric"><div class="metric-label" id="stat-togo-label">To target</div><div class="metric-value" id="stat-togo">—</div><div class="metric-foot" id="stat-togo-foot"></div></div>
-      <div class="metric"><div class="metric-label">Program day</div><div class="metric-value" id="stat-progday">—</div><div class="metric-foot" id="stat-progday-foot"></div></div>
-      <div class="metric"><div class="metric-label">Today</div><div class="metric-value" id="stat-today-status" style="font-size:15px;">—</div><div class="metric-foot" id="stat-today-foot"></div></div>
+    <div class="dash-detail" id="couple-detail" hidden>
+      <div class="couple-grid" id="couple-grid"><div class="empty-note">Loading…</div></div>
+    </div>
+
+    <div class="panel" id="today-targets-panel">
+      <div class="panel-head">
+        <div><div class="panel-title">Today's Targets</div><div class="panel-subtitle">Your plan's daily targets, filling in live as you log — tap the pencil to adjust a target.</div></div>
+        <a href="../apps/diet.html" target="_blank" rel="noopener" class="btn-mini ghost" style="display:inline-block;text-decoration:none;white-space:nowrap;">Log in Diet app →</a>
+      </div>
+      <div class="target-bars" id="today-target-bars"></div>
     </div>
 
     <div class="layout-2">
       <div class="col">
+        <div class="control-bar mini">
+          <div class="cb-group cb-left"></div>
+          <div class="cb-center">
+            <div class="cb-nav">
+              <button type="button" id="log-date-prev" aria-label="Previous day">‹</button>
+              <input type="date" id="log-date" aria-label="Check-in date">
+              <button type="button" id="log-date-next" aria-label="Next day">›</button>
+            </div>
+            <button type="button" class="cb-pill cb-today" id="log-date-today">Today</button>
+          </div>
+          <div class="cb-group cb-right">
+            <button type="button" class="cb-pill cb-tool" id="backup-open">Backup</button>
+          </div>
+        </div>
         <!-- Daily check-in, folded into Today -->
         <div class="panel" id="checkin-panel">
           <div class="panel-head">
@@ -688,44 +758,6 @@
       </div>
 
       <div class="col">
-        <div class="panel" id="couple-panel">
-          <div class="panel-head">
-            <div><div class="panel-title">Couple streak</div><div class="panel-subtitle">Workout streaks side by side — rest days on your plan don't break a streak.</div></div>
-          </div>
-          <div class="couple-grid" id="couple-grid"><div class="empty-note">Loading…</div></div>
-        </div>
-
-        <div class="panel" id="program-panel">
-          <div class="program-row">
-            <div class="prog-ring">
-              <svg viewBox="0 0 80 80"><circle cx="40" cy="40" r="33" fill="none" stroke="var(--surface-alt)" stroke-width="8"/><circle id="dial-progress" cx="40" cy="40" r="33" fill="none" stroke="var(--accent)" stroke-width="8" stroke-linecap="round" stroke-dasharray="207.3" stroke-dashoffset="207.3"/></svg>
-              <div class="pr-center"><div class="pr-num" id="days-elapsed">0</div><div class="pr-lbl" id="days-of">of 0 days</div></div>
-            </div>
-            <div class="program-text">
-              <div class="p-eyebrow" id="phase-eyebrow"></div>
-              <div class="p-title" id="hero-h2"></div>
-              <p id="hero-p"></p>
-            </div>
-          </div>
-          <button type="button" class="link-btn" id="edit-start-btn">✎ Change start date</button>
-          <div id="start-date-form" style="display:none;margin-top:8px;">
-            <div class="detail-row">
-              <input type="date" id="start-date-input" style="max-width:170px;">
-              <button id="save-start-date-btn" class="btn-mini primary">Save</button>
-              <button id="cancel-start-date-btn" class="btn-mini ghost">Cancel</button>
-            </div>
-            <div style="font-size:11px;color:var(--text-faint);">Shifts the whole program — every phase moves by the same amount, keeping their lengths.</div>
-          </div>
-          <div id="phase-track-wrap">
-            <div class="phase-track" id="phase-track"></div>
-            <div class="phase-labels" id="phase-labels"></div>
-          </div>
-          <div id="weight-journey-wrap" style="display:none;">
-            <div class="wj-bar"><div class="wj-fill" id="wj-fill"></div></div>
-            <div class="wj-labels"><span id="wj-start"></span><span id="wj-current"></span><span id="wj-goal"></span></div>
-          </div>
-        </div>
-
         <div class="panel">
           <div class="panel-head">
             <div><div class="panel-title">This week's schedule</div><div class="panel-subtitle">Tap a day for a full preview of its workout.</div></div>
@@ -897,6 +929,8 @@
       </div>
       <div class="today-metrics" id="diet-today-metrics"></div>
       <div class="macro-bars" id="diet-macro-bars" style="margin-top:4px;"></div>
+      <div class="section-title" style="margin-top:16px;">Logged today</div>
+      <div id="diet-today-meals"></div>
     </div>
 
     <div class="grid-2" style="margin:14px 0;">
@@ -932,11 +966,6 @@
     <div class="day-total" id="day-total-wrap" style="display:none;">
       <div class="dt-label">Meal Plan Total</div>
       <div class="dt-vals" id="day-total-vals"></div>
-    </div>
-
-    <div class="targets-box">
-      <div class="panel-title">Daily Targets</div>
-      <div class="targets-grid" id="targets-grid"></div>
     </div>
 
     <div id="caution-wrap"></div>
@@ -1036,10 +1065,13 @@
       <div class="chart-card"><h3>Weekly Cardio Calories (active)</h3><canvas id="chart-cardio-kcal" height="200"></canvas></div>
     </div>
 
-    <div class="chart-card narrow" style="margin-bottom:14px;">
+    <div class="chart-card" style="margin-bottom:14px;">
       <h3>Training Split</h3>
       <div class="panel-subtitle" style="margin:-8px 0 12px;">Share of sets by muscle group, last 30 days — where your training time is actually going.</div>
-      <canvas id="chart-split" height="220"></canvas>
+      <div class="split-row">
+        <div class="split-canvas-wrap"><canvas id="chart-split" height="220"></canvas></div>
+        <div class="split-legend" id="split-legend"></div>
+      </div>
       <div class="empty-note" id="split-empty" style="display:none;">Log some sets to see this fill in.</div>
     </div>
 
@@ -1536,6 +1568,13 @@ function hubNameFor(id){ return id==='bhargav' ? 'Bhargav' : 'Anusha'; }
 function otherProfileId(id){ return id==='bhargav' ? 'anusha' : 'bhargav'; }
 function avatarCls(id){ return id==='bhargav' ? 'av-b' : 'av-a'; }
 function escHtml(s){ return String(s==null?'':s).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+// Universal exercise identity: the same movement (e.g. "Leg extension") is
+// programmed under a DIFFERENT id on each day (thu2 vs sun3) — the id is a
+// per-day slot, not the exercise's real identity. Everywhere history needs
+// to follow "this exercise" rather than "this day's slot" (last-time,
+// PRs, the strength chart), match by normalized NAME instead of id, so
+// records stay attached to the exercise no matter which day it was logged.
+function exKey(name){ return String(name||'').trim().toLowerCase().replace(/\s+/g,' '); }
 
 function showProfilePicker(){
   document.getElementById('loading-gate').style.display = 'none';
@@ -1641,11 +1680,19 @@ function applyExerciseOrder(orderKey, list){
 // earlier day (not just the same weekday). `beforeDate` keeps today's own
 // auto-saved sets from showing up as their own "last time"; `allLifts`
 // lets a render pass reuse one workoutLogs read instead of one per card.
-async function getLastExerciseLog(exId, beforeDate, allLifts){
+// Matches by id first, but falls back to matching by exercise NAME —
+// the same movement (e.g. "Leg extension") is often programmed on more
+// than one day with a different id per day (thu2 vs sun3), so an id-only
+// match would miss the more recent log if it happened to fall on a
+// different day of the week. listLift() is already sorted newest-first,
+// so the first match found here is the most recent one, full stop —
+// whatever day it was logged on.
+async function getLastExerciseLog(exId, beforeDate, allLifts, exName){
   const all = allLifts || await listLift();
+  const key = exName ? exKey(exName) : null;
   for(const w of all){
     if(beforeDate && !(w.date < beforeDate)) continue;
-    const ex = (w.exercises||[]).find(e=>e.id===exId);
+    const ex = (w.exercises||[]).find(e=> e.id===exId || (key && exKey(e.name)===key));
     if(ex && ex.sets && ex.sets.some(s=>s.weight)) return {date:w.date, ex};
   }
   return null;
@@ -1734,30 +1781,137 @@ document.getElementById('log-date-today').addEventListener('click', ()=> stepDat
 document.getElementById('lift-date-prev').addEventListener('click', ()=> stepDateInput('lift-date', -1));
 document.getElementById('lift-date-next').addEventListener('click', ()=> stepDateInput('lift-date', 1));
 document.getElementById('lift-date-today').addEventListener('click', ()=> stepDateInput('lift-date', 0));
-document.getElementById('cb-start-workout').addEventListener('click', ()=> openView('train'));
 document.getElementById('command-checkin').addEventListener('click', ()=>{
   if(document.getElementById('log-date').value !== todayStr()) stepDateInput('log-date', 0);
   document.getElementById('checkin-panel').scrollIntoView({behavior:'smooth', block:'start'});
 });
 document.getElementById('command-preview').addEventListener('click', ()=> openWorkoutPreview(dayNameFor(todayStr())));
+// Merged Train status chip in the hero (see renderFitnessCommand) — it's
+// re-rendered into innerHTML each refresh, so it's wired once here via
+// delegation rather than re-attaching a listener every render.
+document.getElementById('hero-chips').addEventListener('click', (e)=>{
+  if(e.target.closest('.chip-train')) openView('train');
+});
+// Program day / Couple streak metric tiles expand a detail panel below the
+// row instead of always showing it — keeps the dashboard compact while the
+// full phase info / per-person streaks stay one tap away.
+function wireDashToggle(tileId, panelId){
+  const tile = document.getElementById(tileId), panel = document.getElementById(panelId);
+  tile.addEventListener('click', ()=>{
+    panel.hidden = !panel.hidden;
+    tile.classList.toggle('open', !panel.hidden);
+  });
+}
+wireDashToggle('tile-progday', 'phase-detail');
+wireDashToggle('tile-couple', 'couple-detail');
 
 /* =====================================================================
    TODAY — hero + readiness, program, stats, schedule, couple streak
 ===================================================================== */
+/* ---------------- Today's Targets — plan targets as live, editable progress bars ----------------
+   Reads the same written-plan targets (p.dietTargets) shown on Diet before,
+   but turns each into a bar filled from real logged data (diet diary for
+   Calories/Protein/Fat/Carbs, today's check-in for Water/Steps/Sleep, this
+   week's logs for Lifting/Cardio session counts) and lets the target number
+   itself be edited and saved per profile. */
+const TARGET_UNITS = {Calories:'kcal', Protein:'g', Fat:'g', Carbs:'g', Water:'L', Steps:'', Sleep:'h', Lifting:'/wk', Cardio:'/wk'};
+function parseTargetNumber(val){
+  const pm = val.match(/^\s*([\d,]+(?:\.\d+)?)\s*±/);
+  if(pm) return parseFloat(pm[1].replace(/,/g,''));
+  const rng = val.match(/([\d,]+(?:\.\d+)?)\s*[–-]\s*([\d,]+(?:\.\d+)?)/);
+  if(rng) return (parseFloat(rng[1].replace(/,/g,'')) + parseFloat(rng[2].replace(/,/g,'')))/2;
+  const sg = val.match(/([\d,]+(?:\.\d+)?)/);
+  return sg ? parseFloat(sg[1].replace(/,/g,'')) : null;
+}
+function targetsOverrideDoc(){
+  return db.collection('users').doc(currentUser.uid).collection('profiles').doc(activeProfile.id).collection('meta').doc('dietTargetsOverride');
+}
+async function getTargetsOverride(){
+  try{ const doc = await targetsOverrideDoc().get(); return doc.exists ? (doc.data()||{}) : {}; }catch(e){ return {}; }
+}
+async function saveTargetOverride(label, num){
+  try{ await targetsOverrideDoc().set({[label]: num}, {merge:true}); return true; }catch(e){ return false; }
+}
+function wireTodayTargetEdits(){
+  document.querySelectorAll('#today-target-bars .tg-edit').forEach(function(btn){
+    btn.onclick = function(){
+      const row = btn.closest('.target-row');
+      const label = row.dataset.label;
+      const targetSpan = row.querySelector('.tg-target');
+      const curTarget = targetSpan ? targetSpan.dataset.target : '';
+      const valWrap = row.querySelector('.tg-val');
+      valWrap.innerHTML = '<input type="number" step="any" class="tg-edit-input" value="'+curTarget+'"> '
+        + '<button type="button" class="btn-mini primary tg-save">Save</button> '
+        + '<button type="button" class="btn-mini ghost tg-cancel">Cancel</button>';
+      const input = valWrap.querySelector('.tg-edit-input');
+      input.focus(); input.select();
+      valWrap.querySelector('.tg-save').onclick = async function(){
+        const num = parseFloat(input.value);
+        if(!isFinite(num) || num<=0) return;
+        await saveTargetOverride(label, num);
+        await renderTodayTargets();
+      };
+      valWrap.querySelector('.tg-cancel').onclick = function(){ renderTodayTargets(); };
+    };
+  });
+}
+async function renderTodayTargets(){
+  const wrap = document.getElementById('today-target-bars');
+  const panel = document.getElementById('today-targets-panel');
+  if(!wrap || !panel) return;
+  const p = activeProfile;
+  const defs = p.dietTargets || [];
+  if(!defs.length){ panel.style.display = 'none'; return; }
+  panel.style.display = '';
+  const today = todayStr();
+  const weekFrom = addDaysStr(today, -6);
+
+  const [override, dailyLog, lifts, cardioAll] = await Promise.all([
+    getTargetsOverride(), getDaily(today), listLift(), listCardio()
+  ]);
+  await loadLiveDietData();
+  const diary = ((dietStateLive && dietStateLive.diary) || []).filter(function(e){ return e.profileId===p.id && e.date===today; });
+  const todayTotals = dietDayTotals(diary);
+
+  const liftDaysWeek = new Set((lifts||[]).filter(function(w){ return w.date>=weekFrom && w.date<=today && (w.exercises||[]).some(function(e){ return (e.sets||[]).length; }); }).map(function(w){ return w.date; })).size;
+  const cardioDaysWeek = new Set((cardioAll||[]).filter(function(c){ return c.date>=weekFrom && c.date<=today && (c.entries||[]).length; }).map(function(c){ return c.date; })).size;
+
+  const liveVal = {
+    Calories: todayTotals.calories, Protein: todayTotals.protein, Fat: todayTotals.fat, Carbs: todayTotals.carbs,
+    Water: (dailyLog && dailyLog.water) || 0, Steps: (dailyLog && dailyLog.steps) || 0, Sleep: (dailyLog && dailyLog.sleep) || 0,
+    Lifting: liftDaysWeek, Cardio: cardioDaysWeek
+  };
+
+  wrap.innerHTML = defs.map(function(t){
+    const unit = TARGET_UNITS[t.label];
+    const defaultNum = parseTargetNumber(t.val);
+    const targetNum = (override[t.label]!=null) ? override[t.label] : defaultNum;
+    const current = liveVal[t.label];
+    if(current==null || unit==null || !targetNum){
+      return '<div class="target-row" data-label="'+escHtml(t.label)+'"><span class="tg-name">'+escHtml(t.label)+'</span><span></span><span class="tg-plain">'+escHtml(t.val)+'</span></div>';
+    }
+    const ratio = current/targetNum;
+    const pct = Math.max(2, Math.min(100, Math.round(ratio*100)));
+    const opacity = (0.3 + 0.7*Math.min(1, ratio)).toFixed(2);
+    const curDisp = Number.isInteger(current) ? current : current.toFixed(1);
+    return '<div class="target-row" data-label="'+escHtml(t.label)+'">'
+      + '<span class="tg-name">'+escHtml(t.label)+'</span>'
+      + '<div class="target-track"><div class="target-fill" style="width:'+pct+'%;opacity:'+opacity+'"></div></div>'
+      + '<span class="tg-val">'+curDisp+' / <span class="tg-target" data-target="'+targetNum+'">'+targetNum+'</span>'+(unit?' '+unit:'')+' <button type="button" class="tg-edit" title="Edit target">✎</button></span>'
+      + '</div>';
+  }).join('');
+  wireTodayTargetEdits();
+}
 async function renderDashboard(){
   const p = activeProfile;
+  renderTodayTargets().catch(function(e){ console.error('renderTodayTargets failed', e); });
   const today = todayStr();
   const total = daysBetween(p.program.startDate, p.program.endDate);
   const elapsed = Math.max(0, Math.min(total, daysBetween(p.program.startDate, today)));
-  document.getElementById('days-elapsed').textContent = elapsed;
-  document.getElementById('days-of').textContent = 'of '+total+' days';
-  const circumference = 207.3;
-  const pct = Math.min(1, elapsed/total);
-  document.getElementById('dial-progress').setAttribute('stroke-dashoffset', circumference*(1-pct));
   document.getElementById('stat-progday').innerHTML = elapsed+'<small>/ '+total+'</small>';
-  document.getElementById('stat-progday-foot').textContent = today < p.program.startDate
+  document.getElementById('stat-progday-foot').textContent = (today < p.program.startDate
     ? 'Starts '+fmtHuman(p.program.startDate)
-    : 'Ends '+fmtHuman(p.program.endDate);
+    : 'Ends '+fmtHuman(p.program.endDate)) + ' · Tap for phase ⌄';
 
   document.getElementById('hero-h2').textContent = p.heroTitle;
   document.getElementById('hero-p').textContent = p.heroText;
@@ -1813,20 +1967,6 @@ async function renderDashboard(){
     document.getElementById('wj-current').textContent = (latestWeight ?? p.program.startWeight)+' kg';
   }
 
-  const last7 = daily.slice(0,7);
-  if(last7.length){
-    const avg = Math.round(last7.reduce((s,d)=>s+(d.adherence||0),0)/last7.length);
-    document.getElementById('stat-adherence').textContent = avg+'%';
-  } else {
-    document.getElementById('stat-adherence').textContent = '—%';
-  }
-
-  let streak = 0;
-  let cursor = new Date(today+'T00:00:00');
-  const dateSet = new Set(daily.map(d=>d.date));
-  while(dateSet.has(fmtDate(cursor))){ streak++; cursor.setDate(cursor.getDate()-1); }
-  document.getElementById('stat-streak').textContent = streak;
-
   const weekGrid = document.getElementById('week-grid');
   weekGrid.innerHTML='';
   ['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'].forEach(dn=>{
@@ -1846,8 +1986,6 @@ async function renderDashboard(){
 
   const s = p.weekSchedule[dayNameFor(today)];
   const todayLog = daily.find(d=>d.date===today) || null;
-  document.getElementById('stat-today-status').textContent = todayLog ? 'Day logged ✓' : 'Not logged';
-  document.getElementById('stat-today-foot').textContent = s.status;
   document.getElementById('hero-eyebrow').textContent = dayNameFor(today)+' · '+fmtHuman(today);
   document.getElementById('hero-title').textContent = s.main;
   document.getElementById('hero-time').textContent = (s.purpose ? s.purpose+' · ' : '') + s.cardio;
@@ -1891,9 +2029,26 @@ async function renderFitnessCommand(todayLog, sched){
   arc.setAttribute('stroke', ready.tone);
   arc.setAttribute('stroke-dashoffset', 207.3*(1-((ready.score||0)/100)));
   document.getElementById('readiness-progress').textContent = total ? ('Workout '+completed+'/'+total+' logged') : ('Rest day · '+(sched?.cardio||'Recovery'));
+
+  // Check-in status used to be its own "Check-in pending/done" chip sitting
+  // right next to the Check-in button — same information twice. The button
+  // itself now carries that state.
+  document.getElementById('command-checkin').textContent = todayLog ? '✓ Checked in' : 'Check in';
+
+  // The old "Train" day-type chip and the separate "Today: Not logged /
+  // Train" metric block said overlapping things in two different places.
+  // One chip now carries both: what kind of day it is, and whether the
+  // workout is logged — and it's clickable straight through to Train.
+  let trainLabel, trainGood;
+  if(sched.status !== 'Train' && !total){
+    trainLabel = completed ? 'Logged ✓' : 'Rest day';
+    trainGood = !!completed;
+  } else {
+    trainLabel = completed ? 'Train logged ✓' : 'Not logged · Train';
+    trainGood = !!completed;
+  }
   const chips = [];
-  chips.push(`<span class="meta-chip ${sched.status==='Train'?'good':''}">${sched.status}</span>`);
-  chips.push(`<span class="meta-chip ${todayLog?'good':''}">${todayLog?'Check-in done ✓':'Check-in pending'}</span>`);
+  chips.push(`<span class="meta-chip chip-train ${trainGood?'good':''}" title="Go to Train">${trainLabel}</span>`);
   if(total) chips.push(`<span class="meta-chip">${total} exercise${total===1?'':'s'}</span>`);
   if(liveToday) chips.push(`<span class="meta-chip good">Session in progress</span>`);
   document.getElementById('hero-chips').innerHTML = chips.join('');
@@ -1943,6 +2098,16 @@ async function renderCoupleStreak(){
   const today = todayStr();
   const [mine, theirs] = await Promise.all([readProfileTraining(me), readProfileTraining(partner)]);
   if(seq !== coupleSeq) return;
+
+  // Compact "Couple streak" tile on the dashboard — just enough to glance
+  // at; tapping it opens the full two-person breakdown below (#couple-grid,
+  // unchanged) via the couple-detail toggle wired in init.
+  const myWs = workoutStreakFor(PROFILES[me], mine.trained, today);
+  const theirWs = workoutStreakFor(PROFILES[partner], theirs.trained, today);
+  document.getElementById('stat-couple').innerHTML = myWs+'<small>d</small> · '+theirWs+'<small>d</small>';
+  document.getElementById('stat-couple-foot').textContent = (mine.trained.has(today) && theirs.trained.has(today))
+    ? 'Both trained today 💪' : 'Tap for details ⌄';
+
   const card = (pid, data, isMe)=>{
     const prof = PROFILES[pid];
     const ws = workoutStreakFor(prof, data.trained, today);
@@ -2158,6 +2323,8 @@ function renderDayPicker(){
 
 let renderListSeq = 0;
 async function renderExerciseList(date, dayKey){
+  const todayBtn = document.getElementById('lift-date-today');
+  if(todayBtn) todayBtn.style.display = (date===todayStr()) ? 'none' : '';
   const container = document.getElementById('exercise-list');
   const seq = ++renderListSeq;
   container.innerHTML = '<div class="empty-note">Loading...</div>';
@@ -2187,14 +2354,14 @@ async function renderExerciseList(date, dayKey){
 
   for(const ex of allExercises){
     const saved = savedExFor(ex.id);
-    const last = await getLastExerciseLog(ex.id, date, allLifts);
+    const last = await getLastExerciseLog(ex.id, date, allLifts, ex.name);
     const unit = unitForExercise(ex.id);
     const group = muscleGroupFor(ex);
     const card = document.createElement('div');
     card.className = 'ex-card'; card.dataset.exid = ex.id;
     card.draggable = true;
     card.dataset.lastSets = JSON.stringify((last && last.ex && last.ex.sets) || []);
-    card.dataset.prior = JSON.stringify(collectPriorSets(ex.id, date, allLifts));
+    card.dataset.prior = JSON.stringify(collectPriorSets(ex.id, date, allLifts, ex.name));
     card.dataset.baseRest = ex.rest || 60;
     card.dataset.unit = unit;
     card.dataset.group = group;
@@ -2215,7 +2382,7 @@ async function renderExerciseList(date, dayKey){
         <td class="last-time-cell">${lastCellText}</td>
         <td><input type="number" step="${unit==='kg'?'0.5':'2.5'}" class="inp-weight" value="${w}" placeholder="${ph}"></td>
         <td><input type="number" class="inp-reps" value="${r}" placeholder="${phR}"></td>
-        <td><select class="inp-effort"><option value="">—</option>${[1,2,3,4,5,6,7,8,9,10].map(n=>`<option value="${n}" ${String(ef)===String(n)?'selected':''}>${n}</option>`).join('')}</select></td>
+        <td><select class="inp-effort">${effortOptionsHtml(ef)}</select></td>
         <td class="pr-cell"></td>
         <td><button type="button" class="icon-btn del-set-btn" title="Delete this set">✕</button></td>
       </tr>`;
@@ -2272,8 +2439,23 @@ async function renderExerciseList(date, dayKey){
   document.getElementById('train-meta').innerHTML = `<strong>${allExercises.length}</strong> exercise${allExercises.length===1?'':'s'}${groups.length?' · '+groups.join(', '):''}`;
   renderLiveSessionBar();
 }
+// Effort is stored as a number (1–10) so the smart rest-timer's existing
+// thresholds and older logged sets keep working unchanged — the UI just
+// offers three representative levels (Low=3, Med=6, High=9) instead of a
+// 10-option dropdown. A legacy value is bucketed to the nearest level so
+// it still shows as selected.
+const EFFORT_LEVELS = [{v:3,label:'Low'},{v:6,label:'Med'},{v:9,label:'High'}];
+function effortBucket(v){
+  if(v==null || v==='') return '';
+  v = +v; if(!isFinite(v)) return '';
+  if(v<=4) return 3; if(v<=7) return 6; return 9;
+}
+function effortOptionsHtml(selected){
+  const b = effortBucket(selected);
+  return '<option value="">—</option>'+EFFORT_LEVELS.map(function(o){ return '<option value="'+o.v+'" '+(b===o.v?'selected':'')+'>'+o.label+'</option>'; }).join('');
+}
 function newSetRowHtml(n){
-  return `<td class="set-num">${n}</td><td class="last-time-cell">—</td><td><input type="number" step="0.5" class="inp-weight"></td><td><input type="number" class="inp-reps"></td><td><select class="inp-effort"><option value="">—</option>${[1,2,3,4,5,6,7,8,9,10].map(x=>`<option value="${x}">${x}</option>`).join('')}</select></td><td class="pr-cell"></td><td><button type="button" class="icon-btn del-set-btn" title="Delete this set">✕</button></td>`;
+  return `<td class="set-num">${n}</td><td class="last-time-cell">—</td><td><input type="number" step="0.5" class="inp-weight"></td><td><input type="number" class="inp-reps"></td><td><select class="inp-effort">${effortOptionsHtml('')}</select></td><td class="pr-cell"></td><td><button type="button" class="icon-btn del-set-btn" title="Delete this set">✕</button></td>`;
 }
 function addSetRow(card){
   const tbody = card.querySelector('tbody');
@@ -2358,6 +2540,11 @@ function wireDeleteSetButton(btn){
     const tr = e.target.closest('tr');
     tr.remove();
     refreshSetNumbersAndLastTime(card);
+    // Deleting a set used to be DOM-only — nothing told Firestore, so the
+    // "deleted" set was still sitting in the saved workout and came back
+    // the next time this exercise was loaded. Save immediately instead.
+    const date = document.getElementById('lift-date').value || todayStr();
+    saveOneExercise(card, date, currentLiftDay, false);
   });
 }
 // Keeps set numbers and their "Last time" reference in sync with each
@@ -2420,12 +2607,16 @@ async function saveOneExercise(card, date, dayKey, showMessage){
     else if(weight!=null || reps!=null) incompleteCount++;
   });
   const msgEl = card.querySelector('.ex-save-msg');
+  const existing = (await getLift(date, liftMode+':'+dayKey)) || { date, day: dayKey, mode: liftMode, exercises: [] };
+  const idx = existing.exercises.findIndex(e=>e.id===id);
   if(!sets.length){
+    // Every row for this exercise is now empty (usually: the last set was
+    // deleted) — remove it from what's saved too, instead of leaving the
+    // old sets sitting in Firestore where they'd reappear on reload.
+    if(idx!==-1){ existing.exercises.splice(idx,1); await setLift(date, liftMode+':'+dayKey, existing); }
     if(showMessage && msgEl){ msgEl.textContent = 'Add weight and reps to at least one set first.'; msgEl.style.color = 'var(--accent-a)'; setTimeout(()=>msgEl.textContent='', 3000); }
     return;
   }
-  const existing = (await getLift(date, liftMode+':'+dayKey)) || { date, day: dayKey, mode: liftMode, exercises: [] };
-  const idx = existing.exercises.findIndex(e=>e.id===id);
   const entry = { id, name, sets };
   if(idx===-1) existing.exercises.push(entry); else existing.exercises[idx] = entry;
   await setLift(date, liftMode+':'+dayKey, existing);
@@ -2926,7 +3117,22 @@ async function renderDietToday(){
 
   const profileGoals = (dietStateLive && dietStateLive.profiles && dietStateLive.profiles[p.id] && dietStateLive.profiles[p.id].goals) || (dietStateLive && dietStateLive.goals) || {};
   const diary = ((dietStateLive && dietStateLive.diary) || []).filter(function(e){ return e.profileId===p.id; });
-  const todayTotals = dietDayTotals(diary.filter(function(e){ return e.date===today; }));
+  const todayEntries = diary.filter(function(e){ return e.date===today; });
+  const todayTotals = dietDayTotals(todayEntries);
+  const mealsEl = document.getElementById('diet-today-meals');
+  if(mealsEl){
+    if(!todayEntries.length){
+      mealsEl.innerHTML = '<div class="empty-note">Nothing logged in Diet yet today.</div>';
+    } else {
+      mealsEl.innerHTML = todayEntries.map(function(e){
+        const factor = (e.servings!=null?e.servings:1) / (e.recipeServings||1);
+        const n = e.nutrition || {};
+        const cal = Math.round((n.calories||0)*factor), protein = ((n.protein||0)*factor).toFixed(0);
+        const planned = e.status==='planned' ? ' <span class="dm-time">(planned)</span>' : '';
+        return '<div class="diet-meal-row"><span class="dm-name">'+escHtml(e.name||'Meal')+planned+'</span><span class="dm-macro">'+cal+' kcal · '+protein+'g protein</span></div>';
+      }).join('');
+    }
+  }
 
   const [dailyLog, cardioToday, lifts, dailyAll] = await Promise.all([getDaily(today), getCardio(today), listLift(), listDaily()]);
   const water = (dailyLog && dailyLog.water) || 0;
@@ -3081,10 +3287,6 @@ async function renderDiet(){
     document.getElementById('day-total-vals').textContent = `${Math.round(grandCal)} kcal · ${grandProtein.toFixed(1)}g protein`;
   }
 
-  document.getElementById('targets-grid').innerHTML = p.dietTargets.map(t=>`
-    <div class="t-item"><span class="t-label">${t.label}</span><span class="t-val">${t.val}</span></div>
-  `).join('');
-
   document.getElementById('caution-wrap').innerHTML = p.cautionNote
     ? `<div class="caution-box"><strong>Important:</strong> ${p.cautionNote}</div>` : '';
 
@@ -3217,27 +3419,36 @@ async function renderAnalytics(){
   daySelect.innerHTML = dayOptions.map(d=>`<option value="${d}">${d}</option>`).join('');
 
   function exercisesForDay(day){
+    // Dedupe by NAME, not id — "Leg extension" is thu2 on Thursday and
+    // sun3 on Sunday, same exercise, different per-day id. Deduping by id
+    // let both slots through as if they were different exercises.
     if(day==='All'){
       const all = [];
       const groups = [Object.values(activeProfile.workouts)];
       if(activeProfile.periodWorkouts) groups.push(Object.values(activeProfile.periodWorkouts));
-      groups.forEach(group => group.forEach(list => list.forEach(e => { if(!all.find(x=>x.id===e.id)) all.push(e); })));
+      groups.forEach(group => group.forEach(list => list.forEach(e => { if(!all.find(x=>exKey(x.name)===exKey(e.name))) all.push(e); })));
       // Custom exercises live outside the default schedule entirely — a
       // day like Tuesday or Saturday has no default list at all, so this
       // is the only place they'd ever show up.
-      Object.keys(customExercisesCache||{}).forEach(dk => customExercisesFor(dk).forEach(e => { if(!all.find(x=>x.id===e.id)) all.push(e); }));
+      Object.keys(customExercisesCache||{}).forEach(dk => customExercisesFor(dk).forEach(e => { if(!all.find(x=>exKey(x.name)===exKey(e.name))) all.push(e); }));
       return all;
     }
     if(day==='Period'){
       const all = [];
-      Object.values(activeProfile.periodWorkouts||{}).forEach(list => list.forEach(e => { if(!all.find(x=>x.id===e.id)) all.push(e); }));
+      Object.values(activeProfile.periodWorkouts||{}).forEach(list => list.forEach(e => { if(!all.find(x=>exKey(x.name)===exKey(e.name))) all.push(e); }));
       return all;
     }
-    return (activeProfile.workouts[day] || []).concat(customExercisesFor(day));
+    const dayList = (activeProfile.workouts[day] || []).concat(customExercisesFor(day));
+    const seen = [];
+    return dayList.filter(e=>{ const k=exKey(e.name); if(seen.includes(k)) return false; seen.push(k); return true; });
   }
   function populateExerciseSelect(day){
     const list = exercisesForDay(day);
-    exSelect.innerHTML = list.map(e=>`<option value="${e.id}">${e.name}${e.id.startsWith('p')?' (period)':''}</option>`).join('');
+    // Option value is the exercise NAME (its universal identity), not a
+    // per-day id — the strength chart below matches on this same name so
+    // it always shows the exercise's full history, whichever day it was
+    // most recently logged on.
+    exSelect.innerHTML = list.map(e=>`<option value="${escHtml(e.name)}">${escHtml(e.name)}${e.id.startsWith('p')?' (period)':''}</option>`).join('');
     if(list.length) renderStrengthChart(exSelect.value, lifts, chartColors);
     else destroyChart('strength');
   }
@@ -3246,11 +3457,12 @@ async function renderAnalytics(){
   populateExerciseSelect(daySelect.value);
 }
 
-function renderStrengthChart(exId, lifts, chartColors){
+function renderStrengthChart(exName, lifts, chartColors){
   destroyChart('strength');
   const points = [];
+  const key = exKey(exName);
   lifts.forEach(w=>{
-    const ex = w.exercises.find(e=>e.id===exId);
+    const ex = (w.exercises||[]).find(e=>exKey(e.name)===key);
     if(ex && ex.sets.length){
       const topWeight = Math.max(...ex.sets.map(s=>s.weight||0));
       if(topWeight) points.push({x:w.date, y:topWeight});
@@ -4061,6 +4273,7 @@ function muscleGroupFor(ex){
   return group;
 }
 function toKg(w, unit){ return unit==='kg' ? w : w*0.45359237; }
+function fromKg(kg, unit){ return unit==='kg' ? kg : kg/0.45359237; }
 function setVolumeKg(exId, s){ return (s.weight!=null && s.reps!=null) ? toKg(+s.weight||0, unitForExercise(exId)) * (+s.reps||0) : 0; }
 function groupsTrainedOn(lifts, date){
   const out = new Set();
@@ -4087,11 +4300,15 @@ function renderRecoveryNotice(date, plannedExercises, allLifts){
      Weight PR: heavier than anything logged before.
      Rep PR:    more reps than ever managed at this weight or heavier.
 ===================================================================== */
-function collectPriorSets(exId, beforeDate, allLifts){
+function collectPriorSets(exId, beforeDate, allLifts, exName){
   const out = [];
+  // Match by name, not just id — a PR on "Leg Press" done on Thursday
+  // needs to be visible as the bar to beat when the same "Leg Press" is
+  // logged again on Sunday under a different day-slot id.
+  const key = exName ? exKey(exName) : null;
   allLifts.forEach(w=>{
     if(!(w.date < beforeDate)) return;
-    const ex = (w.exercises||[]).find(e=>e.id===exId);
+    const ex = (w.exercises||[]).find(e=> e.id===exId || (key && exKey(e.name)===key));
     if(ex) (ex.sets||[]).forEach(s=>{ if(s.weight!=null && s.reps!=null) out.push([+s.weight, +s.reps]); });
   });
   return out;
@@ -4219,7 +4436,18 @@ function openPlateCalc(weight, unit, exName){
       + (res.remainder > 0 ? `<br>${res.remainder} ${u} per side can't be made with standard plates — closest is <b>${loaded} ${u}</b>.` : '');
   };
   document.getElementById('plate-target').addEventListener('input', draw);
-  document.querySelectorAll('#plate-unit .unit-opt').forEach(b=> b.addEventListener('click', ()=>{ u = b.dataset.unit; draw(); }));
+  // Switching kg/lb actually converts the number typed in, rather than
+  // just recalculating the plate breakdown under a relabeled unit.
+  document.querySelectorAll('#plate-unit .unit-opt').forEach(b=> b.addEventListener('click', ()=>{
+    const newU = b.dataset.unit;
+    if(newU !== u){
+      const t = document.getElementById('plate-target');
+      const val = parseFloat(t.value);
+      if(isFinite(val)) t.value = Math.round(fromKg(toKg(val, u), newU)*10)/10;
+      u = newU;
+    }
+    draw();
+  }));
   draw();
   setTimeout(()=>{ const t = document.getElementById('plate-target'); if(t && !t.value) t.focus(); }, 50);
 }
@@ -4448,16 +4676,24 @@ function renderFloor(){
         <div class="floor-ex">${escHtml(card.querySelector('.ex-name').textContent)}</div>
         <div class="floor-set">${allDone ? 'All '+rows.length+' sets logged ✓' : 'Set '+(rowIdx+1)+' of '+rows.length}${target ? ' <span style="font-size:.6em;opacity:.7;font-weight:700;">· '+escHtml(target)+'</span>' : ''}</div>
       </div>
-      <div class="floor-last"><span class="fl-lbl">Last time</span><span class="fl-val">${lastText}</span><span class="fl-lbl">${unit}</span></div>
+      <div class="floor-last"><span class="fl-lbl">Last time</span><span class="fl-val">${lastText}</span><span class="fl-lbl">${unit}</span>
+        <div class="ex-unit-toggle" id="floor-unit-toggle" style="margin-left:auto;">
+          <button type="button" class="unit-opt ${unit==='kg'?'active':''}" data-unit="kg">kg</button>
+          <button type="button" class="unit-opt ${unit!=='kg'?'active':''}" data-unit="lb">lb</button>
+        </div>
+      </div>
       ${allDone ? `
         <div class="floor-row"><button class="floor-btn" id="floor-addset">+ Add another set</button></div>
       ` : `
         <div class="floor-inputs">
           <div><label for="floor-w">Weight (${unit})</label><input type="number" inputmode="decimal" step="${unit==='kg'?'0.5':'2.5'}" id="floor-w" value="${escHtml(wDefault)}"></div>
           <div><label for="floor-r">${card.querySelector('.sets-table thead th:nth-child(4)').textContent}</label><input type="number" inputmode="numeric" id="floor-r" value="${escHtml(rDefault)}" placeholder="${escHtml(rPh)}"></div>
-          <div><label for="floor-e">Effort</label><select id="floor-e"><option value="">—</option>${[1,2,3,4,5,6,7,8,9,10].map(n=>`<option value="${n}" ${String(eDefault)===String(n)?'selected':''}>${n}</option>`).join('')}</select></div>
+          <div><label for="floor-e">Effort</label><select id="floor-e">${effortOptionsHtml(eDefault)}</select></div>
         </div>
-        <button class="floor-log" id="floor-log">Log set ${rowIdx+1}</button>
+        <div class="floor-row">
+          <button class="floor-log" id="floor-log" style="flex:1;">Log set ${rowIdx+1}</button>
+          <button class="floor-btn" id="floor-clear" title="Clear these fields">Clear</button>
+        </div>
       `}
       <div class="floor-pr" id="floor-pr">${prBadge}</div>
       <div class="floor-rest">
@@ -4493,6 +4729,21 @@ function renderFloor(){
     tr.querySelector('.inp-effort').dispatchEvent(new Event('change', {bubbles:true}));
     renderFloor();
   };
+  const clearBtn = document.getElementById('floor-clear');
+  if(clearBtn) clearBtn.onclick = ()=>{
+    document.getElementById('floor-w').value = '';
+    document.getElementById('floor-r').value = '';
+    document.getElementById('floor-e').value = '';
+    document.getElementById('floor-pr').textContent = '';
+    document.getElementById('floor-w').focus();
+  };
+  document.querySelectorAll('#floor-unit-toggle .unit-opt').forEach(function(btn){
+    btn.onclick = async ()=>{
+      await setUnitForExercise(card.dataset.exid, btn.dataset.unit);
+      card.dataset.unit = btn.dataset.unit;
+      renderFloor();
+    };
+  });
   const addBtn = document.getElementById('floor-addset');
   if(addBtn) addBtn.onclick = ()=>{ addSetRow(card); renderFloor(); };
   const startBtn = document.getElementById('fr-start');
@@ -4872,7 +5123,8 @@ function renderTrainingSplit(lifts){
     });
   });
   let groups = MUSCLE_ORDER.filter(g=>counts[g]);
-  if(!groups.length){ canvas.style.display = 'none'; empty.style.display = 'block'; return; }
+  const legendEl = document.getElementById('split-legend');
+  if(!groups.length){ canvas.style.display = 'none'; empty.style.display = 'block'; if(legendEl) legendEl.innerHTML=''; return; }
   canvas.style.display = ''; empty.style.display = 'none';
   // Validated categorical order (blue/orange/aqua/yellow/magenta/green/violet/red) —
   // CVD-safe up to 8 adjacent slices; a 9th+ group folds into "Other" rather
@@ -4888,11 +5140,15 @@ function renderTrainingSplit(lifts){
     dataMap = {}; groups.forEach(g=>dataMap[g]=counts[g]); dataMap['Other'] = otherSum;
     groups = groups.concat(['Other']);
   }
+  const total = groups.reduce((s,g)=>s+dataMap[g], 0) || 1;
   charts.split = new Chart(canvas, {
     type:'doughnut',
     data:{ labels:groups, datasets:[{ data:groups.map(g=>dataMap[g]), backgroundColor:groups.map((g,i)=>THEME[i%THEME.length]), borderColor:'#fff', borderWidth:2 }]},
-    options:{ responsive:true, plugins:{legend:{position:'bottom', labels:{boxWidth:10,font:{size:10.5}}}} }
+    options:{ responsive:true, plugins:{legend:{display:false}, tooltip:{callbacks:{label:function(ctx){ return ctx.label+': '+ctx.parsed+' sets ('+Math.round(100*ctx.parsed/total)+'%)'; }}}} }
   });
+  if(legendEl) legendEl.innerHTML = groups.map((g,i)=>
+    '<div class="split-legend-row"><span class="split-legend-dot" style="background:'+THEME[i%THEME.length]+'"></span><span class="split-legend-name">'+escHtml(g)+'</span><span class="split-legend-val">'+dataMap[g]+' sets · '+Math.round(100*dataMap[g]/total)+'%</span></div>'
+  ).join('');
 }
 function renderSessionTrend(lifts){
   destroyChart('session');
