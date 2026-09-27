@@ -282,10 +282,19 @@ function currentTimelineIndex(items){
   items.forEach((x,i)=>{ const m=minutes(x.time); if(!isNaN(m)&&m<=nowM) idx=i; });
   return idx;
 }
+// Whether past blocks are currently expanded — module-level so it
+// survives the 30s auto-refresh re-render instead of resetting closed
+// every time.
+let timelineShowPast=false;
 function renderTimeline(items){
   const el=$('today-timeline');if(!items.length){el.innerHTML='<div class="empty-state"><strong>No scheduled blocks</strong>Your day is open. Add plans from the schedule.</div>';return}
   const curIdx=currentTimelineIndex(items);
-  el.innerHTML=items.map((x,i)=>'<div class="timeline-row '+(x.kind==='event'?'':'muted')+(i===curIdx?' current':i<curIdx?' past':'')+'" data-tl-row="'+i+'"><span class="timeline-time">'+esc(time12(x.time))+'</span><span class="timeline-dot"></span><span class="timeline-content"><strong>'+esc(x.title)+'</strong><small>'+(x.end?esc(time12(x.time)+' – '+time12(x.end)):(x.notes?esc(x.notes):x.kind==='event'?'Event':'Routine'))+'</small></span></div>').join('');
+  const pastCount=curIdx>=0?curIdx:0;
+  const toggleHtml=pastCount>0?('<div class="timeline-toggle-row" id="timeline-toggle-row"><span class="timeline-time"></span><span></span><span class="timeline-content"><button type="button" class="timeline-toggle-link" id="timeline-toggle-btn">'+(timelineShowPast?'Hide earlier':pastCount+' earlier today · Show')+'</button></span></div>'):'';
+  el.innerHTML=toggleHtml+items.map((x,i)=>'<div class="timeline-row '+(x.kind==='event'?'':'muted')+(i===curIdx?' current':i<curIdx?' past':'')+'" data-tl-row="'+i+'"><span class="timeline-time">'+esc(time12(x.time))+'</span><span class="timeline-dot"></span><span class="timeline-content"><strong>'+esc(x.title)+'</strong><small>'+(x.end?esc(time12(x.time)+' – '+time12(x.end)):(x.notes?esc(x.notes):x.kind==='event'?'Event':'Routine'))+'</small></span></div>').join('');
+  el.classList.toggle('show-past', timelineShowPast);
+  const toggleBtn=$('timeline-toggle-btn');
+  if(toggleBtn) toggleBtn.addEventListener('click', ()=>{ timelineShowPast=!timelineShowPast; renderTimeline(items); });
   // Keep "now" in view inside the timeline's own scroll area (not the
   // whole page) as the day's list grows — scrollIntoView with a nearest
   // ancestor scroll container does exactly that without jumping the page.
