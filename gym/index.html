@@ -72,7 +72,7 @@
   /* ---------- top bar + header ---------- */
   .topbar{margin:0 0 10px;display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;font-size:12.5px;color:var(--text-faint);}
   .topbar a.back{color:var(--text-soft);text-decoration:none;font-size:13.5px;}
-  body.embedded .topbar a.back{display:none;}
+  body.embedded .topbar{display:none;}
   .account-badge{display:flex;align-items:center;gap:10px;margin-left:auto;}
   .account-badge button{background:none;border:none;color:var(--text-soft);text-decoration:underline;font-size:12px;padding:0;}
   .sync-dot{width:7px;height:7px;border-radius:50%;background:var(--text-faint);display:inline-block;margin-right:5px;}
@@ -427,6 +427,14 @@
   .recipe-detail[open] summary::after{content:'▴';}
   .recipe-detail-body{background:var(--surface-alt);border-radius:10px;margin:2px 0 6px;padding-left:12px;padding-right:12px;}
   .meal-sub{display:flex;justify-content:space-between;padding-top:8px;margin-top:6px;border-top:1px solid var(--border-soft);font-size:12px;color:var(--accent-deep);font-weight:800;}
+  .diet-plan-details{background:var(--surface);border:1px solid var(--border-soft);border-radius:var(--radius-lg);box-shadow:var(--shadow);margin-top:4px;}
+  .diet-plan-details summary{list-style:none;cursor:pointer;padding:14px 16px;display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;}
+  .diet-plan-details summary::-webkit-details-marker{display:none;}
+  .diet-plan-details summary::after{content:'Show plan ▾';margin-left:auto;color:var(--text-faint);font-size:11.5px;font-weight:700;}
+  .diet-plan-details[open] summary::after{content:'Hide plan ▴';}
+  .diet-plan-details .dpd-title{font-weight:800;font-size:14.5px;}
+  .diet-plan-details .dpd-sub{color:var(--text-faint);font-size:12px;}
+  .diet-plan-details .dpd-body{padding:0 16px 16px;}
   .targets-box{background:var(--surface);border:1px solid var(--border-soft);border-radius:var(--radius-lg);padding:16px;margin-top:14px;box-shadow:var(--shadow);}
   .targets-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-top:10px;}
   @media(max-width:600px){.targets-grid{grid-template-columns:1fr 1fr;}}
@@ -657,6 +665,20 @@
 
     <div class="layout-2">
       <div class="col">
+        <div class="control-bar mini">
+          <div class="cb-group cb-left"></div>
+          <div class="cb-center">
+            <div class="cb-nav">
+              <button type="button" id="log-date-prev" aria-label="Previous day">‹</button>
+              <input type="date" id="log-date" aria-label="Check-in date">
+              <button type="button" id="log-date-next" aria-label="Next day">›</button>
+            </div>
+            <button type="button" class="cb-pill cb-today" id="log-date-today">Today</button>
+          </div>
+          <div class="cb-group cb-right">
+            <button type="button" class="cb-pill cb-tool" id="backup-open">Backup</button>
+          </div>
+        </div>
         <!-- Daily check-in, folded into Today -->
         <div class="panel" id="checkin-panel">
           <div class="panel-head">
@@ -706,20 +728,6 @@
           <div class="save-bar">
             <button class="btn primary" id="save-today">Save Day</button>
             <span class="save-msg" id="save-msg-today"></span>
-          </div>
-        </div>
-        <div class="control-bar mini">
-          <div class="cb-group cb-left"></div>
-          <div class="cb-center">
-            <div class="cb-nav">
-              <button type="button" id="log-date-prev" aria-label="Previous day">‹</button>
-              <input type="date" id="log-date" aria-label="Check-in date">
-              <button type="button" id="log-date-next" aria-label="Next day">›</button>
-            </div>
-            <button type="button" class="cb-pill cb-today" id="log-date-today">Today</button>
-          </div>
-          <div class="cb-group cb-right">
-            <button type="button" class="cb-pill cb-tool" id="backup-open">Backup</button>
           </div>
         </div>
       </div>
@@ -892,8 +900,8 @@
   <!-- ================= DIET ================= -->
   <section class="view" id="view-diet">
     <div class="page-lead">
-      <h2 id="diet-title">Diet Plan</h2>
-      <p id="diet-sub"></p>
+      <h2>Diet</h2>
+      <p>Live from what's actually logged in the Diet app today.</p>
     </div>
 
     <div class="panel" id="diet-today-panel">
@@ -936,30 +944,42 @@
       </div>
     </div>
 
-    <div id="diet-meals"></div>
-    <div class="day-total" id="day-total-wrap" style="display:none;">
-      <div class="dt-label">Meal Plan Total</div>
-      <div class="dt-vals" id="day-total-vals"></div>
-    </div>
+    <!-- Reference material — the plan itself (meal plan, rules, supplements,
+         roadmap), not what's actually been logged. Collapsed by default so
+         it doesn't read as "today's diet" when nothing's logged yet; the
+         live panels above are the only things driven by actual logging. -->
+    <details class="diet-plan-details">
+      <summary>
+        <span class="dpd-title" id="diet-title">Diet Plan</span>
+        <span class="dpd-sub" id="diet-sub"></span>
+      </summary>
+      <div class="dpd-body">
+        <div id="diet-meals"></div>
+        <div class="day-total" id="day-total-wrap" style="display:none;">
+          <div class="dt-label">Meal Plan Total</div>
+          <div class="dt-vals" id="day-total-vals"></div>
+        </div>
 
-    <div id="caution-wrap"></div>
+        <div id="caution-wrap"></div>
 
-    <div id="diet-rules-wrap">
-      <div class="section-title">Rules</div>
-      <div id="diet-rules"></div>
-    </div>
+        <div id="diet-rules-wrap">
+          <div class="section-title">Rules</div>
+          <div id="diet-rules"></div>
+        </div>
 
-    <div id="supplements-wrap" style="display:none;">
-      <div class="section-title">Supplement Routine</div>
-      <div class="panel table-wrap"><table class="plain" id="supplements-table"></table></div>
-    </div>
+        <div id="supplements-wrap" style="display:none;">
+          <div class="section-title">Supplement Routine</div>
+          <div class="panel table-wrap"><table class="plain" id="supplements-table"></table></div>
+        </div>
 
-    <div id="roadmap-wrap" style="display:none;">
-      <div class="section-title">Phase Roadmap</div>
-      <div class="panel table-wrap"><table class="plain" id="roadmap-table"></table></div>
-      <div class="section-title">Plateau Decision Ladder</div>
-      <div class="panel table-wrap"><table class="plain" id="plateau-table"></table></div>
-    </div>
+        <div id="roadmap-wrap" style="display:none;">
+          <div class="section-title">Phase Roadmap</div>
+          <div class="panel table-wrap"><table class="plain" id="roadmap-table"></table></div>
+          <div class="section-title">Plateau Decision Ladder</div>
+          <div class="panel table-wrap"><table class="plain" id="plateau-table"></table></div>
+        </div>
+      </div>
+    </details>
   </section>
 
   <!-- ================= PROGRESS (analytics + trophies + recovery) ================= -->
