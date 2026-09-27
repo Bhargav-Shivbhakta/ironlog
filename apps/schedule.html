@@ -699,9 +699,13 @@ function todoSharedDoc(key){
 let todoPersonalTasks = [];
 let todoSharedTasks = [];
 async function loadTodoTasks(){
-  try{ const doc = await todoProfileDoc(activeProfile,'tasks').get(); todoPersonalTasks = (doc.exists && doc.data().json) ? JSON.parse(doc.data().json) : []; }
+  const [doc, doc2] = await Promise.all([
+    todoProfileDoc(activeProfile,'tasks').get().catch(function(){ return null; }),
+    todoSharedDoc('tasks').get().catch(function(){ return null; })
+  ]);
+  try{ todoPersonalTasks = (doc && doc.exists && doc.data().json) ? JSON.parse(doc.data().json) : []; }
   catch(e){ todoPersonalTasks = []; }
-  try{ const doc2 = await todoSharedDoc('tasks').get(); todoSharedTasks = (doc2.exists && doc2.data().json) ? JSON.parse(doc2.data().json) : []; }
+  try{ todoSharedTasks = (doc2 && doc2.exists && doc2.data().json) ? JSON.parse(doc2.data().json) : []; }
   catch(e){ todoSharedTasks = []; }
 }
 async function saveTodoPersonalTasks(){
@@ -788,16 +792,15 @@ async function enterProfile(profileId){
   document.getElementById('who-badge').innerHTML = '<span class="who-avatar av-'+(profileId==='Bhargav'?'b':'a')+'">'+profileId[0]+'</span><span class="who-name">'+profileId+'</span>';
   document.getElementById('who-badge').onclick = function(){ enterProfile(otherProfile(profileId)); };
   initControls();
-  await loadEvents();
-  await loadChores();
-  await loadChoreLog();
-  await loadAutoConfig();
-  await loadDayTemplates();
-  await loadTemplateLog();
-  await loadTodoTasks();
-  await loadHouseholdChores();
-  await loadHouseholdChoreHistory();
-  await loadFocusData();
+  // Ten independent Firestore reads used to go one at a time — ten
+  // round trips back to back before the page could show anything. None
+  // of them depend on each other, so running them together cuts the
+  // wait down to whichever single one is slowest.
+  await Promise.all([
+    loadEvents(), loadChores(), loadChoreLog(), loadAutoConfig(),
+    loadDayTemplates(), loadTemplateLog(), loadTodoTasks(),
+    loadHouseholdChores(), loadHouseholdChoreHistory(), loadFocusData()
+  ]);
   renderNotifBanner();
   showView('today');
   startNotificationLoop();

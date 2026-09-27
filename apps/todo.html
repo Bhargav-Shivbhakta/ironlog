@@ -693,9 +693,9 @@ async function enterProfile(profileId){
   document.getElementById('who-badge').innerHTML = '<span class="who-avatar av-'+(profileId==='Bhargav'?'b':'a')+'">'+profileId[0]+'</span><span class="who-name">'+profileId+'</span>';
   document.getElementById('who-badge').onclick = function(){ enterProfile(otherProfile(activeProfile)); };
   initControls();
-  await loadLists();
-  await loadTasks();
-  await loadStickyNotes();
+  // Three independent reads, previously one after another — run them
+  // together so the app isn't waiting on three separate round trips.
+  await Promise.all([loadLists(), loadTasks(), loadStickyNotes()]);
   render();
   // Deep-link support: ?task=ID jumps straight to that task, expanded and
   // highlighted, instead of leaving the person to hunt for it themselves.
@@ -749,9 +749,13 @@ async function saveLists(){
   catch(e){ console.error('lists save failed', e); }
 }
 async function loadTasks(){
-  try{ const doc = await profileDoc(activeProfile,'tasks').get(); personalTasks = (doc.exists && doc.data().json) ? JSON.parse(doc.data().json) : []; }
+  const [doc, doc2] = await Promise.all([
+    profileDoc(activeProfile,'tasks').get().catch(function(){ return null; }),
+    sharedDoc('tasks').get().catch(function(){ return null; })
+  ]);
+  try{ personalTasks = (doc && doc.exists && doc.data().json) ? JSON.parse(doc.data().json) : []; }
   catch(e){ personalTasks = []; }
-  try{ const doc2 = await sharedDoc('tasks').get(); sharedTasks = (doc2.exists && doc2.data().json) ? JSON.parse(doc2.data().json) : []; }
+  try{ sharedTasks = (doc2 && doc2.exists && doc2.data().json) ? JSON.parse(doc2.data().json) : []; }
   catch(e){ sharedTasks = []; }
   await reconcileTaskArrays();
 }

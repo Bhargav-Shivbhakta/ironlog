@@ -391,11 +391,11 @@ async function enterProfile(profileId){
   renderGreeting();
   wireHubNavLinks();
   if(typeof lucide !== 'undefined') lucide.createIcons();
-  await loadAlarms();
-  await loadWorldCities();
-  await loadTimers();
-  await loadFocusData();
-  await loadHistory();
+  // These five reads don't depend on each other, but were being awaited
+  // one after another — five separate round trips back-to-back, which is
+  // exactly why the app felt slow to open. Running them together cuts
+  // the wait down to whichever single one is slowest, not the sum of all five.
+  await Promise.all([loadAlarms(), loadWorldCities(), loadTimers(), loadFocusData(), loadHistory()]);
   wireNav();
   showTab('dashboard');
   startMainLoop();
@@ -1289,8 +1289,12 @@ let focusGoalMinutes = 180;
 let focusSessions = [];
 let focusState = { running:false, mode:'work', remaining:0, total:0, workMin:25, breakMin:5, task:'' };
 async function loadFocusData(){
-  try{ const d = await profileDoc('focusGoal').get(); focusGoalMinutes = (d.exists && d.data().value) ? d.data().value : 180; }catch(e){ focusGoalMinutes = 180; }
-  try{ const d = await profileDoc('focusSessions').get(); focusSessions = (d.exists && d.data().json) ? JSON.parse(d.data().json) : []; }catch(e){ focusSessions = []; }
+  const [goalRes, sessRes] = await Promise.all([
+    profileDoc('focusGoal').get().catch(function(){ return null; }),
+    profileDoc('focusSessions').get().catch(function(){ return null; })
+  ]);
+  try{ focusGoalMinutes = (goalRes && goalRes.exists && goalRes.data().value) ? goalRes.data().value : 180; }catch(e){ focusGoalMinutes = 180; }
+  try{ focusSessions = (sessRes && sessRes.exists && sessRes.data().json) ? JSON.parse(sessRes.data().json) : []; }catch(e){ focusSessions = []; }
 }
 async function saveFocusGoal(){ try{ await profileDoc('focusGoal').set({value: focusGoalMinutes}); }catch(e){} }
 async function saveFocusSessions(){ try{ await profileDoc('focusSessions').set({json: JSON.stringify(focusSessions)}); }catch(e){} }
