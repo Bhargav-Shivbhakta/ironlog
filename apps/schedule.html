@@ -240,12 +240,18 @@
   .rb-time-input:hover,.rb-time-input:focus{background:var(--surface-alt);color:var(--text-soft);outline:none;}
   .rb-time-dash{font-size:13px;color:var(--text-faint);}
   .rb-cat{font-size:11.5px;font-weight:700;border-radius:20px;padding:1px 7px;flex:none;}
+  .rb-status{font-weight:800;font-size:12px;border-radius:50%;width:20px;height:20px;display:inline-flex;align-items:center;justify-content:center;flex:none;}
+  .rb-status.done{background:var(--accent-soft);color:var(--accent-deep);}
+  .rb-status.missed{background:var(--danger-soft);color:var(--danger);}
   .now-badge{font-size:11px;font-weight:800;color:var(--gold);text-transform:uppercase;letter-spacing:0.04em;margin-left:4px;}
   /* "Hide done" toggle on the routine panel — checked-off blocks pile up
      as the day goes on and push what's actually next off the bottom of
      the screen, so this collapses them out of the list (reversible with
      the same button) instead of making you scroll past them. */
-  .routine-hide-done .routine-block.done{display:none;}
+  /* "Show all" reveals routine blocks whose time has passed; by default
+     those auto-hide (regardless of done/not-done) so you don't scroll
+     past things you can't act on anymore. */
+  .routine-hide-past .routine-block.past{display:none;}
 
   .template-editor{margin-top:10px;}
   .te-daygroup{margin-bottom:12px;}
@@ -261,21 +267,24 @@
      prototype, reskinned to this file's own Hub-matched tokens above
      (the prototype's near-black #171714 accents become --accent-deep,
      etc.) rather than copying its literal colors. ---- */
-  /* ---- Compact control block — replaces the old full-width day-
-     navigator bar. It's now sized like the other Today panels (a
-     square-ish card) instead of spanning the page, since the date/
-     Today/+Add strip was wasting a whole row of space on its own. ---- */
-  .control-block{display:flex;flex-direction:column;gap:8px;}
-  .control-nav{display:flex;align-items:center;gap:5px;}
-  .control-nav button{width:30px;height:30px;border:1px solid var(--border);background:var(--surface-alt);border-radius:var(--radius-sm);color:var(--text);font-size:15px;cursor:pointer;flex:none;}
-  .control-nav input{flex:1;min-width:0;height:30px;border:1px solid var(--border);background:var(--surface);border-radius:var(--radius-sm);padding:0 6px;color:var(--text);font-weight:700;font-size:12px;}
-  .control-insights-toggle{border:1px solid var(--border);background:var(--surface);color:var(--text-faint);width:30px;height:30px;border-radius:var(--radius-sm);cursor:pointer;font-size:13px;flex:none;}
-  .control-insights-toggle.on{color:var(--accent-deep);border-color:var(--accent);background:var(--accent-soft);}
-  .control-row2{display:flex;flex-wrap:wrap;gap:6px;}
-  .control-row2 button{flex:1 1 auto;min-width:70px;border:0;border-radius:var(--radius-sm);padding:8px 6px;font-size:11.5px;font-weight:800;cursor:pointer;}
-  .control-btn-today{background:var(--accent-soft);color:var(--accent-deep);}
-  .control-btn-add{background:var(--accent);color:#fff;}
-  .control-btn-weekly{background:var(--surface-alt);color:var(--text-soft);}
+  /* ---- Horizontal control bar — one slim strip under the hero card,
+     holding date-nav + Today/+Add/Weekly + the routine/chores/open-task
+     counts + Find-time/Focus, all inline, instead of a separate card. ---- */
+  .control-bar{display:flex;align-items:center;flex-wrap:wrap;gap:14px;background:var(--surface);border:1px solid var(--border-soft);border-radius:var(--radius-lg);padding:10px 14px;box-shadow:var(--shadow);margin-bottom:16px;position:relative;}
+  .cb-group{display:flex;align-items:center;gap:6px;flex-wrap:wrap;}
+  .cb-nav button{width:30px;height:30px;border:1px solid var(--border);background:var(--surface-alt);border-radius:var(--radius-sm);color:var(--text);font-size:15px;cursor:pointer;flex:none;}
+  .cb-nav input{height:30px;border:1px solid var(--border);background:var(--surface);border-radius:var(--radius-sm);padding:0 8px;color:var(--text);font-weight:700;font-size:12.5px;width:132px;}
+  .cb-pill{border:0;border-radius:var(--radius-sm);padding:7px 12px;font-size:12px;font-weight:800;cursor:pointer;white-space:nowrap;}
+  .cb-today{background:var(--accent-soft);color:var(--accent-deep);}
+  .cb-add{background:var(--accent);color:#fff;}
+  .cb-weekly,.cb-tool{background:var(--surface-alt);color:var(--text-soft);}
+  .cb-metrics{gap:14px;padding-left:12px;border-left:1px solid var(--border-soft);}
+  .cb-metric{font-size:12px;color:var(--text-faint);white-space:nowrap;}
+  .cb-metric strong{color:var(--text);font-family:'Manrope',sans-serif;font-weight:800;}
+  .cb-tools{margin-left:auto;padding-left:12px;border-left:1px solid var(--border-soft);}
+  @media(max-width:900px){
+    .cb-metrics,.cb-tools{border-left:0;padding-left:0;margin-left:0;}
+  }
 
   .today-hero{position:relative;overflow:hidden;display:grid;grid-template-columns:minmax(0,1.3fr) minmax(230px,.7fr);gap:16px;background:var(--accent-deep);color:#fff;border-radius:var(--radius-lg);padding:22px 24px;margin-bottom:16px;box-shadow:var(--shadow);}
   .today-hero::after{content:'';position:absolute;width:230px;height:230px;border-radius:50%;right:-90px;top:-125px;background:rgba(255,255,255,.08);}
@@ -292,20 +301,11 @@
   .metric-label{font-size:10.5px;color:var(--text-faint);font-weight:800;text-transform:uppercase;letter-spacing:.06em;}
   .metric-value{font-family:'Manrope',sans-serif;font-weight:800;font-size:18px;margin-top:3px;}
 
-  /* Compact control block, then Tasks / Routine / Events+Chores as three
-     content columns — the control block is deliberately narrow (it only
-     holds date-nav + Today + Add + Weekly + the insights toggle) rather
-     than stretching to match the taller content panels beside it. */
-  .today-layout{display:grid;grid-template-columns:212px repeat(3,minmax(0,1fr));gap:14px;align-items:start;}
-  .control-block .today-metrics{grid-template-columns:1fr;gap:5px;margin:0;}
-  .control-block .metric{padding:7px 10px;display:flex;align-items:center;justify-content:space-between;}
-  .control-block .metric-label{margin:0;}
-  .control-block .metric-value{margin:0;font-size:14px;}
-  .control-row2 .control-insights-toggle{flex:0 0 auto;}
+  /* Tasks / Routine / Events+Chores as three content columns. */
+  .today-layout{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px;align-items:start;}
   .events-chores-col{min-width:0;}
   @media(max-width:1100px){
     .today-layout{grid-template-columns:1fr 1fr;}
-    .today-layout>.control-block.panel{grid-column:1/-1;}
   }
   @media(max-width:760px){
     .today-layout{grid-template-columns:1fr;}
@@ -337,20 +337,6 @@
   .quick-choice span{display:block;font-size:11.5px;color:var(--text-faint);margin-top:2px;}
   .form-warning{grid-column:1/-1;background:var(--accent-soft);color:var(--accent-deep);border-radius:var(--radius-sm);padding:7px 10px;font-size:12px;display:none;}
 
-  .day-intelligence{display:grid;grid-template-columns:minmax(0,1.3fr) minmax(230px,.7fr);gap:14px;margin-bottom:16px;}
-  .briefing-card,.free-time-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:16px 18px;box-shadow:var(--shadow);}
-  .briefing-kicker{color:var(--accent);font-size:10.5px;font-weight:800;letter-spacing:.09em;text-transform:uppercase;margin-bottom:6px;}
-  .briefing-title{font-size:16px;font-weight:700;letter-spacing:-.01em;line-height:1.35;font-family:'Manrope',sans-serif;}
-  .briefing-copy{font-size:13px;color:var(--text-soft);line-height:1.5;margin-top:5px;}
-  .intel-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px;}
-  .intel-button,.intel-link{border:1px solid var(--border);background:var(--surface);color:var(--text);border-radius:var(--radius-sm);min-height:34px;padding:7px 12px;font-size:12.5px;font-weight:700;text-decoration:none;display:inline-flex;align-items:center;gap:6px;cursor:pointer;}
-  .intel-button.primary{border-color:var(--accent);background:var(--accent);color:#fff;}
-  .free-time-summary{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;}
-  .free-time-summary>div{display:grid;gap:2px;}
-  .free-time-summary strong{font-family:'Manrope',sans-serif;font-size:17px;font-weight:800;letter-spacing:-.02em;}
-  .free-time-summary span{font-size:10px;text-transform:uppercase;letter-spacing:.05em;color:var(--text-faint);}
-  .insights-hide-wrap{display:flex;justify-content:flex-end;margin:-6px 0 8px;}
-  .insights-hide-btn{border:0;background:none;color:var(--text-faint);font-size:11px;text-decoration:underline;cursor:pointer;padding:2px;}
 
   /* ---- Generic modal shell, shared by Quick-add and the Weekly popup. ---- */
   .sched-modal-overlay{position:fixed;inset:0;background:rgba(32,33,30,.45);z-index:160;display:flex;align-items:center;justify-content:center;padding:16px;}
@@ -416,7 +402,6 @@
   .free-slot small{display:block;color:var(--text-soft);font-size:11.5px;margin-top:3px;}
   .free-slot button{margin-top:8px;border:0;background:var(--accent-soft);color:var(--accent-deep);border-radius:var(--radius-sm);padding:6px 9px;font-size:11.5px;font-weight:700;cursor:pointer;}
 
-  @media(max-width:900px){.day-intelligence{grid-template-columns:1fr;}}
   @media(max-width:760px){
     .today-hero{grid-template-columns:1fr;padding:18px;border-radius:var(--radius-lg);gap:14px;}
     .hero-next{border-left:0;border-top:1px solid rgba(255,255,255,.18);padding:12px 0 0;}
@@ -1175,7 +1160,7 @@ let templateLog = {};
 let autoConfig = { workoutsOn:true, groceryOn:true, groceryWeekday:6 };
 let activeView = 'today';
 let selectedDay = todayStr(); // which day the Today view is showing — lets you flip forward/back instead of always showing the actual today
-let hideCompletedRoutine = false; // toggle to collapse checked-off routine blocks so you don't have to scroll past them to reach what's next
+let routineShowAll = false; // false = auto-hide routine blocks whose time has passed; true = "Show all" reveals them, with a tick/✗ badge showing which got done
 let notifPermission = (typeof Notification !== 'undefined') ? Notification.permission : 'unsupported';
 let notifiedToday = new Set();
 const NOTIFIED_KEY = 'schedule-notified-'+todayStr();
@@ -1619,15 +1604,18 @@ function renderDailyRoutineHtml(dateStr){
     return '<button type="button" class="cat-chip '+(isActive?'cat-chip-active':'')+'" data-filtercat="'+cat+'" style="background:'+(isActive?m.color:m.soft)+';color:'+(isActive?'#fff':m.color)+';">'+m.label+'</button>';
   }).join('');
 
+  const nowMinutes = new Date().getHours()*60+new Date().getMinutes();
   const rows = blocks.map((b,i)=>{
     const cat = categorize(b.activity);
     const meta = CATEGORY_META[cat];
     const key = templateBlockKey(dateStr, i);
     const isDone = !!templateLog[key];
     const isNow = i === curIdx;
+    const isPast = isToday && !isNow && toMinutes(b.end) < nowMinutes;
     const tKey = todaysTemplateKey(dateStr);
     const hiddenByFilter = activeCategoryFilter && cat !== activeCategoryFilter;
-    return '<div class="routine-block '+(isDone?'done':'')+' '+(isNow?'now':'')+'" style="border-left-color:'+meta.color+';'+(hiddenByFilter?'display:none;':'')+'">'+
+    const statusBadge = isDone ? '<span class="rb-status done" title="Done">✓</span>' : (isPast ? '<span class="rb-status missed" title="Time passed, not checked off">✗</span>' : '');
+    return '<div class="routine-block '+(isDone?'done':'')+' '+(isNow?'now':'')+' '+(isPast?'past':'')+'" style="border-left-color:'+meta.color+';'+(hiddenByFilter?'display:none;':'')+'">'+
       '<input type="checkbox" class="routine-chk" data-blockkey="'+key+'" '+(isDone?'checked':'')+'>'+
       '<div class="rb-body">'+
         '<div class="rb-title '+(isDone?'strike':'')+'" contenteditable="true" data-tplkey="'+tKey+'" data-tplidx="'+i+'" data-field="activity">'+escapeHtml(b.activity)+'</div>'+
@@ -1638,6 +1626,7 @@ function renderDailyRoutineHtml(dateStr){
           '<input type="time" class="rb-time-input" value="'+b.end+'" data-tplkey="'+tKey+'" data-tplidx="'+i+'" data-field="end">'+
         '</div>'+
       '</div>'+
+      statusBadge+
       '<span class="rb-cat" style="background:'+meta.soft+';color:'+meta.color+';">'+meta.label+'</span>'+
     '</div>';
   }).join('');
@@ -2009,53 +1998,9 @@ function rankedOpenTasks(tasks){
     ((Number(a.estimate)||30)-(Number(b.estimate)||30))
   );
 }
-// showDayInsights is a per-device on/off switch (not everyone wants the
-// breathing-room card + capacity stats taking up space) — toggled from
-// the gear icon on the control block, remembered in localStorage.
-let showDayInsights = true;
-try{ const v = localStorage.getItem('sched-show-insights'); if(v!==null) showDayInsights = v==='1'; }catch(e){}
-async function setShowDayInsights(val){
-  showDayInsights = val;
-  try{ localStorage.setItem('sched-show-insights', val?'1':'0'); }catch(e){}
-}
-function renderDayIntelligenceHtml(dateStr,tasks){
-  if(!showDayInsights){
-    return '<div class="insights-hide-wrap"><button type="button" class="insights-hide-btn" id="insights-show-btn">Show day insights</button></div>'+
-      '<section class="free-time-panel" id="free-time-panel" hidden></section>';
-  }
-  const windows=freeWindowsForDate(dateStr);
-  const totalFree=windows.reduce((sum,slot)=>sum+slot.end-slot.start,0);
-  const nextSlot=windows[0];
-  const longest=windows.reduce((max,slot)=> Math.max(max, slot.end-slot.start), 0);
-  const ranked=rankedOpenTasks(tasks);
-  const fitTask=nextSlot ? ranked.find(task=>(Number(task.estimate)||30)<=nextSlot.end-nextSlot.start) : null;
-  let title='Your day has breathing room.';
-  let copy='Use the open windows for focused work, recovery, or anything unexpected.';
-  if(fitTask && nextSlot){
-    title=escapeHtml(fitTask.title)+' fits your next open window.';
-    copy=fmt12(minutesToTime(nextSlot.start))+'–'+fmt12(minutesToTime(nextSlot.end))+' gives you '+formatMinutesCompact(nextSlot.end-nextSlot.start)+' available.';
-  }else if(ranked.length && !nextSlot){
-    title='Today is fully planned.';
-    copy='Keep the task list flexible, or move lower-priority work to another day.';
-  }else if(!ranked.length){
-    title='No open tasks are competing for your attention.';
-    copy=nextSlot ? 'Your next open window begins at '+fmt12(minutesToTime(nextSlot.start))+'.' : 'Your routine and events cover the active day.';
-  }
-  const focusHref='clock.html?profile='+encodeURIComponent(activeProfile||'');
-  // "Capacity" used to show just two raw numbers with no explanation of
-  // what they meant. Now it's three plainly-labeled measures — how much
-  // open time is left in total, the single biggest block of it (the
-  // number that actually tells you what you can get done), and when the
-  // next one starts — plus a one-line explainer of how it's calculated.
-  return '<div class="day-intelligence">'+
-    '<section class="briefing-card"><div class="briefing-title">'+title+'</div><div class="briefing-copy">'+copy+'</div><div class="intel-actions"><button class="intel-button primary" id="find-time-btn">🔎 Find time</button><a class="intel-link" href="'+focusHref+'">⏱ Open Focus clock</a></div></section>'+
-    '<section class="free-time-card"><div class="briefing-kicker">Today\'s capacity</div><div class="free-time-summary">'+
-      '<div><strong>'+formatMinutesCompact(totalFree)+'</strong><span>Free time left</span></div>'+
-      '<div><strong>'+(longest?formatMinutesCompact(longest):'—')+'</strong><span>Longest block</span></div>'+
-      '<div><strong>'+(nextSlot?fmt12(minutesToTime(nextSlot.start)):'—')+'</strong><span>Next opening</span></div>'+
-    '</div><div class="briefing-copy">Based on '+ranked.length+' open task'+(ranked.length===1?'':'s')+' across '+windows.length+' unscheduled window'+(windows.length===1?'':'s')+' between your routine and events.</div></section>'+
-    '<section class="free-time-panel" id="free-time-panel" hidden>'+renderFreeTimePanelHtml(dateStr,windows,ranked)+'</section></div>';
-}
+// The "breathing room" briefing + "Today's capacity" card are gone —
+// this now just builds the floating Free-time finder panel's contents;
+// its trigger button lives in the horizontal control bar instead.
 function renderFreeTimePanelHtml(dateStr,windows,tasks){
   const cards=windows.length ? windows.map(slot=>{
     const duration=slot.end-slot.start;
@@ -2068,10 +2013,10 @@ function attachDayIntelligenceHandlers(wrap,dateStr){
   const panel=wrap.querySelector('#free-time-panel');
   const open=wrap.querySelector('#find-time-btn');
   const close=wrap.querySelector('#free-time-close');
-  const showBtn=wrap.querySelector('#insights-show-btn');
-  if(showBtn) showBtn.onclick=async ()=>{ await setShowDayInsights(true); renderToday(); };
   if(open&&panel) open.onclick=()=>{ panel.hidden=false; };
   if(close&&panel) close.onclick=()=>{ panel.hidden=true; };
+  const focusBtn=wrap.querySelector('#open-focus-btn');
+  if(focusBtn) focusBtn.onclick=()=> openFocusPanel(null);
   wrap.querySelectorAll('[data-fit-task]').forEach(btn=>btn.addEventListener('click',async ()=>{
     const found=findTodoTaskAnywhere(btn.dataset.fitTask);
     if(!found) return;
@@ -2241,25 +2186,28 @@ function renderToday(){
   const nextTitle = upcoming ? upcoming.title : (nextRoutine ? nextRoutine.activity : 'Nothing else planned');
   const nextMeta = upcoming ? fmt12(upcoming.time)+(upcoming.notes?' · '+upcoming.notes:'') : (nextRoutine ? fmt12(nextRoutine.start) : 'Enjoy the space');
 
+  // Free-time finder's contents — the floating panel itself lives in the
+  // control bar below; this is just its data (no more "breathing room"
+  // briefing or "Today's capacity" card explaining it).
+  const freeWindows = freeWindowsForDate(today);
+  const rankedFreeTasks = rankedOpenTasks(todaysTasks);
+
   el.innerHTML = '<section class="today-hero">'+
     '<div><div class="hero-eyebrow">'+DAY_NAMES[weekdayOf(today)]+' · '+fmtHeaderDate(today)+'</div><div class="hero-title">'+escapeHtml(focusTitle)+'</div><div class="hero-time">'+escapeHtml(focusMeta)+'</div></div>'+
     '<div class="hero-next"><div class="hero-next-label">Up next</div><div class="hero-next-title">'+escapeHtml(nextTitle)+'</div><div class="hero-next-meta">'+escapeHtml(nextMeta)+'</div></div>'+
     '</section>'+
-    renderDayIntelligenceHtml(today,todaysTasks)+
+    // Horizontal control bar — date nav, Today/Add/Weekly, the routine/
+    // chores/open-task counts, and Find time/Focus, all inline in one strip.
+    '<div class="control-bar">'+
+      '<div class="cb-group cb-nav"><button id="day-prev" aria-label="Previous day">‹</button><input id="day-picker" type="date" value="'+today+'" aria-label="Selected date"><button id="day-next" aria-label="Next day">›</button></div>'+
+      '<div class="cb-group cb-actions">'+(isActualToday?'':'<button class="cb-pill cb-today" id="day-today">Today</button>')+'<button class="cb-pill cb-add" id="quick-add-today">+ Add</button><button class="cb-pill cb-weekly" id="open-weekly-btn">Weekly</button></div>'+
+      '<div class="cb-group cb-metrics"><span class="cb-metric"><strong>'+routineProg.done+'/'+routineProg.total+'</strong> routine</span><span class="cb-metric"><strong>'+todaysChores.length+'</strong> chores due</span><span class="cb-metric"><strong>'+todaysTasks.filter(t=>!t.done).length+'</strong> open tasks</span></div>'+
+      '<div class="cb-group cb-tools"><button class="cb-pill cb-tool" id="find-time-btn">🔎 Find time</button><button class="cb-pill cb-tool" id="open-focus-btn">⏱ Focus</button></div>'+
+      '<section class="free-time-panel" id="free-time-panel" hidden>'+renderFreeTimePanelHtml(today,freeWindows,rankedFreeTasks)+'</section>'+
+    '</div>'+
     '<div class="today-layout">'+
-      // Compact control block — date nav + Today + Add + Weekly + insights
-      // toggle, sized like a small card instead of a full-width strip.
-      '<section class="panel control-block">'+
-        '<div class="control-nav"><button id="day-prev" aria-label="Previous day">‹</button><input id="day-picker" type="date" value="'+today+'" aria-label="Selected date"><button id="day-next" aria-label="Next day">›</button></div>'+
-        '<div class="control-row2">'+(isActualToday?'':'<button class="control-btn-today" id="day-today">Today</button>')+'<button class="control-btn-add" id="quick-add-today">+ Add</button><button class="control-btn-weekly" id="open-weekly-btn">Weekly</button><button type="button" class="control-insights-toggle '+(showDayInsights?'on':'')+'" id="toggle-insights-btn" title="Show/hide day insights">◎</button></div>'+
-        '<div class="today-metrics">'+
-          '<div class="metric"><div class="metric-label">Routine</div><div class="metric-value">'+routineProg.done+' / '+routineProg.total+'</div></div>'+
-          '<div class="metric"><div class="metric-label">Chores</div><div class="metric-value">'+todaysChores.length+' due</div></div>'+
-          '<div class="metric"><div class="metric-label">Open tasks</div><div class="metric-value">'+todaysTasks.filter(t=>!t.done).length+'</div></div>'+
-        '</div>'+
-      '</section>'+
       '<section class="panel"><div class="panel-head"><div><div class="panel-title">Tasks</div><div class="panel-subtitle">'+(overdueTasks.length?overdueTasks.length+' overdue · ':'')+'Synced with your To-Do list</div></div><button class="panel-action" id="add-task-today">+ Task</button></div><div id="today-tasks"></div><div id="task-form-mount-today"></div></section>'+
-      '<section class="panel"><div class="panel-head"><div><div class="panel-title">Today’s routine</div><div class="panel-subtitle">Check off blocks as you move through the day</div></div><div style="display:flex;gap:6px;"><button class="panel-action" id="toggle-done-routine">'+(hideCompletedRoutine?'Show done':'Hide done')+'</button><button class="panel-action" id="edit-routine-today">Edit routine</button></div></div><div id="today-routine" class="'+(hideCompletedRoutine?'routine-hide-done':'')+'"></div><div id="routine-form-mount-today"></div></section>'+
+      '<section class="panel"><div class="panel-head"><div><div class="panel-title">Today’s routine</div><div class="panel-subtitle">Check off blocks as you move through the day</div></div><div style="display:flex;gap:6px;"><button class="panel-action" id="toggle-done-routine">'+(routineShowAll?'Hide past':'Show all')+'</button><button class="panel-action" id="edit-routine-today">Edit routine</button></div></div><div id="today-routine" class="'+(routineShowAll?'':'routine-hide-past')+'"></div><div id="routine-form-mount-today"></div></section>'+
       '<div class="events-chores-col">'+
         '<div id="today-focus-mount"></div>'+
         '<section class="panel"><div class="panel-head"><div><div class="panel-title">Events</div><div class="panel-subtitle">Appointments and one-offs</div></div><button class="panel-action" id="add-event-today">+ Event</button></div><div id="today-events"></div><div id="event-form-mount-today"></div></section>'+
@@ -2276,7 +2224,7 @@ function renderToday(){
   attachRoutineHandlers(el, today);
   attachHouseholdChoreHandlers(el);
   attachDayIntelligenceHandlers(el, today);
-  document.getElementById('toggle-done-routine').addEventListener('click', ()=>{ hideCompletedRoutine = !hideCompletedRoutine; renderToday(); });
+  document.getElementById('toggle-done-routine').addEventListener('click', ()=>{ routineShowAll = !routineShowAll; renderToday(); });
 
   document.getElementById('day-prev').onclick = ()=>{ selectedDay=addDays(selectedDay,-1); renderToday(); };
   document.getElementById('day-next').onclick = ()=>{ selectedDay=addDays(selectedDay,1); renderToday(); };
@@ -2285,7 +2233,6 @@ function renderToday(){
   if(todayBtn) todayBtn.onclick = ()=>{ selectedDay=todayStr(); renderToday(); };
   document.getElementById('quick-add-today').onclick = ()=> openQuickAddModal(today);
   document.getElementById('open-weekly-btn').onclick = openWeeklyModal;
-  document.getElementById('toggle-insights-btn').onclick = async ()=>{ await setShowDayInsights(!showDayInsights); renderToday(); };
 
   document.getElementById('edit-routine-today').addEventListener('click', ()=> renderTemplateEditor('routine-form-mount-today'));
 
