@@ -415,7 +415,19 @@ async function enterProfile(profileId){
   // one after another — five separate round trips back-to-back, which is
   // exactly why the app felt slow to open. Running them together cuts
   // the wait down to whichever single one is slowest, not the sum of all five.
-  await Promise.all([loadAlarms(), loadWorldCities(), loadTimers(), loadFocusData(), loadHistory()]);
+  await Promise.all([loadAlarms(), loadWorldCities(), loadTimers(), loadFocusData(), loadHistory(), loadStopwatch()]);
+  // If the stopwatch was left running (e.g. we just got reloaded after
+  // switching apps and back), restart its tick interval so the display
+  // keeps advancing instead of sitting frozen until Start/Resume is clicked.
+  if(swRunning){
+    clearInterval(swInterval);
+    swInterval = setInterval(function(){
+      if(!swRunning) return;
+      swElapsedMs = Date.now() - swStartTs;
+      const disp = document.getElementById('sw-display');
+      if(disp) disp.textContent = fmtStopwatch(swElapsedMs);
+    }, 30);
+  }
   wireNav();
   showTab('dashboard');
   startMainLoop();
@@ -1238,12 +1250,29 @@ function fireAlarm(a){
   document.getElementById('dismiss-alarm-btn').addEventListener('click', function(){ stopRingingLoop(); mount.innerHTML = ''; });
 }
 
+// Timers persist an absolute startedAt timestamp + the remaining-seconds
+// snapshot taken at that moment, rather than just a decrementing counter.
+// The Hub's app-switching reuses one iframe and force-reloads it, which
+// tears down this whole JS context (and any setInterval) every time you
+// leave and come back — a plain "remaining--" counter would just reset.
+// Recomputing from real elapsed time means a running timer survives that
+// reload (and even a real page refresh) with the correct time left.
 let timers = [];
 async function loadTimers(){
   try{ const d = await profileDoc('timers').get(); timers = (d.exists && d.data().json) ? JSON.parse(d.data().json) : []; }catch(e){ timers = []; }
-  timers.forEach(function(t){ t.running = false; });
+  const now = Date.now();
+  timers.forEach(function(t){
+    if(t.running && t.startedAt && t.remainingAtStart!=null){
+      const elapsed = Math.floor((now - t.startedAt)/1000);
+      const left = t.remainingAtStart - elapsed;
+      if(left<=0){ t.remaining = 0; t.running = false; }
+      else { t.remaining = left; }
+    } else {
+      t.running = false;
+    }
+  });
 }
-async function saveTimers(){ try{ await profileDoc('timers').set({json: JSON.stringify(timers.map(function(t){ return {id:t.id,name:t.name,total:t.total,remaining:t.remaining}; }))}); }catch(e){} }
+async function saveTimers(){ try{ await profileDoc('timers').set({json: JSON.stringify(timers.map(function(t){ return {id:t.id,name:t.name,total:t.total,remaining:t.remaining,running:t.running,startedAt:t.startedAt||null,remainingAtStart:t.remainingAtStart!=null?t.remainingAtStart:null}; }))}); }catch(e){} }
 function renderTimersPanel(){
   const el = document.getElementById('panel-timers');
   let html = '<div class="card"><div class="card-head"><div class="card-title">Timers</div><span class="card-meta">Run more than one at once</span></div>';
@@ -1268,8 +1297,21 @@ function wireTimerButtons(){
   document.querySelectorAll('[data-pausetimer]').forEach(function(btn){ btn.addEventListener('click', function(){ pauseTimerById(btn.dataset.pausetimer); }); });
   document.querySelectorAll('[data-deltimer]').forEach(function(btn){ btn.addEventListener('click', async function(){ timers = timers.filter(function(t){ return t.id!==btn.dataset.deltimer; }); await saveTimers(); renderTimersPanel(); }); });
 }
-function startTimerById(id){ const t = timers.find(function(x){ return x.id===id; }); if(t) t.running = true; renderTimersPanel(); }
-function pauseTimerById(id){ const t = timers.find(function(x){ return x.id===id; }); if(t) t.running = false; saveTimers(); renderTimersPanel(); }
+function startTimerById(id){
+  const t = timers.find(function(x){ return x.id===id; });
+  if(t){ t.running = true; t.startedAt = Date.now(); t.remainingAtStart = t.remaining; saveTimers(); }
+  renderTimersPanel();
+}
+function pauseTimerById(id){
+  const t = timers.find(function(x){ return x.id===id; });
+  if(t){
+    if(t.running && t.startedAt && t.remainingAtStart!=null){
+      t.remaining = Math.max(0, t.remainingAtStart - Math.floor((Date.now()-t.startedAt)/1000));
+    }
+    t.running = false;
+  }
+  saveTimers(); renderTimersPanel();
+}
 function openNewTimerModal(){
   const mount = document.getElementById('modal-mount');
   mount.innerHTML = '<div class="modal-overlay" id="timer-overlay"><div class="modal-sheet">'+
@@ -1284,19 +1326,25 @@ function openNewTimerModal(){
     const name = document.getElementById('nt-name').value.trim() || 'Timer';
     const total = (parseInt(document.getElementById('nt-min').value,10)||0)*60 + (parseInt(document.getElementById('nt-sec').value,10)||0);
     if(total<=0) return;
-    timers.push({ id:'timer-'+Date.now(), name:name, total:total, remaining:total, running:false });
+    timers.push({ id:'timer-'+Date.now(), name:name, total:total, remaining:total, running:false, startedAt:null, remainingAtStart:null });
     await saveTimers(); mount.innerHTML = ''; renderTimersPanel();
   });
 }
 function tickTimers(){
   let changed = false;
+  const now = Date.now();
   timers.forEach(function(t){
     if(!t.running) return;
-    t.remaining--; changed = true;
+    const left = (t.startedAt && t.remainingAtStart!=null)
+      ? Math.max(0, t.remainingAtStart - Math.floor((now-t.startedAt)/1000))
+      : Math.max(0, t.remaining-1);
+    if(left !== t.remaining){ t.remaining = left; changed = true; }
     if(t.remaining<=0){
-      t.running = false; t.remaining = 0;
+      t.running = false;
       notify('Timer done', t.name+' has finished.');
       logHistory('timer', t.name, 'Timer completed');
+      saveTimers();
+      changed = true;
     }
   });
   if(changed){
@@ -1408,7 +1456,26 @@ function tickFocus(){
   }
 }
 
+// Same reload-survival fix as timers: swStartTs is an absolute timestamp
+// (Date.now() - alreadyElapsedMs), so elapsed time is always recomputed
+// from real time rather than trusted from an interval that gets destroyed
+// whenever the Hub swaps this app's iframe out and back in.
 let swElapsedMs = 0, swRunning = false, swStartTs = 0, swInterval = null, swLaps = [];
+async function loadStopwatch(){
+  try{
+    const d = await profileDoc('stopwatch').get();
+    const s = (d.exists && d.data().json) ? JSON.parse(d.data().json) : null;
+    if(s){
+      swLaps = s.laps || [];
+      if(s.running && s.startTs){
+        swRunning = true; swStartTs = s.startTs; swElapsedMs = Date.now() - swStartTs;
+      } else {
+        swRunning = false; swElapsedMs = s.elapsedMs || 0; swStartTs = 0;
+      }
+    }
+  }catch(e){}
+}
+async function saveStopwatch(){ try{ await profileDoc('stopwatch').set({json: JSON.stringify({elapsedMs:swElapsedMs, running:swRunning, startTs:swRunning?swStartTs:null, laps:swLaps})}); }catch(e){} }
 function fmtStopwatch(ms){
   const totalCs = Math.floor(ms/10);
   const cs = totalCs%100, s = Math.floor(totalCs/100)%60, m = Math.floor(totalCs/6000);
@@ -1428,11 +1495,12 @@ function renderStopwatchPanel(){
   if(document.getElementById('sw-start')) document.getElementById('sw-start').addEventListener('click', startStopwatch);
   if(document.getElementById('sw-resume')) document.getElementById('sw-resume').addEventListener('click', startStopwatch);
   if(document.getElementById('sw-stop')) document.getElementById('sw-stop').addEventListener('click', stopStopwatch);
-  if(document.getElementById('sw-lap')) document.getElementById('sw-lap').addEventListener('click', function(){ swLaps.push(swElapsedMs); renderStopwatchPanel(); });
-  if(document.getElementById('sw-reset')) document.getElementById('sw-reset').addEventListener('click', function(){ swElapsedMs=0; swLaps=[]; renderStopwatchPanel(); });
+  if(document.getElementById('sw-lap')) document.getElementById('sw-lap').addEventListener('click', function(){ swLaps.push(swElapsedMs); saveStopwatch(); renderStopwatchPanel(); });
+  if(document.getElementById('sw-reset')) document.getElementById('sw-reset').addEventListener('click', function(){ swElapsedMs=0; swLaps=[]; saveStopwatch(); renderStopwatchPanel(); });
 }
 function startStopwatch(){
   swRunning = true; swStartTs = Date.now() - swElapsedMs; renderStopwatchPanel();
+  saveStopwatch();
   clearInterval(swInterval);
   swInterval = setInterval(function(){
     if(!swRunning) return;
@@ -1441,7 +1509,7 @@ function startStopwatch(){
     if(disp) disp.textContent = fmtStopwatch(swElapsedMs);
   }, 30);
 }
-function stopStopwatch(){ swRunning = false; clearInterval(swInterval); renderStopwatchPanel(); }
+function stopStopwatch(){ swRunning = false; clearInterval(swInterval); saveStopwatch(); renderStopwatchPanel(); }
 
 let historyLog = [];
 async function loadHistory(){
