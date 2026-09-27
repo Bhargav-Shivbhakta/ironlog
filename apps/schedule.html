@@ -535,7 +535,12 @@ const FIREBASE_CONFIG = {
 firebase.initializeApp(FIREBASE_CONFIG);
 const auth = firebase.auth();
 const db = firebase.firestore();
-db.enablePersistence({synchronizeTabs:true}).catch(()=>{});
+// See clock.html for why this is skipped when embedded in the Hub's app
+// viewer — its iframe-reuse reload pattern can leave a stale multi-tab
+// persistence lock that hangs the next load.
+if(window.self === window.top){
+  db.enablePersistence({synchronizeTabs:true}).catch(()=>{});
+}
 let currentUser = null;
 let activeProfile = null;
 

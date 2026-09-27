@@ -325,6 +325,16 @@ window.addEventListener('error', function(e){
   const gate = document.getElementById('loading-gate');
   if(gate && gate.style.display !== 'none') gate.textContent = 'Something went wrong: ' + (e.message||'unknown error') + '. Try a hard refresh.';
 });
+// Safety net: if the loading gate is still up after 8s (a stuck Firebase
+// connection, a stale lock left behind by a previous embedded session,
+// anything), show a way out instead of leaving it spinning forever.
+setTimeout(function(){
+  const gate = document.getElementById('loading-gate');
+  if(gate && gate.style.display !== 'none' && !gate.dataset.reloadShown){
+    gate.dataset.reloadShown = '1';
+    gate.innerHTML = 'Taking longer than expected…<br><button type="button" style="margin-top:10px;border:0;background:var(--accent-ink,#5b6cff);color:#fff;padding:9px 16px;border-radius:10px;font-weight:600;cursor:pointer;" onclick="window.location.reload()">Reload</button>';
+  }
+}, 8000);
 if(typeof firebase === 'undefined'){
   document.getElementById('loading-gate').textContent = "Couldn't load — check your internet connection and refresh.";
 } else {
@@ -340,7 +350,17 @@ const FIREBASE_CONFIG = {
 firebase.initializeApp(FIREBASE_CONFIG);
 const auth = firebase.auth();
 const db = firebase.firestore();
-try{ db.enablePersistence({synchronizeTabs:true}).catch(function(){}); }catch(e){}
+// Offline persistence only when this is a real standalone tab. When
+// embedded in the Hub's app viewer, switching apps reuses one iframe and
+// force-reloads it (src -> about:blank -> the new url) — that abrupt a
+// teardown doesn't always let Firestore's multi-tab lock hand off
+// cleanly, and the next load can then hang waiting on a lock the old,
+// already-gone instance still technically holds. Skipping persistence in
+// that case avoids the lock entirely; reads still work fine over the
+// network, they just aren't cached offline.
+if(window.self === window.top){
+  try{ db.enablePersistence({synchronizeTabs:true}).catch(function(){}); }catch(e){}
+}
 
 let currentUser = null;
 let activeProfile = null;

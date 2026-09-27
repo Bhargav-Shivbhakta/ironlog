@@ -336,7 +336,12 @@ const FIREBASE_CONFIG = {
 firebase.initializeApp(FIREBASE_CONFIG);
 const auth = firebase.auth();
 const db = firebase.firestore();
-try{ db.enablePersistence({synchronizeTabs:true}).catch(function(){}); }catch(e){}
+// See clock.html for why this is skipped when embedded in the Hub's app
+// viewer — its iframe-reuse reload pattern can leave a stale multi-tab
+// persistence lock that hangs the next load.
+if(window.self === window.top){
+  try{ db.enablePersistence({synchronizeTabs:true}).catch(function(){}); }catch(e){}
+}
 let currentUser = null;
 // Which profile's PERSONAL data (specifically Schedule, which is inherently
 // one person's routine) should show — read from the hub link, same pattern
