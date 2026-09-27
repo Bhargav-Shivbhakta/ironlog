@@ -165,9 +165,7 @@
   .today-metrics.dash .metric-value{font-size:16px;margin-top:2px;}
   .today-metrics.dash .metric-label{font-size:9.5px;}
   .today-metrics.dash .metric-foot{font-size:10px;}
-  .metric.clickable{cursor:pointer;}
-  .metric.clickable:hover{border-color:var(--accent);}
-  .dash-detail{background:var(--surface);border:1px solid var(--border-soft);border-radius:var(--radius-lg);padding:14px 16px;box-shadow:var(--shadow);margin-bottom:14px;}
+  .today-metrics.dash .metric-foot .tg-edit{font-size:10px;}
   .control-bar.mini{padding:7px 12px;margin-bottom:10px;}
   .control-bar.mini .cb-nav input{width:120px;}
 
@@ -538,17 +536,17 @@
   .diet-meal-row .dm-name{font-weight:700;}
   .diet-meal-row .dm-time{color:var(--text-faint);font-weight:600;margin-left:6px;font-size:11px;}
   .diet-meal-row .dm-macro{color:var(--text-soft);white-space:nowrap;font-variant-numeric:tabular-nums;}
-  .target-bars{display:flex;flex-direction:column;gap:9px;}
-  .target-row{display:grid;grid-template-columns:78px minmax(0,1fr) 158px;gap:10px;align-items:center;font-size:12.5px;}
+  .target-bars{display:flex;flex-direction:column;gap:6px;}
+  .target-row{display:grid;grid-template-columns:60px minmax(0,1fr) 128px;gap:8px;align-items:center;font-size:12px;}
   .target-row .tg-name{font-weight:700;}
-  .target-track{height:10px;background:var(--surface-alt);border-radius:20px;overflow:hidden;}
+  .target-track{height:7px;background:var(--surface-alt);border-radius:20px;overflow:hidden;}
   .target-fill{height:100%;border-radius:20px;background:var(--accent);transition:opacity .3s;}
-  .tg-val{text-align:right;color:var(--text-soft);font-variant-numeric:tabular-nums;font-size:11.5px;white-space:nowrap;}
+  .tg-val{text-align:right;color:var(--text-soft);font-variant-numeric:tabular-nums;font-size:11px;white-space:nowrap;}
   .tg-plain{text-align:right;color:var(--text-soft);font-size:12px;}
   .tg-edit{background:none;border:none;cursor:pointer;font-size:11px;color:var(--text-faint);padding:0 0 0 4px;}
   .tg-edit:hover{color:var(--accent);}
   .tg-edit-input{font-size:12px;padding:2px 5px;border:1px solid var(--border);border-radius:6px;width:64px;}
-  @media(max-width:600px){.target-row{grid-template-columns:64px minmax(0,1fr) 132px;}}
+  @media(max-width:700px){.target-row{grid-template-columns:56px minmax(0,1fr) 108px;}}
   .heatmap-row{display:flex;gap:28px;align-items:center;flex-wrap:wrap;}
   .heatmap-wrap{overflow-x:auto;padding-bottom:2px;flex:1;min-width:220px;}
   .heatmap-grid{display:grid;grid-auto-flow:column;grid-template-rows:repeat(7,13px);gap:3px;width:max-content;}
@@ -645,65 +643,20 @@
     <div class="today-metrics dash">
       <div class="metric"><div class="metric-label">Latest weight</div><div class="metric-value" id="stat-weight">—</div><div class="metric-foot" id="stat-weight-foot">No entries yet</div></div>
       <div class="metric"><div class="metric-label" id="stat-togo-label">To target</div><div class="metric-value" id="stat-togo">—</div><div class="metric-foot" id="stat-togo-foot"></div></div>
-      <div class="metric clickable" id="tile-progday"><div class="metric-label">Program day</div><div class="metric-value" id="stat-progday">—</div><div class="metric-foot" id="stat-progday-foot"></div></div>
-      <div class="metric clickable" id="tile-couple"><div class="metric-label">Couple streak</div><div class="metric-value" id="stat-couple">—</div><div class="metric-foot" id="stat-couple-foot">Tap for details ⌄</div></div>
+      <div class="metric" id="tile-progday"><div class="metric-label">Program day</div><div class="metric-value" id="stat-progday">—</div><div class="metric-foot" id="stat-progday-foot"></div></div>
+      <div class="metric" id="tile-couple"><div class="metric-label">Couple streak</div><div class="metric-value" id="stat-couple">—</div><div class="metric-foot" id="stat-couple-foot"></div></div>
     </div>
 
-    <div class="dash-detail" id="phase-detail" hidden>
-      <div class="program-row">
-        <div class="program-text" style="flex:1;">
-          <div class="p-eyebrow" id="phase-eyebrow"></div>
-          <div class="p-title" id="hero-h2"></div>
-          <p id="hero-p"></p>
-        </div>
+    <div id="start-date-inline" style="display:none;margin:-6px 0 12px;">
+      <div class="detail-row">
+        <input type="date" id="start-date-input" style="max-width:170px;">
+        <button id="save-start-date-btn" class="btn-mini primary">Save</button>
+        <button id="cancel-start-date-btn" class="btn-mini ghost">Cancel</button>
       </div>
-      <button type="button" class="link-btn" id="edit-start-btn">✎ Change start date</button>
-      <div id="start-date-form" style="display:none;margin-top:8px;">
-        <div class="detail-row">
-          <input type="date" id="start-date-input" style="max-width:170px;">
-          <button id="save-start-date-btn" class="btn-mini primary">Save</button>
-          <button id="cancel-start-date-btn" class="btn-mini ghost">Cancel</button>
-        </div>
-        <div style="font-size:11px;color:var(--text-faint);">Shifts the whole program — every phase moves by the same amount, keeping their lengths.</div>
-      </div>
-      <div id="phase-track-wrap">
-        <div class="phase-track" id="phase-track"></div>
-        <div class="phase-labels" id="phase-labels"></div>
-      </div>
-      <div id="weight-journey-wrap" style="display:none;">
-        <div class="wj-bar"><div class="wj-fill" id="wj-fill"></div></div>
-        <div class="wj-labels"><span id="wj-start"></span><span id="wj-current"></span><span id="wj-goal"></span></div>
-      </div>
-    </div>
-
-    <div class="dash-detail" id="couple-detail" hidden>
-      <div class="couple-grid" id="couple-grid"><div class="empty-note">Loading…</div></div>
-    </div>
-
-    <div class="panel" id="today-targets-panel">
-      <div class="panel-head">
-        <div><div class="panel-title">Today's Targets</div><div class="panel-subtitle">Your plan's daily targets, filling in live as you log — tap the pencil to adjust a target.</div></div>
-        <a href="../apps/diet.html" target="_blank" rel="noopener" class="btn-mini ghost" style="display:inline-block;text-decoration:none;white-space:nowrap;">Log in Diet app →</a>
-      </div>
-      <div class="target-bars" id="today-target-bars"></div>
     </div>
 
     <div class="layout-2">
       <div class="col">
-        <div class="control-bar mini">
-          <div class="cb-group cb-left"></div>
-          <div class="cb-center">
-            <div class="cb-nav">
-              <button type="button" id="log-date-prev" aria-label="Previous day">‹</button>
-              <input type="date" id="log-date" aria-label="Check-in date">
-              <button type="button" id="log-date-next" aria-label="Next day">›</button>
-            </div>
-            <button type="button" class="cb-pill cb-today" id="log-date-today">Today</button>
-          </div>
-          <div class="cb-group cb-right">
-            <button type="button" class="cb-pill cb-tool" id="backup-open">Backup</button>
-          </div>
-        </div>
         <!-- Daily check-in, folded into Today -->
         <div class="panel" id="checkin-panel">
           <div class="panel-head">
@@ -755,9 +708,30 @@
             <span class="save-msg" id="save-msg-today"></span>
           </div>
         </div>
+        <div class="control-bar mini">
+          <div class="cb-group cb-left"></div>
+          <div class="cb-center">
+            <div class="cb-nav">
+              <button type="button" id="log-date-prev" aria-label="Previous day">‹</button>
+              <input type="date" id="log-date" aria-label="Check-in date">
+              <button type="button" id="log-date-next" aria-label="Next day">›</button>
+            </div>
+            <button type="button" class="cb-pill cb-today" id="log-date-today">Today</button>
+          </div>
+          <div class="cb-group cb-right">
+            <button type="button" class="cb-pill cb-tool" id="backup-open">Backup</button>
+          </div>
+        </div>
       </div>
 
       <div class="col">
+        <div class="panel" id="today-targets-panel">
+          <div class="panel-head">
+            <div><div class="panel-title">Today's Targets</div><div class="panel-subtitle">Your plan's daily targets, filling in live as you log — tap the pencil to adjust a target.</div></div>
+            <a href="../apps/diet.html" target="_blank" rel="noopener" class="btn-mini ghost" style="display:inline-block;text-decoration:none;white-space:nowrap;">Log in Diet app →</a>
+          </div>
+          <div class="target-bars" id="today-target-bars"></div>
+        </div>
         <div class="panel">
           <div class="panel-head">
             <div><div class="panel-title">This week's schedule</div><div class="panel-subtitle">Tap a day for a full preview of its workout.</div></div>
@@ -1512,20 +1486,24 @@ async function saveStartOverride(profileId, dateStr){
 }
 function wireStartDateControls(){
   // .onclick (not addEventListener) so re-running init() on profile re-entry
-  // replaces the handler instead of stacking duplicates.
-  document.getElementById('edit-start-btn').onclick = function(){
+  // replaces the handler instead of stacking duplicates. The ✎ button
+  // itself lives inside stat-progday-foot, which is rebuilt on every
+  // renderDashboard() — so it's caught here via delegation on the
+  // persistent tile, not wired directly.
+  document.getElementById('tile-progday').onclick = function(e){
+    if(!e.target.closest('.edit-start-btn')) return;
     document.getElementById('start-date-input').value = activeProfile.program.startDate;
-    document.getElementById('start-date-form').style.display = 'block';
+    document.getElementById('start-date-inline').style.display = 'block';
   };
   document.getElementById('cancel-start-date-btn').onclick = function(){
-    document.getElementById('start-date-form').style.display = 'none';
+    document.getElementById('start-date-inline').style.display = 'none';
   };
   document.getElementById('save-start-date-btn').onclick = async function(){
     const newDate = document.getElementById('start-date-input').value;
     if(!newDate) return;
     applyStartDateOverride(activeProfile.id, newDate);
     await saveStartOverride(activeProfile.id, newDate);
-    document.getElementById('start-date-form').style.display = 'none';
+    document.getElementById('start-date-inline').style.display = 'none';
     await renderDashboard();
   };
 }
@@ -1792,19 +1770,6 @@ document.getElementById('command-preview').addEventListener('click', ()=> openWo
 document.getElementById('hero-chips').addEventListener('click', (e)=>{
   if(e.target.closest('.chip-train')) openView('train');
 });
-// Program day / Couple streak metric tiles expand a detail panel below the
-// row instead of always showing it — keeps the dashboard compact while the
-// full phase info / per-person streaks stay one tap away.
-function wireDashToggle(tileId, panelId){
-  const tile = document.getElementById(tileId), panel = document.getElementById(panelId);
-  tile.addEventListener('click', ()=>{
-    panel.hidden = !panel.hidden;
-    tile.classList.toggle('open', !panel.hidden);
-  });
-}
-wireDashToggle('tile-progday', 'phase-detail');
-wireDashToggle('tile-couple', 'couple-detail');
-
 /* =====================================================================
    TODAY — hero + readiness, program, stats, schedule, couple streak
 ===================================================================== */
@@ -1909,39 +1874,13 @@ async function renderDashboard(){
   const total = daysBetween(p.program.startDate, p.program.endDate);
   const elapsed = Math.max(0, Math.min(total, daysBetween(p.program.startDate, today)));
   document.getElementById('stat-progday').innerHTML = elapsed+'<small>/ '+total+'</small>';
-  document.getElementById('stat-progday-foot').textContent = (today < p.program.startDate
-    ? 'Starts '+fmtHuman(p.program.startDate)
-    : 'Ends '+fmtHuman(p.program.endDate)) + ' · Tap for phase ⌄';
-
-  document.getElementById('hero-h2').textContent = p.heroTitle;
-  document.getElementById('hero-p').textContent = p.heroText;
-  document.getElementById('phase-eyebrow').textContent = p.phases ? '' : p.heroEyebrow;
-
-  if(p.phases){
-    const phase = phaseForDate(today) || p.phases[p.phases.length-1];
-    document.getElementById('phase-eyebrow').textContent = 'Phase '+phase.n+' — '+phase.name;
-    document.getElementById('phase-track-wrap').style.display = 'block';
-    document.getElementById('weight-journey-wrap').style.display = 'none';
-    const track = document.getElementById('phase-track');
-    const labels = document.getElementById('phase-labels');
-    track.innerHTML=''; labels.innerHTML='';
-    p.phases.forEach(ph=>{
-      const seg = document.createElement('div'); seg.className='phase-seg';
-      let fillPct = 0;
-      if(today > ph.end) fillPct = 100;
-      else if(today >= ph.start && today <= ph.end) fillPct = Math.round(100*daysBetween(ph.start, today)/daysBetween(ph.start,ph.end));
-      if(fillPct>=100) seg.classList.add('done');
-      const fill = document.createElement('div'); fill.className='fill'; fill.style.width = fillPct+'%';
-      seg.title = 'P'+ph.n+' '+ph.name+' · '+ph.start+' → '+ph.end+' · target '+ph.target;
-      seg.appendChild(fill); track.appendChild(seg);
-      const lbl = document.createElement('span'); lbl.textContent = 'P'+ph.n; labels.appendChild(lbl);
-    });
-  } else {
-    document.getElementById('phase-track-wrap').style.display = 'none';
-    document.getElementById('weight-journey-wrap').style.display = 'block';
-    document.getElementById('wj-start').textContent = 'Start · '+p.program.startWeight+' kg';
-    document.getElementById('wj-goal').textContent = 'Goal · '+p.program.targetWeight+' kg';
-  }
+  // Compact phase readout, right in the tile — just "P<n> · <name>", no
+  // separate expanded card. The ✎ opens the small inline start-date form
+  // below the metrics row (wired via delegation in wireStartDateControls).
+  const phaseText = p.phases
+    ? (function(){ const ph = phaseForDate(today) || p.phases[p.phases.length-1]; return 'P'+ph.n+' · '+ph.name; })()
+    : (today < p.program.startDate ? 'Starts '+fmtHuman(p.program.startDate) : 'Ends '+fmtHuman(p.program.endDate));
+  document.getElementById('stat-progday-foot').innerHTML = escHtml(phaseText)+' <button type="button" class="edit-start-btn tg-edit" title="Change start date">✎</button>';
 
   const daily = await listDaily();
   let latestWeight = null;
@@ -1959,14 +1898,6 @@ async function renderDashboard(){
     document.getElementById('stat-weight-foot').textContent = 'Starting weight';
     document.getElementById('stat-togo').innerHTML = (p.program.startWeight-p.program.targetWeight).toFixed(1)+'<small>kg</small>';
   }
-  if(!p.phases){
-    const w = latestWeight ?? p.program.startWeight;
-    const totalLoss = p.program.startWeight - p.program.targetWeight;
-    const done = Math.max(0, Math.min(1, (p.program.startWeight - w) / totalLoss));
-    document.getElementById('wj-fill').style.width = (done*100).toFixed(1)+'%';
-    document.getElementById('wj-current').textContent = (latestWeight ?? p.program.startWeight)+' kg';
-  }
-
   const weekGrid = document.getElementById('week-grid');
   weekGrid.innerHTML='';
   ['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'].forEach(dn=>{
@@ -2093,40 +2024,18 @@ function loggingStreakFor(logged, today){
 let coupleSeq = 0;
 async function renderCoupleStreak(){
   const seq = ++coupleSeq;
-  const grid = document.getElementById('couple-grid');
   const me = activeProfile.id, partner = otherProfileId(me);
   const today = todayStr();
   const [mine, theirs] = await Promise.all([readProfileTraining(me), readProfileTraining(partner)]);
   if(seq !== coupleSeq) return;
 
-  // Compact "Couple streak" tile on the dashboard — just enough to glance
-  // at; tapping it opens the full two-person breakdown below (#couple-grid,
-  // unchanged) via the couple-detail toggle wired in init.
+  // Compact "Couple streak" tile — both workout streaks fit right in the
+  // box, no expanded card needed.
   const myWs = workoutStreakFor(PROFILES[me], mine.trained, today);
   const theirWs = workoutStreakFor(PROFILES[partner], theirs.trained, today);
   document.getElementById('stat-couple').innerHTML = myWs+'<small>d</small> · '+theirWs+'<small>d</small>';
   document.getElementById('stat-couple-foot').textContent = (mine.trained.has(today) && theirs.trained.has(today))
-    ? 'Both trained today 💪' : 'Tap for details ⌄';
-
-  const card = (pid, data, isMe)=>{
-    const prof = PROFILES[pid];
-    const ws = workoutStreakFor(prof, data.trained, today);
-    const ls = loggingStreakFor(data.logged, today);
-    const sched = prof.weekSchedule[dayNameFor(today)];
-    const status = data.trained.has(today)
-      ? `<span class="meta-chip good">Trained today ✓</span>`
-      : (sched && sched.status!=='Train' ? `<span class="meta-chip">${sched.status} day</span>` : `<span class="meta-chip warn">Not yet today</span>`);
-    return `<div class="couple-card ${isMe?'me':''}">
-      <div class="couple-who"><span class="who-avatar ${avatarCls(pid)}">${prof.name[0]}</span>${prof.name}${isMe?' <span class="meta-chip" style="padding:1px 7px;">you</span>':''}</div>
-      <div class="couple-num">${ws}<small>day workout streak</small></div>
-      <div class="couple-sub">Check-in streak · ${ls} day${ls===1?'':'s'}</div>
-      <div class="couple-status">${status}</div>
-    </div>`;
-  };
-  grid.innerHTML = card(me, mine, true) + card(partner, theirs, false);
-  if(mine.trained.has(today) && theirs.trained.has(today)){
-    grid.insertAdjacentHTML('beforeend', `<div class="meta-chip good" style="grid-column:1/-1;justify-content:center;padding:6px;">You both trained today 💪</div>`);
-  }
+    ? 'Both trained today 💪' : 'You · '+PROFILES[partner].name;
 }
 // Orders exercises the way a session should actually flow: big compound,
 // multi-joint lifts first while you're freshest and they demand the most
@@ -2376,7 +2285,7 @@ async function renderExerciseList(date, dayKey){
       const lastSet = last?.ex?.sets?.[i];
       const w = savedSet?.weight ?? '', r = savedSet?.reps ?? '', ef = savedSet?.effort ?? '';
       const ph = lastSet ? `${lastSet.weight||''}` : '', phR = lastSet ? `${lastSet.reps||''}` : '';
-      const lastCellText = lastSet && (lastSet.weight!=null || lastSet.reps!=null) ? `${lastSet.weight??'—'} × ${lastSet.reps??'—'}` : '—';
+      const lastCellText = lastTimeCellText(lastSet);
       rowsHtml += `<tr>
         <td class="set-num">${i+1}</td>
         <td class="last-time-cell">${lastCellText}</td>
@@ -2453,6 +2362,21 @@ function effortBucket(v){
 function effortOptionsHtml(selected){
   const b = effortBucket(selected);
   return '<option value="">—</option>'+EFFORT_LEVELS.map(function(o){ return '<option value="'+o.v+'" '+(b===o.v?'selected':'')+'>'+o.label+'</option>'; }).join('');
+}
+function effortLabelFor(v){
+  const b = effortBucket(v);
+  const found = EFFORT_LEVELS.find(function(o){ return o.v===b; });
+  return found ? found.label : '';
+}
+// Shared by the initial render and by refreshSetNumbersAndLastTime (which
+// re-runs after every add/delete-set, since "last time" is position-indexed
+// against the row, not tied to a specific row's identity).
+function lastTimeCellText(lastSet){
+  if(!lastSet || (lastSet.weight==null && lastSet.reps==null)) return '—';
+  let txt = `${lastSet.weight??'—'} × ${lastSet.reps??'—'}`;
+  const el = effortLabelFor(lastSet.effort);
+  if(el) txt += ` · ${el}`;
+  return txt;
 }
 function newSetRowHtml(n){
   return `<td class="set-num">${n}</td><td class="last-time-cell">—</td><td><input type="number" step="0.5" class="inp-weight"></td><td><input type="number" class="inp-reps"></td><td><select class="inp-effort">${effortOptionsHtml('')}</select></td><td class="pr-cell"></td><td><button type="button" class="icon-btn del-set-btn" title="Delete this set">✕</button></td>`;
@@ -2557,7 +2481,7 @@ function refreshSetNumbersAndLastTime(card){
     row.querySelector('.set-num').textContent = i+1;
     const lastSet = lastSets[i];
     const cell = row.querySelector('.last-time-cell');
-    if(cell) cell.textContent = lastSet && (lastSet.weight!=null || lastSet.reps!=null) ? `${lastSet.weight??'—'} × ${lastSet.reps??'—'}` : '—';
+    if(cell) cell.textContent = lastTimeCellText(lastSet);
   });
 }
 function wireExerciseDragDrop(container, orderKey){
@@ -3090,7 +3014,11 @@ async function saveDietMealsOrder(){
    stored here, this is a detailed read-only view over live data. */
 function dietDayTotals(entries){
   const t = {calories:0, protein:0, carbs:0, fat:0, fiber:0};
-  entries.forEach(function(e){
+  // Match the Diet app's own diaryNutrients(): only what's actually been
+  // eaten counts toward totals. A "planned" entry (e.g. from Copy Previous
+  // Day) is on the plan but not logged yet, so it must not inflate today's
+  // calories/macros here any more than it does in the Diet app itself.
+  entries.filter(function(e){ return (e.status||'eaten')==='eaten'; }).forEach(function(e){
     const factor = (e.servings!=null?e.servings:1) / (e.recipeServings||1);
     const n = e.nutrition || {};
     t.calories += (n.calories||0)*factor;
@@ -3117,7 +3045,10 @@ async function renderDietToday(){
 
   const profileGoals = (dietStateLive && dietStateLive.profiles && dietStateLive.profiles[p.id] && dietStateLive.profiles[p.id].goals) || (dietStateLive && dietStateLive.goals) || {};
   const diary = ((dietStateLive && dietStateLive.diary) || []).filter(function(e){ return e.profileId===p.id; });
-  const todayEntries = diary.filter(function(e){ return e.date===today; });
+  // "Logged today" means actually eaten, same as the Diet app's own
+  // today's-totals logic — a planned-but-not-eaten entry (e.g. copied over
+  // from "Copy Previous Day") doesn't belong here or in the totals below.
+  const todayEntries = diary.filter(function(e){ return e.date===today && (e.status||'eaten')==='eaten'; });
   const todayTotals = dietDayTotals(todayEntries);
   const mealsEl = document.getElementById('diet-today-meals');
   if(mealsEl){
@@ -3128,8 +3059,7 @@ async function renderDietToday(){
         const factor = (e.servings!=null?e.servings:1) / (e.recipeServings||1);
         const n = e.nutrition || {};
         const cal = Math.round((n.calories||0)*factor), protein = ((n.protein||0)*factor).toFixed(0);
-        const planned = e.status==='planned' ? ' <span class="dm-time">(planned)</span>' : '';
-        return '<div class="diet-meal-row"><span class="dm-name">'+escHtml(e.name||'Meal')+planned+'</span><span class="dm-macro">'+cal+' kcal · '+protein+'g protein</span></div>';
+        return '<div class="diet-meal-row"><span class="dm-name">'+escHtml(e.name||'Meal')+'</span><span class="dm-macro">'+cal+' kcal · '+protein+'g protein</span></div>';
       }).join('');
     }
   }
@@ -4654,7 +4584,7 @@ function renderFloor(){
   const tr = rows[rowIdx];
   let lastSets = []; try{ lastSets = JSON.parse(card.dataset.lastSets||'[]'); }catch(e){}
   const lastSet = lastSets[allDone ? rows.length : rowIdx];
-  const lastText = lastSet && (lastSet.weight!=null || lastSet.reps!=null) ? `${lastSet.weight??'—'} × ${lastSet.reps??'—'}` : '—';
+  const lastText = lastTimeCellText(lastSet);
   const prevRow = rowIdx>0 ? rows[rowIdx-1] : null;
   const wDefault = allDone ? '' : (tr.querySelector('.inp-weight').value || (prevRow && prevRow.querySelector('.inp-weight').value) || tr.querySelector('.inp-weight').placeholder || '');
   const rDefault = allDone ? '' : (tr.querySelector('.inp-reps').value || '');
