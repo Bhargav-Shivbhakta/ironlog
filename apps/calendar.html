@@ -220,6 +220,7 @@
   .cal-block-native:hover .cal-resize-handle{background:rgba(255,255,255,.4);}
   .cal-dragsel{position:absolute;left:2px;right:2px;background:var(--accent);opacity:0.25;border-radius:5px;pointer-events:none;}
   .cal-block-link{position:absolute;top:1px;right:1px;font-size:10.5px;text-decoration:none;line-height:1;background:rgba(255,255,255,.65);border-radius:3px;padding:0 2px;}
+  .cal-block-task{right:14px;cursor:default;}
   .cal-now-line{position:absolute;left:0;right:0;height:0;border-top:2px solid #E0567E;z-index:6;pointer-events:none;}
   .cal-now-line::before{content:'';position:absolute;left:-4px;top:-4px;width:8px;height:8px;border-radius:50%;background:#E0567E;}
 
@@ -824,20 +825,34 @@ function addEvent(dateStr, title, source, color, person, time, link){
 }
 function jdoc(path){ return db.doc(path); }
 
+// Raw task arrays, kept alongside the flattened addEvent() calls below so
+// eventsForRecurringWeekday() can cross-reference a Schedule block's
+// weekday+activity against any task's task.scheduleBlock link (see
+// todo.html's "Attach to schedule block" picker for the write side).
+window.todoTasksCache = { Bhargav: [], Anusha: [], Shared: [] };
 async function loadTodoEvents(){
   const profiles = ['Bhargav','Anusha'];
   for(const p of profiles){
     try{
       const doc = await jdoc('users/'+currentUser.uid+'/todo-profiles/'+p+'/data/tasks').get();
       const tasks = (doc.exists && doc.data().json) ? JSON.parse(doc.data().json) : [];
+      window.todoTasksCache[p] = tasks;
       tasks.forEach(function(t){ if(!t.done && t.due) addEvent(t.due, t.title, 'Todo', 'var(--todo)', p, t.dueTime, 'todo.html?task='+encodeURIComponent(t.id)+'&profile='+encodeURIComponent(p)); });
     }catch(e){}
   }
   try{
     const doc = await jdoc('users/'+currentUser.uid+'/todo-shared/tasks').get();
     const tasks = (doc.exists && doc.data().json) ? JSON.parse(doc.data().json) : [];
+    window.todoTasksCache.Shared = tasks;
     tasks.forEach(function(t){ if(!t.done && t.due) addEvent(t.due, t.title, 'Todo', 'var(--todo)', 'Shared', t.dueTime, 'todo.html?task='+encodeURIComponent(t.id)+'&profile=Bhargav'); });
   }catch(e){}
+}
+// All not-yet-done tasks (any profile + shared) linked to a given
+// Schedule weekday+activity, matched the same way schedule.html's
+// linkedTasksForBlock() does.
+function todoTasksLinkedToBlock(weekday, activity){
+  const all = [].concat(window.todoTasksCache.Bhargav||[], window.todoTasksCache.Anusha||[], window.todoTasksCache.Shared||[]);
+  return all.filter(function(t){ return !t.done && t.scheduleBlock && t.scheduleBlock.weekday===weekday && t.scheduleBlock.label===activity; });
 }
 
 async function loadChoresEvents(){
@@ -901,7 +916,8 @@ function eventsForRecurringWeekday(dateStr){
       // pretty string as `time` used to break the Grid (toMinutes() on
       // "4:00 AM – 4:15 AM" is NaN), which is why every routine block
       // used to pile up at the same spot.
-      out.push({title:label, source:'Schedule', color:'var(--schedule)', person:activeCalendarProfile, time:item.start||'', endTime:item.end||'', displayTime:timeRange, sortKey:item.start||''});
+      const linkedTasks = todoTasksLinkedToBlock(wd, label);
+      out.push({title:label, source:'Schedule', color:'var(--schedule)', person:activeCalendarProfile, time:item.start||'', endTime:item.end||'', displayTime:timeRange, sortKey:item.start||'', linkedTasks:linkedTasks});
     });
   }
   return out;
@@ -1306,7 +1322,9 @@ function renderGridCalendarView(mountEl, rangeStart, dayCount){
       const editAttr = isNative ? ' data-editnative="'+e.nativeId+'"' : '';
       const handles = isNative ? '<div class="cal-resize-handle top" data-resize="top"></div><div class="cal-resize-handle bottom" data-resize="bottom"></div>' : '';
       const linkIcon = e.meetingLink ? '<a class="cal-block-link" href="'+escapeHtml(e.meetingLink)+'" target="_blank" rel="noopener" onclick="event.stopPropagation()" title="Open link">🔗</a>' : '';
-      blocksHtml += '<div class="cal-block'+(isNative?' cal-block-native':'')+'" style="top:'+top+'px;height:'+height+'px;'+posStyle+'border-left-color:'+e.color+';background:'+e.color+'22;color:'+e.color+';"'+editAttr+'><div class="cb-title">'+escapeHtml(e.title)+'</div>'+linkIcon+handles+'</div>';
+      const taskTitles = (e.linkedTasks||[]).map(function(lt){ return lt.title; }).join(', ');
+      const taskIcon = (e.linkedTasks&&e.linkedTasks.length) ? '<span class="cal-block-link cal-block-task" title="Linked task: '+escapeHtml(taskTitles)+'">📋</span>' : '';
+      blocksHtml += '<div class="cal-block'+(isNative?' cal-block-native':'')+'" style="top:'+top+'px;height:'+height+'px;'+posStyle+'border-left-color:'+e.color+';background:'+e.color+'22;color:'+e.color+';"'+editAttr+'><div class="cb-title">'+escapeHtml(e.title)+'</div>'+linkIcon+taskIcon+handles+'</div>';
     });
     if(isToday){
       const now = new Date();
@@ -1971,7 +1989,8 @@ function agendaRowHtml(e){
   const editAttr = e.nativeId ? ' data-editnative="'+e.nativeId+'"' : '';
   const shownTime = e.displayTime || displayTime(e.time);
   const linkHtml = e.meetingLink ? ' · <a href="'+escapeHtml(e.meetingLink)+'" target="_blank" rel="noopener" onclick="event.stopPropagation()">🔗 open link</a>' : '';
-  const extraMeta = (e.location?' · 📍'+escapeHtml(e.location):'')+linkHtml;
+  const taskHtml = (e.linkedTasks&&e.linkedTasks.length) ? ' · 📋 '+e.linkedTasks.map(function(lt){ return escapeHtml(lt.title); }).join(', ') : '';
+  const extraMeta = (e.location?' · 📍'+escapeHtml(e.location):'')+linkHtml+taskHtml;
   return '<'+tag+' class="agenda-row" style="text-decoration:none;color:inherit;"'+attrs+editAttr+'><div class="agenda-dot" style="background:'+e.color+';"></div>'+
     '<div><div class="agenda-title">'+escapeHtml(e.title)+(e.link?' ↗':'')+'</div><div class="agenda-meta">'+e.source+(e.person?' · '+e.person:'')+(shownTime?' · '+shownTime:'')+extraMeta+'</div></div></'+tag+'>';
 }

@@ -387,6 +387,7 @@
   .meta-chip.today{background:var(--p2-soft);color:var(--p2);}
   .meta-chip.repeat{background:var(--surface-2);}
   .meta-chip.list-tag{background:var(--accent-soft);color:var(--accent-deep);}
+  .meta-chip.schedule-tag{background:var(--p2-soft, var(--accent-soft));color:var(--p2, var(--accent-deep));}
   .meta-chip.hashtag{background:var(--p3-soft);color:var(--p3);cursor:pointer;transition:transform .12s ease;}
   .meta-chip.hashtag:hover{transform:scale(1.05);}
   .parse-chip.tag{background:var(--p3-soft);color:var(--p3);}
@@ -658,6 +659,42 @@ function sharedDoc(key){
 }
 function otherProfile(p){ return p==='Bhargav' ? 'Anusha' : 'Bhargav'; }
 
+// Read-only look at this profile's Schedule routine — lets a task be
+// attached to a specific recurring block ("Class prep", "Gym", etc.) so
+// it shows up right inside that block wherever Schedule or Calendar
+// render it, not just as a flat due-date entry. Same doc Schedule itself
+// reads/writes (schedule-profiles/<profile>/data/dayTemplates); never
+// written here, only read.
+function scheduleProfileDoc(profile, key){
+  return db.collection('users').doc(currentUser.uid).collection('schedule-profiles').doc(profile).collection('data').doc(key);
+}
+let scheduleDayTemplatesCache = {};
+async function loadScheduleDayTemplatesForBlockPicker(){
+  try{
+    const doc = await scheduleProfileDoc(activeProfile,'dayTemplates').get();
+    scheduleDayTemplatesCache = (doc.exists && doc.data().json) ? JSON.parse(doc.data().json) : {};
+  }catch(e){ scheduleDayTemplatesCache = {}; }
+}
+const SCHEDULE_WEEKDAY_ORDER = ['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'];
+function scheduleBlockOptionsHtml(selWd, selLabel){
+  let html = '<option value="">— None —</option>';
+  SCHEDULE_WEEKDAY_ORDER.forEach(function(wd){
+    const blocks = scheduleDayTemplatesCache[wd] || [];
+    if(!blocks.length) return;
+    html += '<optgroup label="'+wd+'">';
+    blocks.forEach(function(b){
+      const label = b.activity || b.title || '';
+      if(!label) return;
+      const val = wd+'||'+label;
+      const timeRange = b.start ? (fmt12(b.start)+(b.end?'–'+fmt12(b.end):'')) : '';
+      const selected = (wd===selWd && label===selLabel) ? ' selected' : '';
+      html += '<option value="'+escapeHtml(val)+'"'+selected+'>'+escapeHtml(label)+(timeRange?' ('+timeRange+')':'')+'</option>';
+    });
+    html += '</optgroup>';
+  });
+  return html;
+}
+
 /* =====================================================================
    AUTH — sign-in itself lives on the hub (index.html). This page just
    checks whether you're already signed in; if not, it sends you there.
@@ -700,7 +737,7 @@ async function enterProfile(profileId){
   initControls();
   // Three independent reads, previously one after another — run them
   // together so the app isn't waiting on three separate round trips.
-  await Promise.all([loadLists(), loadTasks(), loadStickyNotes()]);
+  await Promise.all([loadLists(), loadTasks(), loadStickyNotes(), loadScheduleDayTemplatesForBlockPicker()]);
   render();
   // Deep-link support: ?task=ID jumps straight to that task, expanded and
   // highlighted, instead of leaving the person to hunt for it themselves.
@@ -1433,6 +1470,7 @@ function taskRowHtml(t){
   if(t.repeat && t.repeat!=='none') chips.push('<span class="meta-chip repeat">repeats '+t.repeat+'</span>');
   if(t.subtasks.length) chips.push('<span class="meta-chip">'+subDone+'/'+t.subtasks.length+'</span>');
   if(t.link) chips.push('<a class="link-chip" href="'+escapeHtml(t.link)+'" target="_blank" rel="noopener" onclick="event.stopPropagation()">🔗 link</a>');
+  if(t.scheduleBlock && t.scheduleBlock.label) chips.push('<span class="meta-chip schedule-tag" title="Linked to '+escapeHtml(t.scheduleBlock.weekday)+' · '+escapeHtml(t.scheduleBlock.label)+'">📋 '+escapeHtml(t.scheduleBlock.label)+'</span>');
   if(list && (activeListFilter==='all')) chips.push('<span class="meta-chip list-tag">'+escapeHtml(list.name)+'</span>');
   (t.tags||[]).forEach(function(tag){ chips.push('<span class="meta-chip hashtag" data-jumptag="'+escapeHtml(tag)+'">@'+escapeHtml(tag)+'</span>'); });
 
@@ -1471,6 +1509,7 @@ function taskDetailHtml(t){
     '<div class="f"><label>Priority</label><select class="td-priority"><option value="0" '+(t.priority===0?'selected':'')+'>None</option><option value="1" '+(t.priority===1?'selected':'')+'>P1 - urgent</option><option value="2" '+(t.priority===2?'selected':'')+'>P2 - high</option><option value="3" '+(t.priority===3?'selected':'')+'>P3 - medium</option></select></div>'+
     '<div class="f"><label>Repeats</label><select class="td-repeat"><option value="none" '+(t.repeat==='none'?'selected':'')+'>Never</option><option value="daily" '+(t.repeat==='daily'?'selected':'')+'>Daily</option><option value="weekdays" '+(t.repeat==='weekdays'?'selected':'')+'>Weekdays</option><option value="weekly" '+(t.repeat==='weekly'?'selected':'')+'>Weekly</option><option value="monthly" '+(t.repeat==='monthly'?'selected':'')+'>Monthly</option></select></div>'+
     '<div class="f"><label>List</label><select class="td-list">'+listOpts+'</select></div>'+
+    '<div class="f" style="grid-column:1/-1;"><label>Attach to schedule block</label><select class="td-scheduleblock">'+scheduleBlockOptionsHtml(t.scheduleBlock?t.scheduleBlock.weekday:null, t.scheduleBlock?t.scheduleBlock.label:null)+'</select></div>'+
     '<div class="f" style="grid-column:1/-1;"><label>Tags</label><input type="text" class="td-tags" placeholder="urgent, school (comma separated)" value="'+escapeHtml((t.tags||[]).join(', '))+'"></div>'+
     '<div class="f" style="grid-column:1/-1;"><label>Link</label><input type="text" class="td-link" placeholder="https://…" value="'+escapeHtml(t.link||'')+'"></div>'+
     '<div class="f" style="grid-column:1/-1;"><label>Notes</label><textarea class="td-notes">'+escapeHtml(t.notes||'')+'</textarea></div>'+
@@ -1611,6 +1650,13 @@ function attachTaskHandlers(wrap){
       t.notes = detail.querySelector('.td-notes').value.trim();
       t.link = detail.querySelector('.td-link').value.trim();
       t.tags = detail.querySelector('.td-tags').value.split(',').map(function(s){ return s.trim().toLowerCase(); }).filter(Boolean);
+      const sbVal = detail.querySelector('.td-scheduleblock') ? detail.querySelector('.td-scheduleblock').value : '';
+      if(sbVal){
+        const sep = sbVal.indexOf('||');
+        t.scheduleBlock = { weekday: sbVal.slice(0,sep), label: sbVal.slice(sep+2) };
+      } else {
+        t.scheduleBlock = null;
+      }
       if(newListId !== t.listId){
         arr.splice(arr.indexOf(t),1);
         t.listId = newListId;
