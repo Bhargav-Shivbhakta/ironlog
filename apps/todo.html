@@ -2277,6 +2277,7 @@ function initControls(){
       '<div class="f"><label>Priority</label><select id="da-priority"><option value="0">None</option><option value="1">P1 - urgent</option><option value="2">P2 - high</option><option value="3">P3 - medium</option></select></div>'+
       '<div class="f"><label>Repeats</label><select id="da-repeat"><option value="none">Never</option><option value="daily">Daily</option><option value="weekdays">Weekdays</option><option value="weekly">Weekly</option><option value="monthly">Monthly</option></select></div>'+
       '<div class="f"><label>List</label><select id="da-list">'+listOpts+'</select></div>'+
+      '<div class="f" style="grid-column:1/-1;"><label>Attach to schedule block</label><select id="da-scheduleblock">'+scheduleBlockOptionsHtml(null,null)+'</select></div>'+
       '<div class="f" style="grid-column:1/-1;"><label>Tags</label><input type="text" id="da-tags" placeholder="urgent, school (comma separated)"></div>'+
       '<div class="f" style="grid-column:1/-1;"><label>Link</label><input type="text" id="da-link" placeholder="https://…"></div>'+
       '<div class="f" style="grid-column:1/-1;"><label>Notes</label><textarea id="da-notes"></textarea></div>'+
@@ -2311,6 +2312,13 @@ function initControls(){
         item.repeat = document.getElementById('da-repeat').value;
         item.link = document.getElementById('da-link').value.trim();
         item.notes = document.getElementById('da-notes').value.trim();
+        const sbVal = document.getElementById('da-scheduleblock').value;
+        if(sbVal){
+          const sep = sbVal.indexOf('||');
+          item.scheduleBlock = { weekday: sbVal.slice(0,sep), label: sbVal.slice(sep+2) };
+        } else {
+          item.scheduleBlock = null;
+        }
         await saveTasksFor(item.listId);
         panel.style.display = 'none';
         panel.innerHTML = '';
