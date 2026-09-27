@@ -279,7 +279,11 @@
   .control-bar{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:14px;background:var(--surface);border:1px solid var(--border-soft);border-radius:var(--radius-lg);padding:10px 14px;box-shadow:var(--shadow);margin-bottom:16px;position:relative;}
   .cb-group{display:flex;align-items:center;gap:6px;flex-wrap:wrap;}
   .cb-left{justify-content:flex-start;}
-  .cb-center{justify-content:center;gap:14px;}
+  /* Was missing display:flex — its two children (date-nav, action
+     buttons) fell back to stacking as block-level divs instead of sitting
+     on one line, which is what pushed "+ Add / Weekly" onto its own row
+     under the date picker. */
+  .cb-center{display:flex;align-items:center;justify-content:center;gap:14px;flex-wrap:wrap;}
   .cb-right{justify-content:flex-end;}
   .cb-nav button{width:30px;height:30px;border:1px solid var(--border);background:var(--surface-alt);border-radius:var(--radius-sm);color:var(--text);font-size:15px;cursor:pointer;flex:none;}
   .cb-nav input{height:30px;border:1px solid var(--border);background:var(--surface);border-radius:var(--radius-sm);padding:0 8px;color:var(--text);font-weight:700;font-size:12.5px;width:132px;}
