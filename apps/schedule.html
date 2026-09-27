@@ -1637,13 +1637,20 @@ function renderDailyRoutineHtml(dateStr){
   }).join('');
 
   const nowMinutes = new Date().getHours()*60+new Date().getMinutes();
+  // Same "before 4:30am is still a continuation of the prior day" rule
+  // currentBlockIndex() uses above — without it, right after midnight
+  // nowMinutes resets to a small number (1:03am = 63) while every block
+  // still shown from earlier that day ends at 240+, so "already ended"
+  // (toMinutes(b.end) < nowMinutes) was false for literally everything
+  // except Sleep, and Show all/Hide past had nothing left to hide.
+  const nowMinutesForPast = nowMinutes < 270 ? nowMinutes + 1440 : nowMinutes;
   const rows = blocks.map((b,i)=>{
     const cat = categorize(b.activity);
     const meta = CATEGORY_META[cat];
     const key = templateBlockKey(dateStr, i);
     const isDone = !!templateLog[key];
     const isNow = i === curIdx;
-    const isPast = isToday && !isNow && toMinutes(b.end) < nowMinutes;
+    const isPast = isToday && !isNow && toMinutes(b.end) < nowMinutesForPast;
     const tKey = todaysTemplateKey(dateStr);
     const hiddenByFilter = activeCategoryFilter && cat !== activeCategoryFilter;
     const statusBadge = isDone ? '<span class="rb-status done" title="Done">✓</span>' : (isPast ? '<span class="rb-status missed" title="Time passed, not checked off">✗</span>' : '');
