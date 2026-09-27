@@ -199,7 +199,7 @@ async function loadDashboard(){
   // same way the original hub always special-cased it.
   const appsWithGym = [{ file:'gym.html', path:'gym/index.html', title:'Gym', icon:'tile-icons/gym.png' }].concat(apps.map(a => ({...a, path:'apps/'+a.file})));
   Object.assign(state,{templates,events,personalTasks:personal,sharedTasks:shared,chores,choreHistory,dailyLog,apps:appsWithGym});
-  renderDashboard();renderAllCategoryPages();startHubClock();setGate(null);showRoute(location.hash.replace('#','')||'today');
+  renderDashboard();renderAllCategoryPages();startHubClock();startTimelineAutoAdvance();setGate(null);showRoute(location.hash.replace('#','')||'today');
 }
 
 function todaysTimeline(){
@@ -273,9 +273,33 @@ function renderDashboard(){
   $('chores-status').textContent=chores.length?chores.length+' chore'+(chores.length===1?'':'s')+' due today':'No chores due';
   renderTimeline(timeline);renderTasks(tasks.slice(0,5));renderChoresList(chores);renderTraining();
 }
+// The item "now" falls into: the last one whose start time has already
+// passed. Items are pre-sorted by start time (todaysTimeline()), so the
+// last match as we walk forward is the current one.
+function currentTimelineIndex(items){
+  const nowM=new Date().getHours()*60+new Date().getMinutes();
+  let idx=-1;
+  items.forEach((x,i)=>{ const m=minutes(x.time); if(!isNaN(m)&&m<=nowM) idx=i; });
+  return idx;
+}
 function renderTimeline(items){
   const el=$('today-timeline');if(!items.length){el.innerHTML='<div class="empty-state"><strong>No scheduled blocks</strong>Your day is open. Add plans from the schedule.</div>';return}
-  el.innerHTML=items.slice(0,9).map(x=>'<div class="timeline-row '+(x.kind==='event'?'':'muted')+'"><span class="timeline-time">'+esc(time12(x.time))+'</span><span class="timeline-dot"></span><span class="timeline-content"><strong>'+esc(x.title)+'</strong><small>'+(x.end?esc(time12(x.time)+' – '+time12(x.end)):(x.notes?esc(x.notes):x.kind==='event'?'Event':'Routine'))+'</small></span></div>').join('');
+  const curIdx=currentTimelineIndex(items);
+  el.innerHTML=items.map((x,i)=>'<div class="timeline-row '+(x.kind==='event'?'':'muted')+(i===curIdx?' current':i<curIdx?' past':'')+'" data-tl-row="'+i+'"><span class="timeline-time">'+esc(time12(x.time))+'</span><span class="timeline-dot"></span><span class="timeline-content"><strong>'+esc(x.title)+'</strong><small>'+(x.end?esc(time12(x.time)+' – '+time12(x.end)):(x.notes?esc(x.notes):x.kind==='event'?'Event':'Routine'))+'</small></span></div>').join('');
+  // Keep "now" in view inside the timeline's own scroll area (not the
+  // whole page) as the day's list grows — scrollIntoView with a nearest
+  // ancestor scroll container does exactly that without jumping the page.
+  if(curIdx>=0){
+    const curEl=el.querySelector('[data-tl-row="'+curIdx+'"]');
+    if(curEl) curEl.scrollIntoView({block:'center', behavior:'smooth'});
+  }
+}
+// Re-checks which block is "current" every 30s so the highlight (and
+// auto-scroll) advances through the day on its own, without a refresh.
+let timelineRefreshTimer=null;
+function startTimelineAutoAdvance(){
+  if(timelineRefreshTimer) clearInterval(timelineRefreshTimer);
+  timelineRefreshTimer=setInterval(()=>{ if(state.templates) renderTimeline(todaysTimeline()); }, 30000);
 }
 function renderTasks(items){
   const el=$('today-tasks');if(!items.length){el.innerHTML='<div class="empty-state"><strong>You are caught up</strong>No open tasks are due today.</div>';return}
