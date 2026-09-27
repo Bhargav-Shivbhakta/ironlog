@@ -211,6 +211,10 @@
   .cal-daycol{position:relative;border-right:1px solid var(--border-soft);background-image:repeating-linear-gradient(to bottom, var(--border-soft) 0, var(--border-soft) 1px, transparent 1px, transparent 56px);}
   .cal-daycol.today{background-color:rgba(173,123,32,0.04);}
   .cal-block{position:absolute;left:2px;right:2px;border-radius:5px;border-left:3px solid;padding:2px 5px;overflow:hidden;font-size:11.5px;line-height:1.25;cursor:pointer;box-shadow:0 0 0 1px var(--surface);}
+  /* Too short to hold a legible label (see tooLowToLabel above) — just a
+     solid colored tick, no text, no inner padding eating into its few
+     pixels of height. Full title is a native tooltip via the title attr. */
+  .cal-block-tiny{padding:0;border-radius:3px;}
   .cal-block .cb-title{font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
   .cal-block-native{cursor:grab;user-select:none;}
   .cal-block-native:active{cursor:grabbing;}
@@ -1369,7 +1373,16 @@ function renderGridCalendarView(mountEl, rangeStart, dayCount){
       // the agenda/list view below.
       const firstLinkedTask = (e.linkedTasks&&e.linkedTasks.length) ? e.linkedTasks[0] : null;
       const taskIcon = firstLinkedTask ? '<a class="cal-block-link cal-block-task" href="todo.html?task='+encodeURIComponent(firstLinkedTask.id)+'&profile='+encodeURIComponent(activeCalendarProfile)+'" onclick="event.stopPropagation()" title="Linked task: '+escapeHtml(taskTitles)+'">📋</a>' : '';
-      blocksHtml += '<div class="cal-block'+(isNative?' cal-block-native':'')+'" style="height:'+height+'px;'+posStyle+'border-left-color:'+e.color+';background:'+e.color+'22;color:'+e.color+';"'+editAttr+'><div class="cb-title">'+escapeHtml(e.title)+'</div>'+linkIcon+taskIcon+handles+'</div>';
+      // This grid is often packed with genuinely tiny blocks (a 5-minute
+      // "Travel home" wedged between two other things) — no amount of
+      // squeezing lets 11.5px text render inside a 3-6px-tall box, and
+      // trying to anyway is exactly what was showing up as illegible grey
+      // smudge fighting with the block below it. Below ~15px, skip the
+      // label entirely: just a thin colored tick, full title on hover.
+      const tooLowToLabel = height < 15;
+      const titleHtml = tooLowToLabel ? '' : '<div class="cb-title">'+escapeHtml(e.title)+'</div>';
+      const tinyAttr = tooLowToLabel ? ' title="'+escapeHtml(e.title)+'"' : '';
+      blocksHtml += '<div class="cal-block'+(isNative?' cal-block-native':'')+(tooLowToLabel?' cal-block-tiny':'')+'" style="height:'+height+'px;'+posStyle+'border-left-color:'+e.color+';background:'+e.color+(tooLowToLabel?'55':'22')+';color:'+e.color+';"'+editAttr+tinyAttr+'>'+titleHtml+(tooLowToLabel?'':linkIcon+taskIcon)+handles+'</div>';
     });
     if(isToday){
       const now = new Date();
