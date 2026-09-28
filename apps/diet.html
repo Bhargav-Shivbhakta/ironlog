@@ -206,6 +206,7 @@ const seedFoods=[
 ];
 const seedRecipe={id:'demo-oats',name:'Power oat bowl',servings:1,method:'Mix oats and milk. Top with banana, flaxseed, and protein powder.',items:[{foodId:'oats',qty:40,unit:'g'},{foodId:'milk',qty:180,unit:'ml'},{foodId:'banana',qty:.5,unit:'piece'},{foodId:'flax',qty:10,unit:'g'},{foodId:'whey',qty:.5,unit:'scoop'}]};
 let state=JSON.parse(localStorage.getItem('nourish-state')||'null')||{foods:seedFoods,recipes:[seedRecipe],diary:[],goals:{calories:2000,protein:120,carbs:220,fat:65}};
+persist=function(){localStorage.setItem('nourish-state',JSON.stringify(state))};
 let draft=JSON.parse(JSON.stringify(seedRecipe)); let editingFood=null,logDraft=null;
 const $=id=>document.getElementById(id), round=(n,d=1)=>Number(n.toFixed(d));
 function toast(msg){$('notice').textContent=msg;$('notice').classList.add('show');setTimeout(()=>$('notice').classList.remove('show'),1800)}
@@ -262,12 +263,14 @@ const finalFoods=[
  {id:'eggwhite',name:'Boiled egg white',basis:1,unit:'piece',calories:17,protein:3.6,carbs:.2,fat:0,fiber:0,pieceG:33,groceryProductId:'costco-eggs'},
  {id:'rice',name:'Cooked white/basmati rice',basis:100,unit:'g',calories:130,protein:2.7,carbs:28.2,fat:.3,fiber:.4,groceryProductId:'costco-rice'},
  {id:'yogurt',name:'Plain nonfat Greek yogurt',basis:100,unit:'g',calories:59,protein:10.3,carbs:3.6,fat:.4,fiber:0,density:1.04,groceryProductId:'costco-yogurt'},
- {id:'salad',name:'Trader Joe’s salad mix',basis:100,unit:'g',calories:20,protein:2,carbs:3,fat:.3,fiber:2,groceryProductId:'tj-lunchsalad'},
- {id:'lemon',name:'Medium lemon',basis:1,unit:'piece',calories:17,protein:.6,carbs:5.4,fat:.2,fiber:1.6,pieceG:58,groceryProductId:'costco-lemon'},
+ {id:'salad',name:'Trader Joe’s Southwestern Chopped Salad Kit (with dressing)',basis:100,unit:'g',calories:160,protein:5,carbs:8,fat:12,fiber:2,satFat:3,sugar:3,sodium:220,calcium:80,iron:1.1,potassium:230,vitaminD:0,groceryProductId:'tj-lunchsalad'},
+ {id:'lemon',name:'Medium lemon',basis:1,unit:'piece',calories:17,protein:.6,carbs:5.4,fat:.2,fiber:1.6,pieceG:58,groceryProductId:'costco-lime'},
  {id:'salt',name:'Salt',basis:1,unit:'g',calories:0,protein:0,carbs:0,fat:0,fiber:0},
  {id:'chili',name:'Red chilli powder',basis:100,unit:'g',calories:282,protein:12,carbs:50,fat:14,fiber:35},
- {id:'mandarin',name:'Dole Mandarin Orange Fruit Bowl',basis:1,unit:'serving',calories:70,protein:1,carbs:17,fat:0,fiber:1,groceryProductId:'costco-mandarin'},
+ {id:'chatmasala',name:'Chaat masala',basis:100,unit:'g',calories:280,protein:10,carbs:55,fat:6,fiber:20,satFat:0,sugar:0,sodium:0,calcium:0,iron:0,potassium:0,vitaminD:0},
+ {id:'mandarin',name:'Dole Mandarin Orange Fruit Bowl',basis:1,unit:'piece',calories:70,protein:1,carbs:17,fat:0,fiber:1,groceryProductId:'costco-mandarin'},
  {id:'fruit',name:'Trader Joe’s fresh-cut fruit',basis:100,unit:'g',calories:45,protein:.7,carbs:11,fat:.2,fiber:1.2,groceryProductId:'tj-fruit'},
+ {id:'apple',name:'Organic Gala Apple',basis:100,unit:'g',calories:52,protein:.26,carbs:13.81,fat:.17,fiber:2.4,pieceG:170,satFat:.028,sugar:10.39,sodium:1,calcium:6,iron:.12,potassium:107,vitaminD:0,groceryProductId:'costco-apple'},
  {id:'paneer',name:'Verka paneer',basis:100,unit:'g',calories:321.25,protein:25,carbs:3.75,fat:25,fiber:0,groceryProductId:'costco-paneer'},
  {id:'lentils',name:'Cooked moong/masoor dal',basis:100,unit:'g',calories:116,protein:9,carbs:20.1,fat:.4,fiber:7.9,groceryProductId:'costco-dal'},
  {id:'ghee',name:'Kirkland Organic Ghee',basis:100,unit:'g',calories:900,protein:0,carbs:0,fat:100,fiber:0,groceryProductId:'costco-ghee'},
@@ -276,28 +279,32 @@ const finalFoods=[
 const FR=[
  ['b-whey','bhargav','After-gym whey',[I('whey',1,'scoop')],'Mix one scoop with water as needed.'],
  ['b-oats','bhargav','Protein oat bowl',[I('oats',40,'g'),I('milk',150,'ml'),I('flax',10,'g'),I('whey',.5,'scoop'),I('banana',55,'g')],'Microwave oats and milk for 90 seconds. Continue in 20–30-second intervals. Cool briefly, stir in flaxseed and whey, then add banana.'],
- ['b-eggs','bhargav','Breakfast eggs',[I('egg',2,'piece'),I('eggwhite',4,'piece')],'Serve 2 whole boiled eggs and whites from 4 additional boiled eggs.'],
+ ['b-eggs','bhargav','Breakfast eggs',[I('egg',2,'piece'),I('eggwhite',4,'piece'),I('salt',1,'g'),I('chili',.5,'g'),I('chatmasala',1,'g')],'Serve 2 whole boiled eggs and whites from 4 additional boiled eggs. Season with salt, chili powder, and chaat masala.'],
  ['b-riceyog','bhargav','Creamy rice and yogurt bowl',[I('rice',150,'g'),I('yogurt',150,'g'),I('milk',20,'ml')],'Cool rice until warm. Mix with yogurt and milk until creamy. Do not add ghee or oil.'],
  ['b-lsalad','bhargav','Lunch salad',[I('salad',71,'g'),I('lemon',.5,'piece'),I('salt',1,'g'),I('chili',.5,'g')],'Toss immediately before eating. No oil, mayonnaise, or sugary dressing.'],
  ['b-snackwhey','bhargav','Snack whey',[I('whey',1,'scoop')],'Mix with water.'],
- ['b-mandarin','bhargav','Mandarin fruit cup',[I('mandarin',1,'serving')],'Fresh fruit may replace this cup; do not add both.'],
+ ['b-mandarin','bhargav','Mandarin fruit cup',[I('mandarin',1,'piece')],'Snack fruit option — pick one.','snackfruit'],
+ ['b-fruit','bhargav','Fresh fruit bowl',[I('fruit',200,'g')],'Snack fruit option — pick one. Use watermelon, cantaloupe, or mixed fresh fruit.','snackfruit'],
+ ['b-apple','bhargav','Apple',[I('apple',1,'piece')],'Snack fruit option — pick one. Eat as-is or sliced.','snackfruit'],
  ['b-paneer','bhargav','Measured paneer',[I('paneer',80,'g')],'Cook in a nonstick pan with calorie-free spices. Do not add oil or ghee.'],
  ['b-dal','bhargav','Dal and ghee bowl',[I('lentils',150,'g'),I('ghee',5,'g')],'Heat the dal and stir in exactly 5 g ghee. Bhargav’s saved dinner has no rice.'],
- ['b-dsalad','bhargav','Dinner salad',[I('salad',71,'g'),I('lemon',.5,'piece'),I('salt',1,'g'),I('chili',.5,'g')],'Toss immediately before eating.'],
+ ['b-dsalad','bhargav','Dinner salad',[I('salad',100,'g')],'Eat straight with the built-in dressing — no lemon, salt, or chili added.'],
  ['a-whey','anusha','After-gym whey',[I('whey',.5,'scoop')],'May be moved into breakfast, but then skip this separate shake.'],
  ['a-oats','anusha','Oat bowl',[I('oats',35,'g'),I('milk',150,'ml'),I('flax',10,'g'),I('banana',55,'g')],'Microwave oats and milk. Stir in flaxseed after cooking and add banana.'],
- ['a-eggs','anusha','Breakfast eggs',[I('egg',1,'piece'),I('eggwhite',2,'piece')],'Serve 1 whole boiled egg and whites from 2 additional boiled eggs.'],
+ ['a-eggs','anusha','Breakfast eggs',[I('egg',1,'piece'),I('eggwhite',2,'piece'),I('salt',1,'g'),I('chili',.5,'g'),I('chatmasala',1,'g')],'Serve 1 whole boiled egg and whites from 2 additional boiled eggs. Season with salt, chili powder, and chaat masala.'],
  ['a-riceyog','anusha','Rice and yogurt bowl',[I('rice',125,'g'),I('yogurt',150,'g')],'Cool rice until warm and mix with yogurt. This saved version has no milk.'],
  ['a-lsalad','anusha','Lunch salad',[I('salad',71,'g'),I('lemon',.5,'piece'),I('salt',1,'g'),I('chili',.5,'g')],'Toss immediately before eating.'],
  ['a-snackwhey','anusha','Snack whey',[I('whey',.5,'scoop')],'Mix with water.'],
- ['a-fruit','anusha','Fresh fruit bowl',[I('fruit',200,'g')],'Use watermelon, cantaloupe, or mixed fresh fruit.'],
+ ['a-fruit','anusha','Fresh fruit bowl',[I('fruit',200,'g')],'Snack fruit option — pick one. Use watermelon, cantaloupe, or mixed fresh fruit.','snackfruit'],
+ ['a-mandarin','anusha','Mandarin fruit cup',[I('mandarin',1,'piece')],'Snack fruit option — pick one.','snackfruit'],
+ ['a-apple','anusha','Apple',[I('apple',1,'piece')],'Snack fruit option — pick one. Eat as-is or sliced.','snackfruit'],
  ['a-paneer','anusha','Measured paneer',[I('paneer',77.5,'g')],'Cook in a nonstick pan with spices. Do not add oil or extra ghee.'],
  ['a-dalrice','anusha','Rice, dal and ghee bowl',[I('lentils',125,'g'),I('rice',75,'g'),I('ghee',5,'g')],'Combine dal and rice, heat, then stir in exactly 5 g ghee.'],
- ['a-dsalad','anusha','Dinner salad',[I('salad',71,'g'),I('lemon',.5,'piece'),I('salt',1,'g'),I('chili',.5,'g')],'Toss immediately before eating.']
-].map(x=>({id:x[0],profileId:x[1],name:x[2],servings:1,items:x[3],method:x[4]}));
+ ['a-dsalad','anusha','Dinner salad',[I('salad',100,'g')],'Eat straight with the built-in dressing — no lemon, salt, or chili added.']
+].map(x=>({id:x[0],profileId:x[1],name:x[2],servings:1,items:x[3],method:x[4],group:x[5]||null}));
 const FM=[
- ['b-after','bhargav','After gym','After-gym whey','After training','🏋️',['b-whey'],''],['b-breakfast','bhargav','Breakfast','Protein oat bowl + eggs','8:00 AM','🥣',['b-oats','b-eggs'],''],['b-lunch','bhargav','Lunch','Creamy bowl + salad','1:00 PM','🥗',['b-riceyog','b-lsalad'],''],['b-snack','bhargav','Snack','Whey + mandarin','4:00 PM','🍊',['b-snackwhey','b-mandarin'],'Choose the Dole cup or fresh fruit, not both.'],['b-dinner','bhargav','Dinner','Paneer + dal + salad','7:30 PM','🍲',['b-paneer','b-dal','b-dsalad'],'Bhargav’s 1,700-calorie dinner contains no rice.'],
- ['a-after','anusha','After gym','After-gym whey','After training','🏋️',['a-whey'],'If this whey is moved into breakfast, exclude this recipe.'],['a-breakfast','anusha','Breakfast','Oat bowl + eggs','8:00 AM','🥣',['a-oats','a-eggs'],'Whey may be moved here only as a replacement for the after-gym serving.'],['a-lunch','anusha','Lunch','Rice-yogurt bowl + salad','1:00 PM','🥗',['a-riceyog','a-lsalad'],''],['a-snack','anusha','Snack','Whey + fresh fruit','4:00 PM','🍉',['a-snackwhey','a-fruit'],''],['a-dinner','anusha','Dinner','Paneer + rice-dal + salad','7:30 PM','🍲',['a-paneer','a-dalrice','a-dsalad'],'']
+ ['b-after','bhargav','After gym','After-gym whey','After training','🏋️',['b-whey'],''],['b-breakfast','bhargav','Breakfast','Protein oat bowl + eggs','8:00 AM','🥣',['b-oats','b-eggs'],''],['b-lunch','bhargav','Lunch','Creamy bowl + salad','1:00 PM','🥗',['b-riceyog','b-lsalad'],''],['b-snack','bhargav','Snack','Whey + fruit (pick one)','4:00 PM','🍊',['b-snackwhey','b-mandarin','b-fruit','b-apple'],'Whey is fixed. Pick exactly one fruit option when logging — mandarin, TJ fresh-cut fruit, or an apple.'],['b-dinner','bhargav','Dinner','Paneer + dal + salad','7:30 PM','🍲',['b-paneer','b-dal','b-dsalad'],'Bhargav’s 1,700-calorie dinner contains no rice.'],
+ ['a-after','anusha','After gym','After-gym whey','After training','🏋️',['a-whey'],'If this whey is moved into breakfast, exclude this recipe.'],['a-breakfast','anusha','Breakfast','Oat bowl + eggs','8:00 AM','🥣',['a-oats','a-eggs'],'Whey may be moved here only as a replacement for the after-gym serving.'],['a-lunch','anusha','Lunch','Rice-yogurt bowl + salad','1:00 PM','🥗',['a-riceyog','a-lsalad'],''],['a-snack','anusha','Snack','Whey + fruit (pick one)','4:00 PM','🍉',['a-snackwhey','a-fruit','a-mandarin','a-apple'],'Whey is fixed. Pick exactly one fruit option when logging — TJ fresh-cut fruit, mandarin, or an apple.'],['a-dinner','anusha','Dinner','Paneer + rice-dal + salad','7:30 PM','🍲',['a-paneer','a-dalrice','a-dsalad'],'']
 ].map(x=>({id:x[0],profileId:x[1],slot:x[2],name:x[3],time:x[4],icon:x[5],recipeIds:x[6],rule:x[7]}));
 function makeFinalState(){return{version:5,activeProfile:'bhargav',profiles:{bhargav:{name:'Bhargav',goals:{calories:1720,protein:154,carbs:175,fat:60}},anusha:{name:'Anusha',goals:{calories:1450,protein:103,carbs:165,fat:50}}},foods:clone(finalFoods),recipes:clone(FR),meals:clone(FM),diary:[]}}
 function migratePlanV5(){
@@ -313,7 +320,6 @@ function scaled(n,f){return Object.fromEntries(Object.entries(n).map(([k,v])=>[k
 function addNutrition(list){return list.reduce((a,n)=>{Object.keys(a).forEach(k=>a[k]+=(n[k]||0));return a},zero())}
 function recipeServingN(r){return scaled(recipeNutrients(r),1/(r.servings||1))}
 function mealNutrition(m){return addNutrition(m.recipeIds.map(id=>state.recipes.find(r=>r.id===id)).filter(Boolean).map(recipeServingN))}
-persist=function(){localStorage.setItem('nourish-state',JSON.stringify(state))}
 setProfile=function(id){state.activeProfile=id;draft={id:null,profileId:id,name:'',servings:1,method:'',items:[]};persist();document.body.dataset.profile=id;$('profileBhargav').classList.toggle('active',id==='bhargav');$('profileAnusha').classList.toggle('active',id==='anusha');$('profileLabel').textContent=`Viewing ${active().name}’s separate plan and diary`;loadGoalInputs();renderAll()}
 clearRecipe=function(){draft={id:null,profileId:state.activeProfile,name:'',servings:1,method:'',items:[]};$('method').value='';renderBuilder();syncRecipeFormSummary()}
 saveRecipe=function(){draft.name=$('recipeName').value.trim();draft.method=$('method').value.trim();draft.profileId=state.activeProfile;if(!draft.name||!draft.items.length){toast('Add a name and at least one ingredient');return false}let copy=clone(draft);if(copy.id&&state.recipes.some(r=>r.id===copy.id))state.recipes=state.recipes.map(r=>r.id===copy.id?copy:r);else{copy.id='r-'+Date.now();draft.id=copy.id;state.recipes.push(copy)}persist();renderRecipes();renderMealPlan();toast('Recipe saved');return true}
@@ -332,10 +338,11 @@ function goToMeal(mealId){if(!mealId)return;go('mealplan');setTimeout(()=>{let e
 function deleteMealSlot(mid){if(!confirm('Delete this meal slot? Recipes inside it will stay in your library.'))return;state.meals=state.meals.filter(m=>m.id!==mid);persist();renderMealPlan();fillExtraMealSelect();renderUniversalSaved();toast('Meal slot deleted')}
 function addRecipeToMeal(mid){let m=state.meals.find(x=>x.id===mid),id=$(`meal-add-${mid}`).value;if(!id)return toast('No recipe selected');m.recipeIds.push(id);persist();renderMealPlan();toast('Recipe added to meal')}
 function removeRecipeFromMeal(mid,rid){let m=state.meals.find(x=>x.id===mid);m.recipeIds=m.recipeIds.filter(x=>x!==rid);persist();renderMealPlan()}
-function openBundle(mid){let m=state.meals.find(x=>x.id===mid);bundleDraft={meal:clone(m),parts:m.recipeIds.map(id=>({include:true,recipe:clone(state.recipes.find(r=>r.id===id))})).filter(x=>x.recipe)};$('bundleTitle').textContent=`${m.icon} ${m.name}`;$('bundleRule').innerHTML=m.rule?`<div class="bundle-rule">${esc(m.rule)}</div>`:'';$('bundleUpdate').checked=false;renderBundle();$('bundleModal').classList.add('open')}
+function openBundle(mid){let m=state.meals.find(x=>x.id===mid);let seenGroups={};bundleDraft={meal:clone(m),parts:m.recipeIds.map(id=>{let r=state.recipes.find(x=>x.id===id);if(!r)return null;let inc=true;if(r.group){if(seenGroups[r.group])inc=false;else seenGroups[r.group]=true}return{include:inc,recipe:clone(r)}}).filter(Boolean)};$('bundleTitle').textContent=`${m.icon} ${m.name}`;$('bundleRule').innerHTML=m.rule?`<div class="bundle-rule">${esc(m.rule)}</div>`:'';$('bundleUpdate').checked=false;renderBundle();$('bundleModal').classList.add('open')}
+function bundleToggle(pi,checked){let part=bundleDraft.parts[pi];part.include=checked;if(checked&&part.recipe.group)bundleDraft.parts.forEach((p,i)=>{if(i!==pi&&p.recipe.group===part.recipe.group)p.include=false});renderBundle()}
 function closeBundle(){$('bundleModal').classList.remove('open');bundleDraft=null}
 function bundleFoodOptions(selected){return state.foods.map(f=>`<option value="${f.id}" ${f.id===selected?'selected':''}>${esc(f.name)}</option>`).join('')}
-function renderBundle(){if(!bundleDraft)return;$('bundleParts').innerHTML=bundleDraft.parts.map((p,pi)=>`<div class="bundle-part"><div class="bundle-head"><label class="checkline" style="margin:0"><input type="checkbox" ${p.include?'checked':''} onchange="bundleDraft.parts[${pi}].include=this.checked;renderBundle()"><span><b style="color:var(--ink)">${esc(p.recipe.name)}</b><br><small>${round(recipeServingN(p.recipe).calories,0)} kcal per serving</small></span></label></div>${p.include?p.recipe.items.map((it,ii)=>{let f=food(it.foodId),n=nutrients(it);return`<div class="custom-row"><div><select onchange="bundleChange(${pi},${ii},'foodId',this.value)">${bundleFoodOptions(f.id)}</select><div class="ing-macros">${round(n.calories/(p.recipe.servings||1),0)} kcal · P ${round(n.protein/(p.recipe.servings||1))}g</div></div><div class="stepper"><button onclick="bundleStep(${pi},${ii},-1)">−</button><input type="number" value="${it.qty}" min=".01" onchange="bundleChange(${pi},${ii},'qty',this.value)"><button onclick="bundleStep(${pi},${ii},1)">+</button></div><select onchange="bundleChange(${pi},${ii},'unit',this.value)">${unitsFor(f).map(u=>`<option ${u===it.unit?'selected':''}>${u}</option>`).join('')}</select><span class="tag">${round(n.calories,0)} kcal</span><button class="icon-btn" onclick="bundleRemove(${pi},${ii})">×</button></div>`}).join('')+`<div class="add-custom-row"><select id="bf-${pi}" onchange="bundleFillUnits(${pi})">${bundleFoodOptions()}</select><input class="input" id="bq-${pi}" type="number" min=".01" value="10"><select id="bu-${pi}"></select><button class="btn secondary small" onclick="bundleAdd(${pi})">+ Ingredient</button></div><details><summary class="subtle" style="cursor:pointer;margin-top:9px">Preparation instructions</summary><div class="method">${esc(p.recipe.method)}</div></details>`:''}</div>`).join('');bundleDraft.parts.forEach((p,i)=>{if(p.include)bundleFillUnits(i)});let n=addNutrition(bundleDraft.parts.filter(p=>p.include).map(p=>recipeServingN(p.recipe)));$('bundleCalories').textContent=`${round(n.calories,0)} kcal`;$('bundleMacros').textContent=`Protein ${round(n.protein)} g · Carbs ${round(n.carbs)} g · Fat ${round(n.fat)} g · Fiber ${round(n.fiber)} g`}
+function renderBundle(){if(!bundleDraft)return;$('bundleParts').innerHTML=bundleDraft.parts.map((p,pi)=>`<div class="bundle-part"><div class="bundle-head"><label class="checkline" style="margin:0"><input type="checkbox" ${p.include?'checked':''} onchange="bundleToggle(${pi},this.checked)"<span><b style="color:var(--ink)">${esc(p.recipe.name)}</b><br><small>${round(recipeServingN(p.recipe).calories,0)} kcal per serving</small></span></label></div>${p.include?p.recipe.items.map((it,ii)=>{let f=food(it.foodId),n=nutrients(it);return`<div class="custom-row"><div><select onchange="bundleChange(${pi},${ii},'foodId',this.value)">${bundleFoodOptions(f.id)}</select><div class="ing-macros">${round(n.calories/(p.recipe.servings||1),0)} kcal · P ${round(n.protein/(p.recipe.servings||1))}g</div></div><div class="stepper"><button onclick="bundleStep(${pi},${ii},-1)">−</button><input type="number" value="${it.qty}" min=".01" onchange="bundleChange(${pi},${ii},'qty',this.value)"><button onclick="bundleStep(${pi},${ii},1)">+</button></div><select onchange="bundleChange(${pi},${ii},'unit',this.value)">${unitsFor(f).map(u=>`<option ${u===it.unit?'selected':''}>${u}</option>`).join('')}</select><span class="tag">${round(n.calories,0)} kcal</span><button class="icon-btn" onclick="bundleRemove(${pi},${ii})">×</button></div>`}).join('')+`<div class="add-custom-row"><select id="bf-${pi}" onchange="bundleFillUnits(${pi})">${bundleFoodOptions()}</select><input class="input" id="bq-${pi}" type="number" min=".01" value="10"><select id="bu-${pi}"></select><button class="btn secondary small" onclick="bundleAdd(${pi})">+ Ingredient</button></div><details><summary class="subtle" style="cursor:pointer;margin-top:9px">Preparation instructions</summary><div class="method">${esc(p.recipe.method)}</div></details>`:''}</div>`).join('');bundleDraft.parts.forEach((p,i)=>{if(p.include)bundleFillUnits(i)});let n=addNutrition(bundleDraft.parts.filter(p=>p.include).map(p=>recipeServingN(p.recipe)));$('bundleCalories').textContent=`${round(n.calories,0)} kcal`;$('bundleMacros').textContent=`Protein ${round(n.protein)} g · Carbs ${round(n.carbs)} g · Fat ${round(n.fat)} g · Fiber ${round(n.fiber)} g`}
 function bundleFillUnits(pi){let f=food($(`bf-${pi}`).value);$(`bu-${pi}`).innerHTML=unitsFor(f).map(u=>`<option>${u}</option>`).join('')}
 function bundleChange(pi,ii,key,val){let it=bundleDraft.parts[pi].recipe.items[ii];if(key==='foodId'){let f=food(val);Object.assign(it,{foodId:val,qty:f.basis,unit:f.unit})}else it[key]=key==='qty'?Math.max(.01,+val||.01):val;renderBundle()}
 function bundleStep(pi,ii,d){let it=bundleDraft.parts[pi].recipe.items[ii],step=['piece','serving','scoop'].includes(it.unit)?.25:1;it.qty=Math.max(.01,round(it.qty+d*step,2));renderBundle()}
@@ -343,7 +350,7 @@ function bundleRemove(pi,ii){bundleDraft.parts[pi].recipe.items.splice(ii,1);ren
 function bundleAdd(pi){let f=food($(`bf-${pi}`).value),q=+$(`bq-${pi}`).value;if(!f||q<=0)return toast('Enter a valid amount');bundleDraft.parts[pi].recipe.items.push(I(f.id,q,$(`bu-${pi}`).value));renderBundle()}
 function loadGoalInputs(){let g=active().goals;$('goalCalories').value=g.calories;$('goalProtein').value=g.protein;$('goalCarbs').value=g.carbs;$('goalFat').value=g.fat}
 saveGoals=function(){let g={calories:num('goalCalories'),protein:num('goalProtein'),carbs:num('goalCarbs'),fat:num('goalFat')};if(Object.values(g).some(v=>v<=0))return toast('All goals must be greater than zero');active().goals=g;persist();renderDashboard();toast(`${active().name}’s goals updated`)}
-draft=clone(state.recipes.find(r=>r.profileId===state.activeProfile));fillFoodSelect();setProfile(state.activeProfile);
+draft=clone(state.recipes.find(r=>r.profileId===state.activeProfile));fillFoodSelect();
 </script>
 <script>
 /* Weekly planning, pantry, progress, micronutrients, and adherence */
@@ -363,10 +370,39 @@ function migrateFeatures(){
  if(typeof ensurePurchases==='function')ensurePurchases();
  state.diary.forEach(x=>{x.status=x.status||'eaten';x.note=x.note||''});persist()
 }
-const builtInGroceryLinks={whey:'costco-whey',oats:'costco-oats',milk:'costco-milk',banana:'costco-banana',flax:'costco-flax',egg:'costco-eggs',eggwhite:'costco-eggs',rice:'costco-rice',yogurt:'costco-yogurt',salad:'tj-lunchsalad',lemon:'costco-lemon',mandarin:'costco-mandarin',fruit:'tj-fruit',paneer:'costco-paneer',lentils:'costco-dal',ghee:'costco-ghee',water:'costco-water'};
+const builtInGroceryLinks={whey:'costco-whey',oats:'costco-oats',milk:'costco-milk',banana:'costco-banana',flax:'costco-flax',egg:'costco-eggs',eggwhite:'costco-eggs',rice:'costco-rice',yogurt:'costco-yogurt',salad:'tj-lunchsalad',lemon:'costco-lime',chatmasala:null,mandarin:'costco-mandarin',fruit:'tj-fruit',paneer:'costco-paneer',lentils:'costco-dal',ghee:'costco-ghee',water:'costco-water'};
 function linkBuiltInGroceryProducts(){let changed=false;(state.foods||[]).forEach(f=>{if(!f.groceryProductId&&builtInGroceryLinks[f.id]){f.groceryProductId=builtInGroceryLinks[f.id];changed=true}});if(changed)persist()}
 if(state.featureVersion!==1)migrateFeatures();
 linkBuiltInGroceryProducts();
+function migrateFeatures2(){
+ state.featureVersion2=1;
+ const upsertFood=fd=>{let ex=state.foods.find(f=>f.id===fd.id);if(ex)Object.assign(ex,fd);else state.foods.push(fd)};
+ upsertFood({id:'apple',name:'Organic Gala Apple',basis:100,unit:'g',calories:52,protein:.26,carbs:13.81,fat:.17,fiber:2.4,pieceG:170,satFat:.028,sugar:10.39,sodium:1,calcium:6,iron:.12,potassium:107,vitaminD:0,groceryProductId:'costco-apple'});
+ upsertFood({id:'chatmasala',name:'Chaat masala',basis:100,unit:'g',calories:280,protein:10,carbs:55,fat:6,fiber:20,satFat:0,sugar:0,sodium:0,calcium:0,iron:0,potassium:0,vitaminD:0});
+ let salad=state.foods.find(f=>f.id==='salad');
+ if(salad)Object.assign(salad,{name:'Trader Joe’s Southwestern Chopped Salad Kit (with dressing)',calories:160,protein:5,carbs:8,fat:12,fiber:2,satFat:3,sugar:3,sodium:220,calcium:80,iron:1.1,potassium:230,vitaminD:0});
+ let lemon=state.foods.find(f=>f.id==='lemon');
+ if(lemon)lemon.groceryProductId='costco-lime';
+ let mandarinFood=state.foods.find(f=>f.id==='mandarin');
+ if(mandarinFood)mandarinFood.unit='piece'; // was 'serving' — didn't match Grocery's servingUnit, so cross-app deduction silently fell back to a rough guess instead of exact math
+ let bMandarinR=state.recipes.find(r=>r.id==='b-mandarin');
+ if(bMandarinR)bMandarinR.items=[I('mandarin',1,'piece')];
+ ['b-dsalad','a-dsalad'].forEach(id=>{let r=state.recipes.find(x=>x.id===id);if(r){r.items=[I('salad',100,'g')];r.method='Eat straight with the built-in dressing — no lemon, salt, or chili added.'}});
+ ['b-eggs','a-eggs'].forEach(id=>{let r=state.recipes.find(x=>x.id===id);if(r&&!r.items.some(it=>it.foodId==='chatmasala')){r.items.push(I('salt',1,'g'),I('chili',.5,'g'),I('chatmasala',1,'g'));r.method=(r.method||'')+' Season with salt, chili powder, and chaat masala.'}});
+ const newRecipes=[
+  {id:'b-fruit',profileId:'bhargav',name:'Fresh fruit bowl',servings:1,items:[I('fruit',200,'g')],method:'Snack fruit option — pick one. Use watermelon, cantaloupe, or mixed fresh fruit.',group:'snackfruit'},
+  {id:'b-apple',profileId:'bhargav',name:'Apple',servings:1,items:[I('apple',1,'piece')],method:'Snack fruit option — pick one. Eat as-is or sliced.',group:'snackfruit'},
+  {id:'a-mandarin',profileId:'anusha',name:'Mandarin fruit cup',servings:1,items:[I('mandarin',1,'piece')],method:'Snack fruit option — pick one.',group:'snackfruit'},
+  {id:'a-apple',profileId:'anusha',name:'Apple',servings:1,items:[I('apple',1,'piece')],method:'Snack fruit option — pick one. Eat as-is or sliced.',group:'snackfruit'}
+ ];
+ newRecipes.forEach(nr=>{if(!state.recipes.some(r=>r.id===nr.id))state.recipes.push(nr)});
+ let bMandarin=state.recipes.find(r=>r.id==='b-mandarin');if(bMandarin){bMandarin.group='snackfruit';bMandarin.method='Snack fruit option — pick one.'}
+ let aFruit=state.recipes.find(r=>r.id==='a-fruit');if(aFruit){aFruit.group='snackfruit';aFruit.method='Snack fruit option — pick one. Use watermelon, cantaloupe, or mixed fresh fruit.'}
+ let bSnack=state.meals.find(m=>m.id==='b-snack');if(bSnack){bSnack.recipeIds=['b-snackwhey','b-mandarin','b-fruit','b-apple'];bSnack.name='Whey + fruit (pick one)';bSnack.rule='Whey is fixed. Pick exactly one fruit option when logging — mandarin, TJ fresh-cut fruit, or an apple.'}
+ let aSnack=state.meals.find(m=>m.id==='a-snack');if(aSnack){aSnack.recipeIds=['a-snackwhey','a-fruit','a-mandarin','a-apple'];aSnack.name='Whey + fruit (pick one)';aSnack.rule='Whey is fixed. Pick exactly one fruit option when logging — TJ fresh-cut fruit, mandarin, or an apple.'}
+ persist();
+}
+if(state.featureVersion2!==1)migrateFeatures2();
 zero=function(){return{calories:0,protein:0,carbs:0,fat:0,fiber:0,satFat:0,sugar:0,sodium:0,calcium:0,iron:0,potassium:0,vitaminD:0}}
 nutrients=function(it){let f=food(it.foodId);if(!f)return zero();let factor=toBasisQty(f,it.qty,it.unit)/f.basis,n=zero();Object.keys(n).forEach(k=>n[k]=(f[k]||0)*factor);return n}
 todayKey=function(){return state.selectedDate}
@@ -376,7 +412,7 @@ function formatDate(iso,opt={month:'short',day:'numeric'}){return new Date(iso+'
 function updateHeaderDate(){$('todayDate').value=state.selectedDate;if($('planSectionTitle'))$('planSectionTitle').textContent=state.selectedDate===new Date().toISOString().slice(0,10)?'Plan for Today':`Plan for ${formatDate(state.selectedDate,{weekday:'short',month:'short',day:'numeric'})}`}
 function consumptionFor(items,factor=1){let map={},missing=false;items.forEach(it=>{let f=food(it.foodId);if(!f){missing=true;return}let q=toBasisQty(f,it.qty,it.unit)*factor;map[f.id]=(map[f.id]||0)+q});if(missing&&typeof toast==='function')toast('One or more ingredients in this meal no longer exist in your library — logged the rest');return Object.entries(map).map(([foodId,qty])=>({foodId,qty}))}
 function mergeConsumption(groups){let m={};groups.flat().forEach(x=>m[x.foodId]=(m[x.foodId]||0)+x.qty);return Object.entries(m).map(([foodId,qty])=>({foodId,qty}))}
-function applyConsumption(list,direction=-1){list.forEach(c=>{let f=food(c.foodId);if(f&&f.groceryProductId&&typeof state.purchases!=='undefined'){let pur=(state.purchases||[]).find(p=>p.groceryProductId===f.groceryProductId);if(pur){pur.remainingQty=Math.max(0,pur.remainingQty+direction*c.qty);return}}let p=state.pantry.find(x=>x.foodId===c.foodId);if(p)p.qty=Math.max(0,p.qty+direction*c.qty)})}
+function applyConsumption(list,direction=-1){list.forEach(c=>{let f=food(c.foodId);if(f&&f.groceryProductId)return;let p=state.pantry.find(x=>x.foodId===c.foodId);if(p)p.qty=Math.max(0,p.qty+direction*c.qty)})}
 async function updateDiary(id,key,val){let e=state.diary.find(x=>x.id===id);if(!e)return;let was=e.status||'eaten',syncPantry=false;if(key==='status'){if(was==='eaten'&&val!=='eaten')applyConsumption(e.consumption||[],1);if(was!=='eaten'&&val==='eaten'){applyConsumption(e.consumption||[],-1);syncPantry=true}}e[key]=val;persist();renderAll();if(syncPantry&&typeof trackPantryConsumption==='function'&&(e.consumption||[]).length){try{await trackPantryConsumption([{items:e.consumption.map(c=>({foodId:c.foodId,qty:c.qty,unit:(food(c.foodId)||{}).unit||'g'}))}])}catch(err){console.error('Grocery pantry sync failed:',err)}}}
 removeDiary=function(id){let e=state.diary.find(x=>x.id===id);if(e&&(e.status||'eaten')==='eaten')applyConsumption(e.consumption||[],1);state.diary=state.diary.filter(x=>x.id!==id);persist();renderAll()}
 diaryNutrients=function(){return state.diary.filter(x=>x.date===todayKey()&&x.profileId===state.activeProfile&&(x.status||'eaten')==='eaten').reduce((a,x)=>{let f=x.servings/(x.recipeServings||1);Object.keys(a).forEach(k=>a[k]+=(x.nutrition[k]||0)*f);return a},zero())}
@@ -410,7 +446,7 @@ function saveProgress(){let x={id:'p-'+Date.now(),date:$('prDate').value||state.
 function deleteProgress(id){state.progress[state.activeProfile]=state.progress[state.activeProfile].filter(x=>x.id!==id);persist();renderProgress()}
 function renderNutrition(){if(!$('microStrip'))return;let n=diaryNutrients(),g=active().microGoals,defs=[['Sodium','sodium','mg'],['Calcium','calcium','mg'],['Iron','iron','mg'],['Potassium','potassium','mg'],['Vit D','vitaminD','mcg']],row=(label,k,u)=>`<div class="pair-row"><span>${label}</span><b>${round(n[k],1)}<small>/${g[k]}${u}</small></b><div class="bar"><i style="width:${Math.min(100,n[k]/g[k]*100)}%"></i></div></div>`,pairs=[[defs[0],defs[1]],[defs[2],defs[3]],[defs[4]]];$('microStrip').innerHTML=pairs.map(p=>`<div class="stat pair-stat">${p.map(([label,k,u])=>row(label,k,u)).join('')}</div>`).join('')}
 function lastDays(n){return Array.from({length:n},(_,i)=>addDaysISO(new Date().toISOString().slice(0,10),i-(n-1)))}
-function renderInsights(){let days=lastDays(7),entries=state.diary.filter(x=>x.profileId===state.activeProfile&&days.includes(x.date)),eaten=entries.filter(x=>(x.status||'eaten')==='eaten'),skipped=entries.filter(x=>x.status==='skipped'),g=active().goals,dayData=days.map(d=>{let es=eaten.filter(x=>x.date===d),n=addNutrition(es.map(x=>scaled(x.nutrition,x.servings/(x.recipeServings||1))));return{d,count:es.length,n}}),activeDays=dayData.filter(x=>x.count),avgCal=activeDays.length?activeDays.reduce((a,x)=>a+x.n.calories,0)/activeDays.length:0,avgPro=activeDays.length?activeDays.reduce((a,x)=>a+x.n.protein,0)/activeDays.length:0,proteinDays=dayData.filter(x=>x.n.protein>=g.protein*.9).length,adherence=Math.min(100,eaten.length/35*100);$('adherenceScores').innerHTML=[['Meal adherence',`${round(adherence,0)}%`],['Meals completed',`${eaten.length}/35`],['Average calories',`${round(avgCal,0)}`],['Protein days',`${proteinDays}/7`]].map(([k,v])=>`<div class="score"><b>${v}</b><span>${k}</span></div>`).join('');$('adherenceDays').innerHTML=dayData.map(x=>`<div class="metric-row"><span>${formatDate(x.d,{weekday:'short',month:'short',day:'numeric'})}</span><div class="bar"><i style="width:${Math.min(100,x.count/5*100)}%"></i></div><b>${x.count}/5</b></div>`).join('');let notes=[];if(avgPro<g.protein*.9)notes.push(['Protein consistency',`Average protein on logged days is ${round(avgPro)} g versus a ${g.protein} g target.`]);else notes.push(['Protein consistency','Protein is averaging close to or above the target on logged days.']);if(skipped.length)notes.push(['Skipped meals',`${skipped.length} meal${skipped.length===1?' was':'s were'} marked skipped this week.`]);let low=state.pantry.filter(p=>p.qty<=p.lowAt);notes.push(['Pantry readiness',low.length?`${low.length} ingredient${low.length===1?' is':'s are'} currently low.`:'Tracked pantry items are above their low-stock thresholds.']);$('adherencePatterns').innerHTML=notes.map(([a,b],i)=>`<div class="why"><i>${i+1}</i><div><b>${a}</b><span>${b}</span></div></div>`).join('')}
+function renderInsights(){let days=lastDays(7),entries=state.diary.filter(x=>x.profileId===state.activeProfile&&days.includes(x.date)),eaten=entries.filter(x=>(x.status||'eaten')==='eaten'),skipped=entries.filter(x=>x.status==='skipped'),g=active().goals,dayData=days.map(d=>{let es=eaten.filter(x=>x.date===d),n=addNutrition(es.map(x=>scaled(x.nutrition,x.servings/(x.recipeServings||1))));return{d,count:es.length,n}}),activeDays=dayData.filter(x=>x.count),avgCal=activeDays.length?activeDays.reduce((a,x)=>a+x.n.calories,0)/activeDays.length:0,avgPro=activeDays.length?activeDays.reduce((a,x)=>a+x.n.protein,0)/activeDays.length:0,proteinDays=dayData.filter(x=>x.n.protein>=g.protein*.9).length,adherence=Math.min(100,eaten.length/35*100);$('adherenceScores').innerHTML=[['Meal adherence',`${round(adherence,0)}%`],['Meals completed',`${eaten.length}/35`],['Average calories',`${round(avgCal,0)}`],['Protein days',`${proteinDays}/7`]].map(([k,v])=>`<div class="score"><b>${v}</b><span>${k}</span></div>`).join('');$('adherenceDays').innerHTML=dayData.map(x=>`<div class="metric-row"><span>${formatDate(x.d,{weekday:'short',month:'short',day:'numeric'})}</span><div class="bar"><i style="width:${Math.min(100,x.count/5*100)}%"></i></div><b>${x.count}/5</b></div>`).join('');let notes=[];if(avgPro<g.protein*.9)notes.push(['Protein consistency',`Average protein on logged days is ${round(avgPro)} g versus a ${g.protein} g target.`]);else notes.push(['Protein consistency','Protein is averaging close to or above the target on logged days.']);if(skipped.length)notes.push(['Skipped meals',`${skipped.length} meal${skipped.length===1?' was':'s were'} marked skipped this week.`]);let low=state.pantry.filter(p=>{let f=food(p.foodId);return f&&!f.groceryProductId&&p.qty<=p.lowAt});notes.push(['Pantry readiness (locally-tracked only)',low.length?`${low.length} locally-tracked ingredient${low.length===1?' is':'s are'} currently low. Grocery-linked items — most of the plan — are tracked live on the Pantry tab instead.`:'Locally-tracked ingredients are above their low-stock thresholds. Grocery-linked items are tracked live on the Pantry tab.']);$('adherencePatterns').innerHTML=notes.map(([a,b],i)=>`<div class="why"><i>${i+1}</i><div><b>${a}</b><span>${b}</span></div></div>`).join('')}
 function historyEntryRow(x){let f=x.servings/(x.recipeServings||1),nn=scaled(x.nutrition,f),s=x.status||'eaten',statusClass=x.replaced?'replaced':s,statusLabel=x.replaced?'↔ Replacement logged':(s==='eaten'?'✓ Eaten':s==='skipped'?'Skipped':'Planned');return `<div class="timeline-meal"><div class="timeline-icon">${x.icon||'🍽️'}</div><div class="timeline-main"><div class="timeline-name">${esc(x.name)}</div><div class="timeline-meta">${esc(x.detail||'Meal')} · ${round(nn.calories,0)} kcal · P ${round(nn.protein)}g · C ${round(nn.carbs)}g · F ${round(nn.fat)}g</div><span class="timeline-status ${statusClass}">${statusLabel}</span><div class="diary-controls" style="margin-top:6px"><select onchange="updateDiary('${x.id}','status',this.value)"><option value="planned" ${s==='planned'?'selected':''}>Planned</option><option value="eaten" ${s==='eaten'?'selected':''}>Eaten</option><option value="skipped" ${s==='skipped'?'selected':''}>Skipped</option></select><input class="input note-input" value="${esc(x.note||'')}" placeholder="Hunger, energy, digestion…" onchange="updateDiary('${x.id}','note',this.value)"></div></div><div class="timeline-actions"><button class="icon-btn" title="Delete entry" onclick="if(confirm('Delete this diary entry?'))removeDiaryFromHistory('${x.id}')">×</button></div></div>`}
 function removeDiaryFromHistory(id){removeDiary(id);renderHistory()}
 function historyJumpTo(v){if(!v)return;selectDate(v);let el=$('hist-day-'+v);if(el)el.scrollIntoView({behavior:'smooth',block:'start'});else toast('No diary entries on that date yet')}
@@ -423,7 +459,7 @@ const previousSetProfile=setProfile;setProfile=function(id){previousSetProfile(i
 go=function(id){document.querySelectorAll('.page').forEach(p=>p.classList.toggle('active',p.id===id));document.querySelectorAll('[data-page]').forEach(b=>b.classList.toggle('active',b.dataset.page===id));let titles={dashboard:['Daily nutrition','Today'],mealplan:['Meal structure','Daily meal plan'],pantry:['Inventory and expiry','Pantry'],progress:['Body, habits & adherence','Progress'],history:['Full diary record','History'],recipes:['Create, edit & browse','Recipes'],foods:['Nutrition database','Ingredients'],settings:['Personalize','Goals & settings']},t=titles[id];$('eyebrow').textContent=t[0];$('pageTitle').textContent=t[1];updateHeaderDate();if(id==='dashboard'){renderDashboard();renderCalendar();renderNutrition();renderDietCommand();renderProteinRescue()}if(id==='mealplan')renderMealPlan();if(id==='pantry')renderPantry();if(id==='progress'){renderProgress();renderInsights()}if(id==='history')renderHistory();if(id==='recipes'){renderRecipes();populateYieldRecipes()}if(id==='foods')renderFoods();if(id==='settings')loadGoalInputs();scrollTo(0,0)}
 renderAll=function(){renderDashboard();renderBuilder();renderRecipes();renderFoods();renderMealPlan();loadGoalInputs();renderCalendar();renderPantry();renderProgress();renderNutrition();renderInsights();renderHistory();renderDietCommand();renderProteinRescue();renderMealListOG()}
 resetData=function(){if(!confirm('Restore both original diet plans? This removes custom data, inventory changes, and history.'))return;state=makeFinalState();migrateFeatures();draft=clone(state.recipes[0]);fillFoodSelect();setProfile('bhargav');toast('Original plans restored')}
-updateHeaderDate();populateYieldRecipes();renderAll();
+updateHeaderDate();populateYieldRecipes();
 </script>
 <script>
 /* Universal "Log food or meal" modal — search, recent, saved meals, create-a-plate, quick add, new food */
@@ -503,9 +539,9 @@ function openNewFoodFromUniversal(){closeUniversalLog();openFoodModal()}
     ['costco-flax',"Bob's Red Mill Organic Golden Flaxseed Meal (64 oz)"],['costco-rice','Royal Basmati Rice (20 lb)'],
     ['costco-dal','Khazana Organic Masoor Dal (7 lb)'],['costco-mandarin','Dole Mandarin Oranges in Juice (16 ct)'],
     ['costco-banana','Costco Bananas (3 lb)'],['costco-ghee','Kirkland Signature Organic Ghee (27 oz)'],
-    ['costco-lemon','Costco Lemons (5 lb)'],['costco-water','Kirkland Purified Water (40×500 ml)'],
-    ['tj-lunchsalad',"Trader Joe's Organic Baby Lettuce Mix (5 oz)"],['tj-dinnersalad',"Trader Joe's Organic Herb Salad Mix (5 oz)"],
-    ['tj-fruit',"Trader Joe's Fresh-Cut Fruit"]
+    ['costco-lime','Limes (3 lb)'],['costco-water','Kirkland Purified Water (40×16.9 fl oz)'],
+    ['tj-lunchsalad',"Trader Joe's Southwestern Chopped Salad Kit (13.6 oz)"],
+    ['tj-fruit',"Trader Joe's Fresh-Cut Fruit"],['costco-apple','Organic Gala Apples (3 lb)']
   ];
   const stockLabels={full:'Full','75':'75%',half:'Half','25':'25%',low:'Low',finished:'Finished'};
   // Real pack sizes parsed from each Grocery product's own label above,
@@ -517,8 +553,8 @@ function openNewFoodFromUniversal(){closeUniversalLog();openFoodModal()}
     'costco-milk':{qty:7571,unit:'ml'},'costco-yogurt':{qty:1361,unit:'g'},'costco-oats':{qty:4536,unit:'g'},
     'costco-flax':{qty:1814,unit:'g'},'costco-rice':{qty:9072,unit:'g'},'costco-dal':{qty:3175,unit:'g'},
     'costco-mandarin':{qty:16,unit:'serving'},'costco-banana':{qty:1361,unit:'g'},'costco-ghee':{qty:765,unit:'g'},
-    'costco-lemon':{qty:39,unit:'piece'},'costco-water':{qty:20000,unit:'ml'},'tj-lunchsalad':{qty:142,unit:'g'},
-    'tj-dinnersalad':{qty:142,unit:'g'},'tj-fruit':{qty:1000,unit:'g'}
+    'costco-lime':{qty:20,unit:'piece'},'costco-water':{qty:20000,unit:'ml'},'tj-lunchsalad':{qty:386,unit:'g'},
+    'tj-fruit':{qty:1000,unit:'g'},'costco-apple':{qty:8,unit:'piece'}
   };
   productName=function(pid){let p=groceryProducts.find(x=>x[0]===pid);return p?p[1]:pid}
   ensurePurchases=function(){
@@ -576,14 +612,34 @@ function openNewFoodFromUniversal(){closeUniversalLog();openFoodModal()}
   // immediately — every single time a linked food is logged, not just
   // once usage crosses some count. That write is what makes the Pantry
   // page actually move when you eat something; nothing here is cosmetic.
-  const stockSequence = ['full','75','half','25','low','finished'];
-  function stepStockStatus(cur){
-    const i = stockSequence.indexOf(cur);
-    return stockSequence[Math.min(stockSequence.length-1, (i===-1?0:i)+1)];
+  // Exact deduction: Grocery's own purchaseUnit/servingUnit/servingSize
+  // conversion (from its product catalog, fetched live) turns a Diet-logged
+  // amount into the same physical unit Grocery's onHand is tracked in —
+  // no more "step the status down one notch"; the real quantity moves.
+  const UNIT_TO_BASE_G={g:1,kg:1000,oz:28.3495,lb:453.592,ml:1,l:1000,gallon:3785.41,piece:1};
+  function pantryStatus(onHand,fullQty){const ratio=fullQty>0?Math.max(0,(onHand||0))/fullQty:0;if(ratio<=0)return'finished';if(ratio<=0.15)return'low';if(ratio<=0.4)return'25';if(ratio<=0.65)return'half';if(ratio<=0.9)return'75';return'full'}
+  const UNIT_BASE_KIND_G={g:'g',kg:'g',oz:'g',lb:'g',ml:'ml',l:'ml',gallon:'ml',piece:'piece'};
+  function dietQtyToPurchaseUnit(dietUnit,dietQty,groceryProduct){
+    if(!groceryProduct) return null;
+    const purchaseKind=UNIT_BASE_KIND_G[groceryProduct.purchaseUnit];
+    let baseG=null;
+    // Check the product's own servingUnit match FIRST — this is what actually
+    // bridges a count-style Diet unit (e.g. "1 piece" of apple) to a
+    // weight-tracked purchase (e.g. lb), via that product's real pieceG-style
+    // servingSize. Only fall back to a direct unit-table conversion when the
+    // Diet unit is already the SAME base kind as the product's purchase unit
+    // (g-for-g, ml-for-ml, piece-for-piece) — mixing kinds (dividing a piece
+    // count by a gram factor, say) would silently produce a bogus number.
+    if(groceryProduct.servingUnit===dietUnit) baseG=dietQty*(groceryProduct.servingSize||1);
+    else if(UNIT_TO_BASE_G[dietUnit]!=null && UNIT_BASE_KIND_G[dietUnit]===purchaseKind) baseG=dietQty*UNIT_TO_BASE_G[dietUnit];
+    if(baseG==null) return null;
+    const per=UNIT_TO_BASE_G[groceryProduct.purchaseUnit];
+    if(per==null) return null;
+    return baseG/per;
   }
   trackPantryConsumption=async function(recipeList){
     state.pantryUsage = state.pantryUsage || {};
-    const touched = [];
+    const touched = {}; // pid -> total consumed, in Diet's own units, per foodId
     const unlinkedFoods = [];
     recipeList.forEach(function(r){
       (r.items||[]).forEach(function(it){
@@ -595,21 +651,32 @@ function openNewFoodFromUniversal(){closeUniversalLog();openFoodModal()}
         }
         const pid = f.groceryProductId;
         state.pantryUsage[pid] = (state.pantryUsage[pid]||0) + 1;
-        if(touched.indexOf(pid)===-1) touched.push(pid);
+        (touched[pid]=touched[pid]||[]).push({unit:it.unit,qty:it.qty});
       });
     });
     if(unlinkedFoods.length) showUnlinkedFoodsPrompt(unlinkedFoods);
-    if(!touched.length) return;
+    const touchedIds = Object.keys(touched);
+    if(!touchedIds.length) return;
     persist();
     const gstate = await loadGroceryState(true);
     if(!gstate){ toast('Could not reach Grocery — Pantry stock was not updated'); return; }
     gstate.inventory = gstate.inventory || {};
     const lowOnes = [];
-    touched.forEach(function(pid){
+    touchedIds.forEach(function(pid){
       const p = (gstate.products||[]).find(function(x){ return x.id===pid; });
       if(!p) return;
-      const inv = gstate.inventory[pid] = gstate.inventory[pid] || {status:'full', onHand:0, location:p.store, expiry:'', lastPurchased:null};
-      inv.status = stepStockStatus(inv.status || 'full'); // unconditional step-down, every use
+      const inv = gstate.inventory[pid] = gstate.inventory[pid] || {status:'full', onHand:p.purchaseQty||0, location:p.store, expiry:'', lastPurchased:null};
+      let consumed=0,anyUnknown=false;
+      touched[pid].forEach(function(it){
+        const c=dietQtyToPurchaseUnit(it.unit,it.qty,p);
+        if(c==null){anyUnknown=true;return}
+        consumed+=c;
+      });
+      if(anyUnknown&&!consumed){ // couldn't convert at all — fall back to a conservative one-notch step so nothing silently stalls
+        consumed=(p.purchaseQty||1)*0.15;
+      }
+      inv.onHand=Math.max(0,(inv.onHand||0)-consumed);
+      inv.status=pantryStatus(inv.onHand,p.purchaseQty||1);
       if(inv.status==='low' || inv.status==='finished'){
         const week = gstate.weeks && gstate.weeks[gstate.activeWeek];
         const alreadyOnList = week && week.items.some(function(i){ return i.productId===pid && (i.purchasedQty||0) < (i.plannedQty||0); });
@@ -691,22 +758,57 @@ function openNewFoodFromUniversal(){closeUniversalLog();openFoodModal()}
 
   function unlinkedFoodOptions(){return state.foods.filter(function(f){return !f.groceryProductId;}).map(function(f){return '<option value="'+f.id+'">'+esc(f.name)+'</option>';}).join('')||'<option value="">No unlinked ingredients</option>';}
   linkFoodToProduct=function(pid,selId){const sel=$(selId);if(!sel||!sel.value)return toast('Choose an ingredient to link');const f=food(sel.value);if(!f)return;f.groceryProductId=pid;persist();toast(esc(f.name)+' linked to Grocery');renderPantry();if(typeof renderFoods==='function')renderFoods();};
-  renderPantry=function(){
+  // Reads live from Grocery's own doc rather than a local shadow copy —
+  // this is the same onHand/purchaseUnit data Grocery's own Pantry page
+  // shows and writes, so the two screens can't drift apart or disagree.
+  renderPantry=async function(){
     if(!$('pantryList'))return;
+    const pantryPageEl=document.getElementById('pantry');
+    if(pantryPageEl&&!pantryPageEl.classList.contains('active'))return; // avoid a live Grocery fetch on every unrelated render tick
     if(typeof ensurePantry==='function')ensurePantry();
-    if(typeof ensurePurchases==='function')ensurePurchases();
+    $('pantryList').innerHTML='<div class="empty">Loading live Grocery pantry…</div>';
+    const gstate=await loadGroceryState(true);
     let rows=[];
-    (state.purchases||[]).slice().sort((a,b)=>(a.remainingQty/(a.totalQty||1))-(b.remainingQty/(b.totalQty||1))).forEach(p=>{
-      let pct=Math.max(0,Math.min(100,p.totalQty?p.remainingQty/p.totalQty*100:0)),low=pct<=20,color=low?'var(--red)':pct<40?'var(--orange)':'var(--green)';
-      let linkedNames=(state.foods||[]).filter(f=>f.groceryProductId===p.groceryProductId).map(f=>f.name).join(', ');
-      rows.push(`<div class="pantry-exact-row"><div class="pantry-exact-top"><b>${esc(p.name)}</b><span class="pantry-exact-qty ${low?'stock-low':''}">${round(p.remainingQty,1)}/${round(p.totalQty,1)} ${esc(p.unit)}</span></div><div class="pantry-exact-bar"><i style="width:${pct}%;background:${color}"></i></div><div class="pantry-exact-meta"><span class="subtle">Used for: ${esc(linkedNames)}${low?' · Running low':''}</span><button class="btn ghost small" onclick="restockPurchase('${p.id}')">Restock</button></div></div>`);
-    });
+    if(gstate&&gstate.products&&gstate.products.length){
+      gstate.products.slice().sort((a,b)=>{
+        const ia=gstate.inventory&&gstate.inventory[a.id],ib=gstate.inventory&&gstate.inventory[b.id];
+        const ra=(ia?ia.onHand:0)/(a.purchaseQty||1),rb=(ib?ib.onHand:0)/(b.purchaseQty||1);
+        return ra-rb;
+      }).forEach(p=>{
+        const inv=(gstate.inventory&&gstate.inventory[p.id])||{onHand:0};
+        const full=p.purchaseQty||1,pct=Math.max(0,Math.min(100,(inv.onHand||0)/full*100)),low=pct<=20,color=low?'var(--red)':pct<40?'var(--orange)':'var(--green)';
+        const st=(typeof pantryStatus==='function')?pantryStatus(inv.onHand||0,full):'';
+        const stLabel={full:'Full','75':'75%',half:'Half','25':'25%',low:'Low',finished:'Finished'}[st]||'';
+        let linkedNames=(state.foods||[]).filter(f=>f.groceryProductId===p.id).map(f=>f.name).join(', ');
+        rows.push(`<div class="pantry-exact-row"><div class="pantry-exact-top"><b>${esc(p.name)}</b><span class="pantry-exact-qty ${low?'stock-low':''}">${round(inv.onHand||0,1)}/${round(full,1)} ${esc(p.purchaseUnit||'unit')} · <b>${stLabel}</b></span></div><div class="pantry-exact-bar"><i style="width:${pct}%;background:${color}"></i></div><div class="pantry-exact-meta"><span class="subtle">${linkedNames?'Used for: '+esc(linkedNames):'Not linked to any ingredient'}${low?' · Running low':''}</span><button class="btn ghost small" onclick="restockGroceryProduct('${p.id}')">Restock</button></div></div>`);
+      });
+    }else{
+      rows.push('<div class="empty">Could not reach Grocery — showing nothing until it\'s reachable. <a href="grocery.html">Open Grocery</a></div>');
+    }
     (state.pantry||[]).forEach(p=>{
-      let f=food(p.foodId);if(!f)return;
+      let f=food(p.foodId);if(!f||f.groceryProductId)return; // only genuinely unlinked local items
       let pct=Math.max(0,Math.min(100,p.total?p.qty/p.total*100:0)),low=p.qty<=(p.lowAt||0),color=low?'var(--red)':pct<40?'var(--orange)':'var(--green)';
-      rows.push(`<div class="pantry-exact-row"><div class="pantry-exact-top"><b>${esc(f.name)}</b><span class="pantry-exact-qty ${low?'stock-low':''}">${round(p.qty,1)}/${round(p.total,1)} ${esc(f.unit)}</span></div><div class="pantry-exact-bar"><i style="width:${pct}%;background:${color}"></i></div><div class="pantry-exact-meta"><span class="subtle">${esc(p.store||'Pantry')}${low?' · Running low':''}</span><button class="btn ghost small" onclick="restockPantryItem('${p.foodId}')">Restock</button></div></div>`);
+      rows.push(`<div class="pantry-exact-row"><div class="pantry-exact-top"><b>${esc(f.name)}</b><span class="pantry-exact-qty ${low?'stock-low':''}">${round(p.qty,1)}/${round(p.total,1)} ${esc(f.unit)}</span></div><div class="pantry-exact-bar"><i style="width:${pct}%;background:${color}"></i></div><div class="pantry-exact-meta"><span class="subtle">${esc(p.store||'Pantry')} · not linked to Grocery${low?' · Running low':''}</span><button class="btn ghost small" onclick="restockPantryItem('${p.foodId}')">Restock</button></div></div>`);
     });
     $('pantryList').innerHTML=rows.length?rows.join(''):'<div class="empty">No pantry items tracked yet.</div>';
+  };
+  restockGroceryProduct=async function(pid){
+    const gstate=await loadGroceryState(true);
+    if(!gstate)return toast('Could not reach Grocery');
+    const p=(gstate.products||[]).find(x=>x.id===pid);if(!p)return;
+    const inv=gstate.inventory[pid]=gstate.inventory[pid]||{onHand:0};
+    const val=prompt(`Set on-hand stock for ${p.name} (in ${p.purchaseUnit}):`,round(inv.onHand||0,1));
+    if(val===null)return;
+    const n=Number(val);
+    if(!(n>=0))return toast('Enter a valid amount');
+    inv.onHand=n;inv.status=pantryStatus(n,p.purchaseQty||1);
+    try{
+      await groceryDocRef('modernState').set({json:JSON.stringify(gstate)},{merge:true});
+      await groceryDocRef('inventory').set({json:JSON.stringify(gstate.inventory)},{merge:true});
+      groceryStateCache=gstate;
+      toast(`${p.name} restocked to ${round(n,1)} ${p.purchaseUnit}`);
+      renderPantry();
+    }catch(e){toast('Could not reach Grocery — restock not saved')}
   };
   restockPantryItem=function(foodId){
     let p=(state.pantry||[]).find(x=>x.foodId===foodId),f=food(foodId);
