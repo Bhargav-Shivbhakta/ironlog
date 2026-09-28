@@ -95,7 +95,34 @@ function plannedCost(w){return ensureWeek(w).items.reduce((s,x)=>s+openQty(x)*(x
 function actualCost(w){return ensureWeek(w).items.reduce((s,x)=>s+(x.purchasedQty||0)*(x.actualPrice??x.unitPrice??0),0)}
 function save(){if(!user)return;$('syncLabel').textContent='Saving…';$('syncDot').classList.remove('on');clearTimeout(saveTimer);saveTimer=setTimeout(async()=>{try{await Promise.all([doc('modernState').set({json:JSON.stringify(state),updatedAt:firebase.firestore.FieldValue.serverTimestamp()}),doc('inventory').set({json:JSON.stringify(state.inventory)})]);$('syncLabel').textContent='Saved to cloud';$('syncDot').classList.add('on')}catch(e){$('syncLabel').textContent='Save needs retry'}},300)}
 function toast(t){$('toast').textContent=t;$('toast').classList.add('show');clearTimeout(toast.t);toast.t=setTimeout(()=>$('toast').classList.remove('show'),2600)}
-async function load(){const modern=await doc('modernState').get();if(modern.exists&&modern.data().json){state=JSON.parse(modern.data().json)}else{state=fresh();await migrateOld()}state.version=2;state.products=state.products||clone(PRODUCTS);state.weeks=state.weeks||{};state.inventory=state.inventory||{};state.history=state.history||[];state.purchaseLog=state.purchaseLog||[];ensureProductDetail();state.activeWeek=currentWeek();ensureWeek(state.activeWeek);await saveImmediate()}
+function migrateCatalog(){
+  state.products=state.products||[];
+  // id renames: [oldId,newId]
+  [['costco-lemon','costco-lime']].forEach(([oldId,newId])=>{
+    const old=state.products.find(p=>p.id===oldId);
+    if(old&&!state.products.some(p=>p.id===newId)){
+      old.id=newId;
+      if(state.inventory[oldId]&&!state.inventory[newId]){state.inventory[newId]=state.inventory[oldId];delete state.inventory[oldId]}
+      Object.values(state.weeks||{}).forEach(w=>(w.items||[]).forEach(x=>{if(x.productId===oldId)x.productId=newId}));
+    }
+  });
+  // ids that no longer exist in the catalog (merged into another product): drop the stale
+  // catalog entry and its inventory row, and strip any not-yet-shopped week lines for it.
+  ['tj-dinnersalad'].forEach(deadId=>{
+    state.products=state.products.filter(p=>p.id!==deadId);
+    delete state.inventory[deadId];
+    Object.values(state.weeks||{}).forEach(w=>{w.items=(w.items||[]).filter(x=>x.productId!==deadId)});
+  });
+  // refresh every product that still exists so name/price/link/units/macros catch up with
+  // the current catalog (state.products is otherwise never touched again once an account exists)
+  PRODUCTS.forEach(tpl=>{
+    const existing=state.products.find(p=>p.id===tpl.id);
+    if(existing)Object.assign(existing,clone(tpl),{id:existing.id});
+    else state.products.push(clone(tpl));
+  });
+  state.catalogVersion=2;
+}
+async function load(){const modern=await doc('modernState').get();if(modern.exists&&modern.data().json){state=JSON.parse(modern.data().json)}else{state=fresh();await migrateOld()}state.version=2;state.products=state.products||clone(PRODUCTS);state.weeks=state.weeks||{};state.inventory=state.inventory||{};state.history=state.history||[];state.purchaseLog=state.purchaseLog||[];ensureProductDetail();if(state.catalogVersion!==2)migrateCatalog();state.activeWeek=currentWeek();ensureWeek(state.activeWeek);await saveImmediate()}
 async function saveImmediate(){await Promise.all([doc('modernState').set({json:JSON.stringify(state)}),doc('inventory').set({json:JSON.stringify(state.inventory)})])}
 async function migrateOld(){try{const ds=await Promise.all(['products','purchases','extras','budget','startDate','inventory','tripHistory','priceLog'].map(k=>doc(k).get()));if(ds[0].exists&&ds[0].data().json)state.products=JSON.parse(ds[0].data().json);if(ds[3].exists&&ds[3].data().json)state.budget=JSON.parse(ds[3].data().json).weekly||150;if(ds[4].exists&&ds[4].data().value)state.startDate=ds[4].data().value;if(ds[5].exists&&ds[5].data().json)state.inventory=JSON.parse(ds[5].data().json);const oldPurch=ds[1].exists&&ds[1].data().json?JSON.parse(ds[1].data().json):{};Object.entries(oldPurch).forEach(([k,v])=>{const [w,pid]=k.split(':'),line=ensureWeek(+w).items.find(x=>x.productId===pid);if(line&&v.done){line.purchasedQty=line.plannedQty;line.actualPrice=v.price}});const ex=ds[2].exists&&ds[2].data().json?JSON.parse(ds[2].data().json):{};Object.entries(ex).forEach(([w,list])=>(list||[]).forEach(e=>ensureWeek(+w).items.push({id:e.key||'extra-'+Date.now()+Math.random(),productId:null,name:e.name,store:e.store||'Extra',plannedQty:e.qty||1,purchasedQty:e.done?(e.qty||1):0,unitPrice:e.price||0,actualPrice:e.price??null,carriedQty:0,dismissedQty:0,source:'imported'})));if(ds[6].exists&&ds[6].data().json){const h=JSON.parse(ds[6].data().json);state.history=Object.entries(h).map(([w,x])=>Object.assign({week:+w},x))}if(ds[7].exists&&ds[7].data().json)state.purchaseLog=JSON.parse(ds[7].data().json)}catch(e){}}
 function itemName(x){return x.productId?product(x.productId)?.name:x.name}function itemStore(x){return x.productId?product(x.productId)?.store:(x.store||'Other')}
