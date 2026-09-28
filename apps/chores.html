@@ -11,27 +11,34 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
 <style>
   :root{
-    --bg:#F5F5F2; --surface:#FFFFFF; --surface-alt:#EEEEE9;
-    --border:#DFDED6; --border-soft:#EAE9E2;
-    --text:#201F1A; --text-soft:#615F55; --text-faint:#96938A;
-    --accent:#3D6A5C; --accent-soft:#E3ECE9; --accent-deep:#284A40;
-    --gold:#B4862E; --gold-soft:#F3ECD9;
-    --danger:#B4463A; --danger-soft:#F5E3E0;
-    --b:#D6402C; --a:#A8517A; --arya:#3D6AB4;
+    --bg:#F4F4F0; --surface:#FFFFFF; --surface-alt:#EFEDE4;
+    --border:#ECECE6; --border-soft:#F1F1EB;
+    --text:#20211E; --text-soft:#74766F; --text-faint:#9A9C93;
+    --accent:#AD7B20; --accent-soft:#F7EFD9; --accent-deep:#7A5817;
+    --gold:#E8B84B; --gold-soft:#FBF1DC;
+    --danger:#B8493F; --danger-soft:#F8E5E2;
+    --b:#D6402C; --a:#A8517A; --arya:#2A78D6;
     --radius-lg:16px; --radius-md:11px; --radius-sm:8px;
-    --shadow:0 1px 2px rgba(32,31,26,0.05), 0 8px 20px -14px rgba(32,31,26,0.16);
+    --shadow:0 5px 20px rgba(32,33,30,.06);
   }
   *{box-sizing:border-box;}
-  body{margin:0;font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;padding:16px 14px 60px;-webkit-font-smoothing:antialiased;}
-  .wrap{max-width:min(90vw,980px);margin:0 auto;}
+  body{margin:0;font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;padding:0 0 60px;-webkit-font-smoothing:antialiased;}
+  .wrap{max-width:min(90vw,980px);margin:0 auto;padding:16px 14px 0;}
   h1,h2,h3{font-family:'Manrope',sans-serif;}
   button,input,select,textarea{font-family:inherit;}
   a{color:var(--accent-deep);}
 
   .loading-gate{position:fixed;inset:0;z-index:200;background:var(--bg);display:flex;align-items:center;justify-content:center;color:var(--text-soft);}
 
-  .topbar{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;}
-  .topbar a{font-size:12.5px;color:var(--text-soft);text-decoration:none;}
+  .topbar-wrap{background:#2E1F06;color:#FBF5E8;padding:12px 16px;margin-bottom:16px;}
+  .topbar-inner{max-width:min(90vw,980px);margin:0 auto;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;}
+  .brand-cluster{display:flex;align-items:center;gap:12px;flex-wrap:wrap;}
+  .brand{display:flex;align-items:center;gap:9px;font-size:15px;font-weight:800;font-family:'Manrope',sans-serif;}
+  .mark{width:27px;height:27px;border-radius:9px;display:grid;place-items:center;background:var(--gold);color:#2E1F06;font-size:14px;font-weight:850;flex:none;}
+  .hub-link{color:#D9C9A8;text-decoration:none;font-size:11.5px;}
+  .integration-links{display:flex;gap:6px;}
+  .integration-links a{color:#FBF5E8;border:1px solid #5C3E14;border-radius:9px;padding:5px 9px;text-decoration:none;font-size:10.5px;font-weight:700;}
+  .topbar{display:none;}
   .who-picker{display:flex;align-items:center;gap:6px;}
   .who-picker select{font-size:12px;padding:5px 8px;border-radius:8px;border:1px solid var(--border);background:var(--surface);}
 
@@ -232,21 +239,45 @@
   .backup-actions button{width:100%;text-align:left;border:1px solid var(--border);background:var(--surface-alt);border-radius:10px;padding:11px 13px;font-size:12.5px;font-weight:700;color:var(--text);cursor:pointer;}
   .backup-actions button small{display:block;font-weight:500;color:var(--text-faint);margin-top:2px;}
   .backup-actions button.danger{color:var(--danger);}
+
+  .history-toolbar{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px;}
+  .history-toolbar input[type=date]{flex:1 1 130px;padding:7px 9px;border-radius:9px;border:1px solid var(--border);font-size:11.5px;}
+  .history-row-wrap{position:relative;padding-right:54px;}
+  .history-row-wrap .hr-icons{position:absolute;top:6px;right:0;display:flex;gap:2px;}
+  .history-row-wrap .hr-icons button{background:none;border:none;color:var(--text-faint);cursor:pointer;font-size:13px;padding:4px 5px;}
+  .history-row-wrap .hr-icons button:hover{color:var(--text);}
+  .history-edit-panel{margin-top:8px;padding:10px;background:var(--surface-alt);border-radius:10px;display:grid;grid-template-columns:1fr 1fr;gap:7px;}
+  .history-edit-panel input[type=date],.history-edit-panel input[type=text]{grid-column:1/-1;padding:7px 9px;border-radius:8px;border:1px solid var(--border);font-size:12px;}
+  .history-edit-panel .rating-row{grid-column:1/-1;margin:0;}
+  .history-edit-panel .submit-row{grid-column:1/-1;display:flex;gap:8px;}
+
+  .heatmap-wrap{overflow-x:auto;padding-bottom:2px;}
+  .heatmap-grid{display:grid;grid-auto-flow:column;grid-template-rows:repeat(7,10px);gap:3px;width:max-content;}
+  .heatmap-cell{width:10px;height:10px;border-radius:3px;background:var(--border-soft);}
+  .heatmap-cell[data-lvl="1"]{background:var(--accent-soft);}
+  .heatmap-cell[data-lvl="2"]{background:#E4C079;}
+  .heatmap-cell[data-lvl="3"]{background:var(--accent);}
+  .heatmap-cell[data-lvl="4"]{background:var(--accent-deep);}
+  .heatmap-legend{display:flex;align-items:center;gap:4px;font-size:9.5px;color:var(--text-faint);margin-top:6px;}
+  .heatmap-legend .heatmap-cell{cursor:default;}
 </style>
 </head>
 <body>
 
 <div id="loading-gate" class="loading-gate"><span id="load-note">Loading…</span></div>
 
-<div class="wrap" id="app-wrap" style="display:none;">
-  <div class="topbar">
-    <a href="../index.html">← All apps</a>
-    <div class="header-actions">
-      <button id="smart-plan-btn">⏱ Plan my time</button>
-      <button id="backup-btn">⋯ Backup</button>
-    </div>
+<div class="topbar-wrap"><div class="topbar-inner">
+  <div class="brand-cluster">
+    <div class="brand"><span class="mark">H</span> Household</div>
+    <a class="hub-link" href="../index.html">← Home hub</a>
+    <div class="integration-links"><a href="grocery.html">Provision ↗</a><a href="diet.html">Diet ↗</a></div>
   </div>
-
+  <div class="header-actions">
+    <button id="smart-plan-btn">⏱ Plan my time</button>
+    <button id="backup-btn">⋯ Backup</button>
+  </div>
+</div></div>
+<div class="wrap" id="app-wrap" style="display:none;">
   <header class="app-head">
     <h1>Household Chores</h1>
     <p id="app-sub">Shared with everyone — everyone sees the same list</p>
@@ -454,6 +485,11 @@ let smartPlanMinutes = 30;
 let issueTarget = null;
 let issueReason = 'Unavailable today';
 let issueAssignee = null;
+let historyQuery = '';
+let historyPersonFilter = 'all';
+let historyFrom = '';
+let historyTo = '';
+let openHistoryEdit = null;
 
 /* =====================================================================
    AUTO-FILLED DETAIL — category, time estimate, and how-to guidance are
@@ -513,10 +549,16 @@ async function loadAll(){
     if(choresDocRes && choresDocRes.exists && choresDocRes.data().json) chores = JSON.parse(choresDocRes.data().json).map(normalizeChore);
     else { chores = JSON.parse(JSON.stringify(CHORES_SEED)).map(normalizeChore); await saveChores(); }
   }catch(e){ chores = JSON.parse(JSON.stringify(CHORES_SEED)).map(normalizeChore); }
+  let neededIdBackfill = false;
   try{
     if(historyDocRes && historyDocRes.exists && historyDocRes.data().json) history = JSON.parse(historyDocRes.data().json);
     else { history = JSON.parse(JSON.stringify(HISTORY_SEED)); await saveHistory(); }
   }catch(e){ history = JSON.parse(JSON.stringify(HISTORY_SEED)); }
+  // Older entries (seed data, or anything saved before entries carried an
+  // id) can't be individually edited or deleted without one — backfill
+  // once, silently, and persist it so it sticks from here on.
+  history.forEach(function(h,i){ if(!h.id){ h.id = 'legacy-'+i+'-'+Date.now().toString(36); neededIdBackfill = true; } });
+  if(neededIdBackfill) await saveHistory();
 }
 async function saveChores(){ try{ await choresDoc('chores').set({json: JSON.stringify(chores)}); }catch(e){ console.error(e); } }
 async function saveHistory(){ try{ await choresDoc('history').set({json: JSON.stringify(history)}); }catch(e){ console.error(e); } }
@@ -1123,7 +1165,7 @@ function renderToday(){
   const next = mine[0] || due[0];
   const dueMinutes = due.reduce(function(s,c){ return s+(c.estimatedMinutes||10); }, 0);
   const command = next
-    ? '<div class="command-card"><div class="command-eyebrow">Next best action</div><h2>'+escapeHtml(next.name)+'</h2><p>'+escapeHtml(next.notes||('A '+(next.estimatedMinutes||10)+' minute '+(next.category||'home').toLowerCase()+' task assigned to '+next.assignedTo.join(', ')+'.'))+'</p><div class="command-actions"><button class="command-btn" data-command-open="'+next.id+'">Open chore</button><button class="soft-btn" data-open-plan>Build a plan</button><span class="command-meta">'+(next.estimatedMinutes||10)+' min · '+(statusFor(next)==='overdue'?'overdue':'due today')+'</span></div></div>'
+    ? '<div class="command-card"><div class="command-eyebrow">Next best action</div><h2>'+escapeHtml(next.name)+'</h2><p>'+escapeHtml(next.notes||('A '+(next.estimatedMinutes||10)+' minute '+(next.category||'home').toLowerCase()+' task assigned to '+next.assignedTo.join(', ')+'.'))+'</p><div class="command-actions"><button class="command-btn" data-command-open="'+next.id+'">Open chore</button><span class="command-meta">'+(next.estimatedMinutes||10)+' min · '+(statusFor(next)==='overdue'?'overdue':'due today')+'</span></div></div>'
     : '<div class="command-card"><div class="command-eyebrow">Household reset complete</div><h2>Everything due is handled.</h2><p>Nothing is overdue or due today. The board still keeps upcoming and as-needed work ready.</p><div class="command-actions"><button class="command-btn" data-open-board>View board</button></div></div>';
   const people = ['Bhargav','Anusha','Arya'];
   const loads = people.map(function(p){
@@ -1136,11 +1178,9 @@ function renderToday(){
   const recentItems = history.filter(function(h){ return h.kind!=='reassigned'; }).slice(0,4);
   const recent = '<div class="side-card"><h3>Recently completed</h3><div class="mini-list">'+(recentItems.map(function(h){ return '<div class="mini-item"><b>'+escapeHtml(h.task)+'</b><span>'+escapeHtml(h.by)+'</span></div>'; }).join('')||'<div class="empty-note">No completions yet.</div>')+'</div></div>';
   const list = due.length ? '<div class="section-title"><span>Needs attention</span></div>'+due.map(function(c){ return choreRowHtml(c,true); }).join('') : '<div class="empty-note">Nothing due or overdue right now — nice.</div>';
-  const planner = '<div class="smart-plan-strip"><div><b>Only have a few minutes?</b><span>Build the best plan for the time you have instead of choosing manually.</span></div><button class="btn-mini primary" data-open-plan>Plan my time</button></div>';
-  el.innerHTML = command+planner+'<div class="dashboard-grid"><div>'+list+'</div><div>'+rooms+workload+recent+'</div></div>';
+  el.innerHTML = command+'<div class="dashboard-grid"><div>'+list+'</div><div>'+rooms+workload+recent+'</div></div>';
   attachChoreHandlers(el);
   el.querySelectorAll('[data-open-board]').forEach(function(btn){ btn.onclick = function(){ showTab('all'); }; });
-  el.querySelectorAll('[data-open-plan]').forEach(function(btn){ btn.onclick = openSmartPlan; });
   el.querySelectorAll('[data-room]').forEach(function(btn){ btn.onclick = function(){ boardFilter = btn.dataset.room; showTab('all'); }; });
   const commandBtn = el.querySelector('[data-command-open]');
   if(commandBtn) commandBtn.onclick = function(){ jumpToChore(commandBtn.dataset.commandOpen); };
@@ -1295,6 +1335,40 @@ function wireAddForm(root){
   });
 }
 
+function activityHeatmapHtml(){
+  const today = todayStr(), days = 63; // 9 weeks
+  const counts = {};
+  history.forEach(function(h){ if(h.kind!=='reassigned'){ counts[h.date] = (counts[h.date]||0)+1; } });
+  const cells = [];
+  for(let i=days-1;i>=0;i--){
+    const date = addDays(today,-i);
+    const c = counts[date]||0;
+    const lvl = c===0?0 : c===1?1 : c===2?2 : c<=4?3 : 4;
+    cells.push('<div class="heatmap-cell" data-lvl="'+lvl+'" title="'+fmtShort(date)+': '+c+' completed"></div>');
+  }
+  // pad the front so the grid always starts on a Sunday column
+  const startDow = weekdayOf(addDays(today,-(days-1)));
+  const pad = Array(startDow).fill('<div class="heatmap-cell" style="background:transparent;"></div>');
+  return '<div class="side-card"><h3>Consistency, last 9 weeks</h3><div class="heatmap-wrap"><div class="heatmap-grid">'+pad.join('')+cells.join('')+'</div></div><div class="heatmap-legend"><span>Less</span><div class="heatmap-cell" data-lvl="0"></div><div class="heatmap-cell" data-lvl="1"></div><div class="heatmap-cell" data-lvl="2"></div><div class="heatmap-cell" data-lvl="3"></div><div class="heatmap-cell" data-lvl="4"></div><span>More</span></div></div>';
+}
+function historyEditPanelHtml(h){
+  if(h.kind==='reassigned'){
+    return '<div class="history-edit-panel">'+
+      '<input type="date" id="hedit-date-'+h.id+'" value="'+h.date+'">'+
+      '<div class="submit-row"><button class="btn-mini primary" data-savehist="'+h.id+'">Save date</button><button class="btn-mini ghost" data-cancelhist="'+h.id+'">Cancel</button></div>'+
+    '</div>';
+  }
+  const ratingOptions = ['good','ok','poor'].map(function(r){
+    const m = RATING_META[r];
+    return '<button type="button" class="rating-btn '+(h.rating===r?'on':'')+'" data-histrating="'+r+'">'+m.emoji+' '+m.label+'</button>';
+  }).join('');
+  return '<div class="history-edit-panel">'+
+    '<input type="date" id="hedit-date-'+h.id+'" value="'+h.date+'">'+
+    '<input type="text" id="hedit-notes-'+h.id+'" value="'+escapeHtml(h.notes||'')+'" placeholder="Note (optional)">'+
+    '<div class="rating-row">'+ratingOptions+'</div>'+
+    '<div class="submit-row"><button class="btn-mini primary" data-savehist="'+h.id+'">Save changes</button><button class="btn-mini ghost" data-cancelhist="'+h.id+'">Cancel</button></div>'+
+  '</div>';
+}
 function renderHistory(){
   const el = document.getElementById('history-view');
   const people = ['Bhargav','Anusha','Arya'];
@@ -1317,17 +1391,81 @@ function renderHistory(){
     }).join('')+
   '</div>';
 
-  const logHtml = '<div class="perf-card"><h3>Completion log</h3>'+
-    (history.length ? history.slice(0,60).map(function(h){
-      if(h.kind==='reassigned') return '<div class="history-row-wrap"><div class="history-row"><span class="hr-date">'+fmtShort(h.date)+'</span><span class="hr-task">'+escapeHtml(h.task)+'</span><span class="status-pill upcoming">Reassigned</span></div><div class="hr-recorded">'+escapeHtml(h.reason||'Reassigned')+(h.to?' · moved to '+escapeHtml(h.to):'')+' · reported by '+escapeHtml(h.by)+'</div></div>';
+  const q = historyQuery.toLowerCase();
+  const filtered = history.filter(function(h){
+    const searchOk = !q || (h.task+' '+(h.by||'')+' '+(h.notes||'')+' '+(h.reason||'')).toLowerCase().indexOf(q)!==-1;
+    const personOk = historyPersonFilter==='all' || (h.by||'').indexOf(historyPersonFilter)!==-1 || h.to===historyPersonFilter;
+    const fromOk = !historyFrom || h.date>=historyFrom;
+    const toOk = !historyTo || h.date<=historyTo;
+    return searchOk && personOk && fromOk && toOk;
+  });
+  const filterChips = ['all'].concat(people).map(function(p){ return '<button class="filter-chip '+(historyPersonFilter===p?'on':'')+'" data-hist-filter="'+p+'">'+(p==='all'?'Everyone':p)+'</button>'; }).join('');
+  const toolbar = '<div class="history-toolbar"><input class="searchbox" id="history-search" style="flex:1 1 100%;" value="'+escapeHtml(historyQuery)+'" placeholder="Search completed chores, notes, people…">'+filterChips+'<input type="date" id="history-from" value="'+historyFrom+'" title="From date"><input type="date" id="history-to" value="'+historyTo+'" title="To date">'+((historyQuery||historyPersonFilter!=='all'||historyFrom||historyTo)?'<button class="filter-chip" id="history-clear">✕ Clear filters</button>':'')+'</div>';
+
+  const logHtml = '<div class="perf-card"><h3>Completion log <span style="font-weight:500;color:var(--text-faint);font-size:11px;">'+filtered.length+' of '+history.length+'</span></h3>'+toolbar+
+    (filtered.length ? filtered.slice(0,80).map(function(h){
+      const editing = openHistoryEdit===h.id;
+      const icons = '<div class="hr-icons"><button data-edithist="'+h.id+'" title="Edit">✎</button><button data-delhist="'+h.id+'" title="Delete">✕</button></div>';
+      if(h.kind==='reassigned'){
+        return '<div class="history-row-wrap">'+icons+'<div class="history-row"><span class="hr-date">'+fmtShort(h.date)+'</span><span class="hr-task">'+escapeHtml(h.task)+'</span><span class="status-pill upcoming">Reassigned</span></div><div class="hr-recorded">'+escapeHtml(h.reason||'Reassigned')+(h.to?' · moved to '+escapeHtml(h.to):'')+' · reported by '+escapeHtml(h.by)+'</div>'+(editing?historyEditPanelHtml(h):'')+'</div>';
+      }
       const ratingBadge = h.rating ? '<span class="rating-chip" style="color:'+RATING_META[h.rating].color+';">'+RATING_META[h.rating].emoji+'</span>' : '';
       const recordedNote = h.recordedBy && h.recordedBy!==h.by ? '<div class="hr-recorded">recorded by '+escapeHtml(h.recordedBy)+'</div>' : '';
-      return '<div class="history-row-wrap"><div class="history-row"><span class="hr-date">'+fmtShort(h.date)+'</span><span class="hr-task">'+escapeHtml(h.task)+ratingBadge+'</span><span class="person-pill '+personClass(h.by.split(' ')[0])+'">'+escapeHtml(h.by)+'</span></div>'+
-        (h.notes ? '<div class="hr-note">"'+escapeHtml(h.notes)+'"</div>' : '')+recordedNote+'</div>';
-    }).join('') : '<div class="empty-note">Nothing logged yet.</div>')+
+      return '<div class="history-row-wrap">'+icons+'<div class="history-row"><span class="hr-date">'+fmtShort(h.date)+'</span><span class="hr-task">'+escapeHtml(h.task)+ratingBadge+'</span><span class="person-pill '+personClass(h.by.split(' ')[0])+'">'+escapeHtml(h.by)+'</span></div>'+
+        (h.notes ? '<div class="hr-note">"'+escapeHtml(h.notes)+'"</div>' : '')+recordedNote+(editing?historyEditPanelHtml(h):'')+'</div>';
+    }).join('') : '<div class="empty-note">Nothing matches these filters.</div>')+
   '</div>';
 
-  el.innerHTML = summary + perfHtml + logHtml;
+  el.innerHTML = summary + activityHeatmapHtml() + perfHtml + logHtml;
+
+  document.getElementById('history-search').addEventListener('input', function(e){ historyQuery=e.target.value; clearTimeout(renderHistory.t); renderHistory.t=setTimeout(renderHistory,160); });
+  document.getElementById('history-from').addEventListener('change', function(e){ historyFrom=e.target.value; renderHistory(); });
+  document.getElementById('history-to').addEventListener('change', function(e){ historyTo=e.target.value; renderHistory(); });
+  el.querySelectorAll('[data-hist-filter]').forEach(function(btn){ btn.onclick=function(){ historyPersonFilter=btn.dataset.histFilter; renderHistory(); }; });
+  const clearBtn = document.getElementById('history-clear');
+  if(clearBtn) clearBtn.onclick = function(){ historyQuery=''; historyPersonFilter='all'; historyFrom=''; historyTo=''; renderHistory(); };
+
+  el.querySelectorAll('[data-edithist]').forEach(function(btn){ btn.onclick=function(){ openHistoryEdit = openHistoryEdit===btn.dataset.edithist ? null : btn.dataset.edithist; renderHistory(); }; });
+  el.querySelectorAll('[data-cancelhist]').forEach(function(btn){ btn.onclick=function(){ openHistoryEdit=null; renderHistory(); }; });
+  el.querySelectorAll('[data-delhist]').forEach(function(btn){
+    btn.addEventListener('click', async function(){
+      const h = history.find(function(x){ return x.id===btn.dataset.delhist; });
+      if(!h) return;
+      if(!confirm('Delete this record — "'+h.task+'" on '+fmtShort(h.date)+'? This only removes the history entry, not the chore itself.')) return;
+      history = history.filter(function(x){ return x.id!==h.id; });
+      await saveHistory();
+      showToast('Record deleted');
+      renderHistory();
+    });
+  });
+  el.querySelectorAll('.history-edit-panel').forEach(function(panel){
+    const hid = panel.querySelector('[data-savehist]')?.dataset.savehist || panel.querySelector('[data-cancelhist]')?.dataset.cancelhist;
+    let selectedRating = null;
+    const h = history.find(function(x){ return x.id===hid; });
+    if(h) selectedRating = h.rating||null;
+    panel.querySelectorAll('[data-histrating]').forEach(function(btn){
+      btn.addEventListener('click', function(){
+        selectedRating = (selectedRating===btn.dataset.histrating) ? null : btn.dataset.histrating;
+        panel.querySelectorAll('[data-histrating]').forEach(function(b){ b.classList.remove('on'); });
+        if(selectedRating) btn.classList.add('on');
+      });
+    });
+    const saveBtn = panel.querySelector('[data-savehist]');
+    if(saveBtn) saveBtn.addEventListener('click', async function(){
+      const entry = history.find(function(x){ return x.id===hid; });
+      if(!entry) return;
+      const dateInput = panel.querySelector('#hedit-date-'+hid);
+      if(dateInput && dateInput.value) entry.date = dateInput.value;
+      const notesInput = panel.querySelector('#hedit-notes-'+hid);
+      if(notesInput) entry.notes = notesInput.value.trim() || null;
+      if(entry.kind!=='reassigned') entry.rating = selectedRating;
+      history.sort(function(a,b){ return b.date.localeCompare(a.date); });
+      await saveHistory();
+      openHistoryEdit = null;
+      showToast('Record updated');
+      renderHistory();
+    });
+  });
 }
 
 /* =====================================================================
