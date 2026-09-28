@@ -43,10 +43,14 @@
   .segmented button{flex:1;border:none;background:transparent;border-radius:999px;padding:8px 4px;font-size:12px;font-weight:700;color:var(--text-soft);cursor:pointer;}
   .segmented button.active{background:var(--surface);color:var(--text);box-shadow:var(--shadow);}
 
-  .stat-row{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:14px;}
-  .stat-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-md);padding:10px 12px;box-shadow:var(--shadow);}
-  .stat-card .sc-label{font-size:9.5px;color:var(--text-faint);font-weight:700;text-transform:uppercase;letter-spacing:0.03em;}
-  .stat-card .sc-value{font-family:'Manrope',sans-serif;font-weight:800;font-size:18px;margin-top:2px;}
+  .stat-row{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-bottom:14px;}
+  .stat-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-md);padding:9px 8px;box-shadow:var(--shadow);}
+  .stat-card.alert{border-color:var(--danger);}
+  .stat-card .sc-label{font-size:8.8px;color:var(--text-faint);font-weight:700;text-transform:uppercase;letter-spacing:0.03em;}
+  .stat-card .sc-value{font-family:'Manrope',sans-serif;font-weight:800;font-size:17px;margin-top:2px;}
+  @media(max-width:420px){.stat-row{grid-template-columns:repeat(2,1fr);}}
+  .dashboard-grid{display:grid;grid-template-columns:1fr;gap:10px;}
+  @media(min-width:760px){.dashboard-grid{grid-template-columns:1.5fr 1fr;}}
 
   .section-title{font-family:'Manrope',sans-serif;font-size:13px;font-weight:700;color:var(--text-soft);margin:16px 0 8px;display:flex;align-items:center;gap:8px;}
   .section-title::after{content:'';flex:1;height:1px;background:var(--border);}
@@ -138,6 +142,96 @@
   .history-row .hr-task{flex:1;font-weight:600;}
 
   :focus-visible{outline:2px solid var(--accent);outline-offset:2px;}
+
+  /* ===== V3 additions ===== */
+  .toast{position:fixed;left:50%;bottom:18px;transform:translateX(-50%) translateY(10px);background:#232219;color:#F5F4EE;border-radius:11px;padding:11px 10px 11px 15px;z-index:220;display:none;align-items:center;gap:10px;box-shadow:var(--shadow);font-size:12.5px;opacity:0;transition:.2s;max-width:92vw;}
+  .toast.show{display:flex;opacity:1;transform:translateX(-50%) translateY(0);}
+  .toast button{background:none;border:none;color:var(--gold);font-weight:700;font-size:12.5px;cursor:pointer;padding:4px 6px;flex:none;}
+
+  .modal-overlay{position:fixed;inset:0;background:rgba(20,19,15,.45);z-index:210;display:none;align-items:flex-end;justify-content:center;padding:0;}
+  .modal-overlay.open{display:flex;}
+  @media(min-width:640px){.modal-overlay{align-items:center;padding:18px;}}
+  .modal-sheet{background:var(--surface);width:100%;max-width:460px;border-radius:18px 18px 0 0;padding:18px 18px 22px;max-height:88vh;overflow:auto;box-shadow:var(--shadow);}
+  @media(min-width:640px){.modal-sheet{border-radius:18px;}}
+  .modal-sheet-head{display:flex;justify-content:space-between;align-items:flex-start;gap:10px;margin-bottom:4px;}
+  .modal-sheet-head h3{margin:0;font-size:16px;}
+  .modal-close{background:none;border:none;font-size:18px;color:var(--text-faint);cursor:pointer;padding:2px 4px;}
+  .modal-copy{font-size:12px;color:var(--text-soft);margin:2px 0 14px;}
+  .modal-choice-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:6px;}
+  .modal-choice-grid button{border:1px solid var(--border);background:var(--surface-alt);color:var(--text);border-radius:10px;padding:10px 8px;font-size:12.5px;font-weight:700;cursor:pointer;}
+  .modal-choice-grid button.on{background:var(--accent-soft);border-color:var(--accent);color:var(--accent-deep);}
+  .modal-actions{display:flex;justify-content:flex-end;gap:8px;margin-top:14px;}
+  .reassign-people{display:flex;gap:6px;flex-wrap:wrap;margin:10px 0 4px;}
+  .reassign-people button{border:1px solid var(--border);background:var(--surface-alt);color:var(--text-soft);border-radius:20px;padding:7px 14px;font-size:12px;font-weight:700;cursor:pointer;}
+  .reassign-people button.on{background:var(--accent);border-color:var(--accent);color:#fff;}
+
+  .header-actions{display:flex;gap:6px;flex-wrap:wrap;}
+  .header-actions button{border:1px solid var(--border);background:var(--surface);color:var(--text-soft);border-radius:20px;padding:6px 12px;font-size:11.5px;font-weight:700;cursor:pointer;}
+
+  .category-pill{font-size:10px;font-weight:700;padding:2px 8px;border-radius:20px;background:var(--surface-alt);color:var(--text-soft);}
+  .time-pill{font-size:10.5px;color:var(--text-faint);}
+  .rotation-tag{font-size:10.5px;color:var(--gold);font-weight:700;}
+  .row-secondary-actions{display:flex;gap:14px;margin-top:8px;padding-top:8px;border-top:1px dashed var(--border-soft);}
+  .row-secondary-actions button{background:none;border:none;color:var(--text-faint);font-size:11px;font-weight:700;cursor:pointer;padding:2px 0;}
+  .row-secondary-actions button:hover{color:var(--text-soft);}
+  .chore-details{margin-top:8px;}
+  .chore-details summary{font-size:11px;color:var(--accent-deep);cursor:pointer;font-weight:700;list-style:none;}
+  .chore-details summary::-webkit-details-marker{display:none;}
+  .instruction-grid{display:grid;gap:6px;margin-top:6px;}
+  .instruction-box{background:var(--surface-alt);border-radius:8px;padding:8px 10px;font-size:11.5px;color:var(--text-soft);}
+  .instruction-box b{display:block;font-size:9.5px;text-transform:uppercase;letter-spacing:.03em;color:var(--text-faint);margin-bottom:2px;}
+
+  .command-card{background:linear-gradient(135deg,var(--accent-deep) 0%,var(--accent) 100%);color:#fff;border-radius:var(--radius-lg);padding:16px 17px;margin-bottom:12px;box-shadow:var(--shadow);}
+  .command-eyebrow{font-size:10px;text-transform:uppercase;letter-spacing:.06em;opacity:.8;font-weight:700;}
+  .command-card h2{margin:5px 0 4px;font-size:18px;}
+  .command-card p{margin:0 0 12px;font-size:12.5px;opacity:.92;}
+  .command-actions{display:flex;gap:8px;flex-wrap:wrap;align-items:center;}
+  .command-btn{background:#fff;color:var(--accent-deep);border:none;border-radius:9px;padding:9px 14px;font-size:12.5px;font-weight:800;cursor:pointer;}
+  .soft-btn{background:rgba(255,255,255,.16);color:#fff;border:1px solid rgba(255,255,255,.3);border-radius:9px;padding:9px 14px;font-size:12.5px;font-weight:700;cursor:pointer;}
+  .command-meta{font-size:11px;opacity:.85;}
+  .smart-plan-strip{display:flex;justify-content:space-between;align-items:center;gap:10px;background:var(--gold-soft);border-radius:var(--radius-md);padding:11px 13px;margin-bottom:12px;flex-wrap:wrap;}
+  .smart-plan-strip b{font-size:12.5px;}
+  .smart-plan-strip span{display:block;font-size:11px;color:var(--text-soft);}
+  .side-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:13px 15px;margin-bottom:10px;box-shadow:var(--shadow);}
+  .side-card h3{font-size:12.5px;margin:0 0 9px;}
+  .load-row{display:grid;grid-template-columns:70px 1fr 36px;gap:8px;align-items:center;padding:4px 0;font-size:11.5px;}
+  .load-track{height:6px;background:var(--surface-alt);border-radius:6px;overflow:hidden;}
+  .load-fill{height:100%;background:var(--accent);border-radius:6px;}
+  .load-min{text-align:right;color:var(--text-faint);}
+  .tip{font-size:10.5px;color:var(--text-faint);margin-top:8px;line-height:1.4;}
+  .room-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;}
+  .room-health{border:1px solid var(--border);background:var(--surface-alt);border-radius:10px;padding:8px 9px;text-align:left;cursor:pointer;display:flex;flex-direction:column;gap:5px;}
+  .room-health b{font-size:11.5px;}
+  .health-track{height:5px;background:var(--border-soft);border-radius:5px;overflow:hidden;display:block;}
+  .health-fill{height:100%;border-radius:5px;}
+  .health-urgent{background:var(--danger);}
+  .health-due{background:var(--gold);}
+  .health-fresh{background:var(--accent);}
+  .health-label{font-size:9.5px;font-weight:700;}
+  .health-label.urgent{color:var(--danger);}
+  .health-label.due{color:var(--gold);}
+  .health-label.fresh{color:var(--accent-deep);}
+  .mini-list{display:flex;flex-direction:column;gap:6px;}
+  .mini-item{display:flex;justify-content:space-between;font-size:11.5px;gap:8px;}
+  .mini-item b{font-weight:600;}
+  .mini-item span{color:var(--text-faint);font-size:10.5px;flex:none;}
+
+  .board-toolbar{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px;}
+  .searchbox{flex:1 1 100%;padding:8px 11px;border-radius:9px;border:1px solid var(--border);font-size:12.5px;}
+  .filter-chip{border:1px solid var(--border);background:var(--surface);color:var(--text-soft);border-radius:20px;padding:6px 12px;font-size:11px;font-weight:700;cursor:pointer;}
+  .filter-chip.on{background:var(--accent);border-color:var(--accent);color:#fff;}
+  .board-heading{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:var(--text-faint);margin:14px 0 6px;}
+  .board-count{color:var(--text-faint);font-weight:600;margin-left:4px;}
+  .section-link{background:none;border:none;color:var(--accent-deep);font-size:11.5px;font-weight:700;cursor:pointer;}
+
+  .summary-strip{display:flex;gap:10px;}
+  .summary-box{flex:1;background:var(--surface-alt);border-radius:10px;padding:10px 8px;text-align:center;}
+  .summary-box b{display:block;font-family:'Manrope',sans-serif;font-size:17px;}
+  .summary-box span{font-size:10px;color:var(--text-faint);}
+  .backup-actions{display:flex;flex-direction:column;gap:8px;margin-top:4px;}
+  .backup-actions button{width:100%;text-align:left;border:1px solid var(--border);background:var(--surface-alt);border-radius:10px;padding:11px 13px;font-size:12.5px;font-weight:700;color:var(--text);cursor:pointer;}
+  .backup-actions button small{display:block;font-weight:500;color:var(--text-faint);margin-top:2px;}
+  .backup-actions button.danger{color:var(--danger);}
 </style>
 </head>
 <body>
@@ -147,6 +241,10 @@
 <div class="wrap" id="app-wrap" style="display:none;">
   <div class="topbar">
     <a href="../index.html">← All apps</a>
+    <div class="header-actions">
+      <button id="smart-plan-btn">⏱ Plan my time</button>
+      <button id="backup-btn">⋯ Backup</button>
+    </div>
   </div>
 
   <header class="app-head">
@@ -165,6 +263,64 @@
   <div id="today-view"></div>
   <div id="all-view" style="display:none;"></div>
   <div id="history-view" style="display:none;"></div>
+</div>
+
+<div class="toast" id="toast"><span id="toast-text"></span><button id="toast-action" style="display:none;"></button></div>
+
+<div class="modal-overlay" id="snooze-modal">
+  <div class="modal-sheet">
+    <div class="modal-sheet-head"><h3>Move to later</h3><button class="modal-close" id="snooze-close">✕</button></div>
+    <p class="modal-copy" id="snooze-copy">Choose when it should return.</p>
+    <div class="modal-choice-grid">
+      <button type="button" data-snooze-days="1">Tomorrow</button>
+      <button type="button" data-snooze-days="3">In 3 days</button>
+      <button type="button" data-snooze-days="7">In a week</button>
+      <button type="button" data-snooze-days="14">In 2 weeks</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="plan-modal">
+  <div class="modal-sheet">
+    <div class="modal-sheet-head"><h3>Plan my time</h3><button class="modal-close" id="plan-close">✕</button></div>
+    <p class="modal-copy">Pick how long you have — this builds the best list of due chores to fit it.</p>
+    <div class="modal-choice-grid">
+      <button type="button" class="on" data-plan-minutes="15">15 min</button>
+      <button type="button" data-plan-minutes="30">30 min</button>
+      <button type="button" data-plan-minutes="60">60 min</button>
+      <button type="button" data-plan-minutes="120">2 hours</button>
+    </div>
+    <div id="plan-results"></div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="issue-modal">
+  <div class="modal-sheet">
+    <div class="modal-sheet-head"><h3>Can't do it right now</h3><button class="modal-close" id="issue-close">✕</button></div>
+    <p class="modal-copy" id="issue-copy">Choose a reason and, if needed, a new person.</p>
+    <div class="modal-choice-grid">
+      <button type="button" data-issue-reason="Unavailable today">Unavailable today</button>
+      <button type="button" data-issue-reason="Missing supplies">Missing supplies</button>
+      <button type="button" data-issue-reason="Needs repair first">Needs repair first</button>
+      <button type="button" data-issue-reason="Passing to someone else">Passing to someone else</button>
+    </div>
+    <div class="rp-label" style="margin-top:10px;">Reassign to</div>
+    <div class="reassign-people" id="reassign-people"></div>
+    <div class="modal-actions"><button class="btn-mini primary" id="issue-confirm">Confirm</button></div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="backup-modal">
+  <div class="modal-sheet">
+    <div class="modal-sheet-head"><h3>Backup & reset</h3><button class="modal-close" id="backup-close">✕</button></div>
+    <p class="modal-copy">Everyone shares this data through the cloud already — this is just for extra safety or moving it around.</p>
+    <div class="backup-actions">
+      <button id="export-btn">⬇ Export backup<small>Download chores + history as a JSON file</small></button>
+      <button id="import-btn">⬆ Restore from backup<small>Replace current data with a backup file</small></button>
+      <input type="file" id="import-file" accept="application/json" style="display:none;">
+      <button id="reset-btn" class="danger">↺ Reset to original data<small>Replaces everything with the starting household list</small></button>
+    </div>
+  </div>
 </div>
 
 <script>
@@ -290,6 +446,63 @@ let history = [];
 let whoAmI = 'Bhargav';
 let activeTab = 'today';
 let showAddForm = false;
+let boardFilter = 'all';
+let boardQuery = '';
+let snoozeTarget = null;
+let lastUndo = null;
+let smartPlanMinutes = 30;
+let issueTarget = null;
+let issueReason = 'Unavailable today';
+let issueAssignee = null;
+
+/* =====================================================================
+   AUTO-FILLED DETAIL — category, time estimate, and how-to guidance are
+   inferred from the chore's name the first time it's seen, so existing
+   chores (already saved in Firestore) pick these up automatically
+   without needing a manual data migration. Anything already set by a
+   person (via the edit form) is left alone.
+===================================================================== */
+function inferCategory(name){
+  const n=(name||'').toLowerCase();
+  if(/dish|cook|counter|kitchen/.test(n)) return 'Kitchen';
+  if(/bath|basin|washroom/.test(n)) return 'Bathroom';
+  if(/laundry/.test(n)) return 'Laundry';
+  if(/grocery|restock|shop/.test(n)) return 'Shopping';
+  if(/mop|sweep|broom|dust|clean/.test(n)) return 'Cleaning';
+  return 'Home';
+}
+function inferMinutes(name){
+  const n=(name||'').toLowerCase();
+  if(/deep clean/.test(n)) return 45;
+  if(/bath|washroom|laundry|mop/.test(n)) return 25;
+  if(/cook|grocery|restock/.test(n)) return 20;
+  if(/dish|sweep|broom|dust/.test(n)) return 15;
+  return 10;
+}
+function inferGuidance(name){
+  const n=(name||'').toLowerCase();
+  if(/dish/.test(n)) return {instructions:'Clear scraps → wash or load → rinse → leave the sink and surrounding area clean.',supplies:'Dish soap, sponge or dishwasher tablet'};
+  if(/mop/.test(n)) return {instructions:'Clear the floor → sweep loose debris → mop from the far corner toward the exit → allow to dry.',supplies:'Mop, bucket and floor cleaner'};
+  if(/sweep|broom/.test(n)) return {instructions:'Move light obstacles → sweep edges first → collect the center pile → empty the dustpan.',supplies:'Broom and dustpan'};
+  if(/bath|basin|washroom/.test(n)) return {instructions:'Remove loose items → apply cleaner → scrub touch points and fixtures → rinse or wipe → dry the floor.',supplies:'Gloves, bathroom cleaner and cleaning cloth'};
+  if(/laundry/.test(n)) return {instructions:'Sort colors → check pockets → wash with the correct setting → dry → fold and return.',supplies:'Laundry detergent and basket'};
+  if(/trash/.test(n)) return {instructions:'Tie the bag → take it to the correct bin → replace the liner → wipe spills if needed.',supplies:'Replacement bin liner'};
+  if(/counter/.test(n)) return {instructions:'Remove items → clear crumbs → wipe the full surface → dry → return only necessary items.',supplies:'Surface cleaner and cloth'};
+  return {instructions:null,supplies:null};
+}
+function normalizeChore(c){
+  if(!c.category) c.category=inferCategory(c.name);
+  if(!c.estimatedMinutes) c.estimatedMinutes=inferMinutes(c.name);
+  const guidance=inferGuidance(c.name);
+  if(!c.instructions && guidance.instructions) c.instructions=guidance.instructions;
+  if(!c.supplies && guidance.supplies) c.supplies=guidance.supplies;
+  if(c.rotationEnabled && (!Array.isArray(c.rotationMembers)||c.rotationMembers.length<2)){
+    c.rotationMembers=(c.assignedTo||[]).slice();
+    if(c.rotationMembers.length<2) c.rotationEnabled=false;
+  }
+  if(c.rotationIndex==null) c.rotationIndex=0;
+  return c;
+}
 
 async function loadAll(){
   const [choresDocRes, historyDocRes] = await Promise.all([
@@ -297,9 +510,9 @@ async function loadAll(){
     choresDoc('history').get().catch(function(){ return null; })
   ]);
   try{
-    if(choresDocRes && choresDocRes.exists && choresDocRes.data().json) chores = JSON.parse(choresDocRes.data().json);
-    else { chores = JSON.parse(JSON.stringify(CHORES_SEED)); await saveChores(); }
-  }catch(e){ chores = JSON.parse(JSON.stringify(CHORES_SEED)); }
+    if(choresDocRes && choresDocRes.exists && choresDocRes.data().json) chores = JSON.parse(choresDocRes.data().json).map(normalizeChore);
+    else { chores = JSON.parse(JSON.stringify(CHORES_SEED)).map(normalizeChore); await saveChores(); }
+  }catch(e){ chores = JSON.parse(JSON.stringify(CHORES_SEED)).map(normalizeChore); }
   try{
     if(historyDocRes && historyDocRes.exists && historyDocRes.data().json) history = JSON.parse(historyDocRes.data().json);
     else { history = JSON.parse(JSON.stringify(HISTORY_SEED)); await saveHistory(); }
@@ -340,6 +553,9 @@ function statusFor(chore){
   const nd = nextDueFor(chore);
   if(nd === null) return 'asneeded';
   const today = todayStr();
+  // Snoozed chores stay out of Today/Overdue until the snooze date passes,
+  // even if their normal frequency would otherwise already call them due.
+  if(chore.snoozedUntil && chore.snoozedUntil > today) return 'upcoming';
   // A chore synced to Schedule only counts as due today if today's
   // actual schedule has the matching block — otherwise it's treated as
   // upcoming rather than due or overdue, so it doesn't wrongly nag on a
@@ -490,12 +706,151 @@ async function completeChore(choreId, doneBy, rating, note){
   const chore = chores.find(function(c){ return c.id===choreId; });
   if(!chore) return;
   const today = todayStr();
+  lastUndo = {choreId:chore.id, lastCompleted:chore.lastCompleted, snoozedUntil:chore.snoozedUntil||null, assignedTo:(chore.assignedTo||[]).slice(), rotationIndex:chore.rotationIndex||0};
   chore.lastCompleted = today;
-  history.unshift({date: today, task: chore.name, by: doneBy.join(' & '), rating: rating||null, notes: note || null, recordedBy: whoAmI});
+  chore.snoozedUntil = null;
+  const entry = {id:'log-'+Date.now(), date: today, task: chore.name, by: doneBy.join(' & '), rating: rating||null, notes: note || null, recordedBy: whoAmI};
+  history.unshift(entry);
+  lastUndo.historyId = entry.id;
+  if(chore.rotationEnabled && chore.rotationMembers && chore.rotationMembers.length>1){
+    const current = Math.max(0, chore.rotationMembers.indexOf(chore.assignedTo[0]));
+    chore.rotationIndex = (current+1) % chore.rotationMembers.length;
+    chore.assignedTo = [chore.rotationMembers[chore.rotationIndex]];
+  }
   await saveChores();
   await saveHistory();
   await syncCompletionToSchedule(chore, today);
   showTab(activeTab);
+  showToast('Marked "'+chore.name+'" done', 'Undo', undoLastCompletion);
+}
+async function undoLastCompletion(){
+  if(!lastUndo) return;
+  const chore = chores.find(function(c){ return c.id===lastUndo.choreId; });
+  if(chore){ chore.lastCompleted=lastUndo.lastCompleted||null; chore.snoozedUntil=lastUndo.snoozedUntil||null; chore.assignedTo=lastUndo.assignedTo.slice(); chore.rotationIndex=lastUndo.rotationIndex; }
+  history = history.filter(function(h){ return h.id!==lastUndo.historyId; });
+  if(chore){
+    for(const link of (chore.links||[])){
+      try{
+        const doc = await scheduleProfileDoc(link.profile,'choreLog').get();
+        const log = (doc.exists && doc.data().json) ? JSON.parse(doc.data().json) : {};
+        delete log[link.scheduleChoreId+':'+todayStr()];
+        await scheduleProfileDoc(link.profile,'choreLog').set({json: JSON.stringify(log)});
+      }catch(e){ console.error('schedule undo failed', e); }
+    }
+  }
+  lastUndo = null;
+  await saveChores(); await saveHistory();
+  showTab(activeTab);
+  showToast('Completion undone');
+}
+function showToast(message, actionLabel, action){
+  const toast = document.getElementById('toast'), btn = document.getElementById('toast-action');
+  document.getElementById('toast-text').textContent = message;
+  btn.style.display = actionLabel ? 'inline' : 'none'; btn.textContent = actionLabel||''; btn.onclick = action||null;
+  toast.classList.add('show');
+  clearTimeout(showToast.timer);
+  showToast.timer = setTimeout(function(){ toast.classList.remove('show'); }, 4200);
+}
+
+/* =====================================================================
+   SNOOZE — push a chore's due date out without marking it done.
+===================================================================== */
+function openSnooze(choreId){
+  snoozeTarget = choreId;
+  const c = chores.find(function(x){ return x.id===choreId; });
+  document.getElementById('snooze-copy').textContent = c ? 'Choose when "'+c.name+'" should return to Today.' : 'Choose when it should return.';
+  document.getElementById('snooze-modal').classList.add('open');
+}
+async function snoozeChore(days){
+  const chore = chores.find(function(c){ return c.id===snoozeTarget; });
+  if(!chore) return;
+  chore.snoozedUntil = addDays(todayStr(), days);
+  await saveChores();
+  document.getElementById('snooze-modal').classList.remove('open');
+  showTab(activeTab);
+  showToast('Moved to '+fmtShort(chore.snoozedUntil));
+}
+
+/* =====================================================================
+   CAN'T DO IT — record a reason, or reassign to someone else.
+===================================================================== */
+function openIssue(choreId){
+  issueTarget = choreId; issueReason = 'Unavailable today'; issueAssignee = null;
+  const c = chores.find(function(x){ return x.id===choreId; });
+  document.getElementById('issue-copy').textContent = c ? 'Why can\'t "'+c.name+'" be completed, and who should receive it?' : 'Choose a reason and a new person.';
+  document.querySelectorAll('[data-issue-reason]').forEach(function(b){ b.classList.toggle('on', b.dataset.issueReason===issueReason); });
+  const people = ['Bhargav','Anusha','Arya'].filter(function(p){ return p!==whoAmI; });
+  document.getElementById('reassign-people').innerHTML = people.map(function(p){ return '<button data-reassign="'+p+'">'+p+'</button>'; }).join('');
+  document.querySelectorAll('[data-reassign]').forEach(function(b){
+    b.onclick = function(){ issueAssignee=b.dataset.reassign; document.querySelectorAll('[data-reassign]').forEach(function(x){ x.classList.toggle('on', x===b); }); };
+  });
+  document.getElementById('issue-modal').classList.add('open');
+}
+async function confirmIssue(){
+  const chore = chores.find(function(c){ return c.id===issueTarget; });
+  if(!chore) return;
+  if(issueReason==='Missing supplies' || issueReason==='Needs repair first'){
+    chore.lastIssue = {reason:issueReason, date:todayStr(), reportedBy:whoAmI};
+    chore.snoozedUntil = addDays(todayStr(),1);
+  } else {
+    if(!issueAssignee){ showToast('Choose who should receive this chore'); return; }
+    chore.assignedTo = [issueAssignee];
+    if(chore.rotationEnabled && chore.rotationMembers){
+      if(chore.rotationMembers.indexOf(issueAssignee)===-1) chore.rotationMembers.push(issueAssignee);
+      chore.rotationIndex = chore.rotationMembers.indexOf(issueAssignee);
+    }
+  }
+  history.unshift({id:'event-'+Date.now(), kind:'reassigned', date:todayStr(), task:chore.name, by:whoAmI, to:issueAssignee||null, reason:issueReason});
+  await saveChores(); await saveHistory();
+  document.getElementById('issue-modal').classList.remove('open');
+  showTab(activeTab);
+  showToast(issueAssignee ? 'Reassigned to '+issueAssignee : 'Issue recorded for tomorrow');
+}
+
+/* =====================================================================
+   SMART PLAN — "I have N minutes, what should I do?"
+===================================================================== */
+function buildSmartPlan(minutes){
+  const due = chores.filter(function(c){ return ['overdue','today'].indexOf(statusFor(c))!==-1; });
+  let pool = due.filter(function(c){ return c.assignedTo.indexOf(whoAmI)!==-1; });
+  if(!pool.length) pool = due.slice();
+  pool.sort(function(a,b){
+    const aScore = (statusFor(a)==='overdue'?100:50) + (a.assignedTo.indexOf(whoAmI)!==-1?20:0) - (a.estimatedMinutes||10)/10;
+    const bScore = (statusFor(b)==='overdue'?100:50) + (b.assignedTo.indexOf(whoAmI)!==-1?20:0) - (b.estimatedMinutes||10)/10;
+    return bScore-aScore;
+  });
+  const picked = []; let used = 0;
+  pool.forEach(function(c){ const m=c.estimatedMinutes||10; if(used+m<=minutes){ picked.push(c); used+=m; } });
+  if(!picked.length && pool.length){
+    const smallest = pool.slice().sort(function(a,b){ return (a.estimatedMinutes||10)-(b.estimatedMinutes||10); })[0];
+    picked.push(smallest); used = smallest.estimatedMinutes||10;
+  }
+  return {tasks:picked, used:used};
+}
+function renderSmartPlan(){
+  const result = buildSmartPlan(smartPlanMinutes), root = document.getElementById('plan-results');
+  root.innerHTML = result.tasks.length
+    ? '<div class="plan-list">'+result.tasks.map(function(c,i){ return '<button class="plan-task" data-plan-open="'+c.id+'" style="width:100%;display:flex;align-items:center;gap:10px;background:var(--surface-alt);border:1px solid var(--border);border-radius:10px;padding:9px 11px;margin-bottom:6px;text-align:left;cursor:pointer;"><span style="flex:none;width:20px;height:20px;border-radius:50%;background:var(--accent);color:#fff;font-size:11px;font-weight:700;display:grid;place-items:center;">'+(i+1)+'</span><span style="flex:1;min-width:0;"><b style="display:block;font-size:12.5px;">'+escapeHtml(c.name)+'</b><small style="color:var(--text-faint);font-size:10.5px;">'+escapeHtml(c.category)+' · '+escapeHtml(c.assignedTo.join(', '))+'</small></span><time style="flex:none;font-size:11px;color:var(--text-soft);">'+(c.estimatedMinutes||10)+' min</time></button>'; }).join('')+'</div><div style="display:flex;justify-content:space-between;font-size:11px;color:var(--text-faint);margin-top:4px;"><span>'+result.tasks.length+' chore'+(result.tasks.length===1?'':'s')+'</span><span>'+result.used+' of '+smartPlanMinutes+' min</span></div>'
+    : '<div class="empty-note">Nothing due for '+escapeHtml(whoAmI)+' right now.</div>';
+  root.querySelectorAll('[data-plan-open]').forEach(function(btn){
+    btn.onclick = function(){ document.getElementById('plan-modal').classList.remove('open'); jumpToChore(btn.dataset.planOpen); };
+  });
+}
+function openSmartPlan(){ document.getElementById('plan-modal').classList.add('open'); renderSmartPlan(); }
+
+/* =====================================================================
+   ROOM HEALTH — quick overdue/due snapshot per category, for Today.
+===================================================================== */
+function roomHealthData(){
+  const cats = ['Kitchen','Bathroom','Laundry','Cleaning','Shopping','Home'];
+  return cats.map(function(name){
+    const items = chores.filter(function(c){ return (c.category||inferCategory(c.name))===name; });
+    const overdue = items.filter(function(c){ return statusFor(c)==='overdue'; }).length;
+    const due = items.filter(function(c){ return statusFor(c)==='today'; }).length;
+    const level = overdue ? 'urgent' : due ? 'due' : 'fresh';
+    const score = overdue ? Math.max(12, 45-overdue*8) : due ? 68 : 94;
+    return {name, count:items.length, level, score, label: overdue ? overdue+' overdue' : due ? due+' due' : 'Fresh'};
+  }).filter(function(x){ return x.count; });
 }
 
 /* =====================================================================
@@ -505,8 +860,9 @@ function computeStats(){
   const today = todayStr();
   const dueToday = chores.filter(function(c){ return statusFor(c)==='today'; }).length;
   const overdue = chores.filter(function(c){ return statusFor(c)==='overdue'; }).length;
-  const last7 = history.filter(function(h){ return h.date >= addDays(today,-6); }).length;
-  return {dueToday, overdue, last7};
+  const last7 = history.filter(function(h){ return h.kind!=='reassigned' && h.date >= addDays(today,-6); }).length;
+  const minutes = chores.filter(function(c){ return ['today','overdue'].indexOf(statusFor(c))!==-1; }).reduce(function(s,c){ return s+(c.estimatedMinutes||10); },0);
+  return {dueToday, overdue, last7, minutes};
 }
 const RATING_SCORE = {good:3, ok:2, poor:1};
 const RATING_META = {
@@ -516,7 +872,7 @@ const RATING_META = {
 };
 function personStats(name){
   const today = todayStr();
-  const mine = history.filter(function(h){ return h.by === name || h.by.indexOf(name) !== -1; });
+  const mine = history.filter(function(h){ return h.kind!=='reassigned' && (h.by === name || h.by.indexOf(name) !== -1); });
   const last30 = mine.filter(function(h){ return h.date >= addDays(today,-29); }).length;
   let streak = 0, cursor = today;
   for(let i=0;i<60;i++){
@@ -554,6 +910,9 @@ function choreRowHtml(chore, showCompleteBtn, showManageIcons){
   const statusLabel = {overdue:'Overdue', today:'Due today', upcoming:'Upcoming', asneeded:'As needed'}[status];
   const nd = nextDueFor(chore);
   const mode = choreMode(chore);
+  const rotationNext = chore.rotationEnabled && chore.rotationMembers && chore.rotationMembers.length>1
+    ? chore.rotationMembers[(Math.max(0, chore.rotationMembers.indexOf(chore.assignedTo[0]))+1) % chore.rotationMembers.length]
+    : null;
   const btnHtml = mode==='self'
     ? '<button class="done-btn" data-quickdone="'+chore.id+'">Mark done</button>'
     : '<button class="done-btn" data-review="'+chore.id+'">Mark done</button>';
@@ -566,14 +925,19 @@ function choreRowHtml(chore, showCompleteBtn, showManageIcons){
       '<div class="cr-meta">'+
         chore.assignedTo.map(function(p){ return '<span class="person-pill '+personClass(p)+'">'+escapeHtml(p)+'</span>'; }).join('')+
         '<span class="status-pill '+status+'">'+statusLabel+(nd && status!=='asneeded' ? ' · '+fmtShort(nd) : '')+'</span>'+
+        '<span class="category-pill">'+escapeHtml(chore.category||inferCategory(chore.name))+'</span>'+
+        '<span class="time-pill">'+(chore.estimatedMinutes||10)+' min</span>'+
+        (chore.rotationEnabled ? '<span class="rotation-tag">↻ Next: '+escapeHtml(rotationNext)+'</span>' : '')+
         '<span class="freq-tag">'+freqLabel(chore)+'</span>'+
         (chore.scheduleSync ? '<span class="freq-tag" title="Only counted as due on days '+chore.scheduleSync.profile+'\'s Schedule actually has a matching block">🔗 Synced to Schedule</span>' : '')+
       '</div>'+
       (chore.notes ? '<div class="cr-note">'+escapeHtml(chore.notes)+'</div>' : '')+
+      ((chore.instructions||chore.supplies) ? '<details class="chore-details"><summary>How to complete</summary><div class="instruction-grid">'+(chore.instructions?'<div class="instruction-box"><b>Steps</b><span>'+escapeHtml(chore.instructions)+'</span></div>':'')+(chore.supplies?'<div class="instruction-box"><b>Supplies</b><span>'+escapeHtml(chore.supplies)+'</span></div>':'')+'</div></details>' : '')+
     '</div>'+
     (showManageIcons ? '<div class="manage-icons">'+manageHtml+'</div>' : '')+
     (showCompleteBtn ? btnHtml : '')+
     '</div>'+
+    (showCompleteBtn ? '<div class="row-secondary-actions">'+(status!=='asneeded'?'<button data-snooze="'+chore.id+'">Move to later</button>':'')+'<button data-issue="'+chore.id+'">Can\'t do it</button></div>' : '')+
     (showManageIcons ? '<div class="edit-panel" id="edit-'+chore.id+'" style="display:none;">'+editFormHtml(chore)+'</div>' : '')+
     (showCompleteBtn && mode!=='self' ? '<div class="review-panel" id="review-'+chore.id+'" style="display:none;">'+reviewPanelHtml(chore, mode)+'</div>' : '')+
     '</div>';
@@ -581,6 +945,7 @@ function choreRowHtml(chore, showCompleteBtn, showManageIcons){
 function editFormHtml(chore){
   const freqType = chore.freqType;
   const daySet = new Set(chore.days||[]);
+  const assignmentSet = new Set(chore.rotationEnabled ? (chore.rotationMembers||[]) : chore.assignedTo);
   return '<div class="af-grid">'+
     '<input type="text" id="edit-name-'+chore.id+'" value="'+escapeHtml(chore.name)+'">'+
     '<div class="f"><label>Frequency</label><select id="edit-freq-'+chore.id+'">'+
@@ -590,13 +955,18 @@ function editFormHtml(chore){
       '<option value="asNeeded" '+(freqType==='asNeeded'?'selected':'')+'>As needed</option>'+
     '</select></div>'+
     '<div class="f" id="edit-n-wrap-'+chore.id+'" style="'+(freqType==='everyNDays'?'':'display:none;')+'"><label>N days</label><input type="number" id="edit-n-'+chore.id+'" value="'+(chore.freqDays||7)+'" min="1"></div>'+
+    '<div class="f"><label>Room</label><select id="edit-category-'+chore.id+'">'+['Kitchen','Bathroom','Laundry','Cleaning','Shopping','Home'].map(function(x){ return '<option '+(x===(chore.category||inferCategory(chore.name))?'selected':'')+'>'+x+'</option>'; }).join('')+'</select></div>'+
+    '<div class="f"><label>Minutes</label><input type="number" id="edit-minutes-'+chore.id+'" value="'+(chore.estimatedMinutes||10)+'" min="1" max="240"></div>'+
     '<div class="day-picker" id="edit-days-wrap-'+chore.id+'" style="'+(freqType==='specificDays'?'':'display:none;')+'">'+
       ['S','M','T','W','T','F','S'].map(function(l,i){ return '<button type="button" class="'+(daySet.has(i)?'on':'')+'" data-editday="'+i+'">'+l+'</button>'; }).join('')+
     '</div>'+
     '<div class="assign-picker">'+
-      ['Bhargav','Anusha','Arya'].map(function(p){ return '<button type="button" class="'+(chore.assignedTo.indexOf(p)!==-1?'on':'')+'" data-editassign="'+p+'">'+p+'</button>'; }).join('')+
+      ['Bhargav','Anusha','Arya'].map(function(p){ return '<button type="button" class="'+(assignmentSet.has(p)?'on':'')+'" data-editassign="'+p+'">'+p+'</button>'; }).join('')+
     '</div>'+
+    '<label style="grid-column:1/-1;font-size:11px;color:var(--text-soft);display:flex;gap:8px;align-items:center"><input type="checkbox" id="edit-rotation-'+chore.id+'" '+(chore.rotationEnabled?'checked':'')+'> Automatically rotate between selected people after completion</label>'+
     '<input type="text" id="edit-notes-'+chore.id+'" value="'+escapeHtml(chore.notes||'')+'" placeholder="Notes (optional)">'+
+    '<textarea id="edit-instructions-'+chore.id+'" rows="3" style="grid-column:1/-1;padding:8px 10px;border:1px solid var(--border);border-radius:8px;background:var(--surface-alt)" placeholder="Completion steps (optional)">'+escapeHtml(chore.instructions||'')+'</textarea>'+
+    '<input type="text" id="edit-supplies-'+chore.id+'" value="'+escapeHtml(chore.supplies||'')+'" placeholder="Supplies needed (optional)">'+
     '<div class="submit-row"><button class="btn-mini primary" data-savechore="'+chore.id+'">Save changes</button><button class="btn-mini ghost" data-canceledit="'+chore.id+'">Cancel</button></div>'+
   '</div>';
 }
@@ -649,8 +1019,20 @@ function attachManageHandlers(el){
       chore.freqType = freqSel.value;
       chore.freqDays = freqSel.value==='everyNDays' ? (Number(panel.querySelector('#edit-n-'+choreId).value)||7) : undefined;
       chore.days = freqSel.value==='specificDays' ? [...panel.querySelectorAll('[data-editday].on')].map(function(b){ return Number(b.dataset.editday); }).sort() : undefined;
-      chore.assignedTo = assigned;
+      const rotationOn = panel.querySelector('#edit-rotation-'+choreId).checked && assigned.length>1;
+      chore.rotationEnabled = rotationOn;
+      if(rotationOn){
+        chore.rotationMembers = assigned.slice();
+        const owner = chore.assignedTo.find(function(p){ return assigned.indexOf(p)!==-1; }) || assigned[0];
+        chore.assignedTo = [owner]; chore.rotationIndex = assigned.indexOf(owner);
+      } else {
+        chore.assignedTo = assigned; chore.rotationMembers = []; chore.rotationIndex = 0;
+      }
+      chore.category = panel.querySelector('#edit-category-'+choreId).value;
+      chore.estimatedMinutes = Math.max(1, Number(panel.querySelector('#edit-minutes-'+choreId).value)||10);
       chore.notes = panel.querySelector('#edit-notes-'+choreId).value.trim() || null;
+      chore.instructions = panel.querySelector('#edit-instructions-'+choreId).value.trim() || null;
+      chore.supplies = panel.querySelector('#edit-supplies-'+choreId).value.trim() || null;
       await saveChores();
       renderAll();
     });
@@ -674,6 +1056,8 @@ function reviewPanelHtml(chore, mode){
     '<div class="rp-actions"><button class="btn-mini primary rp-confirm" data-confirm="'+chore.id+'">Confirm</button><button class="btn-mini ghost rp-cancel" data-cancel="'+chore.id+'">Cancel</button></div>';
 }
 function attachChoreHandlers(el){
+  el.querySelectorAll('[data-snooze]').forEach(function(btn){ btn.addEventListener('click', function(){ openSnooze(btn.dataset.snooze); }); });
+  el.querySelectorAll('[data-issue]').forEach(function(btn){ btn.addEventListener('click', function(){ openIssue(btn.dataset.issue); }); });
   el.querySelectorAll('[data-quickdone]').forEach(function(btn){
     btn.addEventListener('click', async function(){
       const chore = chores.find(function(c){ return c.id===btn.dataset.quickdone; });
@@ -726,16 +1110,40 @@ function renderStatRow(){
   const s = computeStats();
   document.getElementById('stat-row').innerHTML =
     '<div class="stat-card"><div class="sc-label">Due Today</div><div class="sc-value">'+s.dueToday+'</div></div>'+
-    '<div class="stat-card"><div class="sc-label">Overdue</div><div class="sc-value">'+s.overdue+'</div></div>'+
-    '<div class="stat-card"><div class="sc-label">Done, Last 7d</div><div class="sc-value">'+s.last7+'</div></div>';
+    '<div class="stat-card '+(s.overdue?'alert':'')+'"><div class="sc-label">Overdue</div><div class="sc-value">'+s.overdue+'</div></div>'+
+    '<div class="stat-card"><div class="sc-label">Time left</div><div class="sc-value">'+s.minutes+'<small style="font-size:9px;color:var(--text-faint);margin-left:2px;">min</small></div></div>'+
+    '<div class="stat-card"><div class="sc-label">Done, 7d</div><div class="sc-value">'+s.last7+'</div></div>';
 }
 
 function renderToday(){
   const el = document.getElementById('today-view');
   const due = chores.filter(function(c){ return ['overdue','today'].indexOf(statusFor(c)) !== -1; })
     .sort(function(a,b){ return statusFor(a)==='overdue' ? -1 : 1; });
-  el.innerHTML = due.length ? due.map(function(c){ return choreRowHtml(c,true); }).join('') : '<div class="empty-note">Nothing due or overdue right now — nice.</div>';
+  const mine = due.filter(function(c){ return c.assignedTo.indexOf(whoAmI)!==-1; });
+  const next = mine[0] || due[0];
+  const dueMinutes = due.reduce(function(s,c){ return s+(c.estimatedMinutes||10); }, 0);
+  const command = next
+    ? '<div class="command-card"><div class="command-eyebrow">Next best action</div><h2>'+escapeHtml(next.name)+'</h2><p>'+escapeHtml(next.notes||('A '+(next.estimatedMinutes||10)+' minute '+(next.category||'home').toLowerCase()+' task assigned to '+next.assignedTo.join(', ')+'.'))+'</p><div class="command-actions"><button class="command-btn" data-command-open="'+next.id+'">Open chore</button><button class="soft-btn" data-open-plan>Build a plan</button><span class="command-meta">'+(next.estimatedMinutes||10)+' min · '+(statusFor(next)==='overdue'?'overdue':'due today')+'</span></div></div>'
+    : '<div class="command-card"><div class="command-eyebrow">Household reset complete</div><h2>Everything due is handled.</h2><p>Nothing is overdue or due today. The board still keeps upcoming and as-needed work ready.</p><div class="command-actions"><button class="command-btn" data-open-board>View board</button></div></div>';
+  const people = ['Bhargav','Anusha','Arya'];
+  const loads = people.map(function(p){
+    const mins = due.filter(function(c){ return c.assignedTo.indexOf(p)!==-1; }).reduce(function(s,c){ return s+Math.ceil((c.estimatedMinutes||10)/Math.max(1,c.assignedTo.length)); }, 0);
+    return {name:p, minutes:mins};
+  });
+  const maxLoad = Math.max(1, ...loads.map(function(x){ return x.minutes; }));
+  const workload = '<div class="side-card"><h3>Today\'s workload</h3>'+loads.map(function(x){ return '<div class="load-row"><b>'+x.name+'</b><div class="load-track"><div class="load-fill" style="width:'+Math.round(x.minutes/maxLoad*100)+'%"></div></div><span class="load-min">'+x.minutes+'m</span></div>'; }).join('')+'<div class="tip">'+(dueMinutes?'About '+dueMinutes+' minutes of household work remains. Workload is based on shared time, not points.':'No scheduled workload remains today.')+'</div></div>';
+  const rooms = '<div class="side-card"><h3>Room health</h3><div class="room-grid">'+roomHealthData().map(function(r){ return '<button type="button" class="room-health" data-room="'+r.name+'"><b>'+r.name+'</b><span class="health-track"><span class="health-fill health-'+r.level+'" style="display:block;width:'+r.score+'%"></span></span><span class="health-label '+r.level+'">'+r.label+'</span></button>'; }).join('')+'</div></div>';
+  const recentItems = history.filter(function(h){ return h.kind!=='reassigned'; }).slice(0,4);
+  const recent = '<div class="side-card"><h3>Recently completed</h3><div class="mini-list">'+(recentItems.map(function(h){ return '<div class="mini-item"><b>'+escapeHtml(h.task)+'</b><span>'+escapeHtml(h.by)+'</span></div>'; }).join('')||'<div class="empty-note">No completions yet.</div>')+'</div></div>';
+  const list = due.length ? '<div class="section-title"><span>Needs attention</span></div>'+due.map(function(c){ return choreRowHtml(c,true); }).join('') : '<div class="empty-note">Nothing due or overdue right now — nice.</div>';
+  const planner = '<div class="smart-plan-strip"><div><b>Only have a few minutes?</b><span>Build the best plan for the time you have instead of choosing manually.</span></div><button class="btn-mini primary" data-open-plan>Plan my time</button></div>';
+  el.innerHTML = command+planner+'<div class="dashboard-grid"><div>'+list+'</div><div>'+rooms+workload+recent+'</div></div>';
   attachChoreHandlers(el);
+  el.querySelectorAll('[data-open-board]').forEach(function(btn){ btn.onclick = function(){ showTab('all'); }; });
+  el.querySelectorAll('[data-open-plan]').forEach(function(btn){ btn.onclick = openSmartPlan; });
+  el.querySelectorAll('[data-room]').forEach(function(btn){ btn.onclick = function(){ boardFilter = btn.dataset.room; showTab('all'); }; });
+  const commandBtn = el.querySelector('[data-command-open]');
+  if(commandBtn) commandBtn.onclick = function(){ jumpToChore(commandBtn.dataset.commandOpen); };
 }
 
 function renderLinksSection(){
@@ -776,14 +1184,31 @@ function attachLinkHandlers(el){
 function renderAll(){
   const el = document.getElementById('all-view');
   const order = {overdue:0, today:1, upcoming:2, asneeded:3};
-  const sorted = chores.slice().sort(function(a,b){ return order[statusFor(a)]-order[statusFor(b)]; });
+  const sorted = chores.filter(function(c){
+    const q = boardQuery.toLowerCase();
+    const searchOk = !q || (c.name+' '+(c.notes||'')+' '+(c.category||'')+' '+(c.instructions||'')+' '+(c.supplies||'')).toLowerCase().indexOf(q)!==-1;
+    const filterOk = boardFilter==='all' || (boardFilter==='mine' && c.assignedTo.indexOf(whoAmI)!==-1) || c.category===boardFilter || statusFor(c)===boardFilter;
+    return searchOk && filterOk;
+  }).sort(function(a,b){ return order[statusFor(a)]-order[statusFor(b)] || a.name.localeCompare(b.name); });
+  const groups = ['overdue','today','upcoming','asneeded'];
+  const groupLabels = {overdue:'Overdue', today:'Due today', upcoming:'Upcoming', asneeded:'As needed'};
+  const rows = groups.map(function(g){
+    const items = sorted.filter(function(c){ return statusFor(c)===g; });
+    return items.length ? '<div class="board-heading">'+groupLabels[g]+'<span class="board-count">'+items.length+'</span></div>'+items.map(function(c){ return choreRowHtml(c,true,true); }).join('') : '';
+  }).join('');
+  const filters = ['all','mine','Kitchen','Bathroom','Laundry','Cleaning','Shopping','Home'];
   el.innerHTML =
-    renderLinksSection()+
+    '<div class="board-toolbar"><input class="searchbox" id="board-search" value="'+escapeHtml(boardQuery)+'" placeholder="Search chores, rooms or notes…">'+filters.map(function(f){ return '<button class="filter-chip '+(boardFilter===f?'on':'')+'" data-board-filter="'+f+'">'+(f==='all'?'All':f==='mine'?'My chores':f)+'</button>'; }).join('')+'</div>'+
+    '<div class="section-title"><span>Chore board · '+sorted.length+' of '+chores.length+' shown</span><button class="section-link" id="toggle-links-btn">Schedule links</button></div>'+
+    '<div id="schedule-links-wrap" style="display:none">'+renderLinksSection()+'</div>'+
     '<div class="add-toggle-bar"><button class="btn-mini '+(showAddForm?'ghost':'primary')+'" id="toggle-add-btn">'+(showAddForm?'Cancel':'+ Add a chore')+'</button></div>'+
     (showAddForm ? addFormHtml() : '')+
-    sorted.map(function(c){ return choreRowHtml(c,true,true); }).join('');
+    (rows || '<div class="empty-note">No chores match this filter.</div>');
 
   document.getElementById('toggle-add-btn').addEventListener('click', function(){ showAddForm = !showAddForm; renderAll(); });
+  document.getElementById('toggle-links-btn').addEventListener('click', function(){ const box=document.getElementById('schedule-links-wrap'); box.style.display = box.style.display==='none' ? 'block' : 'none'; });
+  document.getElementById('board-search').addEventListener('input', function(e){ boardQuery = e.target.value; clearTimeout(renderAll.searchTimer); renderAll.searchTimer = setTimeout(renderAll, 160); });
+  el.querySelectorAll('[data-board-filter]').forEach(function(btn){ btn.onclick = function(){ boardFilter = btn.dataset.boardFilter; renderAll(); }; });
   attachChoreHandlers(el);
   attachLinkHandlers(el);
   attachManageHandlers(el);
@@ -800,13 +1225,18 @@ function addFormHtml(){
       '<option value="asNeeded">As needed</option>'+
     '</select></div>'+
     '<div class="f" id="freq-n-wrap"><label>N days</label><input type="number" id="new-chore-n" value="7" min="1"></div>'+
+    '<div class="f"><label>Room</label><select id="new-chore-category">'+['Kitchen','Bathroom','Laundry','Cleaning','Shopping','Home'].map(function(x){ return '<option>'+x+'</option>'; }).join('')+'</select></div>'+
+    '<div class="f"><label>Minutes</label><input type="number" id="new-chore-minutes" value="10" min="1" max="240"></div>'+
     '<div class="day-picker" id="freq-days-wrap" style="display:none;">'+
       ['S','M','T','W','T','F','S'].map(function(l,i){ return '<button type="button" data-day="'+i+'">'+l+'</button>'; }).join('')+
     '</div>'+
     '<div class="assign-picker">'+
       ['Bhargav','Anusha','Arya'].map(function(p){ return '<button type="button" data-assign="'+p+'">'+p+'</button>'; }).join('')+
     '</div>'+
+    '<label style="grid-column:1/-1;font-size:11px;color:var(--text-soft);display:flex;gap:8px;align-items:center"><input type="checkbox" id="new-chore-rotation"> Automatically rotate between selected people after completion</label>'+
     '<input type="text" id="new-chore-notes" placeholder="Notes (optional)">'+
+    '<textarea id="new-chore-instructions" rows="3" style="grid-column:1/-1;padding:8px 10px;border:1px solid var(--border);border-radius:8px;background:var(--surface-alt)" placeholder="Completion steps (optional)"></textarea>'+
+    '<input type="text" id="new-chore-supplies" placeholder="Supplies needed (optional)">'+
     '<div class="submit-row"><button class="btn-mini primary" id="save-chore-btn">Add chore</button></div>'+
   '</div></div>';
 }
@@ -841,13 +1271,22 @@ function wireAddForm(root){
       return;
     }
     const freqType = freqSel.value;
+    const rotate = root.querySelector('#new-chore-rotation').checked && assignSet.size>1;
+    const selected = [...assignSet];
     const newChore = {
       id: 'chore-'+Date.now(), name: name, freqType: freqType,
       freqDays: freqType==='everyNDays' ? Number(root.querySelector('#new-chore-n').value)||7 : undefined,
       days: freqType==='specificDays' ? [...daySet].sort() : undefined,
-      assignedTo: [...assignSet],
+      assignedTo: rotate ? [selected[0]] : selected,
+      rotationEnabled: rotate,
+      rotationMembers: rotate ? selected : [],
+      rotationIndex: 0,
       lastCompleted: null,
-      notes: root.querySelector('#new-chore-notes').value.trim() || null
+      category: root.querySelector('#new-chore-category').value,
+      estimatedMinutes: Math.max(1, Number(root.querySelector('#new-chore-minutes').value)||10),
+      notes: root.querySelector('#new-chore-notes').value.trim() || null,
+      instructions: root.querySelector('#new-chore-instructions').value.trim() || null,
+      supplies: root.querySelector('#new-chore-supplies').value.trim() || null
     };
     chores.push(newChore);
     await saveChores();
@@ -859,6 +1298,10 @@ function wireAddForm(root){
 function renderHistory(){
   const el = document.getElementById('history-view');
   const people = ['Bhargav','Anusha','Arya'];
+  const today = todayStr(), last30 = history.filter(function(h){ return h.kind!=='reassigned' && h.date>=addDays(today,-29); });
+  const rated = last30.filter(function(h){ return h.rating; });
+  const good = rated.filter(function(h){ return h.rating==='good'; }).length;
+  const summary = '<div class="perf-card"><h3>Household pulse</h3><div class="summary-strip"><div class="summary-box"><b>'+last30.length+'</b><span>completed in 30 days</span></div><div class="summary-box"><b>'+chores.filter(function(c){ return statusFor(c)==='overdue'; }).length+'</b><span>currently overdue</span></div><div class="summary-box"><b>'+(rated.length?Math.round(good/rated.length*100):'—')+(rated.length?'%':'')+'</b><span>rated good</span></div></div><div class="tip">Insights are meant to reveal workload and recurring friction — not turn home care into a competition.</div></div>';
   const perfHtml = '<div class="perf-card"><h3>Performance</h3>'+
     people.map(function(p){
       const s = personStats(p);
@@ -876,6 +1319,7 @@ function renderHistory(){
 
   const logHtml = '<div class="perf-card"><h3>Completion log</h3>'+
     (history.length ? history.slice(0,60).map(function(h){
+      if(h.kind==='reassigned') return '<div class="history-row-wrap"><div class="history-row"><span class="hr-date">'+fmtShort(h.date)+'</span><span class="hr-task">'+escapeHtml(h.task)+'</span><span class="status-pill upcoming">Reassigned</span></div><div class="hr-recorded">'+escapeHtml(h.reason||'Reassigned')+(h.to?' · moved to '+escapeHtml(h.to):'')+' · reported by '+escapeHtml(h.by)+'</div></div>';
       const ratingBadge = h.rating ? '<span class="rating-chip" style="color:'+RATING_META[h.rating].color+';">'+RATING_META[h.rating].emoji+'</span>' : '';
       const recordedNote = h.recordedBy && h.recordedBy!==h.by ? '<div class="hr-recorded">recorded by '+escapeHtml(h.recordedBy)+'</div>' : '';
       return '<div class="history-row-wrap"><div class="history-row"><span class="hr-date">'+fmtShort(h.date)+'</span><span class="hr-task">'+escapeHtml(h.task)+ratingBadge+'</span><span class="person-pill '+personClass(h.by.split(' ')[0])+'">'+escapeHtml(h.by)+'</span></div>'+
@@ -883,7 +1327,43 @@ function renderHistory(){
     }).join('') : '<div class="empty-note">Nothing logged yet.</div>')+
   '</div>';
 
-  el.innerHTML = perfHtml + logHtml;
+  el.innerHTML = summary + perfHtml + logHtml;
+}
+
+/* =====================================================================
+   BACKUP / EXPORT / IMPORT / RESET
+===================================================================== */
+function exportBackup(){
+  const payload = {app:'IronLog Chores', version:3, exportedAt:new Date().toISOString(), chores:chores, history:history};
+  const blob = new Blob([JSON.stringify(payload,null,2)], {type:'application/json'}), url = URL.createObjectURL(blob), a = document.createElement('a');
+  a.href = url; a.download = 'ironlog-chores-backup-'+todayStr()+'.json'; a.click();
+  setTimeout(function(){ URL.revokeObjectURL(url); }, 1000);
+  showToast('Backup exported');
+}
+function importBackup(file){
+  if(!file) return;
+  const reader = new FileReader();
+  reader.onload = async function(){
+    try{
+      const data = JSON.parse(reader.result);
+      if(!Array.isArray(data.chores) || !Array.isArray(data.history)) throw new Error('Invalid backup');
+      chores = data.chores.map(normalizeChore); history = data.history;
+      await saveChores(); await saveHistory();
+      document.getElementById('backup-modal').classList.remove('open');
+      showTab(activeTab);
+      showToast('Backup restored');
+    }catch(e){ alert('This is not a valid IronLog Chores backup.'); }
+  };
+  reader.readAsText(file);
+}
+async function resetDemo(){
+  if(!confirm('Reset Chores back to the original household data? Current data for everyone will be replaced.')) return;
+  chores = JSON.parse(JSON.stringify(CHORES_SEED)).map(normalizeChore);
+  history = JSON.parse(JSON.stringify(HISTORY_SEED));
+  await saveChores(); await saveHistory();
+  document.getElementById('backup-modal').classList.remove('open');
+  showTab('today');
+  showToast('Data reset');
 }
 
 /* =====================================================================
@@ -895,7 +1375,7 @@ async function init(){
   // check off are attributed to that person automatically.
   const params = new URLSearchParams(window.location.search);
   const hubProfile = params.get('profile');
-  if(hubProfile === 'Bhargav' || hubProfile === 'Anusha'){
+  if(['Bhargav','Anusha','Arya'].indexOf(hubProfile)!==-1){
     whoAmI = hubProfile;
     try{ localStorage.setItem(WHO_KEY, whoAmI); }catch(e){}
   } else {
@@ -905,6 +1385,23 @@ async function init(){
   document.getElementById('tab-today-btn').onclick = function(){ showTab('today'); };
   document.getElementById('tab-all-btn').onclick = function(){ showTab('all'); };
   document.getElementById('tab-history-btn').onclick = function(){ showTab('history'); };
+  document.getElementById('smart-plan-btn').onclick = openSmartPlan;
+  document.getElementById('backup-btn').onclick = function(){ document.getElementById('backup-modal').classList.add('open'); };
+  document.getElementById('backup-close').onclick = function(){ document.getElementById('backup-modal').classList.remove('open'); };
+  document.getElementById('snooze-close').onclick = function(){ document.getElementById('snooze-modal').classList.remove('open'); };
+  document.getElementById('plan-close').onclick = function(){ document.getElementById('plan-modal').classList.remove('open'); };
+  document.getElementById('issue-close').onclick = function(){ document.getElementById('issue-modal').classList.remove('open'); };
+  document.querySelectorAll('[data-snooze-days]').forEach(function(btn){ btn.onclick = function(){ snoozeChore(Number(btn.dataset.snoozeDays)); }; });
+  document.querySelectorAll('[data-plan-minutes]').forEach(function(btn){ btn.onclick = function(){ smartPlanMinutes = Number(btn.dataset.planMinutes); document.querySelectorAll('[data-plan-minutes]').forEach(function(x){ x.classList.toggle('on', x===btn); }); renderSmartPlan(); }; });
+  document.querySelectorAll('[data-issue-reason]').forEach(function(btn){ btn.onclick = function(){ issueReason = btn.dataset.issueReason; document.querySelectorAll('[data-issue-reason]').forEach(function(x){ x.classList.toggle('on', x===btn); }); }; });
+  document.getElementById('issue-confirm').onclick = confirmIssue;
+  document.getElementById('export-btn').onclick = exportBackup;
+  document.getElementById('import-btn').onclick = function(){ document.getElementById('import-file').click(); };
+  document.getElementById('import-file').onchange = function(e){ importBackup(e.target.files[0]); e.target.value=''; };
+  document.getElementById('reset-btn').onclick = resetDemo;
+  ['snooze-modal','backup-modal','plan-modal','issue-modal'].forEach(function(id){
+    document.getElementById(id).addEventListener('click', function(e){ if(e.target.id===id) e.currentTarget.classList.remove('open'); });
+  });
 
   await loadAll();
   // Both of these are independent of each other — only loadAll (the
