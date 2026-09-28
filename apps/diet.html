@@ -848,6 +848,7 @@ function openNewFoodFromUniversal(){closeUniversalLog();openFoodModal()}
       if(!state.profiles||!state.recipes||!state.meals)state=makeFinalState();
       if(state.version!==5)migratePlanV5();
       if(state.featureVersion!==1)migrateFeatures();
+      if(state.featureVersion2!==1)migrateFeatures2();
       ensurePantry();
       if(typeof ensurePurchases==='function')ensurePurchases();
       linkBuiltInGroceryProducts();
