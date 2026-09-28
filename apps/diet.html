@@ -620,6 +620,7 @@ function openNewFoodFromUniversal(){closeUniversalLog();openFoodModal()}
   // no more "step the status down one notch"; the real quantity moves.
   const UNIT_TO_BASE_G={g:1,kg:1000,oz:28.3495,lb:453.592,ml:1,l:1000,gallon:3785.41,piece:1};
   function pantryStatus(onHand,fullQty){const ratio=fullQty>0?Math.max(0,(onHand||0))/fullQty:0;if(ratio<=0)return'finished';if(ratio<=0.15)return'low';if(ratio<=0.4)return'25';if(ratio<=0.65)return'half';if(ratio<=0.9)return'75';return'full'}
+  function pantryFull(onHand,pkgQty){pkgQty=pkgQty||1;return Math.max(pkgQty,Math.ceil(Math.max(0,onHand||0)/pkgQty)*pkgQty)}
   const UNIT_BASE_KIND_G={g:'g',kg:'g',oz:'g',lb:'g',ml:'ml',l:'ml',gallon:'ml',piece:'piece'};
   function dietQtyToPurchaseUnit(dietUnit,dietQty,groceryProduct){
     if(!groceryProduct) return null;
@@ -678,7 +679,7 @@ function openNewFoodFromUniversal(){closeUniversalLog();openFoodModal()}
         consumed=(p.purchaseQty||1)*0.15;
       }
       inv.onHand=Math.max(0,(inv.onHand||0)-consumed);
-      inv.status=pantryStatus(inv.onHand,p.purchaseQty||1);
+      inv.status=pantryStatus(inv.onHand,pantryFull(inv.onHand,p.purchaseQty||1));
       if(inv.status==='low' || inv.status==='finished'){
         const week = gstate.weeks && gstate.weeks[gstate.activeWeek];
         const alreadyOnList = week && week.items.some(function(i){ return i.productId===pid && (i.purchasedQty||0) < (i.plannedQty||0); });
@@ -774,11 +775,12 @@ function openNewFoodFromUniversal(){closeUniversalLog();openFoodModal()}
     if(gstate&&gstate.products&&gstate.products.length){
       gstate.products.slice().sort((a,b)=>{
         const ia=gstate.inventory&&gstate.inventory[a.id],ib=gstate.inventory&&gstate.inventory[b.id];
-        const ra=(ia?ia.onHand:0)/(a.purchaseQty||1),rb=(ib?ib.onHand:0)/(b.purchaseQty||1);
+        const oa=(ia?ia.onHand:0)||0,ob=(ib?ib.onHand:0)||0;
+        const ra=oa/pantryFull(oa,a.purchaseQty||1),rb=ob/pantryFull(ob,b.purchaseQty||1);
         return ra-rb;
       }).forEach(p=>{
         const inv=(gstate.inventory&&gstate.inventory[p.id])||{onHand:0};
-        const full=p.purchaseQty||1,pct=Math.max(0,Math.min(100,(inv.onHand||0)/full*100)),low=pct<=20,color=low?'var(--red)':pct<40?'var(--orange)':'var(--green)';
+        const full=pantryFull(inv.onHand||0,p.purchaseQty||1),pct=Math.max(0,Math.min(100,(inv.onHand||0)/full*100)),low=pct<=20,color=low?'var(--red)':pct<40?'var(--orange)':'var(--green)';
         const st=(typeof pantryStatus==='function')?pantryStatus(inv.onHand||0,full):'';
         const stLabel={full:'Full','75':'75%',half:'Half','25':'25%',low:'Low',finished:'Finished'}[st]||'';
         let linkedNames=(state.foods||[]).filter(f=>f.groceryProductId===p.id).map(f=>f.name).join(', ');
@@ -803,7 +805,7 @@ function openNewFoodFromUniversal(){closeUniversalLog();openFoodModal()}
     if(val===null)return;
     const n=Number(val);
     if(!(n>=0))return toast('Enter a valid amount');
-    inv.onHand=n;inv.status=pantryStatus(n,p.purchaseQty||1);
+    inv.onHand=n;inv.status=pantryStatus(n,pantryFull(n,p.purchaseQty||1));
     try{
       await groceryDocRef('modernState').set({json:JSON.stringify(gstate)},{merge:true});
       await groceryDocRef('inventory').set({json:JSON.stringify(gstate.inventory)},{merge:true});
