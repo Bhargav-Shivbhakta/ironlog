@@ -1938,11 +1938,23 @@ function renderDailyRoutineHtml(dateStr){
   `;
 }
 
+// Known destinations for the generic block-link picker, plus a "Custom
+// link…" option (free-typed URL) offered alongside these in the select.
+const BLOCK_LINK_APPS = [
+  {key:'gym', label:'Gym', url:'../gym/index.html'},
+  {key:'diet', label:'Diet', url:'diet.html'},
+  {key:'chores', label:'Household Chores', url:'chores.html'},
+  {key:'todo', label:'To-Do', url:'todo.html'},
+  {key:'skin', label:'Skincare', url:'skin.html'},
+  {key:'grocery', label:'Grocery', url:'grocery.html'}
+];
+
 // The expanded view under a clicked block: whatever chores/to-dos/
 // skincare steps/diet meals are actually linked to it for this exact
 // day, each as a tickable checkbox where that makes sense, plus the
 // link pickers for skincare/diet (chores/to-dos are linked from their
-// own apps' own pickers, so there's nothing to set here for those two).
+// own apps' own pickers, so there's nothing to set here for those two),
+// and a generic app-or-URL link any block can carry.
 function renderBlockExpandPanel(dateStr, tKey, idx, b){
   const linkedChores = choresLinkedToBlock(b.activity);
   const choresHtml = linkedChores.length
@@ -1950,14 +1962,14 @@ function renderBlockExpandPanel(dateStr, tKey, idx, b){
         const overdue = hcStatusFor(c)==='overdue';
         return '<div class="rb-link-row"><label><input type="checkbox" data-hchoreid="'+c.id+'"> <span>🧹 '+escapeHtml(c.name)+(overdue?' <span style="color:var(--danger);font-weight:700;">overdue</span>':'')+'</span></label></div>';
       }).join('')
-    : '<div class="rb-link-empty">No chores linked to this block. Attach one from Household Chores → edit a chore → Attach to Schedule.</div>';
+    : '';
 
   const linkedTasks = linkedTasksForBlock(tKey, b.activity);
   const todosHtml = linkedTasks.length
     ? linkedTasks.map(function(t){
         return '<div class="rb-link-row"><label><input type="checkbox" data-blocktodo="'+t.id+'" '+(t.done?'checked':'')+'> <span class="'+(t.done?'strike':'')+'">📋 '+escapeHtml(t.title)+'</span></label></div>';
       }).join('')
-    : '<div class="rb-link-empty">No to-dos linked to this block. Attach one from To-Do → edit a task → link it to a schedule block.</div>';
+    : '';
 
   const skinSections = skinSectionsForProfile(activeProfile);
   const linkedSkin = Array.isArray(b.linkedSkin) ? b.linkedSkin : [];
@@ -1992,14 +2004,41 @@ function renderBlockExpandPanel(dateStr, tKey, idx, b){
           }
           return '<div class="rb-diet-info">🍽️ <span class="rb-diet-name">'+escapeHtml(m.name||m.slot||'Meal')+'</span> — planned'+(m.time?' for '+escapeHtml(m.time):'')+', not logged yet today. <a class="rb-linked-task" href="diet.html?profile='+encodeURIComponent(activeProfile)+'" onclick="event.stopPropagation()">Open Diet</a></div>';
         }).join('')
-      : '<div class="rb-link-empty">No meals linked to this block. Attach one from Diet → edit a meal → Attach to Schedule.</div>');
+      : '');
+
+  // GYM — simple link, not a full attach/match system like diet: any
+  // block whose activity text says "gym" (but isn't just travel-to-gym)
+  // gets a one-line "Open Gym" link through to the gym app.
+  const isGymBlock = /gym/i.test(b.activity) && !/travel/i.test(b.activity);
+  const gymHtml = isGymBlock
+    ? '<div class="rb-diet-info">🏋️ <a class="rb-linked-task" href="../gym/index.html" onclick="event.stopPropagation()">Open Gym</a></div>'
+    : '';
+
+  // GENERIC BLOCK LINK — any block can carry its own link, either to one
+  // of the other apps in the suite or to a custom pasted URL. Set/changed
+  // from the picker right here; b.link is {appKey, url, label}.
+  const blockLink = (b.link && b.link.url) ? b.link : null;
+  const blockLinkDisplay = blockLink
+    ? '<div class="rb-diet-info">🔗 <a class="rb-linked-task" href="'+escapeHtml(blockLink.url)+'" onclick="event.stopPropagation()">Open '+escapeHtml(blockLink.label||'link')+'</a></div>'
+    : '';
+  const linkAppKey = blockLink ? (blockLink.appKey||'custom') : '';
+  const linkPickerHtml = '<div class="rb-link-picker">'+
+      '<select data-blocklinkapp data-tplkey="'+tKey+'" data-tplidx="'+idx+'">'+
+        '<option value="">No link</option>'+
+        BLOCK_LINK_APPS.map(function(a){ return '<option value="'+a.key+'" '+(linkAppKey===a.key?'selected':'')+'>'+escapeHtml(a.label)+'</option>'; }).join('')+
+        '<option value="custom" '+(linkAppKey==='custom'?'selected':'')+'>Custom link…</option>'+
+      '</select>'+
+      '<input type="text" class="rb-link-custom-input" data-blocklinkurl data-tplkey="'+tKey+'" data-tplidx="'+idx+'" placeholder="Paste a URL" value="'+escapeHtml(linkAppKey==='custom'&&blockLink?blockLink.url:'')+'" style="margin-top:6px;width:100%;box-sizing:border-box;'+(linkAppKey==='custom'?'':'display:none;')+'">'+
+    '</div>';
 
   return ''+
-    '<div class="rb-link-section"><div class="rb-link-section-title">Chores</div>'+choresHtml+'</div>'+
-    '<div class="rb-link-section"><div class="rb-link-section-title">To-dos</div>'+todosHtml+'</div>'+
+    (choresHtml ? '<div class="rb-link-section"><div class="rb-link-section-title">Chores</div>'+choresHtml+'</div>' : '')+
+    (todosHtml ? '<div class="rb-link-section"><div class="rb-link-section-title">To-dos</div>'+todosHtml+'</div>' : '')+
     skinChecklistHtml+
     '<div class="rb-link-section"><div class="rb-link-section-title">Skincare — link this block</div>'+skinPickerHtml+'</div>'+
-    '<div class="rb-link-section"><div class="rb-link-section-title">Diet</div>'+dietHtml+'</div>';
+    (dietHtml ? '<div class="rb-link-section"><div class="rb-link-section-title">Diet</div>'+dietHtml+'</div>' : '')+
+    (gymHtml ? '<div class="rb-link-section"><div class="rb-link-section-title">Gym</div>'+gymHtml+'</div>' : '')+
+    '<div class="rb-link-section"><div class="rb-link-section-title">Link — attach an app or a URL</div>'+blockLinkDisplay+linkPickerHtml+'</div>';
 }
 
 function attachRoutineHandlers(wrap, dateStr){
@@ -2079,17 +2118,77 @@ function attachRoutineHandlers(wrap, dateStr){
       if(activeView==='today') renderToday(); else renderWeek();
     });
   });
+  wrap.querySelectorAll('[data-blocklinkapp]').forEach(sel=>{
+    sel.addEventListener('change', async e=>{
+      const tplKey = e.target.dataset.tplkey, idx = Number(e.target.dataset.tplidx);
+      const block = dayTemplates[tplKey] && dayTemplates[tplKey][idx];
+      if(!block) return;
+      const val = e.target.value;
+      if(!val){
+        delete block.link;
+      } else if(val==='custom'){
+        const customInput = wrap.querySelector('[data-blocklinkurl][data-tplkey="'+tplKey+'"][data-tplidx="'+idx+'"]');
+        block.link = {appKey:'custom', url:(customInput?customInput.value.trim():''), label:'link'};
+        if(customInput) customInput.style.display='';
+        if(!block.link.url) return; // wait for a URL before saving/re-rendering
+      } else {
+        const app = BLOCK_LINK_APPS.find(function(a){ return a.key===val; });
+        block.link = app ? {appKey:app.key, url:app.url, label:app.label} : null;
+        if(!block.link) delete block.link;
+      }
+      await saveDayTemplates();
+      if(activeView==='today') renderToday(); else renderWeek();
+    });
+  });
+  wrap.querySelectorAll('[data-blocklinkurl]').forEach(inp=>{
+    inp.addEventListener('change', async e=>{
+      const tplKey = e.target.dataset.tplkey, idx = Number(e.target.dataset.tplidx);
+      const block = dayTemplates[tplKey] && dayTemplates[tplKey][idx];
+      if(!block) return;
+      const url = e.target.value.trim();
+      if(!url){ delete block.link; }
+      else { block.link = {appKey:'custom', url:url, label:'link'}; }
+      await saveDayTemplates();
+      if(activeView==='today') renderToday(); else renderWeek();
+    });
+  });
 }
 
+// The link-picker markup shared by each block row in the daily-routine
+// editor — same BLOCK_LINK_APPS list + custom-URL option the block
+// expand panel uses, so a block's link can be set at creation time too.
+function teLinkFieldHtml(b){
+  const link = (b && b.link && b.link.url) ? b.link : null;
+  const appKey = link ? (link.appKey||'custom') : '';
+  return '<select class="te-link-app" title="Attach an app or link">'+
+      '<option value="">No link</option>'+
+      BLOCK_LINK_APPS.map(function(a){ return '<option value="'+a.key+'" '+(appKey===a.key?'selected':'')+'>'+escapeHtml(a.label)+'</option>'; }).join('')+
+      '<option value="custom" '+(appKey==='custom'?'selected':'')+'>Custom link…</option>'+
+    '</select>'+
+    '<input type="text" class="te-link-url" placeholder="Paste a URL" value="'+escapeHtml(appKey==='custom'&&link?link.url:'')+'" style="'+(appKey==='custom'?'':'display:none;')+'">';
+}
+function wireTeLinkRow(row){
+  const sel = row.querySelector('.te-link-app');
+  const urlInput = row.querySelector('.te-link-url');
+  if(sel && urlInput){
+    sel.addEventListener('change', ()=>{ urlInput.style.display = sel.value==='custom' ? '' : 'none'; });
+  }
+}
 function renderTemplateEditor(mountId){
   const mount = document.getElementById(mountId);
+  // Kept so Save can merge form values back onto each block's existing
+  // fields (linkedSkin, etc.) instead of rebuilding bare {start,end,
+  // activity} objects and silently dropping everything else.
+  const origBlocksByKey = {};
   const groupsHtml = TEMPLATE_KEYS.map(key=>{
     const blocks = dayTemplates[key] || [];
+    origBlocksByKey[key] = blocks;
     const rows = blocks.map((b,i)=>
-      '<div class="te-block-row" data-key="'+key+'" data-idx="'+i+'">'+
+      '<div class="te-block-row" data-key="'+key+'" data-idx="'+i+'" data-origidx="'+i+'">'+
         '<input type="time" class="te-start" value="'+b.start+'">'+
         '<input type="time" class="te-end" value="'+b.end+'">'+
         '<input type="text" class="te-activity" value="'+escapeHtml(b.activity)+'">'+
+        teLinkFieldHtml(b)+
         '<button type="button" class="te-del">✕</button>'+
       '</div>'
     ).join('');
@@ -2101,6 +2200,7 @@ function renderTemplateEditor(mountId){
     '<div class="ff-actions" style="margin-top:8px;"><button class="btn primary" id="te-save">Save routine</button><button class="btn ghost" id="te-cancel">Close</button></div></div>';
   mount.scrollIntoView({behavior:'smooth', block:'center'});
 
+  mount.querySelectorAll('.te-block-row').forEach(wireTeLinkRow);
   mount.querySelectorAll('.te-del').forEach(btn=>{
     btn.addEventListener('click', ()=>{ btn.closest('.te-block-row').remove(); });
   });
@@ -2111,8 +2211,9 @@ function renderTemplateEditor(mountId){
       const row = document.createElement('div');
       row.className = 'te-block-row';
       row.dataset.key = key;
-      row.innerHTML = '<input type="time" class="te-start" value="09:00"><input type="time" class="te-end" value="09:30"><input type="text" class="te-activity" placeholder="Activity"><button type="button" class="te-del">✕</button>';
+      row.innerHTML = '<input type="time" class="te-start" value="09:00"><input type="time" class="te-end" value="09:30"><input type="text" class="te-activity" placeholder="Activity">'+teLinkFieldHtml(null)+'<button type="button" class="te-del">✕</button>';
       row.querySelector('.te-del').addEventListener('click', ()=> row.remove());
+      wireTeLinkRow(row);
       rowsWrap.appendChild(row);
     });
   });
@@ -2125,7 +2226,25 @@ function renderTemplateEditor(mountId){
       rowsWrap.querySelectorAll('.te-block-row').forEach(row=>{
         const activity = row.querySelector('.te-activity').value.trim();
         if(!activity) return;
-        blocks.push({ start: row.querySelector('.te-start').value, end: row.querySelector('.te-end').value, activity });
+        const origIdx = row.dataset.origidx;
+        const orig = (origIdx!==undefined && origIdx!=='' && origBlocksByKey[key] && origBlocksByKey[key][Number(origIdx)]) ? origBlocksByKey[key][Number(origIdx)] : null;
+        const block = orig ? Object.assign({}, orig) : {};
+        block.start = row.querySelector('.te-start').value;
+        block.end = row.querySelector('.te-end').value;
+        block.activity = activity;
+        const linkSel = row.querySelector('.te-link-app');
+        const linkUrlInput = row.querySelector('.te-link-url');
+        const linkVal = linkSel ? linkSel.value : '';
+        if(!linkVal){
+          delete block.link;
+        } else if(linkVal==='custom'){
+          const url = linkUrlInput ? linkUrlInput.value.trim() : '';
+          if(url) block.link = {appKey:'custom', url:url, label:'link'}; else delete block.link;
+        } else {
+          const app = BLOCK_LINK_APPS.find(function(a){ return a.key===linkVal; });
+          if(app) block.link = {appKey:app.key, url:app.url, label:app.label}; else delete block.link;
+        }
+        blocks.push(block);
       });
       newTemplates[key] = blocks;
     });
