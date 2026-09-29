@@ -459,6 +459,11 @@
   .sbp-block-label{flex:1;}
   .sbp-block-day{font-size:10px;font-weight:700;color:var(--text-faint);text-transform:uppercase;width:28px;flex:none;}
   .sbp-block-time{color:var(--text-faint);font-size:11px;flex:none;}
+  .sbp-block-chk{flex:none;pointer-events:none;}
+  .sbp-chips{display:flex;flex-wrap:wrap;gap:5px;margin-top:6px;}
+  .sbp-chip{display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:600;padding:3px 8px;border-radius:999px;background:var(--accent-soft,rgba(91,108,255,.1));color:var(--accent-ink,var(--gold));}
+  .sbp-chip-remove{background:none;border:none;cursor:pointer;color:inherit;font-size:11px;padding:0;line-height:1;opacity:0.7;}
+  .sbp-chip-remove:hover{opacity:1;}
 
   .empty-note{color:var(--text-faint);font-size:13.5px;padding:22px 6px;text-align:center;}
 
@@ -701,52 +706,76 @@ const SCHEDULE_WEEKDAY_ORDER = ['Monday','Tuesday','Wednesday','Thursday','Frida
 /* ---- Schedule-block picker: trigger button + searchable, collapsible-by-day panel ----
    Replaces a single flat <select> (every block from every day in one long
    list) with a compact control: closed by default showing just the current
-   pick, opening into weekday sections you expand one at a time, or a
+   pick(s), opening into weekday sections you expand one at a time, or a
    dedicated search box that matches across every day at once. Used both
    from the quick-add form (da-scheduleblock-*) and from each task's detail
-   view (td-scheduleblock-*), so it's built generically off a fieldId — the
-   hidden input's own value (encoded "Weekday||Label") is the single source
-   of truth for what's selected, read back out by whichever save handler
-   owns that field. */
-function scheduleBlockTriggerLabel(wd, label){
-  return (wd && label) ? (wd.slice(0,3)+' · '+label) : 'Attach to schedule block';
+   view (td-scheduleblock-*), so it's built generically off a fieldId.
+   A task can attach to SEVERAL blocks (e.g. "Gym" on Mon/Wed/Fri under
+   different names some days) — the hidden input's value is a JSON array
+   of {wd,label} pairs, the single source of truth for what's selected,
+   read back out by whichever save handler owns that field. Ticking a row
+   toggles it in/out of that array; the panel stays open so several can be
+   picked in one go, and a chip row under the trigger shows what's linked
+   without needing to reopen it. */
+// Reads a task's linked blocks whichever shape they're stored in — older
+// tasks may still carry the single scheduleBlock object from before
+// multi-block linking existed; new tasks carry scheduleBlocks (an array).
+// Every other function in the app reads through this helper instead of
+// the raw fields, so both shapes keep working without a migration step.
+function taskScheduleBlocks(t){
+  if(Array.isArray(t.scheduleBlocks)) return t.scheduleBlocks;
+  // Old shape used {weekday,label}; every current function reads {wd,label}.
+  if(t.scheduleBlock && t.scheduleBlock.label) return [{wd:t.scheduleBlock.weekday, label:t.scheduleBlock.label}];
+  return [];
 }
-function scheduleBlockPickerHtml(fieldId, selWd, selLabel){
-  const val = (selWd && selLabel) ? (selWd+'||'+selLabel) : '';
+function scheduleBlockTriggerLabel(selected){
+  if(!selected || !selected.length) return 'Attach to schedule block(s)';
+  if(selected.length===1) return selected[0].wd.slice(0,3)+' · '+selected[0].label;
+  return selected.length+' blocks linked';
+}
+function scheduleBlockPickerHtml(fieldId, selected){
+  selected = selected || [];
   return '<div class="sbp" data-sbp="'+fieldId+'">'+
-    '<input type="hidden" id="'+fieldId+'" value="'+escapeHtml(val)+'">'+
+    '<input type="hidden" id="'+fieldId+'" value="'+escapeHtml(JSON.stringify(selected))+'">'+
     '<button type="button" class="sbp-trigger" id="'+fieldId+'-trigger">'+
-      '<span>'+escapeHtml(scheduleBlockTriggerLabel(selWd,selLabel))+'</span><span class="sbp-caret">▾</span>'+
+      '<span>'+escapeHtml(scheduleBlockTriggerLabel(selected))+'</span><span class="sbp-caret">▾</span>'+
     '</button>'+
-    (val ? '<button type="button" class="sbp-clear" id="'+fieldId+'-clear" title="Remove link">✕</button>' : '')+
+    (selected.length ? '<button type="button" class="sbp-clear" id="'+fieldId+'-clear" title="Remove all links">✕</button>' : '')+
+    '<div class="sbp-chips" id="'+fieldId+'-chips">'+scheduleBlockChipsHtml(fieldId, selected)+'</div>'+
     '<div class="sbp-panel" id="'+fieldId+'-panel" style="display:none;">'+
       '<input type="text" class="sbp-search" id="'+fieldId+'-search" placeholder="Search by name, day, or keyword…">'+
       '<div class="sbp-results" id="'+fieldId+'-results"></div>'+
     '</div>'+
   '</div>';
 }
+function scheduleBlockChipsHtml(fieldId, selected){
+  return selected.map(function(s,i){
+    return '<span class="sbp-chip">'+escapeHtml(s.wd.slice(0,3))+' · '+escapeHtml(s.label)+' <button type="button" class="sbp-chip-remove" data-sbpchipremove="'+fieldId+'" data-sbpchipidx="'+i+'" title="Remove">✕</button></span>';
+  }).join('');
+}
 function scheduleBlockPickerSelection(fieldId){
   const input = document.getElementById(fieldId);
-  const val = input ? input.value : '';
-  if(!val) return {wd:null, label:null};
-  const sep = val.indexOf('||');
-  return {wd: val.slice(0,sep), label: val.slice(sep+2)};
+  if(!input || !input.value) return [];
+  try{ const arr = JSON.parse(input.value); return Array.isArray(arr) ? arr : []; }
+  catch(e){ return []; }
 }
 function scheduleBlockAccordionHtml(fieldId){
   const sel = scheduleBlockPickerSelection(fieldId);
+  const isSelected = function(wd,label){ return sel.some(function(s){ return s.wd===wd && s.label===label; }); };
   let html = '';
   SCHEDULE_WEEKDAY_ORDER.forEach(function(wd){
     const blocks = (scheduleDayTemplatesCache[wd]||[]).filter(function(b){ return b.activity || b.title; });
     if(!blocks.length) return;
-    const isOpenDay = (wd===sel.wd);
+    const isOpenDay = sel.some(function(s){ return s.wd===wd; });
     html += '<div class="sbp-day">'+
       '<button type="button" class="sbp-day-head" data-sbptoggle="'+wd+'">'+wd+' <span class="sbp-daycount">('+blocks.length+')</span><span class="sbp-day-caret">'+(isOpenDay?'▾':'▸')+'</span></button>'+
       '<div class="sbp-day-blocks" data-sbpblocks="'+wd+'" style="display:'+(isOpenDay?'block':'none')+';">'+
         blocks.map(function(b){
           const label = b.activity || b.title;
           const timeRange = b.start ? (fmt12(b.start)+(b.end?'–'+fmt12(b.end):'')) : '';
-          const isSel = (wd===sel.wd && label===sel.label);
+          const isSel = isSelected(wd, label);
           return '<div class="sbp-block-row'+(isSel?' selected':'')+'" data-sbpwd="'+escapeHtml(wd)+'" data-sbplabel="'+escapeHtml(label)+'">'+
+            '<input type="checkbox" class="sbp-block-chk" '+(isSel?'checked':'')+'>'+
             '<span class="sbp-block-label">'+escapeHtml(label)+'</span>'+(timeRange?'<span class="sbp-block-time">'+escapeHtml(timeRange)+'</span>':'')+
           '</div>';
         }).join('')+
@@ -757,6 +786,7 @@ function scheduleBlockAccordionHtml(fieldId){
 }
 function scheduleBlockSearchResultsHtml(fieldId, query){
   const sel = scheduleBlockPickerSelection(fieldId);
+  const isSelected = function(wd,label){ return sel.some(function(s){ return s.wd===wd && s.label===label; }); };
   const qWords = query.trim().toLowerCase().split(/\s+/).filter(Boolean);
   const rows = [];
   SCHEDULE_WEEKDAY_ORDER.forEach(function(wd){
@@ -774,8 +804,9 @@ function scheduleBlockSearchResultsHtml(fieldId, query){
   if(!rows.length) return '<div class="empty-note" style="padding:16px 6px;">No matching schedule blocks.</div>';
   return rows.map(function(r){
     const timeRange = r.b.start ? (fmt12(r.b.start)+(r.b.end?'–'+fmt12(r.b.end):'')) : '';
-    const isSel = (r.wd===sel.wd && r.label===sel.label);
+    const isSel = isSelected(r.wd, r.label);
     return '<div class="sbp-block-row'+(isSel?' selected':'')+'" data-sbpwd="'+escapeHtml(r.wd)+'" data-sbplabel="'+escapeHtml(r.label)+'">'+
+      '<input type="checkbox" class="sbp-block-chk" '+(isSel?'checked':'')+'>'+
       '<span class="sbp-block-day">'+r.wd.slice(0,3)+'</span><span class="sbp-block-label">'+escapeHtml(r.label)+'</span>'+(timeRange?'<span class="sbp-block-time">'+escapeHtml(timeRange)+'</span>':'')+
     '</div>';
   }).join('');
@@ -786,24 +817,45 @@ function wireScheduleBlockPicker(fieldId){
   const panel = document.getElementById(fieldId+'-panel');
   const search = document.getElementById(fieldId+'-search');
   const results = document.getElementById(fieldId+'-results');
+  const chipsEl = document.getElementById(fieldId+'-chips');
   if(!hidden || !trigger || !panel || !search || !results) return;
   const wrapEl = trigger.closest('.sbp');
 
-  function setSelection(wd, label){
-    hidden.value = (wd && label) ? (wd+'||'+label) : '';
-    trigger.querySelector('span').textContent = scheduleBlockTriggerLabel(wd, label);
+  function setSelection(arr){
+    hidden.value = JSON.stringify(arr);
+    trigger.querySelector('span').textContent = scheduleBlockTriggerLabel(arr);
+    if(chipsEl){ chipsEl.innerHTML = scheduleBlockChipsHtml(fieldId, arr); wireChips(); }
     let clearBtn = document.getElementById(fieldId+'-clear');
-    if(hidden.value && !clearBtn){
+    if(arr.length && !clearBtn){
       clearBtn = document.createElement('button');
-      clearBtn.type = 'button'; clearBtn.className = 'sbp-clear'; clearBtn.id = fieldId+'-clear'; clearBtn.title = 'Remove link'; clearBtn.textContent = '✕';
+      clearBtn.type = 'button'; clearBtn.className = 'sbp-clear'; clearBtn.id = fieldId+'-clear'; clearBtn.title = 'Remove all links'; clearBtn.textContent = '✕';
       trigger.insertAdjacentElement('afterend', clearBtn);
       wireClearBtn(clearBtn);
-    } else if(!hidden.value && clearBtn){
+    } else if(!arr.length && clearBtn){
       clearBtn.remove();
     }
   }
+  function toggleSelection(wd, label){
+    const arr = scheduleBlockPickerSelection(fieldId);
+    const idx = arr.findIndex(function(s){ return s.wd===wd && s.label===label; });
+    if(idx===-1) arr.push({wd:wd, label:label}); else arr.splice(idx,1);
+    setSelection(arr);
+  }
+  function removeAt(idx){
+    const arr = scheduleBlockPickerSelection(fieldId);
+    arr.splice(idx,1);
+    setSelection(arr);
+    renderResults();
+  }
+  function wireChips(){
+    if(!chipsEl) return;
+    chipsEl.querySelectorAll('[data-sbpchipremove]').forEach(function(btn){
+      btn.addEventListener('click', function(e){ e.stopPropagation(); removeAt(Number(btn.dataset.sbpchipidx)); });
+    });
+  }
+  wireChips();
   function wireClearBtn(btn){
-    btn.addEventListener('click', function(e){ e.stopPropagation(); setSelection(null,null); renderResults(); });
+    btn.addEventListener('click', function(e){ e.stopPropagation(); setSelection([]); renderResults(); });
   }
   const existingClear = document.getElementById(fieldId+'-clear');
   if(existingClear) wireClearBtn(existingClear);
@@ -820,8 +872,11 @@ function wireScheduleBlockPicker(fieldId){
     });
     results.querySelectorAll('[data-sbpwd]').forEach(function(row){
       row.addEventListener('click', function(){
-        setSelection(row.dataset.sbpwd, row.dataset.sbplabel);
-        closePanel();
+        toggleSelection(row.dataset.sbpwd, row.dataset.sbplabel);
+        // Re-render in place (not closePanel) so several blocks can be
+        // ticked in one visit — closing on every pick would mean
+        // reopening the panel and re-expanding the same day each time.
+        renderResults();
       });
     });
   }
@@ -1140,8 +1195,9 @@ function activeListFilterForAdd(){
 let lastDeleted = null;
 let undoTimer = null;
 
-function nextRepeatDate(dateStr, repeat){
+function nextRepeatDate(dateStr, repeat, freqDays){
   if(repeat==='daily') return addDays(dateStr,1);
+  if(repeat==='everyNDays') return addDays(dateStr, freqDays||1);
   if(repeat==='weekly') return addDays(dateStr,7);
   if(repeat==='weekdays'){
     let d = addDays(dateStr,1);
@@ -1206,7 +1262,7 @@ async function toggleTask(id, listId){
   t.done = !t.done;
   t.completedOn = t.done ? todayStr() : null;
   if(t.done && t.repeat && t.repeat!=='none' && t.due){
-    const nextDue = nextRepeatDate(t.due, t.repeat);
+    const nextDue = nextRepeatDate(t.due, t.repeat, t.freqDays);
     arr.push(Object.assign({}, t, {
       id:'task-'+Date.now()+'-'+Math.floor(Math.random()*1000),
       done:false, due:nextDue, completedOn:null,
@@ -1612,10 +1668,12 @@ function taskRowHtml(t){
   const chips = [];
   if(t.due) chips.push('<span class="meta-chip '+dueClass+'">'+fmtDue(t.due)+(t.dueTime?' '+fmt12(t.dueTime):'')+'</span>');
   else chips.push('<span class="meta-chip no-due">No due date</span>');
-  if(t.repeat && t.repeat!=='none') chips.push('<span class="meta-chip repeat">repeats '+t.repeat+'</span>');
+  if(t.repeat && t.repeat!=='none') chips.push('<span class="meta-chip repeat">repeats '+(t.repeat==='everyNDays' ? 'every '+(t.freqDays||1)+' days' : t.repeat)+'</span>');
   if(t.subtasks.length) chips.push('<span class="meta-chip">'+subDone+'/'+t.subtasks.length+'</span>');
   if(t.link) chips.push('<a class="link-chip" href="'+escapeHtml(t.link)+'" target="_blank" rel="noopener" onclick="event.stopPropagation()">🔗 link</a>');
-  if(t.scheduleBlock && t.scheduleBlock.label) chips.push('<span class="meta-chip schedule-tag" title="Linked to '+escapeHtml(t.scheduleBlock.weekday)+' · '+escapeHtml(t.scheduleBlock.label)+'">📋 '+escapeHtml(t.scheduleBlock.label)+'</span>');
+  taskScheduleBlocks(t).forEach(function(sb){
+    chips.push('<span class="meta-chip schedule-tag" title="Linked to '+escapeHtml(sb.wd)+' · '+escapeHtml(sb.label)+'">📋 '+escapeHtml(sb.label)+'</span>');
+  });
   if(list && (activeListFilter==='all')) chips.push('<span class="meta-chip list-tag">'+escapeHtml(list.name)+'</span>');
   (t.tags||[]).forEach(function(tag){ chips.push('<span class="meta-chip hashtag" data-jumptag="'+escapeHtml(tag)+'">@'+escapeHtml(tag)+'</span>'); });
 
@@ -1652,9 +1710,10 @@ function taskDetailHtml(t){
     '<div class="f"><label>Due date</label><input type="date" class="td-due" value="'+(t.due||'')+'"></div>'+
     '<div class="f"><label>Due time</label><input type="time" class="td-duetime" value="'+(t.dueTime||'')+'"></div>'+
     '<div class="f"><label>Priority</label><select class="td-priority"><option value="0" '+(t.priority===0?'selected':'')+'>None</option><option value="1" '+(t.priority===1?'selected':'')+'>P1 - urgent</option><option value="2" '+(t.priority===2?'selected':'')+'>P2 - high</option><option value="3" '+(t.priority===3?'selected':'')+'>P3 - medium</option></select></div>'+
-    '<div class="f"><label>Repeats</label><select class="td-repeat"><option value="none" '+(t.repeat==='none'?'selected':'')+'>Never</option><option value="daily" '+(t.repeat==='daily'?'selected':'')+'>Daily</option><option value="weekdays" '+(t.repeat==='weekdays'?'selected':'')+'>Weekdays</option><option value="weekly" '+(t.repeat==='weekly'?'selected':'')+'>Weekly</option><option value="monthly" '+(t.repeat==='monthly'?'selected':'')+'>Monthly</option></select></div>'+
+    '<div class="f"><label>Repeats</label><select class="td-repeat"><option value="none" '+(t.repeat==='none'?'selected':'')+'>Never</option><option value="daily" '+(t.repeat==='daily'?'selected':'')+'>Daily</option><option value="everyNDays" '+(t.repeat==='everyNDays'?'selected':'')+'>Every N days</option><option value="weekdays" '+(t.repeat==='weekdays'?'selected':'')+'>Weekdays</option><option value="weekly" '+(t.repeat==='weekly'?'selected':'')+'>Weekly</option><option value="monthly" '+(t.repeat==='monthly'?'selected':'')+'>Monthly</option></select></div>'+
+    '<div class="f td-repeatn-wrap" style="'+(t.repeat==='everyNDays'?'':'display:none;')+'"><label>Every how many days</label><input type="number" class="td-repeatn" min="1" value="'+(t.freqDays||7)+'"></div>'+
     '<div class="f"><label>List</label><select class="td-list">'+listOpts+'</select></div>'+
-    '<div class="f" style="grid-column:1/-1;"><label>Attach to schedule block</label>'+scheduleBlockPickerHtml('td-scheduleblock-'+t.id, t.scheduleBlock?t.scheduleBlock.weekday:null, t.scheduleBlock?t.scheduleBlock.label:null)+'</div>'+
+    '<div class="f" style="grid-column:1/-1;"><label>Attach to schedule block(s)</label>'+scheduleBlockPickerHtml('td-scheduleblock-'+t.id, taskScheduleBlocks(t))+'</div>'+
     '<div class="f" style="grid-column:1/-1;"><label>Tags</label><input type="text" class="td-tags" placeholder="urgent, school (comma separated)" value="'+escapeHtml((t.tags||[]).join(', '))+'"></div>'+
     '<div class="f" style="grid-column:1/-1;"><label>Link</label><input type="text" class="td-link" placeholder="https://…" value="'+escapeHtml(t.link||'')+'"></div>'+
     '<div class="f" style="grid-column:1/-1;"><label>Notes</label><textarea class="td-notes">'+escapeHtml(t.notes||'')+'</textarea></div>'+
@@ -1774,6 +1833,11 @@ function attachTaskHandlers(wrap){
   wrap.querySelectorAll('.task-row').forEach(function(row){
     const listId = row.dataset.listid, taskId = row.dataset.taskid;
     const detail = row.querySelector('.task-detail');
+    const repeatSel = detail.querySelector('.td-repeat');
+    const repeatnWrap = detail.querySelector('.td-repeatn-wrap');
+    if(repeatSel && repeatnWrap){
+      repeatSel.addEventListener('change', function(){ repeatnWrap.style.display = repeatSel.value==='everyNDays' ? 'flex' : 'none'; });
+    }
     const saveBtn = detail.querySelector('.td-save');
     saveBtn.addEventListener('click', async function(){
       const arr = tasksArrFor(listId);
@@ -1792,18 +1856,17 @@ function attachTaskHandlers(wrap){
       t.dueTime = detail.querySelector('.td-duetime').value || null;
       t.priority = Number(detail.querySelector('.td-priority').value);
       t.repeat = detail.querySelector('.td-repeat').value;
+      const repeatnEl = detail.querySelector('.td-repeatn');
+      t.freqDays = repeatnEl ? (Number(repeatnEl.value)||1) : (t.freqDays||1);
       const newListId = detail.querySelector('.td-list').value;
       t.notes = detail.querySelector('.td-notes').value.trim();
       t.link = detail.querySelector('.td-link').value.trim();
       t.tags = detail.querySelector('.td-tags').value.split(',').map(function(s){ return s.trim().toLowerCase(); }).filter(Boolean);
       const sbInput = detail.querySelector('[id^="td-scheduleblock-"]');
-      const sbVal = sbInput ? sbInput.value : '';
-      if(sbVal){
-        const sep = sbVal.indexOf('||');
-        t.scheduleBlock = { weekday: sbVal.slice(0,sep), label: sbVal.slice(sep+2) };
-      } else {
-        t.scheduleBlock = null;
-      }
+      let sbArr = [];
+      if(sbInput){ try{ sbArr = JSON.parse(sbInput.value)||[]; }catch(e){ sbArr = []; } }
+      t.scheduleBlocks = sbArr.length ? sbArr : null;
+      t.scheduleBlock = null; // superseded by scheduleBlocks — cleared so old/new shapes never disagree
       if(newListId !== t.listId){
         arr.splice(arr.indexOf(t),1);
         t.listId = newListId;
@@ -2422,9 +2485,10 @@ function initControls(){
       '<div class="f"><label>Due date</label><input type="date" id="da-due"></div>'+
       '<div class="f"><label>Due time</label><input type="time" id="da-duetime"></div>'+
       '<div class="f"><label>Priority</label><select id="da-priority"><option value="0">None</option><option value="1">P1 - urgent</option><option value="2">P2 - high</option><option value="3">P3 - medium</option></select></div>'+
-      '<div class="f"><label>Repeats</label><select id="da-repeat"><option value="none">Never</option><option value="daily">Daily</option><option value="weekdays">Weekdays</option><option value="weekly">Weekly</option><option value="monthly">Monthly</option></select></div>'+
+      '<div class="f"><label>Repeats</label><select id="da-repeat"><option value="none">Never</option><option value="daily">Daily</option><option value="everyNDays">Every N days</option><option value="weekdays">Weekdays</option><option value="weekly">Weekly</option><option value="monthly">Monthly</option></select></div>'+
+      '<div class="f" id="da-repeatn-wrap" style="display:none;"><label>Every how many days</label><input type="number" id="da-repeatn" min="1" value="7"></div>'+
       '<div class="f"><label>List</label><select id="da-list">'+listOpts+'</select></div>'+
-      '<div class="f" style="grid-column:1/-1;"><label>Attach to schedule block</label>'+scheduleBlockPickerHtml('da-scheduleblock',null,null)+'</div>'+
+      '<div class="f" style="grid-column:1/-1;"><label>Attach to schedule block(s)</label>'+scheduleBlockPickerHtml('da-scheduleblock',[])+'</div>'+
       '<div class="f" style="grid-column:1/-1;"><label>Tags</label><input type="text" id="da-tags" placeholder="urgent, school (comma separated)"></div>'+
       '<div class="f" style="grid-column:1/-1;"><label>Link</label><input type="text" id="da-link" placeholder="https://…"></div>'+
       '<div class="f" style="grid-column:1/-1;"><label>Notes</label><textarea id="da-notes"></textarea></div>'+
@@ -2438,6 +2502,9 @@ function initControls(){
       panel.innerHTML = detailedAddFormHtml();
       panel.style.display = 'block';
       wireScheduleBlockPicker('da-scheduleblock');
+      document.getElementById('da-repeat').addEventListener('change', function(){
+        document.getElementById('da-repeatn-wrap').style.display = this.value==='everyNDays' ? 'flex' : 'none';
+      });
       // Carry over whatever's already typed in the quick-add box instead of
       // making them retype the title in a second field.
       const quickText = document.getElementById('quick-add-input').value.trim();
@@ -2458,15 +2525,13 @@ function initControls(){
         };
         const item = await addTask(parsed);
         item.repeat = document.getElementById('da-repeat').value;
+        item.freqDays = Number(document.getElementById('da-repeatn').value)||1;
         item.link = document.getElementById('da-link').value.trim();
         item.notes = document.getElementById('da-notes').value.trim();
-        const sbVal = document.getElementById('da-scheduleblock').value;
-        if(sbVal){
-          const sep = sbVal.indexOf('||');
-          item.scheduleBlock = { weekday: sbVal.slice(0,sep), label: sbVal.slice(sep+2) };
-        } else {
-          item.scheduleBlock = null;
-        }
+        const sbInput = document.getElementById('da-scheduleblock');
+        let sbArr = [];
+        if(sbInput){ try{ sbArr = JSON.parse(sbInput.value)||[]; }catch(e){ sbArr = []; } }
+        item.scheduleBlocks = sbArr.length ? sbArr : null;
         await saveTasksFor(item.listId);
         panel.style.display = 'none';
         panel.innerHTML = '';
