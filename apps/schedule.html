@@ -328,23 +328,20 @@
   .metric-label{font-size:10.5px;color:var(--text-faint);font-weight:800;text-transform:uppercase;letter-spacing:.06em;}
   .metric-value{font-family:'Manrope',sans-serif;font-weight:800;font-size:18px;margin-top:3px;}
 
-  /* Tasks / Routine / Events+Chores as three content columns. Below
-     1100px it drops to two columns — the third column (Events+Chores)
-     must explicitly span both, or CSS grid's auto-placement leaves it
-     stuck under column 1 with a dead gap beside it. */
-  .today-layout{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px;align-items:start;}
-  .events-chores-col{min-width:0;}
-  @media(max-width:1100px){
-    .today-layout{grid-template-columns:1fr 1fr;}
-    .events-chores-col{grid-column:1/-1;}
-  }
-  @media(max-width:760px){
+  /* Today's routine on the left, taking up more room; Tasks/Events/
+     Chores stacked in a narrower column on the right. Collapses to one
+     column (routine first) below 900px. */
+  .today-layout{display:grid;grid-template-columns:1.7fr 1fr;gap:14px;align-items:start;}
+  .side-col{min-width:0;}
+  @media(max-width:900px){
     .today-layout{grid-template-columns:1fr;}
-    .events-chores-col{grid-column:auto;}
   }
   .panel{background:var(--surface);border:1px solid var(--border-soft);border-radius:var(--radius-lg);padding:16px;box-shadow:var(--shadow);}
   .panel + .panel{margin-top:12px;}
   .panel-head{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:12px;}
+  .panel-head-actions{display:flex;align-items:center;gap:6px;}
+  .panel-collapse-btn{background:none;border:none;color:var(--text-faint);cursor:pointer;font-size:13px;padding:4px 7px;border-radius:6px;line-height:1;}
+  .panel-collapse-btn:hover{background:var(--surface-2);}
   .panel-title{font-family:'Manrope',sans-serif;font-size:15.5px;font-weight:800;letter-spacing:-.01em;}
   .panel-subtitle{font-size:12px;color:var(--text-faint);margin-top:2px;}
   .panel-action{border:0;background:var(--accent-soft);color:var(--accent-deep);padding:6px 10px;border-radius:var(--radius-sm);font-size:12px;font-weight:800;cursor:pointer;}
@@ -1432,6 +1429,35 @@ let autoConfig = { workoutsOn:true, groceryOn:true, groceryWeekday:6 };
 let activeView = 'today';
 let selectedDay = todayStr(); // which day the Today view is showing — lets you flip forward/back instead of always showing the actual today
 let routineShowAll = false; // false = auto-hide routine blocks whose time has passed; true = "Show all" reveals them, with a tick/✗ badge showing which got done
+
+// Collapse/expand state for the Today view's panels (Tasks/Events/
+// Chores/Routine), remembered across visits via localStorage so a
+// panel someone tucked away stays tucked away.
+let panelCollapsed = {};
+try{ panelCollapsed = JSON.parse(localStorage.getItem('hub-panel-collapsed')||'{}'); }catch(e){ panelCollapsed = {}; }
+function savePanelCollapsed(){ try{ localStorage.setItem('hub-panel-collapsed', JSON.stringify(panelCollapsed)); }catch(e){} }
+// A panel's <section class="panel"> head + a body wrapper that can be
+// hidden. `actionsHtml` is any extra buttons (e.g. "+ Task") that stay
+// visible next to the collapse toggle.
+function collapsiblePanelHtml(key, title, subtitle, actionsHtml, bodyHtml){
+  const collapsed = !!panelCollapsed[key];
+  return '<section class="panel"><div class="panel-head"><div><div class="panel-title">'+title+'</div><div class="panel-subtitle">'+subtitle+'</div></div>'+
+    '<div class="panel-head-actions">'+(actionsHtml||'')+'<button type="button" class="panel-collapse-btn" data-panelcollapse="'+key+'" title="'+(collapsed?'Expand':'Collapse')+'">'+(collapsed?'▸':'▾')+'</button></div>'+
+    '</div><div class="panel-body" id="panel-body-'+key+'" style="'+(collapsed?'display:none;':'')+'">'+bodyHtml+'</div></section>';
+}
+function wirePanelCollapseHandlers(wrap){
+  wrap.querySelectorAll('[data-panelcollapse]').forEach(function(btn){
+    btn.addEventListener('click', function(){
+      const key = btn.dataset.panelcollapse;
+      panelCollapsed[key] = !panelCollapsed[key];
+      savePanelCollapsed();
+      const body = document.getElementById('panel-body-'+key);
+      if(body) body.style.display = panelCollapsed[key] ? 'none' : '';
+      btn.textContent = panelCollapsed[key] ? '▸' : '▾';
+      btn.title = panelCollapsed[key] ? 'Expand' : 'Collapse';
+    });
+  });
+}
 let notifPermission = (typeof Notification !== 'undefined') ? Notification.permission : 'unsupported';
 let notifiedToday = new Set();
 const NOTIFIED_KEY = 'schedule-notified-'+todayStr();
@@ -1895,6 +1921,8 @@ function renderDailyRoutineHtml(dateStr){
     const statusBadge = isDone ? '<span class="rb-status done" title="Done">✓</span>' : (isPast ? '<span class="rb-status missed" title="Time passed, not checked off">✗</span>' : '');
     const linkedTasks = linkedTasksForBlock(tKey, b.activity);
     const linkedTasksHtml = linkedTasks.length ? '<div class="rb-linked-tasks">'+linkedTasks.map(lt=>'<a class="rb-linked-task" href="todo.html?task='+encodeURIComponent(lt.id)+'&profile='+encodeURIComponent(activeProfile)+'" title="Open in To-Do" onclick="event.stopPropagation()">📋 '+escapeHtml(lt.title)+'</a>').join('')+'</div>' : '';
+    const blockLink = blockLinkInfo(b);
+    const blockLinkRowHtml = blockLink ? '<div class="rb-linked-tasks"><a class="rb-linked-task" href="'+escapeHtml(blockLink.url)+'" title="Open '+escapeHtml(blockLink.label)+'" onclick="event.stopPropagation()">'+blockLinkIcon(blockLink.label)+' Open '+escapeHtml(blockLink.label)+'</a></div>' : '';
     const isExpanded = expandedBlockKey === key;
     const expandPanelHtml = isExpanded ? '<div class="rb-expand-panel">'+renderBlockExpandPanel(dateStr, tKey, i, b)+'</div>' : '';
     return '<div class="routine-block-wrap">'+
@@ -1909,6 +1937,7 @@ function renderDailyRoutineHtml(dateStr){
             '<input type="time" class="rb-time-input" value="'+b.end+'" data-tplkey="'+tKey+'" data-tplidx="'+i+'" data-field="end">'+
           '</div>'+
           linkedTasksHtml+
+          blockLinkRowHtml+
         '</div>'+
         statusBadge+
         '<span class="rb-cat" style="background:'+meta.soft+';color:'+meta.color+';">'+meta.label+'</span>'+
@@ -1948,6 +1977,25 @@ const BLOCK_LINK_APPS = [
   {key:'skin', label:'Skincare', url:'skin.html'},
   {key:'grocery', label:'Grocery', url:'grocery.html'}
 ];
+// A block's link — either set explicitly via the generic block-link
+// picker (b.link) or auto-detected (any "Gym" — not "Travel to gym" —
+// activity) — shown directly on the block row itself, so opening it
+// never requires expanding the panel first.
+function blockLinkInfo(b){
+  if(b.link && b.link.url) return {url:b.link.url, label:b.link.label||'link'};
+  if(/gym/i.test(b.activity) && !/travel/i.test(b.activity)) return {url:'../gym/index.html', label:'Gym'};
+  return null;
+}
+function blockLinkIcon(label){
+  const l = (label||'').toLowerCase();
+  if(l==='gym') return '🏋️';
+  if(l==='diet') return '🍽️';
+  if(l.indexOf('chore')!==-1) return '🧹';
+  if(l==='to-do'||l==='todo') return '📋';
+  if(l==='skincare') return '🧴';
+  if(l==='grocery') return '🛒';
+  return '🔗';
+}
 
 // The expanded view under a clicked block: whatever chores/to-dos/
 // skincare steps/diet meals are actually linked to it for this exact
@@ -2006,21 +2054,13 @@ function renderBlockExpandPanel(dateStr, tKey, idx, b){
         }).join('')
       : '');
 
-  // GYM — simple link, not a full attach/match system like diet: any
-  // block whose activity text says "gym" (but isn't just travel-to-gym)
-  // gets a one-line "Open Gym" link through to the gym app.
-  const isGymBlock = /gym/i.test(b.activity) && !/travel/i.test(b.activity);
-  const gymHtml = isGymBlock
-    ? '<div class="rb-diet-info">🏋️ <a class="rb-linked-task" href="../gym/index.html" onclick="event.stopPropagation()">Open Gym</a></div>'
-    : '';
-
   // GENERIC BLOCK LINK — any block can carry its own link, either to one
-  // of the other apps in the suite or to a custom pasted URL. Set/changed
-  // from the picker right here; b.link is {appKey, url, label}.
+  // of the other apps in the suite or to a custom pasted URL, set/changed
+  // from the picker right here (b.link is {appKey, url, label}). The
+  // current link (this or the automatic Gym detection) is no longer
+  // shown here — it now displays right on the block row itself, so
+  // opening it never needs this panel expanded. This is just the editor.
   const blockLink = (b.link && b.link.url) ? b.link : null;
-  const blockLinkDisplay = blockLink
-    ? '<div class="rb-diet-info">🔗 <a class="rb-linked-task" href="'+escapeHtml(blockLink.url)+'" onclick="event.stopPropagation()">Open '+escapeHtml(blockLink.label||'link')+'</a></div>'
-    : '';
   const linkAppKey = blockLink ? (blockLink.appKey||'custom') : '';
   const linkPickerHtml = '<div class="rb-link-picker">'+
       '<select data-blocklinkapp data-tplkey="'+tKey+'" data-tplidx="'+idx+'">'+
@@ -2037,8 +2077,7 @@ function renderBlockExpandPanel(dateStr, tKey, idx, b){
     skinChecklistHtml+
     '<div class="rb-link-section"><div class="rb-link-section-title">Skincare — link this block</div>'+skinPickerHtml+'</div>'+
     (dietHtml ? '<div class="rb-link-section"><div class="rb-link-section-title">Diet</div>'+dietHtml+'</div>' : '')+
-    (gymHtml ? '<div class="rb-link-section"><div class="rb-link-section-title">Gym</div>'+gymHtml+'</div>' : '')+
-    '<div class="rb-link-section"><div class="rb-link-section-title">Link — attach an app or a URL</div>'+blockLinkDisplay+linkPickerHtml+'</div>';
+    '<div class="rb-link-section"><div class="rb-link-section-title">Link — attach an app or a URL</div>'+linkPickerHtml+'</div>';
 }
 
 function attachRoutineHandlers(wrap, dateStr){
@@ -2722,12 +2761,20 @@ function renderToday(){
       '<section class="free-time-panel" id="free-time-panel" hidden>'+renderFreeTimePanelHtml(today,freeWindows,rankedFreeTasks)+'</section>'+
     '</div>'+
     '<div class="today-layout">'+
-      '<section class="panel"><div class="panel-head"><div><div class="panel-title">Tasks</div><div class="panel-subtitle">'+(overdueTasks.length?overdueTasks.length+' overdue · ':'')+'Synced with your To-Do list</div></div><button class="panel-action" id="add-task-today">+ Task</button></div><div id="today-tasks"></div><div id="task-form-mount-today"></div></section>'+
-      '<section class="panel"><div class="panel-head"><div><div class="panel-title">Today’s routine</div><div class="panel-subtitle">Check off blocks as you move through the day</div></div><div style="display:flex;gap:6px;"><button class="panel-action" id="toggle-done-routine">'+(routineShowAll?'Hide past':'Show all')+'</button><button class="panel-action" id="edit-routine-today">Edit routine</button></div></div><div id="today-routine" class="'+(routineShowAll?'':'routine-hide-past')+'"></div><div id="routine-form-mount-today"></div></section>'+
-      '<div class="events-chores-col">'+
+      collapsiblePanelHtml('routine', 'Today’s routine', 'Check off blocks as you move through the day',
+        '<button class="panel-action" id="toggle-done-routine">'+(routineShowAll?'Hide past':'Show all')+'</button><button class="panel-action" id="edit-routine-today">Edit routine</button>',
+        '<div id="today-routine" class="'+(routineShowAll?'':'routine-hide-past')+'"></div><div id="routine-form-mount-today"></div>')+
+      '<div class="side-col">'+
         '<div id="today-focus-mount"></div>'+
-        '<section class="panel"><div class="panel-head"><div><div class="panel-title">Events</div><div class="panel-subtitle">Appointments and one-offs</div></div><button class="panel-action" id="add-event-today">+ Event</button></div><div id="today-events"></div><div id="event-form-mount-today"></div></section>'+
-        '<section class="panel"><div class="panel-head"><div><div class="panel-title">Chores</div><div class="panel-subtitle">Synced with Household Chores</div></div><button class="panel-action" id="add-chore-today">+ New</button></div><div id="today-chores"></div><div id="chore-form-mount-today"></div></section>'+
+        collapsiblePanelHtml('tasks', 'Tasks', (overdueTasks.length?overdueTasks.length+' overdue · ':'')+'Synced with your To-Do list',
+          '<button class="panel-action" id="add-task-today">+ Task</button>',
+          '<div id="today-tasks"></div><div id="task-form-mount-today"></div>')+
+        collapsiblePanelHtml('events', 'Events', 'Appointments and one-offs',
+          '<button class="panel-action" id="add-event-today">+ Event</button>',
+          '<div id="today-events"></div><div id="event-form-mount-today"></div>')+
+        collapsiblePanelHtml('chores', 'Chores', 'Synced with Household Chores',
+          '<button class="panel-action" id="add-chore-today">+ New</button>',
+          '<div id="today-chores"></div><div id="chore-form-mount-today"></div>')+
       '</div>'+
     '</div>';
 
@@ -2740,6 +2787,7 @@ function renderToday(){
   attachRoutineHandlers(el, today);
   attachHouseholdChoreHandlers(el);
   attachDayIntelligenceHandlers(el, today);
+  wirePanelCollapseHandlers(el);
   document.getElementById('toggle-done-routine').addEventListener('click', ()=>{ routineShowAll = !routineShowAll; renderToday(); });
 
   document.getElementById('day-prev').onclick = ()=>{ selectedDay=addDays(selectedDay,-1); renderToday(); };
