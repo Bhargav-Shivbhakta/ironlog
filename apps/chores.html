@@ -140,6 +140,11 @@
   .assign-picker{display:flex;gap:6px;grid-column:1/-1;}
   .assign-picker button{flex:1;padding:7px;border-radius:8px;border:1px solid var(--border);background:var(--surface-alt);font-size:11.5px;font-weight:700;cursor:pointer;}
   .assign-picker button.on{background:var(--accent);color:#fff;border-color:var(--accent);}
+  .sync-block-list{grid-column:1/-1;max-height:160px;overflow-y:auto;border:1px solid var(--border);border-radius:8px;background:var(--surface-alt);padding:6px 8px;display:flex;flex-direction:column;gap:2px;}
+  .sync-day-group{display:flex;flex-direction:column;gap:1px;margin-bottom:4px;}
+  .sync-day-label{font-size:9.5px;color:var(--text-faint);font-weight:700;text-transform:uppercase;margin-top:4px;}
+  .sync-block-opt{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--text);padding:2px 0;cursor:pointer;}
+  .sync-block-hint{grid-column:1/-1;font-size:10.5px;color:var(--text-faint);margin-top:-4px;}
   .add-form .submit-row{grid-column:1/-1;display:flex;gap:8px;margin-top:2px;}
   .btn-mini{font-size:12px;font-weight:700;border:none;border-radius:8px;padding:8px 14px;cursor:pointer;}
   .btn-mini.primary{background:var(--accent);color:#fff;}
@@ -721,20 +726,29 @@ async function preloadScheduleSyncData(){
     await Promise.race([Promise.all([...profiles].map(loadScheduleDayTemplates)), timeout]);
   }catch(e){ /* fall through — sync-gated chores just behave as unsynced this session */ }
 }
-function scheduleBlockOptionsHtml(profile, selectedText){
+// Renders one checkbox per Schedule block, grouped by weekday. A chore can
+// tick several — including blocks named differently on different days
+// (e.g. "Gym" Monday, "Run" Wednesday) — so a chore that repeats daily can
+// still track a real weekly Schedule pattern instead of being limited to
+// one fixed block name. selectedKeywords may be a string or an array
+// (chore.scheduleSync.keyword supports both, matched case-insensitively).
+function scheduleBlockChecklistHtml(profile, selectedKeywords){
   const templates = scheduleDayTemplatesCache[profile] || {};
   const order = ['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'];
+  const selected = new Set((Array.isArray(selectedKeywords) ? selectedKeywords : (selectedKeywords ? [selectedKeywords] : [])).map(function(k){ return (k||'').toLowerCase(); }));
   let any = false;
   const html = order.map(function(day){
     const blocks = templates[day] || [];
     if(!blocks.length) return '';
     any = true;
-    return '<optgroup label="'+day+'">'+blocks.map(function(b){
-      const label = (b.activity||'Untitled')+(b.start?' ('+b.start+(b.end?'–'+b.end:'')+')':'');
-      return '<option value="'+escapeHtml(b.activity||'')+'" '+(selectedText===b.activity?'selected':'')+'>'+escapeHtml(label)+'</option>';
-    }).join('')+'</optgroup>';
+    return '<div class="sync-day-group"><div class="sync-day-label">'+day+'</div>'+blocks.map(function(b){
+      const activity = b.activity || 'Untitled';
+      const label = activity+(b.start?' ('+b.start+(b.end?'–'+b.end:'')+')':'');
+      const checked = selected.has(activity.toLowerCase());
+      return '<label class="sync-block-opt"><input type="checkbox" data-syncblock-val="'+escapeHtml(activity)+'" '+(checked?'checked':'')+'> '+escapeHtml(label)+'</label>';
+    }).join('')+'</div>';
   }).join('');
-  return any ? html : '<option value="" disabled>No blocks found in '+profile+'\'s Schedule yet</option>';
+  return any ? html : '<div class="sync-day-group" style="color:var(--text-faint);font-size:12px;">No blocks found in '+profile+'\'s Schedule yet</div>';
 }
 function isDueTodayByScheduleSync(chore){
   if(!chore.scheduleSync) return true; // unsynced chores are unaffected — normal frequency rules apply
@@ -1037,7 +1051,7 @@ function choreRowHtml(chore, showCompleteBtn, showManageIcons){
         (chore.dueTime ? '<span class="time-pill">🕐 '+fmtTime12(chore.dueTime)+'</span>' : '')+
         (chore.rotationEnabled ? '<span class="rotation-tag">↻ Next: '+escapeHtml(rotationNext)+'</span>' : '')+
         '<span class="freq-tag">'+freqLabel(chore)+'</span>'+
-        (chore.scheduleSync ? '<span class="freq-tag" title="Only counted as due on days '+chore.scheduleSync.profile+'\'s Schedule actually has a matching block \''+escapeHtml(chore.scheduleSync.keyword)+'\'">🔗 '+escapeHtml(chore.scheduleSync.profile)+'\'s Schedule</span>' : '')+
+        (chore.scheduleSync ? '<span class="freq-tag" title="Only counted as due on days '+chore.scheduleSync.profile+'\'s Schedule has a matching block: '+escapeHtml((Array.isArray(chore.scheduleSync.keyword)?chore.scheduleSync.keyword:[chore.scheduleSync.keyword]).join(', '))+'">🔗 '+escapeHtml(chore.scheduleSync.profile)+'\'s Schedule</span>' : '')+
       '</div>'+
       (chore.notes ? '<div class="cr-note">'+escapeHtml(chore.notes)+'</div>' : '')+
       ((chore.instructions||chore.supplies) ? '<details class="chore-details"><summary>How to complete</summary><div class="instruction-grid">'+(chore.instructions?'<div class="instruction-box"><b>Steps</b><span>'+escapeHtml(chore.instructions)+'</span></div>':'')+(chore.supplies?'<div class="instruction-box"><b>Supplies</b><span>'+escapeHtml(chore.supplies)+'</span></div>':'')+'</div></details>' : '')+
@@ -1075,7 +1089,8 @@ function editFormHtml(chore){
     '</div>'+
     '<label style="grid-column:1/-1;font-size:11px;color:var(--text-soft);display:flex;gap:8px;align-items:center"><input type="checkbox" id="edit-rotation-'+chore.id+'" '+(chore.rotationEnabled?'checked':'')+'> Automatically rotate between selected people after completion</label>'+
     '<div class="f"><label>Attach to Schedule (optional)</label><select id="edit-syncprofile-'+chore.id+'" data-syncprofile-for="'+chore.id+'"><option value="">Not linked</option><option value="Bhargav" '+(chore.scheduleSync&&chore.scheduleSync.profile==='Bhargav'?'selected':'')+'>Bhargav\'s Schedule</option><option value="Anusha" '+(chore.scheduleSync&&chore.scheduleSync.profile==='Anusha'?'selected':'')+'>Anusha\'s Schedule</option></select></div>'+
-    '<div class="f" id="edit-syncblock-wrap-'+chore.id+'" style="'+(chore.scheduleSync?'':'display:none;')+'"><label>Block</label><select id="edit-syncblock-'+chore.id+'">'+(chore.scheduleSync?scheduleBlockOptionsHtml(chore.scheduleSync.profile, chore.scheduleSync.keyword):'')+'</select></div>'+
+    '<div class="f" id="edit-syncblock-wrap-'+chore.id+'" style="'+(chore.scheduleSync?'':'display:none;')+'"><label>Block(s) — check every one that applies, even across different days</label><div class="sync-block-list" id="edit-syncblock-'+chore.id+'">'+(chore.scheduleSync?scheduleBlockChecklistHtml(chore.scheduleSync.profile, chore.scheduleSync.keyword):'')+'</div></div>'+
+    '<div class="sync-block-hint" id="edit-syncblock-hint-'+chore.id+'" style="'+(chore.scheduleSync?'':'display:none;')+'">Due only on days that have at least one checked block — pick one per day for a chore that repeats daily.</div>'+
     '<input type="text" id="edit-notes-'+chore.id+'" value="'+escapeHtml(chore.notes||'')+'" placeholder="Notes (optional)">'+
     '<textarea id="edit-instructions-'+chore.id+'" rows="3" style="grid-column:1/-1;padding:8px 10px;border:1px solid var(--border);border-radius:8px;background:var(--surface-alt)" placeholder="Completion steps (optional)">'+escapeHtml(chore.instructions||'')+'</textarea>'+
     '<input type="text" id="edit-supplies-'+chore.id+'" value="'+escapeHtml(chore.supplies||'')+'" placeholder="Supplies needed (optional)">'+
@@ -1121,11 +1136,13 @@ function attachManageHandlers(el){
     });
     const syncProfileSel = panel.querySelector('#edit-syncprofile-'+choreId);
     const syncBlockWrap = panel.querySelector('#edit-syncblock-wrap-'+choreId);
-    const syncBlockSel = panel.querySelector('#edit-syncblock-'+choreId);
+    const syncBlockHint = panel.querySelector('#edit-syncblock-hint-'+choreId);
+    let syncBlockList = panel.querySelector('#edit-syncblock-'+choreId);
     syncProfileSel.addEventListener('change', function(){
-      if(!syncProfileSel.value){ syncBlockWrap.style.display='none'; return; }
+      if(!syncProfileSel.value){ syncBlockWrap.style.display='none'; syncBlockHint.style.display='none'; return; }
       syncBlockWrap.style.display='flex';
-      syncBlockSel.innerHTML = scheduleBlockOptionsHtml(syncProfileSel.value, null);
+      syncBlockHint.style.display='block';
+      syncBlockList.innerHTML = scheduleBlockChecklistHtml(syncProfileSel.value, null);
     });
     panel.querySelector('[data-canceledit]').addEventListener('click', function(){ panel.style.display = 'none'; });
     panel.querySelector('[data-savechore]').addEventListener('click', async function(){
@@ -1157,8 +1174,11 @@ function attachManageHandlers(el){
       chore.notes = panel.querySelector('#edit-notes-'+choreId).value.trim() || null;
       chore.instructions = panel.querySelector('#edit-instructions-'+choreId).value.trim() || null;
       chore.supplies = panel.querySelector('#edit-supplies-'+choreId).value.trim() || null;
-      if(syncProfileSel.value && syncBlockSel.value){
-        chore.scheduleSync = {profile: syncProfileSel.value, keyword: syncBlockSel.value, requireWeekParity: (chore.scheduleSync&&chore.scheduleSync.profile===syncProfileSel.value&&chore.scheduleSync.keyword===syncBlockSel.value) ? chore.scheduleSync.requireWeekParity : null};
+      const checkedBlocks = [...panel.querySelectorAll('#edit-syncblock-'+choreId+' input[data-syncblock-val]:checked')].map(function(cb){ return cb.dataset.syncblockVal; });
+      if(syncProfileSel.value && checkedBlocks.length){
+        const prevKw = chore.scheduleSync ? (Array.isArray(chore.scheduleSync.keyword) ? chore.scheduleSync.keyword : [chore.scheduleSync.keyword]) : [];
+        const sameSelection = chore.scheduleSync && chore.scheduleSync.profile===syncProfileSel.value && prevKw.slice().sort().join('|')===checkedBlocks.slice().sort().join('|');
+        chore.scheduleSync = {profile: syncProfileSel.value, keyword: checkedBlocks, requireWeekParity: sameSelection ? chore.scheduleSync.requireWeekParity : null};
       } else {
         delete chore.scheduleSync;
       }
@@ -1366,7 +1386,8 @@ function addFormHtml(){
     '</div>'+
     '<label style="grid-column:1/-1;font-size:11px;color:var(--text-soft);display:flex;gap:8px;align-items:center"><input type="checkbox" id="new-chore-rotation"> Automatically rotate between selected people after completion</label>'+
     '<div class="f"><label>Attach to Schedule (optional)</label><select id="new-chore-syncprofile"><option value="">Not linked</option><option value="Bhargav">Bhargav\'s Schedule</option><option value="Anusha">Anusha\'s Schedule</option></select></div>'+
-    '<div class="f" id="new-chore-syncblock-wrap" style="display:none;"><label>Block</label><select id="new-chore-syncblock"></select></div>'+
+    '<div class="f" id="new-chore-syncblock-wrap" style="display:none;"><label>Block(s) — check every one that applies, even across different days</label><div class="sync-block-list" id="new-chore-syncblock"></div></div>'+
+    '<div class="sync-block-hint" id="new-chore-syncblock-hint" style="display:none;">Due only on days that have at least one checked block — pick one per day for a chore that repeats daily.</div>'+
     '<input type="text" id="new-chore-notes" placeholder="Notes (optional)">'+
     '<textarea id="new-chore-instructions" rows="3" style="grid-column:1/-1;padding:8px 10px;border:1px solid var(--border);border-radius:8px;background:var(--surface-alt)" placeholder="Completion steps (optional)"></textarea>'+
     '<input type="text" id="new-chore-supplies" placeholder="Supplies needed (optional)">'+
@@ -1385,11 +1406,13 @@ function wireAddForm(root){
   });
   const syncProfileSel = root.querySelector('#new-chore-syncprofile');
   const syncBlockWrap = root.querySelector('#new-chore-syncblock-wrap');
-  const syncBlockSel = root.querySelector('#new-chore-syncblock');
+  const syncBlockHint = root.querySelector('#new-chore-syncblock-hint');
+  const syncBlockList = root.querySelector('#new-chore-syncblock');
   syncProfileSel.addEventListener('change', function(){
-    if(!syncProfileSel.value){ syncBlockWrap.style.display='none'; return; }
+    if(!syncProfileSel.value){ syncBlockWrap.style.display='none'; syncBlockHint.style.display='none'; return; }
     syncBlockWrap.style.display='flex';
-    syncBlockSel.innerHTML = scheduleBlockOptionsHtml(syncProfileSel.value, null);
+    syncBlockHint.style.display='block';
+    syncBlockList.innerHTML = scheduleBlockChecklistHtml(syncProfileSel.value, null);
   });
   const daySet = new Set();
   root.querySelectorAll('[data-day]').forEach(function(btn){
@@ -1433,8 +1456,9 @@ function wireAddForm(root){
       instructions: root.querySelector('#new-chore-instructions').value.trim() || null,
       supplies: root.querySelector('#new-chore-supplies').value.trim() || null
     };
-    if(syncProfileSel.value && syncBlockSel.value){
-      newChore.scheduleSync = {profile: syncProfileSel.value, keyword: syncBlockSel.value, requireWeekParity: null};
+    const newCheckedBlocks = [...root.querySelectorAll('#new-chore-syncblock input[data-syncblock-val]:checked')].map(function(cb){ return cb.dataset.syncblockVal; });
+    if(syncProfileSel.value && newCheckedBlocks.length){
+      newChore.scheduleSync = {profile: syncProfileSel.value, keyword: newCheckedBlocks, requireWeekParity: null};
     }
     chores.push(newChore);
     await saveChores();
