@@ -634,7 +634,20 @@ function hcNextDue(chore){
   if(chore.freqType === 'asNeeded') return null;
   if(!chore.lastCompleted && chore.dueOverride) return chore.dueOverride;
   if(chore.freqType === 'daily') return chore.lastCompleted ? addDays(chore.lastCompleted,1) : today;
-  if(chore.freqType === 'everyNDays') return chore.lastCompleted ? addDays(chore.lastCompleted, chore.freqDays) : today;
+  if(chore.freqType === 'everyNDays'){
+    if(chore.lastCompleted) return addDays(chore.lastCompleted, chore.freqDays);
+    // Ported verbatim from chores.html's nextDueFor: anchor the N-day cycle
+    // to an explicit start date when the chore has never been completed,
+    // so "every 15 days starting Oct 1" agrees between both apps instead
+    // of Schedule claiming it's due the moment it's created.
+    if(chore.startDate){
+      if(chore.startDate > today) return chore.startDate;
+      const diffDays = Math.round((dateObj(today) - dateObj(chore.startDate)) / 86400000);
+      const cycles = Math.floor(diffDays / chore.freqDays);
+      return addDays(chore.startDate, cycles*chore.freqDays);
+    }
+    return today;
+  }
   if(chore.freqType === 'specificDays'){
     const start = chore.lastCompleted ? addDays(chore.lastCompleted,1) : today;
     for(let i=0;i<14;i++){
@@ -644,10 +657,30 @@ function hcNextDue(chore){
   }
   return today;
 }
+// A chore attached to a Schedule block (chore.scheduleSync) only counts as
+// due on a day that block actually appears for its own profile — ported
+// from chores.html's isDueTodayByScheduleSync. Schedule only has the
+// active profile's own dayTemplates loaded, so a chore synced to someone
+// else's Schedule is left ungated here rather than guessed at.
+function hcIsDueTodayByScheduleSync(chore){
+  if(!chore.scheduleSync) return true;
+  if(chore.scheduleSync.profile !== activeProfile) return true;
+  const weekdayName = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'][new Date().getDay()];
+  const blocks = dayTemplates[weekdayName] || [];
+  const kws = (Array.isArray(chore.scheduleSync.keyword) ? chore.scheduleSync.keyword : [chore.scheduleSync.keyword]).map(k=>(k||'').toLowerCase());
+  const hasBlock = blocks.some(b=>kws.some(kw=>(b.activity||'').toLowerCase().indexOf(kw)!==-1));
+  if(chore.scheduleSync.requireWeekParity != null){
+    if(!hasBlock) return false;
+    return weekParity(todayStr()) === chore.scheduleSync.requireWeekParity;
+  }
+  return hasBlock;
+}
 function hcStatusFor(chore){
   const nd = hcNextDue(chore);
   if(nd === null) return 'asneeded';
   const today = todayStr();
+  if(chore.snoozedUntil && chore.snoozedUntil > today) return 'upcoming';
+  if(nd <= today && chore.scheduleSync && !hcIsDueTodayByScheduleSync(chore)) return 'upcoming';
   if(nd < today) return 'overdue';
   if(nd === today) return 'today';
   return 'upcoming';
@@ -655,7 +688,7 @@ function hcStatusFor(chore){
 function hcFreqLabel(chore){
   if(chore.freqType==='asNeeded') return 'As needed';
   if(chore.freqType==='daily') return 'Every day';
-  if(chore.freqType==='everyNDays') return 'Every '+chore.freqDays+' days';
+  if(chore.freqType==='everyNDays') return 'Every '+chore.freqDays+' days'+(chore.startDate && !chore.lastCompleted ? ' from '+chore.startDate : '');
   if(chore.freqType==='specificDays') return (chore.days||[]).map(w=>DAY_SHORT[w]).join(' ');
   return '';
 }
@@ -675,7 +708,7 @@ function householdChoreRowHtml(c){
     '<input type="checkbox" class="chk" data-hchoreid="'+c.id+'">'+
     '<div class="row-body">'+
       '<span class="row-title">'+escapeHtml(c.name)+'</span>'+
-      '<div class="row-meta">'+hcFreqLabel(c)+(c.hcStatus==='overdue'?' · <span style="color:var(--danger);font-weight:700;">overdue</span>':'')+(isShared?' <span class="tag shared">'+(c.assignedTo||[]).join(' & ')+'</span>':'')+'</div></div>'+
+      '<div class="row-meta">'+hcFreqLabel(c)+(c.dueTime?' · 🕐 '+c.dueTime:'')+(c.hcStatus==='overdue'?' · <span style="color:var(--danger);font-weight:700;">overdue</span>':'')+(isShared?' <span class="tag shared">'+(c.assignedTo||[]).join(' & ')+'</span>':'')+'</div></div>'+
     '<div class="row-actions"><button class="icon-btn" data-delhchore="'+c.id+'">✕</button></div>'+
     '</div>';
 }

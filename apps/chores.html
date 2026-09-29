@@ -607,7 +607,22 @@ function nextDueFor(chore){
   if(chore.freqType === 'asNeeded') return null;
   if(!chore.lastCompleted && chore.dueOverride) return chore.dueOverride;
   if(chore.freqType === 'daily') return chore.lastCompleted ? addDays(chore.lastCompleted,1) : today;
-  if(chore.freqType === 'everyNDays') return chore.lastCompleted ? addDays(chore.lastCompleted, chore.freqDays) : today;
+  if(chore.freqType === 'everyNDays'){
+    if(chore.lastCompleted) return addDays(chore.lastCompleted, chore.freqDays);
+    // Never completed: if a start date is set, anchor the whole N-day cycle
+    // to it (so "every 15 days starting Oct 1" lands on Oct 1, Oct 16, Oct
+    // 31, …) instead of always claiming to be due immediately. A future
+    // start date is simply upcoming until it arrives; a past one resolves
+    // to the most recent occurrence on or before today, so it goes overdue
+    // exactly like a missed completion would.
+    if(chore.startDate){
+      if(chore.startDate > today) return chore.startDate;
+      const diffDays = Math.round((new Date(today+'T00:00:00') - new Date(chore.startDate+'T00:00:00')) / 86400000);
+      const cycles = Math.floor(diffDays / chore.freqDays);
+      return addDays(chore.startDate, cycles*chore.freqDays);
+    }
+    return today;
+  }
   if(chore.freqType === 'specificDays'){
     const start = chore.lastCompleted ? addDays(chore.lastCompleted,1) : today;
     for(let i=0;i<14;i++){
@@ -636,12 +651,18 @@ function statusFor(chore){
 function freqLabel(chore){
   if(chore.freqType==='asNeeded') return 'As needed';
   if(chore.freqType==='daily') return 'Every day';
-  if(chore.freqType==='everyNDays') return 'Every '+chore.freqDays+' days';
+  if(chore.freqType==='everyNDays') return 'Every '+chore.freqDays+' days'+(chore.startDate && !chore.lastCompleted ? ' from '+fmtShort(chore.startDate) : '');
   if(chore.freqType==='specificDays'){
     const names=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
     return chore.days.map(function(w){return names[w];}).join(' & ');
   }
   return '';
+}
+function fmtTime12(hhmm){
+  if(!hhmm) return '';
+  const parts = hhmm.split(':'); let h = Number(parts[0]), m = parts[1]||'00';
+  const suffix = h>=12 ? 'PM' : 'AM'; h = h%12; if(h===0) h=12;
+  return h+':'+m+' '+suffix;
 }
 
 /* =====================================================================
@@ -686,7 +707,10 @@ function weekParity(dateStr){
 }
 // Called once at load so the due-date logic below can check synchronously.
 async function preloadScheduleSyncData(){
-  const profiles = new Set();
+  // Loaded for both Schedule profiles unconditionally (not just ones an
+  // existing chore already links to) so the "Attach to Schedule" picker
+  // in the add/edit form always has real blocks to offer.
+  const profiles = new Set(['Bhargav','Anusha']);
   chores.forEach(function(c){ if(c.scheduleSync) profiles.add(c.scheduleSync.profile); });
   // A cross-app read that hangs or gets denied (permissions, network,
   // anything) should never be able to block the whole app from finishing
@@ -696,6 +720,21 @@ async function preloadScheduleSyncData(){
   try{
     await Promise.race([Promise.all([...profiles].map(loadScheduleDayTemplates)), timeout]);
   }catch(e){ /* fall through — sync-gated chores just behave as unsynced this session */ }
+}
+function scheduleBlockOptionsHtml(profile, selectedText){
+  const templates = scheduleDayTemplatesCache[profile] || {};
+  const order = ['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'];
+  let any = false;
+  const html = order.map(function(day){
+    const blocks = templates[day] || [];
+    if(!blocks.length) return '';
+    any = true;
+    return '<optgroup label="'+day+'">'+blocks.map(function(b){
+      const label = (b.activity||'Untitled')+(b.start?' ('+b.start+(b.end?'–'+b.end:'')+')':'');
+      return '<option value="'+escapeHtml(b.activity||'')+'" '+(selectedText===b.activity?'selected':'')+'>'+escapeHtml(label)+'</option>';
+    }).join('')+'</optgroup>';
+  }).join('');
+  return any ? html : '<option value="" disabled>No blocks found in '+profile+'\'s Schedule yet</option>';
 }
 function isDueTodayByScheduleSync(chore){
   if(!chore.scheduleSync) return true; // unsynced chores are unaffected — normal frequency rules apply
@@ -995,9 +1034,10 @@ function choreRowHtml(chore, showCompleteBtn, showManageIcons){
         '<span class="status-pill '+status+'">'+statusLabel+(nd && status!=='asneeded' ? ' · '+fmtShort(nd) : '')+'</span>'+
         '<span class="category-pill">'+escapeHtml(chore.category||inferCategory(chore.name))+'</span>'+
         '<span class="time-pill">'+(chore.estimatedMinutes||10)+' min</span>'+
+        (chore.dueTime ? '<span class="time-pill">🕐 '+fmtTime12(chore.dueTime)+'</span>' : '')+
         (chore.rotationEnabled ? '<span class="rotation-tag">↻ Next: '+escapeHtml(rotationNext)+'</span>' : '')+
         '<span class="freq-tag">'+freqLabel(chore)+'</span>'+
-        (chore.scheduleSync ? '<span class="freq-tag" title="Only counted as due on days '+chore.scheduleSync.profile+'\'s Schedule actually has a matching block">🔗 Synced to Schedule</span>' : '')+
+        (chore.scheduleSync ? '<span class="freq-tag" title="Only counted as due on days '+chore.scheduleSync.profile+'\'s Schedule actually has a matching block \''+escapeHtml(chore.scheduleSync.keyword)+'\'">🔗 '+escapeHtml(chore.scheduleSync.profile)+'\'s Schedule</span>' : '')+
       '</div>'+
       (chore.notes ? '<div class="cr-note">'+escapeHtml(chore.notes)+'</div>' : '')+
       ((chore.instructions||chore.supplies) ? '<details class="chore-details"><summary>How to complete</summary><div class="instruction-grid">'+(chore.instructions?'<div class="instruction-box"><b>Steps</b><span>'+escapeHtml(chore.instructions)+'</span></div>':'')+(chore.supplies?'<div class="instruction-box"><b>Supplies</b><span>'+escapeHtml(chore.supplies)+'</span></div>':'')+'</div></details>' : '')+
@@ -1023,8 +1063,10 @@ function editFormHtml(chore){
       '<option value="asNeeded" '+(freqType==='asNeeded'?'selected':'')+'>As needed</option>'+
     '</select></div>'+
     '<div class="f" id="edit-n-wrap-'+chore.id+'" style="'+(freqType==='everyNDays'?'':'display:none;')+'"><label>N days</label><input type="number" id="edit-n-'+chore.id+'" value="'+(chore.freqDays||7)+'" min="1"></div>'+
+    '<div class="f" id="edit-startdate-wrap-'+chore.id+'" style="'+(freqType==='everyNDays'?'':'display:none;')+'"><label>Start date</label><input type="date" id="edit-startdate-'+chore.id+'" value="'+(chore.startDate||'')+'"></div>'+
     '<div class="f"><label>Room</label><select id="edit-category-'+chore.id+'">'+['Kitchen','Bathroom','Laundry','Cleaning','Shopping','Home'].map(function(x){ return '<option '+(x===(chore.category||inferCategory(chore.name))?'selected':'')+'>'+x+'</option>'; }).join('')+'</select></div>'+
     '<div class="f"><label>Minutes</label><input type="number" id="edit-minutes-'+chore.id+'" value="'+(chore.estimatedMinutes||10)+'" min="1" max="240"></div>'+
+    '<div class="f"><label>Time of day (optional)</label><input type="time" id="edit-duetime-'+chore.id+'" value="'+(chore.dueTime||'')+'"></div>'+
     '<div class="day-picker" id="edit-days-wrap-'+chore.id+'" style="'+(freqType==='specificDays'?'':'display:none;')+'">'+
       ['S','M','T','W','T','F','S'].map(function(l,i){ return '<button type="button" class="'+(daySet.has(i)?'on':'')+'" data-editday="'+i+'">'+l+'</button>'; }).join('')+
     '</div>'+
@@ -1032,6 +1074,8 @@ function editFormHtml(chore){
       ['Bhargav','Anusha','Arya'].map(function(p){ return '<button type="button" class="'+(assignmentSet.has(p)?'on':'')+'" data-editassign="'+p+'">'+p+'</button>'; }).join('')+
     '</div>'+
     '<label style="grid-column:1/-1;font-size:11px;color:var(--text-soft);display:flex;gap:8px;align-items:center"><input type="checkbox" id="edit-rotation-'+chore.id+'" '+(chore.rotationEnabled?'checked':'')+'> Automatically rotate between selected people after completion</label>'+
+    '<div class="f"><label>Attach to Schedule (optional)</label><select id="edit-syncprofile-'+chore.id+'" data-syncprofile-for="'+chore.id+'"><option value="">Not linked</option><option value="Bhargav" '+(chore.scheduleSync&&chore.scheduleSync.profile==='Bhargav'?'selected':'')+'>Bhargav\'s Schedule</option><option value="Anusha" '+(chore.scheduleSync&&chore.scheduleSync.profile==='Anusha'?'selected':'')+'>Anusha\'s Schedule</option></select></div>'+
+    '<div class="f" id="edit-syncblock-wrap-'+chore.id+'" style="'+(chore.scheduleSync?'':'display:none;')+'"><label>Block</label><select id="edit-syncblock-'+chore.id+'">'+(chore.scheduleSync?scheduleBlockOptionsHtml(chore.scheduleSync.profile, chore.scheduleSync.keyword):'')+'</select></div>'+
     '<input type="text" id="edit-notes-'+chore.id+'" value="'+escapeHtml(chore.notes||'')+'" placeholder="Notes (optional)">'+
     '<textarea id="edit-instructions-'+chore.id+'" rows="3" style="grid-column:1/-1;padding:8px 10px;border:1px solid var(--border);border-radius:8px;background:var(--surface-alt)" placeholder="Completion steps (optional)">'+escapeHtml(chore.instructions||'')+'</textarea>'+
     '<input type="text" id="edit-supplies-'+chore.id+'" value="'+escapeHtml(chore.supplies||'')+'" placeholder="Supplies needed (optional)">'+
@@ -1062,9 +1106,11 @@ function attachManageHandlers(el){
     const choreId = panel.id.replace('edit-','');
     const freqSel = panel.querySelector('#edit-freq-'+choreId);
     const nWrap = panel.querySelector('#edit-n-wrap-'+choreId);
+    const startWrap = panel.querySelector('#edit-startdate-wrap-'+choreId);
     const daysWrap = panel.querySelector('#edit-days-wrap-'+choreId);
     freqSel.addEventListener('change', function(){
       nWrap.style.display = freqSel.value==='everyNDays' ? 'flex' : 'none';
+      startWrap.style.display = freqSel.value==='everyNDays' ? 'flex' : 'none';
       daysWrap.style.display = freqSel.value==='specificDays' ? 'flex' : 'none';
     });
     panel.querySelectorAll('[data-editday]').forEach(function(btn){
@@ -1072,6 +1118,14 @@ function attachManageHandlers(el){
     });
     panel.querySelectorAll('[data-editassign]').forEach(function(btn){
       btn.addEventListener('click', function(){ btn.classList.toggle('on'); });
+    });
+    const syncProfileSel = panel.querySelector('#edit-syncprofile-'+choreId);
+    const syncBlockWrap = panel.querySelector('#edit-syncblock-wrap-'+choreId);
+    const syncBlockSel = panel.querySelector('#edit-syncblock-'+choreId);
+    syncProfileSel.addEventListener('change', function(){
+      if(!syncProfileSel.value){ syncBlockWrap.style.display='none'; return; }
+      syncBlockWrap.style.display='flex';
+      syncBlockSel.innerHTML = scheduleBlockOptionsHtml(syncProfileSel.value, null);
     });
     panel.querySelector('[data-canceledit]').addEventListener('click', function(){ panel.style.display = 'none'; });
     panel.querySelector('[data-savechore]').addEventListener('click', async function(){
@@ -1086,6 +1140,7 @@ function attachManageHandlers(el){
       chore.name = name;
       chore.freqType = freqSel.value;
       chore.freqDays = freqSel.value==='everyNDays' ? (Number(panel.querySelector('#edit-n-'+choreId).value)||7) : undefined;
+      chore.startDate = freqSel.value==='everyNDays' ? (panel.querySelector('#edit-startdate-'+choreId).value || null) : null;
       chore.days = freqSel.value==='specificDays' ? [...panel.querySelectorAll('[data-editday].on')].map(function(b){ return Number(b.dataset.editday); }).sort() : undefined;
       const rotationOn = panel.querySelector('#edit-rotation-'+choreId).checked && assigned.length>1;
       chore.rotationEnabled = rotationOn;
@@ -1098,9 +1153,15 @@ function attachManageHandlers(el){
       }
       chore.category = panel.querySelector('#edit-category-'+choreId).value;
       chore.estimatedMinutes = Math.max(1, Number(panel.querySelector('#edit-minutes-'+choreId).value)||10);
+      chore.dueTime = panel.querySelector('#edit-duetime-'+choreId).value || null;
       chore.notes = panel.querySelector('#edit-notes-'+choreId).value.trim() || null;
       chore.instructions = panel.querySelector('#edit-instructions-'+choreId).value.trim() || null;
       chore.supplies = panel.querySelector('#edit-supplies-'+choreId).value.trim() || null;
+      if(syncProfileSel.value && syncBlockSel.value){
+        chore.scheduleSync = {profile: syncProfileSel.value, keyword: syncBlockSel.value, requireWeekParity: (chore.scheduleSync&&chore.scheduleSync.profile===syncProfileSel.value&&chore.scheduleSync.keyword===syncBlockSel.value) ? chore.scheduleSync.requireWeekParity : null};
+      } else {
+        delete chore.scheduleSync;
+      }
       await saveChores();
       renderAll();
     });
@@ -1188,7 +1249,7 @@ function renderStatRow(){
 function renderToday(){
   const el = document.getElementById('today-view');
   const due = chores.filter(function(c){ return ['overdue','today'].indexOf(statusFor(c)) !== -1; })
-    .sort(function(a,b){ return statusFor(a)==='overdue' ? -1 : 1; });
+    .sort(function(a,b){ const so=(statusFor(a)==='overdue'?0:1)-(statusFor(b)==='overdue'?0:1); return so || (a.dueTime||'99:99').localeCompare(b.dueTime||'99:99'); });
   const mine = due.filter(function(c){ return c.assignedTo.indexOf(whoAmI)!==-1; });
   const next = mine[0] || due[0];
   const dueMinutes = due.reduce(function(s,c){ return s+(c.estimatedMinutes||10); }, 0);
@@ -1257,7 +1318,7 @@ function renderAll(){
     const searchOk = !q || (c.name+' '+(c.notes||'')+' '+(c.category||'')+' '+(c.instructions||'')+' '+(c.supplies||'')).toLowerCase().indexOf(q)!==-1;
     const filterOk = boardFilter==='all' || (boardFilter==='mine' && c.assignedTo.indexOf(whoAmI)!==-1) || c.category===boardFilter || statusFor(c)===boardFilter;
     return searchOk && filterOk;
-  }).sort(function(a,b){ return order[statusFor(a)]-order[statusFor(b)] || a.name.localeCompare(b.name); });
+  }).sort(function(a,b){ return order[statusFor(a)]-order[statusFor(b)] || (a.dueTime||'99:99').localeCompare(b.dueTime||'99:99') || a.name.localeCompare(b.name); });
   const groups = ['overdue','today','upcoming','asneeded'];
   const groupLabels = {overdue:'Overdue', today:'Due today', upcoming:'Upcoming', asneeded:'As needed'};
   const rows = groups.map(function(g){
@@ -1293,8 +1354,10 @@ function addFormHtml(){
       '<option value="asNeeded">As needed</option>'+
     '</select></div>'+
     '<div class="f" id="freq-n-wrap"><label>N days</label><input type="number" id="new-chore-n" value="7" min="1"></div>'+
+    '<div class="f" id="freq-startdate-wrap" style="display:none;"><label>Start date</label><input type="date" id="new-chore-startdate"></div>'+
     '<div class="f"><label>Room</label><select id="new-chore-category">'+['Kitchen','Bathroom','Laundry','Cleaning','Shopping','Home'].map(function(x){ return '<option>'+x+'</option>'; }).join('')+'</select></div>'+
     '<div class="f"><label>Minutes</label><input type="number" id="new-chore-minutes" value="10" min="1" max="240"></div>'+
+    '<div class="f"><label>Time of day (optional)</label><input type="time" id="new-chore-duetime"></div>'+
     '<div class="day-picker" id="freq-days-wrap" style="display:none;">'+
       ['S','M','T','W','T','F','S'].map(function(l,i){ return '<button type="button" data-day="'+i+'">'+l+'</button>'; }).join('')+
     '</div>'+
@@ -1302,6 +1365,8 @@ function addFormHtml(){
       ['Bhargav','Anusha','Arya'].map(function(p){ return '<button type="button" data-assign="'+p+'">'+p+'</button>'; }).join('')+
     '</div>'+
     '<label style="grid-column:1/-1;font-size:11px;color:var(--text-soft);display:flex;gap:8px;align-items:center"><input type="checkbox" id="new-chore-rotation"> Automatically rotate between selected people after completion</label>'+
+    '<div class="f"><label>Attach to Schedule (optional)</label><select id="new-chore-syncprofile"><option value="">Not linked</option><option value="Bhargav">Bhargav\'s Schedule</option><option value="Anusha">Anusha\'s Schedule</option></select></div>'+
+    '<div class="f" id="new-chore-syncblock-wrap" style="display:none;"><label>Block</label><select id="new-chore-syncblock"></select></div>'+
     '<input type="text" id="new-chore-notes" placeholder="Notes (optional)">'+
     '<textarea id="new-chore-instructions" rows="3" style="grid-column:1/-1;padding:8px 10px;border:1px solid var(--border);border-radius:8px;background:var(--surface-alt)" placeholder="Completion steps (optional)"></textarea>'+
     '<input type="text" id="new-chore-supplies" placeholder="Supplies needed (optional)">'+
@@ -1311,10 +1376,20 @@ function addFormHtml(){
 function wireAddForm(root){
   const freqSel = root.querySelector('#new-chore-freq');
   const nWrap = root.querySelector('#freq-n-wrap');
+  const startWrap = root.querySelector('#freq-startdate-wrap');
   const daysWrap = root.querySelector('#freq-days-wrap');
   freqSel.addEventListener('change', function(){
     nWrap.style.display = freqSel.value==='everyNDays' ? 'flex' : 'none';
+    startWrap.style.display = freqSel.value==='everyNDays' ? 'flex' : 'none';
     daysWrap.style.display = freqSel.value==='specificDays' ? 'flex' : 'none';
+  });
+  const syncProfileSel = root.querySelector('#new-chore-syncprofile');
+  const syncBlockWrap = root.querySelector('#new-chore-syncblock-wrap');
+  const syncBlockSel = root.querySelector('#new-chore-syncblock');
+  syncProfileSel.addEventListener('change', function(){
+    if(!syncProfileSel.value){ syncBlockWrap.style.display='none'; return; }
+    syncBlockWrap.style.display='flex';
+    syncBlockSel.innerHTML = scheduleBlockOptionsHtml(syncProfileSel.value, null);
   });
   const daySet = new Set();
   root.querySelectorAll('[data-day]').forEach(function(btn){
@@ -1344,6 +1419,7 @@ function wireAddForm(root){
     const newChore = {
       id: 'chore-'+Date.now(), name: name, freqType: freqType,
       freqDays: freqType==='everyNDays' ? Number(root.querySelector('#new-chore-n').value)||7 : undefined,
+      startDate: freqType==='everyNDays' ? (root.querySelector('#new-chore-startdate').value || null) : null,
       days: freqType==='specificDays' ? [...daySet].sort() : undefined,
       assignedTo: rotate ? [selected[0]] : selected,
       rotationEnabled: rotate,
@@ -1352,10 +1428,14 @@ function wireAddForm(root){
       lastCompleted: null,
       category: root.querySelector('#new-chore-category').value,
       estimatedMinutes: Math.max(1, Number(root.querySelector('#new-chore-minutes').value)||10),
+      dueTime: root.querySelector('#new-chore-duetime').value || null,
       notes: root.querySelector('#new-chore-notes').value.trim() || null,
       instructions: root.querySelector('#new-chore-instructions').value.trim() || null,
       supplies: root.querySelector('#new-chore-supplies').value.trim() || null
     };
+    if(syncProfileSel.value && syncBlockSel.value){
+      newChore.scheduleSync = {profile: syncProfileSel.value, keyword: syncBlockSel.value, requireWeekParity: null};
+    }
     chores.push(newChore);
     await saveChores();
     showAddForm = false;
