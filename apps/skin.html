@@ -572,11 +572,14 @@ async function enterProfile(profileId){
   document.getElementById('profile-overlay').style.display = 'none';
   document.getElementById('app-wrap').style.display = 'block';
   document.getElementById('who-badge').innerHTML = '<span class="who-avatar av-'+(profileId==='Bhargav'?'b':'a')+'">'+profileId[0]+'</span><span class="who-name">'+profileId+'</span>';
-  document.getElementById('app-sub').textContent = profileId==='Bhargav' ? '5-month program — Oct 2026 to Feb 2027' : 'Daily routine';
+  document.getElementById('app-sub').textContent = profileId==='Bhargav' ? '5-month program' : 'Daily routine';
   document.getElementById('tab-checkins-btn').textContent = profileId==='Anusha' ? 'Check-ins' : 'Month review';
   document.getElementById('switch-profile-btn').textContent = 'Switch to '+(profileId==='Bhargav'?'Anusha':'Bhargav');
   document.getElementById('switch-profile-btn').onclick = function(){ enterProfile(profileId==='Bhargav'?'Anusha':'Bhargav'); };
   await init();
+  if(profileId==='Bhargav'){
+    document.getElementById('app-sub').textContent = '5-month program — '+fmtHeaderDate(SKIN_MONTHS[0].range[0])+' to '+fmtHeaderDate(SKIN_MONTHS[SKIN_MONTHS.length-1].range[1]);
+  }
 }
 
 auth.onAuthStateChanged(function(user){
@@ -602,6 +605,7 @@ function pad2(n){ return String(n).padStart(2,'0'); }
 function todayStr(){ const d = new Date(); return d.getFullYear()+'-'+pad2(d.getMonth()+1)+'-'+pad2(d.getDate()); }
 function addDays(dateStr, n){ const d = new Date(dateStr+'T00:00:00'); d.setDate(d.getDate()+n); return d.getFullYear()+'-'+pad2(d.getMonth()+1)+'-'+pad2(d.getDate()); }
 function weekdayOf(dateStr){ return new Date(dateStr+'T00:00:00').getDay(); }
+function daysBetween(fromStr, toStr){ return Math.round((new Date(toStr+'T00:00:00') - new Date(fromStr+'T00:00:00'))/86400000); }
 function fmtHeaderDate(dateStr){ return new Date(dateStr+'T00:00:00').toLocaleDateString(undefined,{month:'short',day:'numeric'}); }
 
 const SKIN_QTY = {
@@ -697,7 +701,16 @@ function skinBodyStepsFor(entry){
   ];
 }
 
-const SKIN_MONTHS = [
+// "Template" — the 5-month plan as originally authored, assuming a
+// program start of SKIN_TEMPLATE_START (Oct 1, 2026). If the person
+// changes their actual start date, every date-keyed structure below
+// (months, the day-by-day treatment plan, review dates) is re-derived
+// from these templates by shifting every date key by the same number
+// of days — so the routine's internal day-to-day cadence (which day
+// gets Differin, Nizoral, etc.) is preserved exactly, just moved to
+// start on a different calendar date. See rebuildProgramCalendar().
+const SKIN_TEMPLATE_START = '2026-10-01';
+const SKIN_MONTHS_TEMPLATE = [
   {key:'m1', name:'Month 1 — Hydration & Repair', range:['2026-10-01','2026-10-31'],
    objective:'Hydrate the face and body, reduce dandruff and scaling, improve roughness, protect against further tanning, and prepare skin for blackhead and pigmentation treatments in Month 2.'},
   {key:'m2', name:'Month 2 — Blackheads, Pigmentation & Body Bumps', range:['2026-11-01','2026-11-30'],
@@ -709,6 +722,8 @@ const SKIN_MONTHS = [
   {key:'m5', name:'Month 5 — Maintenance & Pore-Focused Refinement', range:['2027-02-01','2027-02-28'],
    objective:'Maintain progress while adding a controlled pore-clearing step for remaining blackheads.'}
 ];
+let programStartDate = SKIN_TEMPLATE_START;
+let SKIN_MONTHS = SKIN_MONTHS_TEMPLATE.map(function(m){ return {key:m.key, name:m.name, objective:m.objective, range:[m.range[0], m.range[1]]}; });
 function skinMonthFor(dateStr){ return SKIN_MONTHS.find(function(m){ return dateStr>=m.range[0] && dateStr<=m.range[1]; }) || null; }
 
 // ---- Per-date plan: which face treatment, whether Nizoral, whether
@@ -762,7 +777,8 @@ function buildSkinDatePlan(){
   Object.keys(feb).forEach(function(d){ plan['2027-02-'+pad2(d)] = Object.assign({face:'regular',nizoral:false,ceraveSA:false}, feb[d]); });
   return plan;
 }
-const SKIN_DATE_PLAN = buildSkinDatePlan();
+const SKIN_DATE_PLAN_TEMPLATE = buildSkinDatePlan();
+let SKIN_DATE_PLAN = Object.assign({}, SKIN_DATE_PLAN_TEMPLATE);
 
 // Ratings tracked nightly, per month (matches what each month's own
 // "Daily tracking" template asks for).
@@ -774,7 +790,8 @@ const SKIN_TRACKING_FIELDS = {
   m5: [ {key:'blackheads',label:'Blackhead visibility',type:'scale'}, {key:'pores',label:'Pore visibility',type:'scale'}, {key:'pigmentation',label:'Pigmentation visibility',type:'scale'}, {key:'smoothness',label:'Facial smoothness',type:'scale'}, {key:'roughness',label:'Body roughness',type:'scale'}, {key:'glow',label:'Overall glow',type:'scale'} ]
 };
 
-const SKIN_REVIEW_DATES = ['2026-10-31','2026-11-30','2026-12-31','2027-01-31','2027-02-28'];
+const SKIN_REVIEW_DATES_TEMPLATE = ['2026-10-31','2026-11-30','2026-12-31','2027-01-31','2027-02-28'];
+let SKIN_REVIEW_DATES = SKIN_REVIEW_DATES_TEMPLATE.slice();
 
 // Bought month by month, right before each product is first needed —
 // not all at once. Only 2 of these are actually carried by Sephora (The
@@ -804,10 +821,29 @@ const SKIN_SHOPPING_BY_MONTH = {
   ]
 };
 
-const MILESTONES_BHARGAV = SKIN_REVIEW_DATES.map(function(d){
-  const m = skinMonthFor(d);
-  return {date:d, text:(m?m.name:'Program')+' review — compare progress & completion counts'};
-});
+function buildMilestonesBhargav(){
+  return SKIN_REVIEW_DATES.map(function(d){
+    const m = skinMonthFor(d);
+    return {date:d, text:(m?m.name:'Program')+' review — compare progress & completion counts'};
+  });
+}
+let MILESTONES_BHARGAV = buildMilestonesBhargav();
+
+// Recomputes every date-keyed program structure (months, the day-by-day
+// treatment plan, review/milestone dates) from the Oct-1-2026 templates
+// above, shifted by however many days `programStartDate` differs from
+// SKIN_TEMPLATE_START. Call this once programStartDate is known (after
+// loadAll()) and again any time the person edits it.
+function rebuildProgramCalendar(){
+  const offset = daysBetween(SKIN_TEMPLATE_START, programStartDate);
+  SKIN_MONTHS = SKIN_MONTHS_TEMPLATE.map(function(m){
+    return {key:m.key, name:m.name, objective:m.objective, range:[addDays(m.range[0], offset), addDays(m.range[1], offset)]};
+  });
+  SKIN_DATE_PLAN = {};
+  Object.keys(SKIN_DATE_PLAN_TEMPLATE).forEach(function(k){ SKIN_DATE_PLAN[addDays(k, offset)] = SKIN_DATE_PLAN_TEMPLATE[k]; });
+  SKIN_REVIEW_DATES = SKIN_REVIEW_DATES_TEMPLATE.map(function(d){ return addDays(d, offset); });
+  MILESTONES_BHARGAV = buildMilestonesBhargav();
+}
 
 // ---- Anusha: fixed daily routine (same every day, no phases) ----
 const ANUSHA_MORNING = [
@@ -906,7 +942,7 @@ function wireDateNav(el){
 }
 
 async function loadAll(){
-  const [stepRes, shopRes, milestoneRes, checkinRes, trackingRes, blockLinksRes, productRes, ledgerRes, monthReviewRes, weeklyReviewRes] = await Promise.all([
+  const [stepRes, shopRes, milestoneRes, checkinRes, trackingRes, blockLinksRes, productRes, ledgerRes, monthReviewRes, weeklyReviewRes, startRes] = await Promise.all([
     skinDoc('stepLog').get().catch(function(){ return null; }),
     skinDoc('shoppingLog').get().catch(function(){ return null; }),
     skinDoc('milestoneLog').get().catch(function(){ return null; }),
@@ -916,7 +952,8 @@ async function loadAll(){
     skinDoc('productState').get().catch(function(){ return null; }),
     skinDoc('usageLedger').get().catch(function(){ return null; }),
     skinDoc('monthReviews').get().catch(function(){ return null; }),
-    skinDoc('weeklyReviews').get().catch(function(){ return null; })
+    skinDoc('weeklyReviews').get().catch(function(){ return null; }),
+    skinDoc('programStart').get().catch(function(){ return null; })
   ]);
   try{ stepLog = (stepRes && stepRes.exists && stepRes.data().json) ? JSON.parse(stepRes.data().json) : {}; }catch(e){ stepLog = {}; }
   try{ shoppingLog = (shopRes && shopRes.exists && shopRes.data().json) ? JSON.parse(shopRes.data().json) : {}; }catch(e){ shoppingLog = {}; }
@@ -928,8 +965,11 @@ async function loadAll(){
   try{ usageLedger = (ledgerRes && ledgerRes.exists && ledgerRes.data().json) ? JSON.parse(ledgerRes.data().json) : {}; }catch(e){ usageLedger = {}; }
   try{ monthReviews = (monthReviewRes && monthReviewRes.exists && monthReviewRes.data().json) ? JSON.parse(monthReviewRes.data().json) : {}; }catch(e){ monthReviews = {}; }
   try{ weeklyReviews = (weeklyReviewRes && weeklyReviewRes.exists && weeklyReviewRes.data().json) ? JSON.parse(weeklyReviewRes.data().json) : {}; }catch(e){ weeklyReviews = {}; }
+  try{ programStartDate = (startRes && startRes.exists && startRes.data().startDate) ? startRes.data().startDate : SKIN_TEMPLATE_START; }catch(e){ programStartDate = SKIN_TEMPLATE_START; }
+  rebuildProgramCalendar();
   ensureProductStateSeeded();
 }
+async function saveProgramStartDate(){ try{ await skinDoc('programStart').set({startDate: programStartDate}); }catch(e){} }
 async function saveStepLog(){ try{ await skinDoc('stepLog').set({json: JSON.stringify(stepLog)}); }catch(e){} }
 async function saveShoppingLog(){ try{ await skinDoc('shoppingLog').set({json: JSON.stringify(shoppingLog)}); }catch(e){} }
 async function saveMilestoneLog(){ try{ await skinDoc('milestoneLog').set({json: JSON.stringify(milestoneLog)}); }catch(e){} }
@@ -1095,12 +1135,41 @@ function renderWeekBanner(){
   }
   const today = selectedDay;
   const month = skinMonthFor(today);
+  const editRow = '<div class="wb-editrow" id="wb-editrow-static"><span>Program start: '+fmtHeaderDate(programStartDate)+'</span><button type="button" id="wb-start-edit">Change</button></div>'+
+    '<div class="wb-editrow" id="wb-editrow-form" style="display:none;"><input type="date" id="wb-start-input" value="'+programStartDate+'"><button type="button" id="wb-start-save">Save</button><button type="button" id="wb-start-cancel">Cancel</button></div>';
   if(!month){
     const beforeStart = today < SKIN_MONTHS[0].range[0];
-    el.innerHTML = '<div class="week-banner'+(beforeStart?'':' done')+'"><div class="wb-top"><span class="wb-week">'+(beforeStart?'Program starts Oct 1, 2026':'5-month program complete')+'</span></div><div class="wb-note">'+(beforeStart?'Nothing to do yet — the plan begins '+fmtHeaderDate(SKIN_MONTHS[0].range[0])+'.':'Review your Feb 28 comparison, then keep this as your long-term maintenance routine.')+'</div></div>';
-    return;
+    el.innerHTML = '<div class="week-banner'+(beforeStart?'':' done')+'"><div class="wb-top"><span class="wb-week">'+(beforeStart?'Program starts '+fmtHeaderDate(SKIN_MONTHS[0].range[0]):'5-month program complete')+'</span></div><div class="wb-note">'+(beforeStart?'Nothing to do yet — the plan begins '+fmtHeaderDate(SKIN_MONTHS[0].range[0])+'.':'Review your '+fmtHeaderDate(SKIN_MONTHS[SKIN_MONTHS.length-1].range[1])+' comparison, then keep this as your long-term maintenance routine.')+'</div>'+editRow+'</div>';
+  }else{
+    el.innerHTML = '<div class="week-banner"><div class="wb-top"><span class="wb-week">'+escapeHtml(month.name)+'</span><span class="wb-dates">'+fmtHeaderDate(month.range[0])+' – '+fmtHeaderDate(month.range[1])+'</span></div><div class="wb-note">'+escapeHtml(month.objective)+'</div>'+editRow+'</div>';
   }
-  el.innerHTML = '<div class="week-banner"><div class="wb-top"><span class="wb-week">'+escapeHtml(month.name)+'</span><span class="wb-dates">'+fmtHeaderDate(month.range[0])+' – '+fmtHeaderDate(month.range[1])+'</span></div><div class="wb-note">'+escapeHtml(month.objective)+'</div></div>';
+  attachWeekBannerHandlers();
+}
+function attachWeekBannerHandlers(){
+  const editBtn = document.getElementById('wb-start-edit');
+  const cancelBtn = document.getElementById('wb-start-cancel');
+  const saveBtn = document.getElementById('wb-start-save');
+  if(!editBtn) return;
+  editBtn.addEventListener('click', function(){
+    document.getElementById('wb-editrow-static').style.display = 'none';
+    document.getElementById('wb-editrow-form').style.display = 'flex';
+  });
+  cancelBtn.addEventListener('click', function(){
+    document.getElementById('wb-editrow-form').style.display = 'none';
+    document.getElementById('wb-editrow-static').style.display = 'flex';
+  });
+  saveBtn.addEventListener('click', async function(){
+    const val = document.getElementById('wb-start-input').value;
+    if(!val) return;
+    if(!confirm('Move the program start to '+fmtHeaderDate(val)+'? The whole 5-month plan — every treatment day, review date and milestone — shifts to match, keeping the same day-to-day pattern. Anything you\'ve already logged stays under its original date.')) return;
+    programStartDate = val;
+    rebuildProgramCalendar();
+    await saveProgramStartDate();
+    const sub = document.getElementById('app-sub');
+    if(sub) sub.textContent = '5-month program — '+fmtHeaderDate(SKIN_MONTHS[0].range[0])+' to '+fmtHeaderDate(SKIN_MONTHS[SKIN_MONTHS.length-1].range[1]);
+    renderWeekBanner();
+    showTab(activeTab);
+  });
 }
 
 /* =====================================================================
@@ -1169,7 +1238,7 @@ function renderTodayBhargav(){
   const month = skinMonthFor(today);
   const el = document.getElementById('today-view');
   if(!entry || !month){
-    el.innerHTML = dateNavHtml(today)+'<div class="routine-card"><div class="empty-note">No plan defined for '+fmtHeaderDate(today)+' — the 5-month program runs Oct 1, 2026 through Feb 28, 2027.</div></div>';
+    el.innerHTML = dateNavHtml(today)+'<div class="routine-card"><div class="empty-note">No plan defined for '+fmtHeaderDate(today)+' — the 5-month program runs '+fmtHeaderDate(SKIN_MONTHS[0].range[0])+' through '+fmtHeaderDate(SKIN_MONTHS[SKIN_MONTHS.length-1].range[1])+'.</div></div>';
     wireDateNav(el);
     return;
   }
@@ -1760,7 +1829,7 @@ function wireMonthReviews(el){
    prototype's export/import/reset.
 ===================================================================== */
 function backupSnapshot(){
-  return {stepLog:stepLog, shoppingLog:shoppingLog, milestoneLog:milestoneLog, checkins:checkins, trackingLog:trackingLog, skinBlockLinks:skinBlockLinks, productState:productState, usageLedger:usageLedger, monthReviews:monthReviews, weeklyReviews:weeklyReviews};
+  return {stepLog:stepLog, shoppingLog:shoppingLog, milestoneLog:milestoneLog, checkins:checkins, trackingLog:trackingLog, skinBlockLinks:skinBlockLinks, productState:productState, usageLedger:usageLedger, monthReviews:monthReviews, weeklyReviews:weeklyReviews, programStartDate:programStartDate};
 }
 function exportBackup(){
   const blob = new Blob([JSON.stringify({app:'IronLog Skin', profile:activeProfile, exportedAt:new Date().toISOString(), data:backupSnapshot()}, null, 2)], {type:'application/json'});
@@ -1788,8 +1857,10 @@ async function importBackup(file){
       usageLedger = data.usageLedger || {};
       monthReviews = data.monthReviews || {};
       weeklyReviews = data.weeklyReviews || {};
+      programStartDate = data.programStartDate || SKIN_TEMPLATE_START;
+      rebuildProgramCalendar();
       ensureProductStateSeeded();
-      await Promise.all([saveStepLog(), saveShoppingLog(), saveMilestoneLog(), saveCheckins(), saveTrackingLog(), saveSkinBlockLinks(), saveProductState(), saveMonthReviews(), saveWeeklyReviews()]);
+      await Promise.all([saveStepLog(), saveShoppingLog(), saveMilestoneLog(), saveCheckins(), saveTrackingLog(), saveSkinBlockLinks(), saveProductState(), saveMonthReviews(), saveWeeklyReviews(), saveProgramStartDate()]);
       document.getElementById('backupModal').classList.remove('open');
       showTab(activeTab);
       alert('Backup restored.');
