@@ -38,6 +38,13 @@
   .hub-link{color:#D9C9A8;text-decoration:none;font-size:11.5px;}
   .integration-links{display:flex;gap:6px;}
   .integration-links a{color:#FBF5E8;border:1px solid #5C3E14;border-radius:9px;padding:5px 9px;text-decoration:none;font-size:10.5px;font-weight:700;}
+  .profile-box{display:flex;align-items:center;gap:8px;}
+  .profile-box small{color:#C9B68C;font-size:10.5px;white-space:nowrap;}
+  .profile-buttons{display:flex;gap:3px;background:#3D290A;border-radius:11px;padding:3px;}
+  .profile-buttons button{border:0;border-radius:8px;background:transparent;color:#D9C9A8;padding:6px 11px;font-weight:750;font-size:12px;cursor:pointer;}
+  .profile-buttons button.active{background:var(--gold);color:#2E1F06;}
+  #backup-btn{white-space:nowrap;}
+  body.embedded .topbar-wrap{display:none;}
   .topbar{display:none;}
   .who-picker{display:flex;align-items:center;gap:6px;}
   .who-picker select{font-size:12px;padding:5px 8px;border-radius:8px;border:1px solid var(--border);background:var(--surface);}
@@ -50,12 +57,15 @@
   .segmented button{flex:1;border:none;background:transparent;border-radius:999px;padding:8px 4px;font-size:12px;font-weight:700;color:var(--text-soft);cursor:pointer;}
   .segmented button.active{background:var(--surface);color:var(--text);box-shadow:var(--shadow);}
 
-  .stat-row{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-bottom:14px;}
-  .stat-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-md);padding:9px 8px;box-shadow:var(--shadow);}
+  .stat-row{display:grid;grid-template-columns:repeat(5,1fr);gap:5px;margin:16px 0 14px;}
+  .stat-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-md);padding:8px 6px;box-shadow:var(--shadow);min-width:0;}
   .stat-card.alert{border-color:var(--danger);}
-  .stat-card .sc-label{font-size:8.8px;color:var(--text-faint);font-weight:700;text-transform:uppercase;letter-spacing:0.03em;}
-  .stat-card .sc-value{font-family:'Manrope',sans-serif;font-weight:800;font-size:17px;margin-top:2px;}
-  @media(max-width:420px){.stat-row{grid-template-columns:repeat(2,1fr);}}
+  .stat-card.action{background:var(--accent);border-color:var(--accent);cursor:pointer;text-align:left;font:inherit;}
+  .stat-card.action .sc-label{color:#F3ECD9;}
+  .stat-card.action .sc-value{color:#fff;}
+  .stat-card .sc-label{font-size:8.3px;color:var(--text-faint);font-weight:700;text-transform:uppercase;letter-spacing:0.02em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .stat-card .sc-value{font-family:'Manrope',sans-serif;font-weight:800;font-size:15px;margin-top:2px;}
+  @media(max-width:460px){.stat-row{grid-template-columns:repeat(3,1fr);}}
   .dashboard-grid{display:grid;grid-template-columns:1fr;gap:10px;}
   @media(min-width:760px){.dashboard-grid{grid-template-columns:1.5fr 1fr;}}
 
@@ -243,9 +253,14 @@
   .history-toolbar{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px;}
   .history-toolbar input[type=date]{flex:1 1 130px;padding:7px 9px;border-radius:9px;border:1px solid var(--border);font-size:11.5px;}
   .history-row-wrap{position:relative;padding-right:54px;}
+  .history-row-wrap.selectable{padding-left:26px;padding-right:14px;}
   .history-row-wrap .hr-icons{position:absolute;top:6px;right:0;display:flex;gap:2px;}
   .history-row-wrap .hr-icons button{background:none;border:none;color:var(--text-faint);cursor:pointer;font-size:13px;padding:4px 5px;}
   .history-row-wrap .hr-icons button:hover{color:var(--text);}
+  .history-row-wrap .hr-select{position:absolute;top:9px;left:0;width:16px;height:16px;accent-color:var(--accent);cursor:pointer;}
+  .history-bulkbar{display:flex;align-items:center;justify-content:space-between;gap:8px;background:var(--danger-soft);border-radius:10px;padding:9px 12px;margin-bottom:10px;font-size:12px;color:var(--danger);}
+  .history-bulkbar button{flex:none;}
+  .select-toggle{margin-left:auto;}
   .history-edit-panel{margin-top:8px;padding:10px;background:var(--surface-alt);border-radius:10px;display:grid;grid-template-columns:1fr 1fr;gap:7px;}
   .history-edit-panel input[type=date],.history-edit-panel input[type=text]{grid-column:1/-1;padding:7px 9px;border-radius:8px;border:1px solid var(--border);font-size:12px;}
   .history-edit-panel .rating-row{grid-column:1/-1;margin:0;}
@@ -263,6 +278,7 @@
 </style>
 </head>
 <body>
+<script>try{ if(window.self !== window.top) document.body.classList.add('embedded'); }catch(e){ document.body.classList.add('embedded'); }</script>
 
 <div id="loading-gate" class="loading-gate"><span id="load-note">Loading…</span></div>
 
@@ -272,17 +288,17 @@
     <a class="hub-link" href="../index.html">← Home hub</a>
     <div class="integration-links"><a href="grocery.html">Provision ↗</a><a href="diet.html">Diet ↗</a></div>
   </div>
-  <div class="header-actions">
-    <button id="smart-plan-btn">⏱ Plan my time</button>
-    <button id="backup-btn">⋯ Backup</button>
+  <div class="profile-box">
+    <small>Checked off as</small>
+    <div class="profile-buttons" id="profile-buttons">
+      <button data-whoami="Bhargav">Bhargav</button>
+      <button data-whoami="Anusha">Anusha</button>
+      <button data-whoami="Arya">Arya</button>
+    </div>
   </div>
+  <a class="hub-link" href="#" id="backup-btn">⋯ Backup</a>
 </div></div>
 <div class="wrap" id="app-wrap" style="display:none;">
-  <header class="app-head">
-    <h1>Household Chores</h1>
-    <p id="app-sub">Shared with everyone — everyone sees the same list</p>
-  </header>
-
   <div class="stat-row" id="stat-row"></div>
 
   <div class="segmented">
@@ -413,6 +429,14 @@ auth.onAuthStateChanged(function(user){
   document.getElementById('app-wrap').style.display = 'block';
   init();
 });
+function setWhoAmI(name){
+  if(['Bhargav','Anusha','Arya'].indexOf(name)===-1) return;
+  whoAmI = name;
+  try{ localStorage.setItem(WHO_KEY, whoAmI); }catch(e){}
+  document.body.dataset.profile = whoAmI;
+  document.querySelectorAll('[data-whoami]').forEach(function(b){ b.classList.toggle('active', b.dataset.whoami===whoAmI); });
+  showTab(activeTab);
+}
 function jumpToChore(choreId){
   showTab('all');
   setTimeout(function(){
@@ -490,6 +514,8 @@ let historyPersonFilter = 'all';
 let historyFrom = '';
 let historyTo = '';
 let openHistoryEdit = null;
+let historySelectMode = false;
+let historySelected = new Set();
 
 /* =====================================================================
    AUTO-FILLED DETAIL — category, time estimate, and how-to guidance are
@@ -1154,7 +1180,9 @@ function renderStatRow(){
     '<div class="stat-card"><div class="sc-label">Due Today</div><div class="sc-value">'+s.dueToday+'</div></div>'+
     '<div class="stat-card '+(s.overdue?'alert':'')+'"><div class="sc-label">Overdue</div><div class="sc-value">'+s.overdue+'</div></div>'+
     '<div class="stat-card"><div class="sc-label">Time left</div><div class="sc-value">'+s.minutes+'<small style="font-size:9px;color:var(--text-faint);margin-left:2px;">min</small></div></div>'+
-    '<div class="stat-card"><div class="sc-label">Done, 7d</div><div class="sc-value">'+s.last7+'</div></div>';
+    '<div class="stat-card"><div class="sc-label">Done, 7d</div><div class="sc-value">'+s.last7+'</div></div>'+
+    '<button type="button" class="stat-card action" id="plan-stat-btn"><div class="sc-label">⏱ Plan</div><div class="sc-value">Go →</div></button>';
+  document.getElementById('plan-stat-btn').onclick = openSmartPlan;
 }
 
 function renderToday(){
@@ -1400,18 +1428,21 @@ function renderHistory(){
     return searchOk && personOk && fromOk && toOk;
   });
   const filterChips = ['all'].concat(people).map(function(p){ return '<button class="filter-chip '+(historyPersonFilter===p?'on':'')+'" data-hist-filter="'+p+'">'+(p==='all'?'Everyone':p)+'</button>'; }).join('');
-  const toolbar = '<div class="history-toolbar"><input class="searchbox" id="history-search" style="flex:1 1 100%;" value="'+escapeHtml(historyQuery)+'" placeholder="Search completed chores, notes, people…">'+filterChips+'<input type="date" id="history-from" value="'+historyFrom+'" title="From date"><input type="date" id="history-to" value="'+historyTo+'" title="To date">'+((historyQuery||historyPersonFilter!=='all'||historyFrom||historyTo)?'<button class="filter-chip" id="history-clear">✕ Clear filters</button>':'')+'</div>';
+  const toolbar = '<div class="history-toolbar"><input class="searchbox" id="history-search" style="flex:1 1 100%;" value="'+escapeHtml(historyQuery)+'" placeholder="Search completed chores, notes, people…">'+filterChips+'<input type="date" id="history-from" value="'+historyFrom+'" title="From date"><input type="date" id="history-to" value="'+historyTo+'" title="To date">'+((historyQuery||historyPersonFilter!=='all'||historyFrom||historyTo)?'<button class="filter-chip" id="history-clear">✕ Clear filters</button>':'')+'<button class="filter-chip select-toggle" id="history-select-toggle">'+(historySelectMode?'Cancel select':'Select multiple')+'</button></div>';
+  const bulkBar = (historySelectMode && historySelected.size) ? '<div class="history-bulkbar"><span>'+historySelected.size+' selected</span><div style="display:flex;gap:6px;"><button class="btn-mini ghost" id="history-select-all">Select all shown</button><button class="btn-mini primary" id="history-bulk-delete" style="background:var(--danger);">Delete selected</button></div></div>' : (historySelectMode ? '<div class="history-bulkbar"><span>Tap records to select them</span><button class="btn-mini ghost" id="history-select-all">Select all shown</button></div>' : '');
 
-  const logHtml = '<div class="perf-card"><h3>Completion log <span style="font-weight:500;color:var(--text-faint);font-size:11px;">'+filtered.length+' of '+history.length+'</span></h3>'+toolbar+
+  const logHtml = '<div class="perf-card"><h3>Completion log <span style="font-weight:500;color:var(--text-faint);font-size:11px;">'+filtered.length+' of '+history.length+'</span></h3>'+toolbar+bulkBar+
     (filtered.length ? filtered.slice(0,80).map(function(h){
       const editing = openHistoryEdit===h.id;
-      const icons = '<div class="hr-icons"><button data-edithist="'+h.id+'" title="Edit">✎</button><button data-delhist="'+h.id+'" title="Delete">✕</button></div>';
+      const checkbox = historySelectMode ? '<input type="checkbox" class="hr-select" data-hist-check="'+h.id+'" '+(historySelected.has(h.id)?'checked':'')+'>' : '';
+      const icons = historySelectMode ? '' : '<div class="hr-icons"><button data-edithist="'+h.id+'" title="Edit">✎</button><button data-delhist="'+h.id+'" title="Delete">✕</button></div>';
+      const wrapClass = 'history-row-wrap'+(historySelectMode?' selectable':'');
       if(h.kind==='reassigned'){
-        return '<div class="history-row-wrap">'+icons+'<div class="history-row"><span class="hr-date">'+fmtShort(h.date)+'</span><span class="hr-task">'+escapeHtml(h.task)+'</span><span class="status-pill upcoming">Reassigned</span></div><div class="hr-recorded">'+escapeHtml(h.reason||'Reassigned')+(h.to?' · moved to '+escapeHtml(h.to):'')+' · reported by '+escapeHtml(h.by)+'</div>'+(editing?historyEditPanelHtml(h):'')+'</div>';
+        return '<div class="'+wrapClass+'">'+checkbox+icons+'<div class="history-row"><span class="hr-date">'+fmtShort(h.date)+'</span><span class="hr-task">'+escapeHtml(h.task)+'</span><span class="status-pill upcoming">Reassigned</span></div><div class="hr-recorded">'+escapeHtml(h.reason||'Reassigned')+(h.to?' · moved to '+escapeHtml(h.to):'')+' · reported by '+escapeHtml(h.by)+'</div>'+(editing?historyEditPanelHtml(h):'')+'</div>';
       }
       const ratingBadge = h.rating ? '<span class="rating-chip" style="color:'+RATING_META[h.rating].color+';">'+RATING_META[h.rating].emoji+'</span>' : '';
       const recordedNote = h.recordedBy && h.recordedBy!==h.by ? '<div class="hr-recorded">recorded by '+escapeHtml(h.recordedBy)+'</div>' : '';
-      return '<div class="history-row-wrap">'+icons+'<div class="history-row"><span class="hr-date">'+fmtShort(h.date)+'</span><span class="hr-task">'+escapeHtml(h.task)+ratingBadge+'</span><span class="person-pill '+personClass(h.by.split(' ')[0])+'">'+escapeHtml(h.by)+'</span></div>'+
+      return '<div class="'+wrapClass+'">'+checkbox+icons+'<div class="history-row"><span class="hr-date">'+fmtShort(h.date)+'</span><span class="hr-task">'+escapeHtml(h.task)+ratingBadge+'</span><span class="person-pill '+personClass(h.by.split(' ')[0])+'">'+escapeHtml(h.by)+'</span></div>'+
         (h.notes ? '<div class="hr-note">"'+escapeHtml(h.notes)+'"</div>' : '')+recordedNote+(editing?historyEditPanelHtml(h):'')+'</div>';
     }).join('') : '<div class="empty-note">Nothing matches these filters.</div>')+
   '</div>';
@@ -1424,6 +1455,26 @@ function renderHistory(){
   el.querySelectorAll('[data-hist-filter]').forEach(function(btn){ btn.onclick=function(){ historyPersonFilter=btn.dataset.histFilter; renderHistory(); }; });
   const clearBtn = document.getElementById('history-clear');
   if(clearBtn) clearBtn.onclick = function(){ historyQuery=''; historyPersonFilter='all'; historyFrom=''; historyTo=''; renderHistory(); };
+  document.getElementById('history-select-toggle').onclick = function(){ historySelectMode = !historySelectMode; if(!historySelectMode) historySelected.clear(); renderHistory(); };
+  const selectAllBtn = document.getElementById('history-select-all');
+  if(selectAllBtn) selectAllBtn.onclick = function(){ filtered.slice(0,80).forEach(function(h){ historySelected.add(h.id); }); renderHistory(); };
+  const bulkDeleteBtn = document.getElementById('history-bulk-delete');
+  if(bulkDeleteBtn) bulkDeleteBtn.onclick = async function(){
+    const n = historySelected.size;
+    if(!confirm('Delete '+n+' selected record'+(n===1?'':'s')+'? This only removes the history entries, not the chores themselves.')) return;
+    history = history.filter(function(h){ return !historySelected.has(h.id); });
+    historySelected.clear();
+    historySelectMode = false;
+    await saveHistory();
+    showToast(n+' record'+(n===1?'':'s')+' deleted');
+    renderHistory();
+  };
+  el.querySelectorAll('[data-hist-check]').forEach(function(cb){
+    cb.addEventListener('change', function(){
+      if(cb.checked) historySelected.add(cb.dataset.histCheck); else historySelected.delete(cb.dataset.histCheck);
+      renderHistory();
+    });
+  });
 
   el.querySelectorAll('[data-edithist]').forEach(function(btn){ btn.onclick=function(){ openHistoryEdit = openHistoryEdit===btn.dataset.edithist ? null : btn.dataset.edithist; renderHistory(); }; });
   el.querySelectorAll('[data-cancelhist]').forEach(function(btn){ btn.onclick=function(){ openHistoryEdit=null; renderHistory(); }; });
@@ -1519,12 +1570,14 @@ async function init(){
   } else {
     try{ whoAmI = localStorage.getItem('hub-active-profile') || localStorage.getItem(WHO_KEY) || 'Bhargav'; }catch(e){}
   }
-  document.getElementById('app-sub').textContent = 'Shared list — checked off as '+whoAmI;
+  document.querySelectorAll('[data-whoami]').forEach(function(btn){
+    btn.classList.toggle('active', btn.dataset.whoami===whoAmI);
+    btn.onclick = function(){ setWhoAmI(btn.dataset.whoami); };
+  });
   document.getElementById('tab-today-btn').onclick = function(){ showTab('today'); };
   document.getElementById('tab-all-btn').onclick = function(){ showTab('all'); };
   document.getElementById('tab-history-btn').onclick = function(){ showTab('history'); };
-  document.getElementById('smart-plan-btn').onclick = openSmartPlan;
-  document.getElementById('backup-btn').onclick = function(){ document.getElementById('backup-modal').classList.add('open'); };
+  document.getElementById('backup-btn').onclick = function(e){ e.preventDefault(); document.getElementById('backup-modal').classList.add('open'); };
   document.getElementById('backup-close').onclick = function(){ document.getElementById('backup-modal').classList.remove('open'); };
   document.getElementById('snooze-close').onclick = function(){ document.getElementById('snooze-modal').classList.remove('open'); };
   document.getElementById('plan-close').onclick = function(){ document.getElementById('plan-modal').classList.remove('open'); };
