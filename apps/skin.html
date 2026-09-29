@@ -57,6 +57,8 @@
   header.app-head{text-align:center;margin-bottom:14px;}
   header.app-head h1{font-size:23px;font-weight:800;margin:0 0 2px;}
   header.app-head p{margin:0;color:var(--text-soft);font-size:12.5px;}
+  body.embedded .topbar{display:none;}
+  body.embedded header.app-head{display:none;}
 
   .week-banner{background:var(--accent);color:#fff;border-radius:var(--radius-lg);padding:14px 18px;margin-bottom:14px;box-shadow:var(--shadow);}
   .week-banner .wb-top{display:flex;justify-content:space-between;align-items:baseline;}
@@ -168,9 +170,69 @@
   .ms-sched-row input{margin-right:6px;}
   .modal-btn{background:var(--accent);color:#fff;border:none;border-radius:8px;padding:8px 14px;font-size:12.5px;font-weight:700;cursor:pointer;}
   .modal-btn.secondary{background:var(--surface-alt);color:var(--text);}
+
+  /* ---- Progress tab, product cabinet, reactions, timer (ported from
+     the local prototype) ---- */
+  .opt-tag{font-size:8.5px;font-weight:800;color:var(--text-faint);margin-left:5px;letter-spacing:.04em;}
+  .stats-row{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:14px;}
+  .stat-tile{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-md);padding:11px 12px;box-shadow:var(--shadow);}
+  .stat-tile label{display:block;font-size:9px;color:var(--text-faint);text-transform:uppercase;letter-spacing:.06em;font-weight:800;}
+  .stat-tile b{display:block;font-size:19px;font-family:'Manrope',sans-serif;margin-top:3px;}
+  .stat-tile b small{font-size:10px;color:var(--text-faint);font-weight:600;margin-left:2px;}
+  .reaction-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:6px;margin-top:4px;}
+  .reaction-grid button{border:1px solid var(--border);background:var(--surface);border-radius:8px;padding:7px 5px;font-size:11px;font-weight:700;cursor:pointer;color:var(--text-soft);}
+  .reaction-grid button.on{background:var(--text);color:#fff;border-color:var(--text);}
+  .reaction-alert{background:var(--warn-soft);border:1px solid var(--warn);color:#7c302a;border-radius:var(--radius-md);padding:10px 12px;font-size:11.5px;line-height:1.55;margin-top:9px;}
+  .chart-card,.heat-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:14px 16px;margin-bottom:12px;box-shadow:var(--shadow);}
+  .chart-card .ch-head,.heat-card .ch-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;gap:10px;}
+  .chart-card h3,.heat-card h3{font-size:13px;margin:0;}
+  .chart-card select{font-size:11.5px;border:1px solid var(--border);border-radius:8px;padding:6px 8px;background:var(--surface-alt);}
+  .chart-empty{height:170px;display:flex;align-items:center;justify-content:center;color:var(--text-faint);font-size:12px;text-align:center;padding:0 20px;}
+  .skin-chart{width:100%;height:180px;display:block;}
+  .heatmap{display:grid;grid-template-columns:repeat(14,1fr);gap:4px;}
+  .heat{aspect-ratio:1;border-radius:4px;background:var(--surface-alt);}
+  .heat.low{background:#eadbb8;}
+  .heat.mid{background:#d0a957;}
+  .heat.high{background:var(--accent);}
+  .heat.future{opacity:.35;}
+  .insight-list{display:grid;gap:7px;}
+  .insight{display:flex;gap:9px;align-items:flex-start;background:var(--surface-alt);border-radius:10px;padding:9px 10px;}
+  .insight i{font-style:normal;width:22px;height:22px;flex:none;border-radius:7px;background:var(--accent-soft);color:var(--accent-deep);display:flex;align-items:center;justify-content:center;font-size:11px;}
+  .insight b{font-size:11px;display:block;}
+  .insight p{margin:2px 0 0;color:var(--text-soft);font-size:10.5px;}
+  .review-form textarea{width:100%;font-size:12.5px;padding:8px 9px;border-radius:8px;border:1px solid var(--border);box-sizing:border-box;resize:vertical;}
+  .review-form select,.review-form input[type=range]{width:100%;}
+  .month-review-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-md);margin-bottom:8px;overflow:hidden;}
+  .month-review-card summary{cursor:pointer;padding:11px 14px;font-family:'Manrope',sans-serif;font-weight:700;font-size:12.5px;list-style:none;display:flex;justify-content:space-between;align-items:center;gap:10px;}
+  .month-review-card summary::-webkit-details-marker{display:none;}
+  .month-review-card summary::before{content:'▸ ';color:var(--text-faint);}
+  .month-review-card[open] summary::before{content:'▾ ';}
+  .mr-status{font-size:9.5px;font-weight:700;background:var(--surface-alt);color:var(--text-soft);border-radius:20px;padding:3px 9px;white-space:nowrap;}
+  .month-review-body{border-top:1px solid var(--border-soft);padding:13px 14px;}
+  .mr-field-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px;}
+  .mr-field-grid label{font-size:10px;color:var(--text-faint);font-weight:700;display:block;margin-bottom:3px;}
+  .mr-field-grid select{width:100%;font-size:12px;padding:6px 7px;border-radius:7px;border:1px solid var(--border);}
+
+  .subtabs2{display:flex;gap:2px;background:var(--surface-alt);border-radius:999px;padding:3px;margin-bottom:12px;max-width:280px;}
+  .subtabs2 button{flex:1;border:none;background:transparent;border-radius:999px;padding:7px 4px;font-size:11.5px;font-weight:700;color:var(--text-soft);cursor:pointer;}
+  .subtabs2 button.active{background:var(--surface);color:var(--text);box-shadow:var(--shadow);}
+  .product-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;}
+  .product-cabinet-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-md);padding:13px 14px;box-shadow:var(--shadow);display:flex;flex-direction:column;}
+  .product-cabinet-card.low{border-color:#e7c8a1;}
+  .product-cabinet-card h4{font-size:13px;margin:0 0 8px;line-height:1.3;}
+  .stock-track{height:7px;background:var(--surface-alt);border-radius:99px;overflow:hidden;margin-top:auto;}
+  .stock-fill{height:100%;border-radius:99px;}
+  .stock-row{display:flex;justify-content:space-between;align-items:center;font-size:10.5px;color:var(--text-soft);margin-top:6px;}
+  .stock-row input{width:56px;border:1px solid var(--border);border-radius:6px;padding:4px 5px;font-size:11px;}
+  .pc-actions{display:flex;gap:6px;margin-top:9px;}
+  .pc-actions button{flex:1;font-size:10px;padding:6px 4px;border-radius:7px;border:1px solid var(--border);background:var(--surface-alt);color:var(--text-soft);font-weight:700;cursor:pointer;}
+
+  .timer{font-size:32px;font-weight:900;text-align:center;letter-spacing:-.03em;padding:16px;background:var(--text);color:#fff;border-radius:12px;margin:12px 0;font-family:'Manrope',sans-serif;}
+  .timer-open{font-size:11px;font-weight:700;background:var(--surface-alt);color:var(--accent-deep);border:1px solid var(--accent);border-radius:8px;padding:6px 10px;cursor:pointer;margin-top:6px;}
 </style>
 </head>
 <body>
+<script>try{ if(window.self !== window.top) document.body.classList.add('embedded'); }catch(e){ document.body.classList.add('embedded'); }</script>
 
 <div id="loading-gate" class="loading-gate">Loading…</div>
 
@@ -184,7 +246,10 @@
 <div class="wrap" id="app-wrap" style="display:none;">
   <div class="topbar">
     <a href="../index.html">← All apps</a>
-    <button class="switch-btn" id="switch-profile-btn">Switch profile</button>
+    <div style="display:flex;align-items:center;gap:14px;">
+      <button class="switch-btn" id="backup-open-btn">Backup</button>
+      <button class="switch-btn" id="switch-profile-btn">Switch profile</button>
+    </div>
   </div>
 
   <header class="app-head">
@@ -200,12 +265,42 @@
     <button id="tab-shopping-btn">Shopping</button>
     <button id="tab-milestones-btn">Milestones</button>
     <button id="tab-checkins-btn">Check-ins</button>
+    <button id="tab-progress-btn">Progress</button>
   </div>
 
   <div id="today-view"></div>
   <div id="shopping-view" style="display:none;"></div>
   <div id="milestones-view" style="display:none;"></div>
   <div id="checkins-view" style="display:none;"></div>
+  <div id="progress-view" style="display:none;"></div>
+</div>
+
+<div class="modal-overlay" id="timerModal">
+  <div class="modal-box">
+    <h3>Application wait timer</h3>
+    <p class="modal-sub" id="timerCopy">Keep this page open while the timer runs.</p>
+    <div class="timer" id="timerDisplay">15:00</div>
+    <div class="modal-actions">
+      <button type="button" class="modal-btn secondary" id="timerResetBtn">Reset</button>
+      <button type="button" class="modal-btn secondary" id="timerCloseBtn">Close</button>
+      <button type="button" class="modal-btn" id="timerStartBtn">Start</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="backupModal">
+  <div class="modal-box">
+    <h3>Local backup</h3>
+    <p class="modal-sub">Everything already syncs to the cloud automatically. This is just an extra downloadable copy of this profile's skin data, in case you ever want one.</p>
+    <div style="display:grid;gap:8px;">
+      <button type="button" class="modal-btn" id="backupExportBtn">Export JSON backup</button>
+      <button type="button" class="modal-btn secondary" id="backupImportBtn">Import JSON backup</button>
+      <input type="file" id="backupImportFile" accept="application/json" hidden>
+    </div>
+    <div class="modal-actions">
+      <button type="button" class="modal-btn secondary" id="backupCloseBtn">Close</button>
+    </div>
+  </div>
 </div>
 
 <div class="modal-overlay" id="skinLinkModal">
@@ -483,73 +578,78 @@ const SKIN_QTY = {
   bha: '4–6 drops — nose, forehead, blackhead-prone areas'
 };
 
-// 7:00 AM — identical every day across all 5 months.
+// 7:00 AM — identical every day across all 5 months. Body sunscreen is
+// conditional ("if leaving home"), so it's optional — it doesn't count
+// against the day's completion percentage or streak.
 const SKIN_AM_ROUTINE = [
-  {text:'Cleanser', qty:SKIN_QTY.cleanser},
-  {text:'Moisturizer — face & neck', qty:SKIN_QTY.faceMoisturizer},
-  {text:'Sunscreen — face, ears, neck', qty:SKIN_QTY.faceSunscreen},
-  {text:'Body sunscreen on exposed areas (if leaving home)', qty:SKIN_QTY.bodySunscreen}
+  {text:'Cleanser', qty:SKIN_QTY.cleanser, product:'cleanser'},
+  {text:'Moisturizer — face & neck', qty:SKIN_QTY.faceMoisturizer, product:'moisturizer'},
+  {text:'Sunscreen — face, ears, neck', qty:SKIN_QTY.faceSunscreen, product:'spf'},
+  {text:'Body sunscreen on exposed areas (if leaving home)', qty:SKIN_QTY.bodySunscreen, product:'spf', optional:true}
 ];
 
 // 9:30 PM face treatment, keyed by the code each date carries in
 // SKIN_DATE_PLAN. Body lotion (Eucerin vs CeraVe SA) is tracked
-// separately per date since it combines with any of these.
+// separately per date since it combines with any of these. Steps with no
+// product used their full weight; a "buffer"/second moisturizer pass is
+// weighted lighter since it's a thinner layer than the main application.
 const SKIN_TREATMENTS = {
   regular: {
     label: 'Regular face routine',
     steps: [
-      {text:'Cleanser', qty:SKIN_QTY.cleanser},
-      {text:'Moisturizer — face & neck', qty:SKIN_QTY.faceMoisturizer}
+      {text:'Cleanser', qty:SKIN_QTY.cleanser, product:'cleanser'},
+      {text:'Moisturizer — face & neck', qty:SKIN_QTY.faceMoisturizer, product:'moisturizer'}
     ]
   },
   differin: {
     label: 'Differin night',
     steps: [
-      {text:'Cleanser', qty:SKIN_QTY.cleanser},
-      {text:'Let face dry 15–20 minutes'},
-      {text:'Thin layer of moisturizer'},
-      {text:'Differin — entire face', qty:SKIN_QTY.differin},
-      {text:'Another thin layer of moisturizer'}
+      {text:'Cleanser', qty:SKIN_QTY.cleanser, product:'cleanser'},
+      {text:'Let face dry 15–20 minutes', timerMinutes:15},
+      {text:'Thin layer of moisturizer', product:'moisturizer', weight:0.5},
+      {text:'Differin — entire face', qty:SKIN_QTY.differin, product:'differin'},
+      {text:'Another thin layer of moisturizer', product:'moisturizer', weight:0.5}
     ]
   },
   azelaic: {
     label: 'Azelaic acid night',
     steps: [
-      {text:'Cleanser', qty:SKIN_QTY.cleanser},
+      {text:'Cleanser', qty:SKIN_QTY.cleanser, product:'cleanser'},
       {text:'Let skin dry completely'},
-      {text:'Azelaic acid on uneven/pigmented areas', qty:SKIN_QTY.azelaic},
-      {text:'Moisturizer after it absorbs', qty:SKIN_QTY.faceMoisturizer}
+      {text:'Azelaic acid on uneven/pigmented areas', qty:SKIN_QTY.azelaic, product:'azelaic'},
+      {text:'Moisturizer after it absorbs', qty:SKIN_QTY.faceMoisturizer, product:'moisturizer'}
     ]
   },
   bha: {
     label: 'BHA night',
     steps: [
-      {text:'Cleanser', qty:SKIN_QTY.cleanser},
-      {text:'Paula’s Choice 2% BHA — nose, forehead, blackhead-prone areas', qty:SKIN_QTY.bha},
-      {text:'Wait 5–10 minutes'},
-      {text:'Moisturizer', qty:SKIN_QTY.faceMoisturizer}
+      {text:'Cleanser', qty:SKIN_QTY.cleanser, product:'cleanser'},
+      {text:'Paula’s Choice 2% BHA — nose, forehead, blackhead-prone areas', qty:SKIN_QTY.bha, product:'bha'},
+      {text:'Wait 5–10 minutes', timerMinutes:5},
+      {text:'Moisturizer', qty:SKIN_QTY.faceMoisturizer, product:'moisturizer'}
     ]
   }
 };
 
 // 7:30 PM shower/body step — CeraVe SA on rough/bumpy areas on the
 // dates that call for it, Eucerin everywhere else (or the rest of the
-// body on a CeraVe SA night).
+// body on a CeraVe SA night). Each sub-step is weighted so a full night
+// of body care works out to roughly one "application" of that product.
 function skinBodyStepsFor(entry){
   if(entry.ceraveSA){
     return [
       {text:'Shower, lukewarm, 5–10 min; pat partially dry'},
-      {text:'CeraVe SA on rough/bumpy arms', qty:SKIN_QTY.ceraveSAArms},
-      {text:'CeraVe SA on rough/bumpy legs', qty:SKIN_QTY.ceraveSALegs},
-      {text:'Eucerin on the rest of the body — within 3 minutes of showering'}
+      {text:'CeraVe SA on rough/bumpy arms', qty:SKIN_QTY.ceraveSAArms, product:'sa', weight:0.5},
+      {text:'CeraVe SA on rough/bumpy legs', qty:SKIN_QTY.ceraveSALegs, product:'sa', weight:0.5},
+      {text:'Eucerin on the rest of the body — within 3 minutes of showering', product:'eucerin', weight:0.5}
     ];
   }
   return [
     {text:'Shower, lukewarm, 5–10 min; pat partially dry'},
-    {text:'Eucerin — both arms', qty:SKIN_QTY.eucerinArms},
-    {text:'Eucerin — both legs', qty:SKIN_QTY.eucerinLegs},
-    {text:'Eucerin — chest & stomach', qty:SKIN_QTY.eucerinChest},
-    {text:'Eucerin — back', qty:SKIN_QTY.eucerinBack},
+    {text:'Eucerin — both arms', qty:SKIN_QTY.eucerinArms, product:'eucerin', weight:0.25},
+    {text:'Eucerin — both legs', qty:SKIN_QTY.eucerinLegs, product:'eucerin', weight:0.25},
+    {text:'Eucerin — chest & stomach', qty:SKIN_QTY.eucerinChest, product:'eucerin', weight:0.25},
+    {text:'Eucerin — back', qty:SKIN_QTY.eucerinBack, product:'eucerin', weight:0.25},
     {text:'Apply within 3 minutes of showering'}
   ];
 }
@@ -668,19 +768,19 @@ const MILESTONES_BHARGAV = SKIN_REVIEW_DATES.map(function(d){
 
 // ---- Anusha: fixed daily routine (same every day, no phases) ----
 const ANUSHA_MORNING = [
-  'Rinse with water — INKEY List Salicylic Acid Cleanser only if face is oily',
-  'Tone: Anua Heartleaf 77 + Hyaluron Soothing Toner',
-  'Brighten: INKEY List 15% Vitamin C + EGF Serum — 1–2 pumps',
-  'Hydrate: Atomy Hydra Brightening Capsule Essence — 1–2 pumps',
-  'Moisturize: Atomy Hydra Brightening Cream',
-  'Broad-spectrum sunscreen SPF 30–50'
+  {text:'Rinse with water — INKEY List Salicylic Acid Cleanser only if face is oily', product:'cleanser'},
+  {text:'Tone: Anua Heartleaf 77 + Hyaluron Soothing Toner', product:'toner'},
+  {text:'Brighten: INKEY List 15% Vitamin C + EGF Serum — 1–2 pumps', product:'vitc'},
+  {text:'Hydrate: Atomy Hydra Brightening Capsule Essence — 1–2 pumps', product:'essence'},
+  {text:'Moisturize: Atomy Hydra Brightening Cream', product:'amCream'},
+  {text:'Broad-spectrum sunscreen SPF 30–50', product:'spf'}
 ];
 const ANUSHA_NIGHT = [
-  'Cleanse: INKEY List Salicylic Acid Cleanser',
-  'Tone: Anua Heartleaf 77 + Hyaluron Soothing Toner',
-  'Treat: Anua Azelaic Acid 10% Serum — 2–3 drops',
-  'Hydrate: Atomy Hydra Brightening Capsule Essence — 1–2 pumps',
-  'Moisturize: Anua Ceramide 3 + Panthenol Barrier Cream'
+  {text:'Cleanse: INKEY List Salicylic Acid Cleanser', product:'cleanser'},
+  {text:'Tone: Anua Heartleaf 77 + Hyaluron Soothing Toner', product:'toner'},
+  {text:'Treat: Anua Azelaic Acid 10% Serum — 2–3 drops', product:'azelaicSerum'},
+  {text:'Hydrate: Atomy Hydra Brightening Capsule Essence — 1–2 pumps', product:'essence'},
+  {text:'Moisturize: Anua Ceramide 3 + Panthenol Barrier Cream', product:'pmCream'}
 ];
 const SHOPPING_LIST_ANUSHA = [
   {name:'INKEY List Salicylic Acid Cleanser', sub:'Morning (oily skin only) + every night'},
@@ -697,13 +797,49 @@ const MILESTONES_ANUSHA = [];
 function currentMilestones(){ return activeProfile==='Anusha' ? MILESTONES_ANUSHA : MILESTONES_BHARGAV; }
 
 /* =====================================================================
+   PRODUCT CABINET — ported from the local prototype: each routine step
+   is tagged with a product id, and checking it off deducts an estimated
+   "application" from that product's remaining stock (unchecking restores
+   it). Capacities are estimates from typical package sizes — editable
+   per product via "Full container holds…" so they can be corrected to
+   match reality. Names match the Shopping tab's catalog 1:1.
+===================================================================== */
+const SKIN_PRODUCTS_BHARGAV = [
+  {id:'cleanser', name:'Vanicream Gentle Facial Cleanser', capacity:120},
+  {id:'moisturizer', name:'Vanicream Daily Facial Moisturizer', capacity:100},
+  {id:'spf', name:'La Roche-Posay Anthelios Melt-In Milk SPF 60', capacity:50},
+  {id:'nizoral', name:'Nizoral A-D Anti-Dandruff Shampoo 1%', capacity:25},
+  {id:'eucerin', name:'Eucerin Advanced Repair Lotion', capacity:30},
+  {id:'differin', name:'Differin Gel 0.1% (adapalene)', capacity:90},
+  {id:'azelaic', name:'The Ordinary Azelaic Acid Suspension 10%', capacity:90},
+  {id:'sa', name:'CeraVe SA Lotion', capacity:35},
+  {id:'bha', name:'Paula’s Choice Skin Perfecting 2% BHA Liquid Exfoliant', capacity:120}
+];
+const SKIN_PRODUCTS_ANUSHA = [
+  {id:'cleanser', name:'INKEY List Salicylic Acid Cleanser', capacity:90},
+  {id:'toner', name:'Anua Heartleaf 77 + Hyaluron Soothing Toner', capacity:90},
+  {id:'vitc', name:'INKEY List 15% Vitamin C + EGF Serum', capacity:60},
+  {id:'essence', name:'Atomy Hydra Brightening Capsule Essence', capacity:60},
+  {id:'amCream', name:'Atomy Hydra Brightening Cream', capacity:60},
+  {id:'spf', name:'Broad-spectrum sunscreen SPF 30–50', capacity:50},
+  {id:'azelaicSerum', name:'Anua Azelaic Acid 10% Serum', capacity:60},
+  {id:'pmCream', name:'Anua Ceramide 3 + Panthenol Barrier Cream', capacity:60}
+];
+function currentProducts(){ return activeProfile==='Anusha' ? SKIN_PRODUCTS_ANUSHA : SKIN_PRODUCTS_BHARGAV; }
+function findProduct(id){ return currentProducts().find(function(p){ return p.id===id; }); }
+
+/* =====================================================================
    STATE (all persisted to Firestore)
 ===================================================================== */
 let stepLog = {};      // { 'date:section:stepIndex': true }
 let shoppingLog = {};  // { itemName: 'YYYY-MM-DD' } — last date sent to Grocery
 let milestoneLog = {}; // { 'date:text': true }
 let checkins = { weight:[], waist:[], photos:[], pimples:[] }; // Anusha only, going forward
-let trackingLog = {};  // Bhargav's nightly tracking — { 'YYYY-MM-DD': {fields..., overall, observation, savedAt} }
+let trackingLog = {};  // Bhargav's nightly tracking — { 'YYYY-MM-DD': {fields..., overall, observation, reactions[], savedAt} }
+let productState = {}; // { productId: {capacity, remaining, refills} } — Product Cabinet stock
+let usageLedger = {};  // { stepKey: {productId, weight} } — so unchecking a step restores exactly what it deducted
+let monthReviews = {}; // Bhargav — { monthKey: {results:{field:'Better'|'Same'|'Worse'}, score, note} }
+let weeklyReviews = {}; // { weekStartDate: 'free text' }
 let activeTab = 'today';
 // Which day the Today view is showing — lets you flip forward/back
 // instead of always being pinned to the actual today (same pattern as
@@ -727,13 +863,17 @@ function wireDateNav(el){
 }
 
 async function loadAll(){
-  const [stepRes, shopRes, milestoneRes, checkinRes, trackingRes, blockLinksRes] = await Promise.all([
+  const [stepRes, shopRes, milestoneRes, checkinRes, trackingRes, blockLinksRes, productRes, ledgerRes, monthReviewRes, weeklyReviewRes] = await Promise.all([
     skinDoc('stepLog').get().catch(function(){ return null; }),
     skinDoc('shoppingLog').get().catch(function(){ return null; }),
     skinDoc('milestoneLog').get().catch(function(){ return null; }),
     skinDoc('checkins').get().catch(function(){ return null; }),
     skinDoc('trackingLog').get().catch(function(){ return null; }),
-    skinDoc('blockLinks').get().catch(function(){ return null; })
+    skinDoc('blockLinks').get().catch(function(){ return null; }),
+    skinDoc('productState').get().catch(function(){ return null; }),
+    skinDoc('usageLedger').get().catch(function(){ return null; }),
+    skinDoc('monthReviews').get().catch(function(){ return null; }),
+    skinDoc('weeklyReviews').get().catch(function(){ return null; })
   ]);
   try{ stepLog = (stepRes && stepRes.exists && stepRes.data().json) ? JSON.parse(stepRes.data().json) : {}; }catch(e){ stepLog = {}; }
   try{ shoppingLog = (shopRes && shopRes.exists && shopRes.data().json) ? JSON.parse(shopRes.data().json) : {}; }catch(e){ shoppingLog = {}; }
@@ -741,12 +881,98 @@ async function loadAll(){
   try{ checkins = (checkinRes && checkinRes.exists && checkinRes.data().json) ? JSON.parse(checkinRes.data().json) : {weight:[],waist:[],photos:[],pimples:[]}; }catch(e){ checkins = {weight:[],waist:[],photos:[],pimples:[]}; }
   try{ trackingLog = (trackingRes && trackingRes.exists && trackingRes.data().json) ? JSON.parse(trackingRes.data().json) : {}; }catch(e){ trackingLog = {}; }
   try{ skinBlockLinks = (blockLinksRes && blockLinksRes.exists && blockLinksRes.data().json) ? JSON.parse(blockLinksRes.data().json) : {}; }catch(e){ skinBlockLinks = {}; }
+  try{ productState = (productRes && productRes.exists && productRes.data().json) ? JSON.parse(productRes.data().json) : {}; }catch(e){ productState = {}; }
+  try{ usageLedger = (ledgerRes && ledgerRes.exists && ledgerRes.data().json) ? JSON.parse(ledgerRes.data().json) : {}; }catch(e){ usageLedger = {}; }
+  try{ monthReviews = (monthReviewRes && monthReviewRes.exists && monthReviewRes.data().json) ? JSON.parse(monthReviewRes.data().json) : {}; }catch(e){ monthReviews = {}; }
+  try{ weeklyReviews = (weeklyReviewRes && weeklyReviewRes.exists && weeklyReviewRes.data().json) ? JSON.parse(weeklyReviewRes.data().json) : {}; }catch(e){ weeklyReviews = {}; }
+  ensureProductStateSeeded();
 }
 async function saveStepLog(){ try{ await skinDoc('stepLog').set({json: JSON.stringify(stepLog)}); }catch(e){} }
 async function saveShoppingLog(){ try{ await skinDoc('shoppingLog').set({json: JSON.stringify(shoppingLog)}); }catch(e){} }
 async function saveMilestoneLog(){ try{ await skinDoc('milestoneLog').set({json: JSON.stringify(milestoneLog)}); }catch(e){} }
 async function saveCheckins(){ try{ await skinDoc('checkins').set({json: JSON.stringify(checkins)}); }catch(e){} }
 async function saveTrackingLog(){ try{ await skinDoc('trackingLog').set({json: JSON.stringify(trackingLog)}); }catch(e){} }
+async function saveProductState(){ try{ await Promise.all([skinDoc('productState').set({json: JSON.stringify(productState)}), skinDoc('usageLedger').set({json: JSON.stringify(usageLedger)})]); }catch(e){} }
+async function saveMonthReviews(){ try{ await skinDoc('monthReviews').set({json: JSON.stringify(monthReviews)}); }catch(e){} }
+async function saveWeeklyReviews(){ try{ await skinDoc('weeklyReviews').set({json: JSON.stringify(weeklyReviews)}); }catch(e){} }
+
+/* =====================================================================
+   PRODUCT CABINET — logic
+===================================================================== */
+function ensureProductStateSeeded(){
+  currentProducts().forEach(function(p){
+    if(!productState[p.id]){ productState[p.id] = {capacity:p.capacity, remaining:p.capacity, refills:0}; }
+    else{
+      productState[p.id].capacity = Number(productState[p.id].capacity) || p.capacity;
+      productState[p.id].remaining = Math.max(0, Number(productState[p.id].remaining) || 0);
+      productState[p.id].refills = Number(productState[p.id].refills) || 0;
+    }
+  });
+}
+function roundDose(n){ return Math.round(Number(n||0)*10)/10; }
+function productPercent(id){ const ps = productState[id]; return (ps && ps.capacity) ? Math.max(0, Math.min(100, Math.round(ps.remaining/ps.capacity*100))) : 0; }
+function productStatusLabel(pct){ return pct<=15 ? 'Buy soon' : pct<=30 ? 'Running low' : 'Healthy'; }
+function recordProductUse(stepKeyStr, productId, weight){
+  const ps = productState[productId];
+  if(!ps || usageLedger[stepKeyStr]) return;
+  ps.remaining = Math.max(0, ps.remaining - weight);
+  usageLedger[stepKeyStr] = {productId: productId, weight: weight};
+}
+function restoreProductUse(stepKeyStr){
+  const entry = usageLedger[stepKeyStr];
+  if(!entry) return;
+  const ps = productState[entry.productId];
+  if(ps) ps.remaining = Math.min(ps.capacity, ps.remaining + Number(entry.weight||1));
+  delete usageLedger[stepKeyStr];
+}
+function productCabinetCardHtml(p){
+  const ps = productState[p.id] || {capacity:p.capacity, remaining:p.capacity};
+  const pct = productPercent(p.id);
+  const status = productStatusLabel(pct);
+  const color = pct<=15 ? 'var(--warn)' : pct<=30 ? 'var(--accent)' : '#2f7c5a';
+  return '<div class="product-cabinet-card'+(pct<=30?' low':'')+'"><h4>'+escapeHtml(p.name)+'</h4>'+
+    '<div class="stock-track"><div class="stock-fill" style="width:'+pct+'%;background:'+color+';"></div></div>'+
+    '<div class="stock-row"><span>'+pct+'% · '+roundDose(ps.remaining)+' left</span><input type="number" min="0" step="0.5" value="'+roundDose(ps.remaining)+'" data-remainingfor="'+p.id+'" aria-label="'+escapeHtml(p.name)+' remaining"></div>'+
+    '<div class="stock-row" style="margin-top:2px;"><span>'+status+'</span><span>'+roundDose(ps.capacity)+' per container</span></div>'+
+    '<div class="pc-actions"><button type="button" data-refillfor="'+p.id+'">Refilled</button><button type="button" data-capacityfor="'+p.id+'">Edit size</button></div>'+
+  '</div>';
+}
+function attachProductCabinetHandlers(el){
+  el.querySelectorAll('[data-remainingfor]').forEach(function(inp){
+    inp.addEventListener('change', async function(){
+      const id = inp.dataset.remainingfor, ps = productState[id];
+      if(!ps) return;
+      ps.remaining = Math.max(0, Number(inp.value)||0);
+      await saveProductState();
+      renderProductCabinet(document.getElementById('shopping-view'));
+    });
+  });
+  el.querySelectorAll('[data-refillfor]').forEach(function(btn){
+    btn.addEventListener('click', async function(){
+      const id = btn.dataset.refillfor, p = findProduct(id), ps = productState[id];
+      if(!ps || !p) return;
+      if(!confirm('Mark '+p.name+' as a full container?')) return;
+      ps.remaining = ps.capacity;
+      ps.refills = (ps.refills||0) + 1;
+      await saveProductState();
+      renderProductCabinet(document.getElementById('shopping-view'));
+    });
+  });
+  el.querySelectorAll('[data-capacityfor]').forEach(function(btn){
+    btn.addEventListener('click', async function(){
+      const id = btn.dataset.capacityfor, ps = productState[id];
+      if(!ps) return;
+      const value = prompt('Estimated number of applications in a full container:', roundDose(ps.capacity));
+      if(value===null) return;
+      const n = Number(value);
+      if(!isFinite(n) || n<=0){ alert('Enter a number greater than zero.'); return; }
+      ps.capacity = n;
+      ps.remaining = Math.min(ps.remaining, n);
+      await saveProductState();
+      renderProductCabinet(document.getElementById('shopping-view'));
+    });
+  });
+}
 
 function escapeHtml(s){
   return String(s==null?'':s).replace(/[&<>"']/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; });
@@ -761,14 +987,23 @@ async function init(){
   document.getElementById('tab-shopping-btn').onclick = function(){ showTab('shopping'); };
   document.getElementById('tab-milestones-btn').onclick = function(){ showTab('milestones'); };
   document.getElementById('tab-checkins-btn').onclick = function(){ showTab('checkins'); };
+  document.getElementById('tab-progress-btn').onclick = function(){ showTab('progress'); };
   document.getElementById('skinLinkCancelBtn').onclick = closeSkinLinkModal;
   document.getElementById('skinLinkSaveBtn').onclick = saveSkinLinkSelection;
+  document.getElementById('timerStartBtn').onclick = startTimer;
+  document.getElementById('timerResetBtn').onclick = function(){ stopTimer(); timerSeconds = 900; updateTimerDisplay(); };
+  document.getElementById('timerCloseBtn').onclick = function(){ stopTimer(); document.getElementById('timerModal').classList.remove('open'); };
+  document.getElementById('backup-open-btn').onclick = function(){ document.getElementById('backupModal').classList.add('open'); };
+  document.getElementById('backupCloseBtn').onclick = function(){ document.getElementById('backupModal').classList.remove('open'); };
+  document.getElementById('backupExportBtn').onclick = exportBackup;
+  document.getElementById('backupImportBtn').onclick = function(){ document.getElementById('backupImportFile').click(); };
+  document.getElementById('backupImportFile').onchange = function(e){ importBackup(e.target.files[0]); e.target.value=''; };
   renderWeekBanner();
   showTab('today');
 }
 function showTab(name){
   activeTab = name;
-  ['today','shopping','milestones','checkins'].forEach(function(t){
+  ['today','shopping','milestones','checkins','progress'].forEach(function(t){
     document.getElementById('tab-'+t+'-btn').classList.toggle('active', t===name);
     document.getElementById(t+'-view').style.display = t===name ? 'block':'none';
   });
@@ -776,6 +1011,7 @@ function showTab(name){
   if(name==='shopping') renderShopping();
   if(name==='milestones') renderMilestones();
   if(name==='checkins') renderCheckins();
+  if(name==='progress') renderProgress();
 }
 
 function renderWeekBanner(){
@@ -798,20 +1034,41 @@ function renderWeekBanner(){
    TODAY
 ===================================================================== */
 function stepKey(date, section, idx){ return date+':'+section+':'+idx; }
-function stepRowHtml(date, section, idx, text, qty){
+// Accepts either a plain string (legacy call sites) or a step object
+// {text, qty, product, weight, optional, timerMinutes}. Tagging a step
+// with `product` ties it into the Product Cabinet's stock tracking;
+// `timerMinutes` adds a wait-timer button.
+function stepRowHtml(date, section, idx, step){
+  if(typeof step === 'string') step = {text: step};
   const key = stepKey(date, section, idx);
   const done = !!stepLog[key];
-  return '<div class="step-row"><input type="checkbox" class="step-chk" data-stepkey="'+key+'" '+(done?'checked':'')+'>'+
-    '<div><div class="step-text '+(done?'strike':'')+'">'+escapeHtml(text)+'</div>'+(qty?'<div class="step-note" style="color:var(--text-faint);">'+escapeHtml(qty)+'</div>':'')+'</div></div>';
+  const product = step.product || '';
+  const weight = step.weight != null ? step.weight : 1;
+  const timerBtn = step.timerMinutes ? '<button type="button" class="timer-open" data-timerminutes="'+step.timerMinutes+'" data-timerlabel="'+escapeHtml(step.text)+'">Start '+step.timerMinutes+'-min wait timer</button>' : '';
+  return '<div class="step-row"><input type="checkbox" class="step-chk" data-stepkey="'+key+'" data-product="'+escapeHtml(product)+'" data-weight="'+weight+'" '+(done?'checked':'')+'>'+
+    '<div><div class="step-text '+(done?'strike':'')+'">'+escapeHtml(step.text)+(step.optional?'<span class="opt-tag">OPTIONAL</span>':'')+'</div>'+
+    (step.qty?'<div class="step-note" style="color:var(--text-faint);">'+escapeHtml(step.qty)+'</div>':'')+timerBtn+'</div></div>';
 }
 function attachStepHandlers(el){
   el.querySelectorAll('.step-chk').forEach(function(cb){
     cb.addEventListener('change', async function(){
       const key = cb.dataset.stepkey;
-      if(cb.checked) stepLog[key] = true; else delete stepLog[key];
+      const product = cb.dataset.product;
+      const weight = Number(cb.dataset.weight)||1;
+      if(cb.checked){
+        stepLog[key] = true;
+        if(product) recordProductUse(key, product, weight);
+      }else{
+        delete stepLog[key];
+        if(product) restoreProductUse(key);
+      }
       cb.closest('.step-row').querySelector('.step-text').classList.toggle('strike', cb.checked);
-      await saveStepLog();
+      await Promise.all([saveStepLog(), product ? saveProductState() : Promise.resolve()]);
+      refreshStatsRow();
     });
+  });
+  el.querySelectorAll('.timer-open').forEach(function(btn){
+    btn.addEventListener('click', function(){ openTimer(Number(btn.dataset.timerminutes), btn.dataset.timerlabel); });
   });
 }
 function renderToday(){
@@ -822,7 +1079,7 @@ function renderToday(){
 function renderTodayAnusha(){
   const today = selectedDay;
   const el = document.getElementById('today-view');
-  el.innerHTML = dateNavHtml(today)+
+  el.innerHTML = dateNavHtml(today)+statsRowHtml()+
     '<div class="routine-card am"><div class="rc-head"><div class="rc-icon">☀️</div><div><div class="rc-title">Morning</div></div>'+rcLinkBtnHtml('am')+'</div>'+
       ANUSHA_MORNING.map(function(s,i){ return stepRowHtml(today,'am',i,s); }).join('')+
     '</div>'+
@@ -846,23 +1103,23 @@ function renderTodayBhargav(){
   const treatment = SKIN_TREATMENTS[entry.face] || SKIN_TREATMENTS.regular;
   const bodySteps = skinBodyStepsFor(entry);
 
-  let html = dateNavHtml(today);
+  let html = dateNavHtml(today) + statsRowHtml();
   html += '<div class="routine-card am"><div class="rc-head"><div class="rc-icon">☀️</div><div><div class="rc-title">Morning</div><div class="rc-time">7:00 AM</div></div>'+rcLinkBtnHtml('am')+'</div>'+
-    SKIN_AM_ROUTINE.map(function(s,i){ return stepRowHtml(today,'am',i,s.text,s.qty); }).join('')+
+    SKIN_AM_ROUTINE.map(function(s,i){ return stepRowHtml(today,'am',i,s); }).join('')+
   '</div>';
 
   html += '<div class="routine-card pm"><div class="rc-head"><div class="rc-icon">🚿</div><div><div class="rc-title">Shower & body</div><div class="rc-time">7:30 PM</div></div>'+rcLinkBtnHtml('body')+'</div>'+
-    bodySteps.map(function(s,i){ return stepRowHtml(today,'body',i,s.text,s.qty); }).join('')+
+    bodySteps.map(function(s,i){ return stepRowHtml(today,'body',i,s); }).join('')+
   '</div>';
 
   if(entry.nizoral){
     html += '<div class="routine-card pm"><div class="rc-head"><div class="rc-icon">🧴</div><div><div class="rc-title">Nizoral — scheduled tonight</div></div>'+rcLinkBtnHtml('nizoral')+'</div>'+
-      ['Wet the scalp completely','Apply '+SKIN_QTY.nizoral,'Massage gently for 30 seconds','Leave on for the time on the bottle','Rinse thoroughly'].map(function(s,i){ return stepRowHtml(today,'nizoral',i,s); }).join('')+
+      [{text:'Wet the scalp completely'},{text:'Apply '+SKIN_QTY.nizoral, product:'nizoral'},{text:'Massage gently for 30 seconds'},{text:'Leave on for the time on the bottle'},{text:'Rinse thoroughly'}].map(function(s,i){ return stepRowHtml(today,'nizoral',i,s); }).join('')+
     '</div>';
   }
 
   html += '<div class="routine-card pm"><div class="rc-head"><div class="rc-icon">🌙</div><div><div class="rc-title">'+escapeHtml(treatment.label)+'</div><div class="rc-time">9:30 PM</div></div>'+rcLinkBtnHtml('face')+'</div>'+
-    treatment.steps.map(function(s,i){ return stepRowHtml(today,'face',i,s.text,s.qty); }).join('')+
+    treatment.steps.map(function(s,i){ return stepRowHtml(today,'face',i,s); }).join('')+
     (entry.note ? '<div class="step-note" style="color:var(--text-faint);">'+escapeHtml(entry.note)+'</div>' : '')+
   '</div>';
 
@@ -874,15 +1131,21 @@ function renderTodayBhargav(){
   attachRcLinkHandlers(el);
   wireDateNav(el);
 }
+// Reaction options ported from the local prototype — picking a
+// concerning one shows a caution banner (never a diagnosis).
+const SKIN_REACTIONS = ['No reaction','Mild dryness','Redness','Peeling','Burning','Increased bumps','Scalp irritation','Other'];
+const SKIN_CONCERNING_REACTIONS = ['Burning','Redness','Peeling','Other'];
 function renderTrackingCardHtml(date, monthKey){
   const fields = SKIN_TRACKING_FIELDS[monthKey] || [];
   const rec = trackingLog[date] || {};
+  const reactions = rec.reactions || [];
   const rows = fields.map(function(f){
     if(f.type==='text'){
       return '<div class="f" style="flex:1 1 100%;"><label>'+escapeHtml(f.label)+'</label><input type="text" data-trackfield="'+f.key+'" value="'+escapeHtml(rec[f.key]||'')+'" placeholder="none" style="width:100%;"></div>';
     }
     return '<div class="f"><label>'+escapeHtml(f.label)+' (0–10)</label><input type="number" min="0" max="10" data-trackfield="'+f.key+'" value="'+(rec[f.key]!=null?escapeHtml(rec[f.key]):'')+'" style="width:60px;"></div>';
   }).join('');
+  const concerning = reactions.some(function(r){ return SKIN_CONCERNING_REACTIONS.indexOf(r)!==-1; });
   return '<div class="checkin-card"><h3>Daily tracking</h3><div class="ci-sub">Fill this in each night.</div>'+
     '<div class="ci-form" style="flex-wrap:wrap;">'+rows+'</div>'+
     '<div class="ci-form" style="margin-top:10px;"><div class="f"><label>Overall today</label><select data-trackfield="overall">'+
@@ -891,6 +1154,10 @@ function renderTrackingCardHtml(date, monthKey){
       '<option value="same" '+(rec.overall==='same'?'selected':'')+'>Same</option>'+
       '<option value="worse" '+(rec.overall==='worse'?'selected':'')+'>Worse</option>'+
     '</select></div></div>'+
+    '<div class="f" style="margin-top:10px;"><label>Reaction or discomfort</label><div class="reaction-grid" id="reaction-grid">'+
+      SKIN_REACTIONS.map(function(r){ return '<button type="button" class="'+(reactions.indexOf(r)!==-1?'on':'')+'" data-reaction="'+escapeHtml(r)+'">'+escapeHtml(r)+'</button>'; }).join('')+
+    '</div></div>'+
+    '<div class="reaction-alert" id="reaction-alert" style="'+(concerning?'':'display:none;')+'">You logged a possible reaction. The tracker keeps the planned routine as-is, but this isn’t a diagnosis — consider pausing the affected active and checking with a qualified clinician if it’s significant, persistent, or getting worse.</div>'+
     '<div class="f" style="margin-top:8px;"><label>One observation</label><textarea data-trackfield="observation" rows="2" style="width:100%;font-size:12.5px;padding:7px 9px;border-radius:8px;border:1px solid var(--border);box-sizing:border-box;">'+escapeHtml(rec.observation||'')+'</textarea></div>'+
     '<button type="button" id="save-tracking-btn" class="send-grocery-btn" style="margin-top:8px;">'+(rec.savedAt?'Update tonight’s tracking':'Save tonight’s tracking')+'</button>'+
   '</div>';
@@ -898,15 +1165,124 @@ function renderTrackingCardHtml(date, monthKey){
 function attachTrackingHandlers(el, date){
   const btn = document.getElementById('save-tracking-btn');
   if(!btn) return;
+  el.querySelectorAll('[data-reaction]').forEach(function(rbtn){
+    rbtn.addEventListener('click', function(){
+      if(rbtn.dataset.reaction==='No reaction'){
+        el.querySelectorAll('[data-reaction]').forEach(function(x){ x.classList.remove('on'); });
+        rbtn.classList.add('on');
+      }else{
+        const noneBtn = el.querySelector('[data-reaction="No reaction"]');
+        if(noneBtn) noneBtn.classList.remove('on');
+        rbtn.classList.toggle('on');
+      }
+      const picked = [...el.querySelectorAll('[data-reaction].on')].map(function(x){ return x.dataset.reaction; });
+      const alertBox = document.getElementById('reaction-alert');
+      alertBox.style.display = picked.some(function(r){ return SKIN_CONCERNING_REACTIONS.indexOf(r)!==-1; }) ? 'block' : 'none';
+    });
+  });
   btn.addEventListener('click', async function(){
     const rec = trackingLog[date] || {};
     el.querySelectorAll('[data-trackfield]').forEach(function(input){ rec[input.dataset.trackfield] = input.value; });
+    rec.reactions = [...el.querySelectorAll('[data-reaction].on')].map(function(x){ return x.dataset.reaction; });
     rec.savedAt = new Date().toISOString();
     trackingLog[date] = rec;
     await saveTrackingLog();
     btn.textContent = 'Saved ✓';
     setTimeout(function(){ btn.textContent = 'Update tonight’s tracking'; }, 1500);
+    refreshStatsRow();
   });
+}
+
+/* =====================================================================
+   WAIT TIMER — for "let it dry" / "wait before moisturizer" steps
+===================================================================== */
+let timerSeconds = 900, timerHandle = null;
+function timerPad(n){ return String(n).padStart(2,'0'); }
+function updateTimerDisplay(){ const m=Math.floor(timerSeconds/60), s=timerSeconds%60; document.getElementById('timerDisplay').textContent = timerPad(m)+':'+timerPad(s); }
+function openTimer(minutes, label){
+  timerSeconds = minutes*60;
+  updateTimerDisplay();
+  document.getElementById('timerCopy').textContent = (label?escapeHtml(label)+' — keep':'Keep')+' this page open while the timer runs.';
+  document.getElementById('timerModal').classList.add('open');
+}
+function startTimer(){
+  if(timerHandle) return;
+  timerHandle = setInterval(function(){
+    timerSeconds--;
+    updateTimerDisplay();
+    if(timerSeconds<=0){ clearInterval(timerHandle); timerHandle=null; }
+  }, 1000);
+}
+function stopTimer(){ clearInterval(timerHandle); timerHandle = null; }
+
+/* =====================================================================
+   STATS / STREAK — how many of today's required (non-optional) steps
+   are complete, how many days in a row have been fully completed, and
+   how many nightly tracking entries exist. Ported from the local
+   prototype's hero stats row.
+===================================================================== */
+function bhargavRequiredStepKeysFor(date){
+  const entry = SKIN_DATE_PLAN[date];
+  if(!entry) return null;
+  const treatment = SKIN_TREATMENTS[entry.face] || SKIN_TREATMENTS.regular;
+  const bodySteps = skinBodyStepsFor(entry);
+  const keys = [];
+  SKIN_AM_ROUTINE.forEach(function(s,i){ if(!s.optional) keys.push(stepKey(date,'am',i)); });
+  bodySteps.forEach(function(s,i){ keys.push(stepKey(date,'body',i)); });
+  if(entry.nizoral){ for(let i=0;i<5;i++) keys.push(stepKey(date,'nizoral',i)); }
+  treatment.steps.forEach(function(s,i){ keys.push(stepKey(date,'face',i)); });
+  return keys;
+}
+function anushaRequiredStepKeysFor(date){
+  const keys = [];
+  ANUSHA_MORNING.forEach(function(s,i){ keys.push(stepKey(date,'am',i)); });
+  ANUSHA_NIGHT.forEach(function(s,i){ keys.push(stepKey(date,'pm',i)); });
+  return keys;
+}
+function requiredStepKeysFor(date){ return activeProfile==='Anusha' ? anushaRequiredStepKeysFor(date) : bhargavRequiredStepKeysFor(date); }
+function routineCompletion(date){
+  const keys = requiredStepKeysFor(date);
+  if(!keys || !keys.length) return {done:0,total:0,pct:0};
+  const done = keys.filter(function(k){ return !!stepLog[k]; }).length;
+  return {done:done, total:keys.length, pct:Math.round(done/keys.length*100)};
+}
+function calculateStreak(){
+  let n = 0, d = todayStr();
+  for(let i=0;i<365;i++){
+    const c = routineCompletion(d);
+    if(c.total>0 && c.pct===100){ n++; d = addDays(d,-1); } else break;
+  }
+  return n;
+}
+// Bounded date range to scan for all-time stats — the program's own
+// span for Bhargav, or a rolling 90 days back from today for Anusha
+// (she has no fixed start date).
+function statsScanRange(){
+  if(activeProfile==='Anusha') return [addDays(todayStr(),-90), todayStr()];
+  return [SKIN_MONTHS[0].range[0], todayStr() < SKIN_MONTHS[SKIN_MONTHS.length-1].range[1] ? todayStr() : SKIN_MONTHS[SKIN_MONTHS.length-1].range[1]];
+}
+function completedDaysCount(){
+  const [start,end] = statsScanRange();
+  if(end < start) return 0;
+  let n = 0, d = start;
+  while(d <= end){ const c = routineCompletion(d); if(c.total>0 && c.pct===100) n++; d = addDays(d,1); }
+  return n;
+}
+function trackingCheckinsCount(){ return Object.keys(trackingLog).filter(function(d){ return trackingLog[d] && trackingLog[d].savedAt; }).length; }
+function statsRowHtml(){
+  const streak = calculateStreak(), completedDays = completedDaysCount(), checkins = trackingCheckinsCount();
+  const today = routineCompletion(todayStr());
+  return '<div class="stats-row" id="stats-row">'+
+    '<div class="stat-tile"><label>Today</label><b>'+today.pct+'<small>%</small></b></div>'+
+    '<div class="stat-tile"><label>Streak</label><b>'+streak+'<small>day'+(streak===1?'':'s')+'</small></b></div>'+
+    '<div class="stat-tile"><label>Days complete</label><b>'+completedDays+'</b></div>'+
+    '<div class="stat-tile"><label>Check-ins</label><b>'+checkins+'</b></div>'+
+  '</div>';
+}
+function refreshStatsRow(){
+  const row = document.getElementById('stats-row');
+  if(!row) return;
+  row.outerHTML = statsRowHtml();
 }
 
 /* =====================================================================
@@ -965,10 +1341,26 @@ function skinShoppingDefaultMonthKey(){
   return todayStr() < SKIN_MONTHS[0].range[0] ? 'm1' : 'm5';
 }
 let shoppingMonthView = null;
+// Shopping tab now has two sub-views: the buy list (what to purchase,
+// by month) and the Cabinet (how much you have left of what you already
+// own, ported from the local prototype's product-inventory tracking).
+let shoppingSubTab = 'buy';
 function renderShopping(){
-  if(activeProfile === 'Anusha'){ renderShoppingAnusha(); return; }
-  if(!shoppingMonthView) shoppingMonthView = skinShoppingDefaultMonthKey();
   const el = document.getElementById('shopping-view');
+  el.innerHTML = '<div class="subtabs2">'+
+      '<button type="button" data-shopsub="buy" class="'+(shoppingSubTab==='buy'?'active':'')+'">Buy list</button>'+
+      '<button type="button" data-shopsub="cabinet" class="'+(shoppingSubTab==='cabinet'?'active':'')+'">Cabinet</button>'+
+    '</div><div id="shopping-sub"></div>';
+  el.querySelectorAll('[data-shopsub]').forEach(function(btn){
+    btn.addEventListener('click', function(){ shoppingSubTab = btn.dataset.shopsub; renderShopping(); });
+  });
+  const sub = document.getElementById('shopping-sub');
+  if(shoppingSubTab === 'cabinet'){ renderProductCabinet(sub); return; }
+  if(activeProfile === 'Anusha'){ renderShoppingAnusha(sub); return; }
+  renderShoppingBhargav(sub);
+}
+function renderShoppingBhargav(el){
+  if(!shoppingMonthView) shoppingMonthView = skinShoppingDefaultMonthKey();
   const items = SKIN_SHOPPING_BY_MONTH[shoppingMonthView] || [];
   const monthMeta = SKIN_MONTHS.find(function(m){ return m.key===shoppingMonthView; });
   el.innerHTML =
@@ -986,13 +1378,18 @@ function renderShopping(){
   });
   wireShoppingRowHandlers(el, items);
 }
-function renderShoppingAnusha(){
-  const el = document.getElementById('shopping-view');
+function renderShoppingAnusha(el){
   el.innerHTML = '<div class="routine-card"><div class="rc-head"><div><div class="rc-title">Products</div><div class="rc-time">Skip scrubs, brushes, bleach, pore vacuums, strong peels, extra acids/serums. Send anything you\'re low on straight into Grocery\'s list — safe to send again whenever you run out.</div></div></div>'+
     SHOPPING_LIST_ANUSHA.map(shopRowHtml).join('')+
     '<div style="margin-top:10px;"><button class="send-grocery-btn wide" id="send-all-btn">Send everything not yet sent</button></div>'+
   '</div>';
   wireShoppingRowHandlers(el, SHOPPING_LIST_ANUSHA);
+}
+function renderProductCabinet(el){
+  const products = currentProducts();
+  el.innerHTML = '<div class="empty-note" style="padding:0 2px 10px;font-style:normal;">Checking off a routine step deducts an estimated application from that product below (unchecking restores it). Container sizes are estimates — correct them with "Edit size" to match what you actually have.</div>'+
+    '<div class="product-grid">'+products.map(productCabinetCardHtml).join('')+'</div>';
+  attachProductCabinetHandlers(el);
 }
 
 /* =====================================================================
@@ -1116,6 +1513,194 @@ function renderMonthReviewBhargav(){
     }
     return '<div class="checkin-card"><h3>'+escapeHtml(m.name)+'</h3><div class="ci-sub">'+fmtHeaderDate(start)+' – '+fmtHeaderDate(end)+' · '+status+'</div>'+bodyHtml+'</div>';
   }).join('');
+}
+
+/* =====================================================================
+   PROGRESS — symptom trend chart, adherence heatmap, insights, weekly
+   free-text review and month-end structured reviews. All ported from
+   the local prototype's Progress page.
+===================================================================== */
+function allTrackingMetrics(){
+  const seen = {}, list = [];
+  Object.values(SKIN_TRACKING_FIELDS).forEach(function(fields){
+    fields.forEach(function(f){ if(f.type==='scale' && !seen[f.key]){ seen[f.key]=true; list.push([f.key,f.label]); } });
+  });
+  return list;
+}
+function weekStartFor(dateStr){ return addDays(dateStr, -weekdayOf(dateStr)); }
+function renderProgress(){
+  if(activeProfile === 'Anusha'){ renderProgressAnusha(); return; }
+  const el = document.getElementById('progress-view');
+  const streak = calculateStreak(), completedDays = completedDaysCount(), checkins = trackingCheckinsCount();
+  const betterDays = Object.keys(trackingLog).filter(function(d){ return trackingLog[d].overall==='better'; }).length;
+  const worseDays = Object.keys(trackingLog).filter(function(d){ return trackingLog[d].overall==='worse'; }).length;
+  const metrics = allTrackingMetrics();
+  const ws = weekStartFor(todayStr()), we = addDays(ws,6);
+  el.innerHTML =
+    '<div class="stats-row">'+
+      '<div class="stat-tile"><label>Streak</label><b>'+streak+'<small>day'+(streak===1?'':'s')+'</small></b></div>'+
+      '<div class="stat-tile"><label>Days complete</label><b>'+completedDays+'</b></div>'+
+      '<div class="stat-tile"><label>Check-ins</label><b>'+checkins+'</b></div>'+
+      '<div class="stat-tile"><label>Better days</label><b>'+betterDays+'</b></div>'+
+    '</div>'+
+    '<div class="chart-card"><div class="ch-head"><h3>Symptom trend</h3>'+(metrics.length?'<select id="chart-metric">'+metrics.map(function(m){ return '<option value="'+m[0]+'">'+escapeHtml(m[1])+'</option>'; }).join('')+'</select>':'')+'</div><div id="chart-wrap"></div></div>'+
+    '<div class="heat-card"><div class="ch-head"><h3>Adherence</h3><span class="subtle" style="font-size:10px;color:var(--text-faint);">Most recent 56 days</span></div><div class="heatmap" id="heatmap"></div></div>'+
+    '<div class="checkin-card"><h3>What the data can tell you</h3><div class="insight-list" id="insights"></div></div>'+
+    '<div class="checkin-card"><h3>Weekly review</h3><div class="ci-sub">'+fmtHeaderDate(ws)+' – '+fmtHeaderDate(we)+' · '+routineCompletion(todayStr()).pct+'% today</div>'+
+      '<div class="review-form"><textarea id="weekly-review-text" rows="3" placeholder="What improved or got uncomfortable this week?">'+escapeHtml(weeklyReviews[ws]||'')+'</textarea>'+
+      '<button type="button" class="modal-btn" id="save-weekly-review" style="margin-top:8px;">Save weekly review</button></div>'+
+    '</div>'+
+    '<h3 style="font-size:13px;margin:18px 2px 8px;color:var(--text-soft);font-family:Manrope,sans-serif;">Month-end reviews</h3>'+
+    SKIN_MONTHS.map(monthReviewCardHtml).join('');
+
+  if(metrics.length){
+    document.getElementById('chart-metric').onchange = function(e){ renderChart(e.target.value); };
+    renderChart(metrics[0][0]);
+  }else{
+    document.getElementById('chart-wrap').innerHTML = '<div class="chart-empty">No tracked metrics yet.</div>';
+  }
+  renderHeatmap();
+  renderInsights(checkins, betterDays, worseDays);
+  document.getElementById('save-weekly-review').onclick = async function(){
+    weeklyReviews[ws] = document.getElementById('weekly-review-text').value.trim();
+    await saveWeeklyReviews();
+    const btn = document.getElementById('save-weekly-review');
+    btn.textContent = 'Saved ✓';
+    setTimeout(function(){ btn.textContent = 'Save weekly review'; }, 1500);
+  };
+  wireMonthReviews(el);
+}
+function renderProgressAnusha(){
+  const el = document.getElementById('progress-view');
+  const streak = calculateStreak(), completedDays = completedDaysCount();
+  el.innerHTML =
+    '<div class="stats-row" style="grid-template-columns:repeat(2,1fr);">'+
+      '<div class="stat-tile"><label>Streak</label><b>'+streak+'<small>day'+(streak===1?'':'s')+'</small></b></div>'+
+      '<div class="stat-tile"><label>Days complete (last 90)</label><b>'+completedDays+'</b></div>'+
+    '</div>'+
+    '<div class="heat-card"><div class="ch-head"><h3>Adherence</h3><span style="font-size:10px;color:var(--text-faint);">Most recent 56 days</span></div><div class="heatmap" id="heatmap"></div></div>'+
+    '<div class="empty-note">Symptom charts and month-end reviews are part of Bhargav’s 5-month program. Your weight, waist, pimple count, and photo check-ins are on the Check-ins tab.</div>';
+  renderHeatmap();
+}
+function renderChart(metric){
+  const wrap = document.getElementById('chart-wrap');
+  if(!metric){ wrap.innerHTML = '<div class="chart-empty">No tracked metrics yet.</div>'; return; }
+  const pts = Object.keys(trackingLog).sort().filter(function(d){ return trackingLog[d][metric]!=null && trackingLog[d][metric]!==''; }).map(function(d){ return {d:d, v:Number(trackingLog[d][metric])}; });
+  if(!pts.length){ wrap.innerHTML = '<div class="chart-empty">Complete nightly check-ins with this metric to build a trend.</div>'; return; }
+  const w=680, h=180, p=22;
+  const coords = pts.map(function(x,i){ return Object.assign({x:p+(pts.length===1?(w-2*p)/2:i*(w-2*p)/(pts.length-1)), y:h-p-x.v*(h-2*p)/10}, x); });
+  const poly = coords.map(function(c){ return c.x+','+c.y; }).join(' ');
+  wrap.innerHTML = '<svg class="skin-chart" viewBox="0 0 '+w+' '+h+'" preserveAspectRatio="none">'+
+    '<line x1="'+p+'" y1="'+(h-p)+'" x2="'+(w-p)+'" y2="'+(h-p)+'" stroke="var(--border)"/>'+
+    '<line x1="'+p+'" y1="'+p+'" x2="'+p+'" y2="'+(h-p)+'" stroke="var(--border)"/>'+
+    '<polyline points="'+poly+'" fill="none" stroke="var(--accent)" stroke-width="2.5" vector-effect="non-scaling-stroke"/>'+
+    coords.map(function(c){ return '<circle cx="'+c.x+'" cy="'+c.y+'" r="3.5" fill="#fff" stroke="var(--accent)" stroke-width="2"><title>'+c.d+': '+c.v+'</title></circle>'; }).join('')+
+    '<text x="3" y="'+(p+3)+'" font-size="9" fill="var(--text-faint)">10</text><text x="6" y="'+(h-p+3)+'" font-size="9" fill="var(--text-faint)">0</text>'+
+  '</svg>';
+}
+function renderHeatmap(){
+  const box = document.getElementById('heatmap');
+  const end = todayStr(), start = addDays(end,-55);
+  let html = '', d = start;
+  while(d <= end){
+    const c = routineCompletion(d);
+    const cls = c.total===0 ? '' : c.pct>=90 ? 'high' : c.pct>=40 ? 'mid' : c.pct>0 ? 'low' : '';
+    html += '<div class="heat '+cls+'" title="'+d+(c.total?' · '+c.pct+'%':' · no plan yet')+'"></div>';
+    d = addDays(d,1);
+  }
+  box.innerHTML = html;
+}
+function renderInsights(checkins, betterDays, worseDays){
+  const list = [];
+  if(!checkins){ list.push(['Start with tonight','Your first check-in creates the baseline for every later comparison.']); }
+  else{
+    list.push(['Tracking established', checkins+' check-in'+(checkins===1?'':'s')+' recorded so far.']);
+    list.push(['Daily direction', betterDays+' better day'+(betterDays===1?'':'s')+' and '+worseDays+' worse day'+(worseDays===1?'':'s')+' logged.']);
+  }
+  const [start,end] = statsScanRange();
+  let totalPct = 0, n = 0, d = start;
+  while(d <= end){ const c = routineCompletion(d); if(c.total>0){ totalPct += c.pct; n++; } d = addDays(d,1); }
+  const adherence = n ? Math.round(totalPct/n) : 0;
+  list.push(['Routine consistency', adherence+'% average daily completion so far.']);
+  document.getElementById('insights').innerHTML = list.map(function(x){ return '<div class="insight"><i>↗</i><div><b>'+escapeHtml(x[0])+'</b><p>'+escapeHtml(x[1])+'</p></div></div>'; }).join('');
+}
+function monthReviewFieldsFor(monthKey){
+  return (SKIN_TRACKING_FIELDS[monthKey]||[]).filter(function(f){ return f.type==='scale'; }).map(function(f){ return f.label; });
+}
+function monthReviewCardHtml(m){
+  const mr = monthReviews[m.key] || {results:{}, score:5, note:''};
+  const fields = monthReviewFieldsFor(m.key);
+  const today = todayStr();
+  const status = today < m.range[0] ? 'Not started' : today > m.range[1] ? 'Complete' : 'In progress';
+  return '<details class="month-review-card" data-monthreview="'+m.key+'" '+(status==='In progress'?'open':'')+'>'+
+    '<summary><span>'+escapeHtml(m.name)+'</span><span class="mr-status">'+status+'</span></summary>'+
+    '<div class="month-review-body">'+
+      '<div class="mr-field-grid">'+fields.map(function(f){ return '<div><label>'+escapeHtml(f)+'</label><select data-mrresult="'+escapeHtml(f)+'"><option value="">Choose…</option><option '+(mr.results[f]==='Better'?'selected':'')+'>Better</option><option '+(mr.results[f]==='Same'?'selected':'')+'>Same</option><option '+(mr.results[f]==='Worse'?'selected':'')+'>Worse</option></select></div>'; }).join('')+'</div>'+
+      '<div class="f"><label>Overall comfort / glow · <output id="mr-score-out-'+m.key+'">'+mr.score+'</output>/10</label><input type="range" min="0" max="10" data-mrscore value="'+mr.score+'" oninput="document.getElementById(\'mr-score-out-'+m.key+'\').textContent=this.value"></div>'+
+      '<div class="f" style="margin-top:8px;"><label>Monthly conclusion</label><textarea data-mrnote rows="3" placeholder="What changed, what stayed difficult, what to discuss before the next phase?">'+escapeHtml(mr.note||'')+'</textarea></div>'+
+      '<button type="button" class="modal-btn" data-mrsave="'+m.key+'" style="margin-top:8px;">Save month review</button>'+
+    '</div>'+
+  '</details>';
+}
+function wireMonthReviews(el){
+  el.querySelectorAll('[data-mrsave]').forEach(function(btn){
+    btn.addEventListener('click', async function(){
+      const key = btn.dataset.mrsave;
+      const card = btn.closest('[data-monthreview]');
+      const results = {};
+      card.querySelectorAll('[data-mrresult]').forEach(function(sel){ if(sel.value) results[sel.dataset.mrresult] = sel.value; });
+      const score = Number(card.querySelector('[data-mrscore]').value);
+      const note = card.querySelector('[data-mrnote]').value.trim();
+      monthReviews[key] = {results:results, score:score, note:note};
+      await saveMonthReviews();
+      btn.textContent = 'Saved ✓';
+      setTimeout(function(){ btn.textContent = 'Save month review'; }, 1500);
+    });
+  });
+}
+
+/* =====================================================================
+   LOCAL BACKUP — an extra downloadable copy of this profile's skin
+   data, on top of the automatic cloud sync. Ported from the local
+   prototype's export/import/reset.
+===================================================================== */
+function backupSnapshot(){
+  return {stepLog:stepLog, shoppingLog:shoppingLog, milestoneLog:milestoneLog, checkins:checkins, trackingLog:trackingLog, skinBlockLinks:skinBlockLinks, productState:productState, usageLedger:usageLedger, monthReviews:monthReviews, weeklyReviews:weeklyReviews};
+}
+function exportBackup(){
+  const blob = new Blob([JSON.stringify({app:'IronLog Skin', profile:activeProfile, exportedAt:new Date().toISOString(), data:backupSnapshot()}, null, 2)], {type:'application/json'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = 'ironlog-skin-'+activeProfile.toLowerCase()+'-backup-'+todayStr()+'.json';
+  a.click();
+  setTimeout(function(){ URL.revokeObjectURL(url); }, 1000);
+}
+async function importBackup(file){
+  if(!file) return;
+  const reader = new FileReader();
+  reader.onload = async function(){
+    try{
+      const parsed = JSON.parse(reader.result);
+      const data = parsed.data || parsed; // tolerate a bare snapshot too
+      if(!data || typeof data !== 'object') throw new Error('bad file');
+      stepLog = data.stepLog || {};
+      shoppingLog = data.shoppingLog || {};
+      milestoneLog = data.milestoneLog || {};
+      checkins = data.checkins || {weight:[],waist:[],photos:[],pimples:[]};
+      trackingLog = data.trackingLog || {};
+      skinBlockLinks = data.skinBlockLinks || {};
+      productState = data.productState || {};
+      usageLedger = data.usageLedger || {};
+      monthReviews = data.monthReviews || {};
+      weeklyReviews = data.weeklyReviews || {};
+      ensureProductStateSeeded();
+      await Promise.all([saveStepLog(), saveShoppingLog(), saveMilestoneLog(), saveCheckins(), saveTrackingLog(), saveSkinBlockLinks(), saveProductState(), saveMonthReviews(), saveWeeklyReviews()]);
+      document.getElementById('backupModal').classList.remove('open');
+      showTab(activeTab);
+      alert('Backup restored.');
+    }catch(e){ alert('This doesn’t look like a valid IronLog Skin backup file.'); }
+  };
+  reader.readAsText(file);
 }
 </script>
 </body>
