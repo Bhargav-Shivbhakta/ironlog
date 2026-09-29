@@ -11,25 +11,36 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
 <style>
   :root{
-    --bg:#F4F4F0; --surface:#FFFFFF; --surface-alt:#F2F0E9;
-    --border:#E3E3DC; --border-soft:#ECECE6;
-    --text:#20211E; --text-soft:#74766F; --text-faint:#9C9E97;
-    --accent:#AD7B20; --accent-soft:#F7EFD9; --accent-deep:#6F4A08;
-    --am:#C97C2E; --am-soft:#F6E9D3;
+    --bg:#F5F2EA; --surface:#FFFFFF; --surface-alt:#F4F0E6;
+    --border:#E6E0D2; --border-soft:#EFEAE0;
+    --text:#221F1A; --text-soft:#736C5E; --text-faint:#A29A87;
+    --accent:#B8801F; --accent-soft:#F8EDD4; --accent-deep:#6F4A08;
+    --accent2:#C9922E; --accent-grad:linear-gradient(135deg,#C9922E,#8F5A12);
+    --am:#D98A2B; --am-soft:#FBEBD2; --am-deep:#8A5210;
+    --body-c:#2E8F82; --body-soft:#DFF1EC; --body-deep:#1C5D54;
+    --night:#6C5CA8; --night-soft:#EBE6F7; --night-deep:#443777;
     --pm:#5B5773; --pm-soft:#E9E8EF;
+    --track:#C15A72; --track-soft:#F9E4E9; --track-deep:#7E3549;
     --warn:#B8493F; --warn-soft:#FAECEA;
-    --radius-lg:16px; --radius-md:11px; --radius-sm:8px;
-    --shadow:0 18px 50px rgba(37,38,32,.08);
+    --good:#2F7C5A; --good-soft:#E1F1E8;
+    --radius-lg:18px; --radius-md:13px; --radius-sm:9px;
+    --shadow:0 14px 34px rgba(50,40,15,.09);
+    --shadow-sm:0 6px 16px rgba(50,40,15,.07);
   }
   /* Same per-profile accent-override pattern schedule.html/todo.html use
      for Anusha, so both apps feel like one suite instead of two skins. */
-  body[data-profile="anusha"]{--accent:#B25C78;--accent-soft:#FAEAF0;--accent-deep:#813B53;}
+  body[data-profile="anusha"]{--accent:#B04A6C;--accent-soft:#FBE7EE;--accent-deep:#7A2C49;--accent2:#C25E80;--accent-grad:linear-gradient(135deg,#C25E80,#7A2C49);}
   *{box-sizing:border-box;}
-  body{margin:0;font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;padding:16px 14px 60px;-webkit-font-smoothing:antialiased;}
+  body{margin:0;font-family:'Inter',sans-serif;background:
+    radial-gradient(1100px 500px at 15% -8%, var(--accent-soft) 0%, transparent 60%),
+    radial-gradient(900px 460px at 105% 10%, var(--body-soft) 0%, transparent 55%),
+    var(--bg);
+    color:var(--text);min-height:100vh;padding:16px 14px 60px;-webkit-font-smoothing:antialiased;}
   .wrap{max-width:min(90vw,960px);margin:0 auto;}
   h1,h2,h3{font-family:'Manrope',sans-serif;}
   button,input,select,textarea{font-family:inherit;}
   a{color:var(--accent-deep);}
+  ::selection{background:var(--accent-soft);}
 
   .loading-gate{position:fixed;inset:0;z-index:200;background:var(--bg);display:flex;align-items:center;justify-content:center;color:var(--text-soft);}
 
@@ -54,26 +65,27 @@
   .who-name{font-size:11.5px;font-weight:700;color:var(--text-soft);}
 
 
-  header.app-head{text-align:center;margin-bottom:14px;}
-  header.app-head h1{font-size:23px;font-weight:800;margin:0 0 2px;}
+  header.app-head{text-align:center;margin-bottom:16px;}
+  header.app-head h1{font-size:25px;font-weight:800;margin:0 0 2px;letter-spacing:-.01em;}
   header.app-head p{margin:0;color:var(--text-soft);font-size:12.5px;}
   body.embedded .topbar{display:none;}
   body.embedded header.app-head{display:none;}
 
-  .week-banner{background:var(--accent);color:#fff;border-radius:var(--radius-lg);padding:14px 18px;margin-bottom:14px;box-shadow:var(--shadow);}
-  .week-banner .wb-top{display:flex;justify-content:space-between;align-items:baseline;}
-  .week-banner .wb-week{font-family:'Manrope',sans-serif;font-weight:800;font-size:18px;}
-  .week-banner .wb-dates{font-size:11.5px;opacity:0.85;}
-  .week-banner .wb-note{font-size:12px;margin-top:6px;opacity:0.95;}
-  .wb-editrow{display:flex;align-items:center;gap:8px;margin-top:8px;font-size:11px;}
+  .week-banner{background:var(--accent-grad);color:#fff;border-radius:var(--radius-lg);padding:18px 20px;margin-bottom:16px;box-shadow:0 16px 34px rgba(111,74,8,.28);position:relative;overflow:hidden;}
+  .week-banner::after{content:'';position:absolute;right:-30px;top:-40px;width:140px;height:140px;border-radius:50%;background:rgba(255,255,255,.08);}
+  .week-banner .wb-top{display:flex;justify-content:space-between;align-items:baseline;position:relative;}
+  .week-banner .wb-week{font-family:'Manrope',sans-serif;font-weight:800;font-size:19px;letter-spacing:-.01em;}
+  .week-banner .wb-dates{font-size:11px;opacity:0.88;font-weight:600;background:rgba(255,255,255,.16);padding:3px 9px;border-radius:20px;white-space:nowrap;}
+  .week-banner .wb-note{font-size:12.5px;margin-top:7px;opacity:0.96;line-height:1.5;position:relative;}
+  .wb-editrow{display:flex;align-items:center;gap:8px;margin-top:10px;font-size:11px;position:relative;}
   .wb-editrow span{opacity:0.85;}
-  .wb-editrow button{background:rgba(255,255,255,0.2);border:none;color:inherit;border-radius:7px;padding:3px 9px;font-size:11px;font-weight:700;cursor:pointer;}
+  .wb-editrow button{background:rgba(255,255,255,0.22);border:none;color:inherit;border-radius:7px;padding:3px 9px;font-size:11px;font-weight:700;cursor:pointer;}
   .wb-editrow input[type=date]{font-size:11px;padding:3px 6px;border-radius:6px;border:none;}
-  .week-banner.done{background:var(--text-soft);}
+  .week-banner.done{background:linear-gradient(135deg,#8B8577,#5F5A4E);}
 
-  .segmented{max-width:460px;margin:0 auto 14px;background:var(--surface-alt);border-radius:999px;padding:3px;display:flex;gap:2px;}
-  .segmented button{flex:1;border:none;background:transparent;border-radius:999px;padding:8px 4px;font-size:12px;font-weight:700;color:var(--text-soft);cursor:pointer;}
-  .segmented button.active{background:var(--surface);color:var(--text);box-shadow:var(--shadow);}
+  .segmented{max-width:480px;margin:0 auto 16px;background:var(--surface-alt);border-radius:999px;padding:4px;display:flex;gap:2px;box-shadow:inset 0 1px 3px rgba(0,0,0,.05);}
+  .segmented button{flex:1;border:none;background:transparent;border-radius:999px;padding:9px 4px;font-size:12px;font-weight:700;color:var(--text-soft);cursor:pointer;transition:color .15s;}
+  .segmented button.active{background:var(--surface);color:var(--accent-deep);box-shadow:var(--shadow-sm);}
 
   .control-bar{display:flex;align-items:center;justify-content:center;gap:14px;flex-wrap:wrap;background:var(--surface);border:1px solid var(--border-soft);border-radius:var(--radius-lg);padding:10px 14px;box-shadow:var(--shadow);margin-bottom:14px;}
   .cb-nav{display:flex;align-items:center;gap:6px;}
@@ -89,19 +101,26 @@
   .shop-buy a{font-weight:700;text-decoration:none;}
   .shop-buy a:hover{text-decoration:underline;}
 
-  .routine-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:14px 16px;margin-bottom:12px;box-shadow:var(--shadow);}
-  .routine-card .rc-head{display:flex;align-items:center;gap:9px;margin-bottom:10px;}
-  .routine-card .rc-icon{width:30px;height:30px;border-radius:9px;display:flex;align-items:center;justify-content:center;font-size:15px;flex:none;}
+  .routine-card{background:var(--surface);border:1px solid var(--border);border-left:4px solid var(--accent);border-radius:var(--radius-lg);padding:15px 17px;margin-bottom:13px;box-shadow:var(--shadow);transition:box-shadow .15s;}
+  .routine-card .rc-head{display:flex;align-items:center;gap:10px;margin-bottom:11px;}
+  .routine-card .rc-icon{width:34px;height:34px;border-radius:11px;display:flex;align-items:center;justify-content:center;font-size:16px;flex:none;background:var(--accent-soft);}
+  .routine-card.am{border-left-color:var(--am);}
   .routine-card.am .rc-icon{background:var(--am-soft);}
+  .routine-card.body{border-left-color:var(--body-c);}
+  .routine-card.body .rc-icon{background:var(--body-soft);}
+  .routine-card.night{border-left-color:var(--night);}
+  .routine-card.night .rc-icon{background:var(--night-soft);}
   .routine-card.pm .rc-icon{background:var(--pm-soft);}
-  .routine-card .rc-title{font-size:14.5px;font-weight:700;}
-  .routine-card .rc-time{font-size:11px;color:var(--text-faint);}
+  .routine-card .rc-title{font-size:14.5px;font-weight:800;font-family:'Manrope',sans-serif;}
+  .routine-card .rc-time{font-size:11px;color:var(--text-faint);font-weight:600;}
 
-  .step-row{display:flex;align-items:flex-start;gap:10px;padding:8px 4px;border-bottom:1px solid var(--border-soft);}
+  .step-row{display:flex;align-items:flex-start;gap:11px;padding:9px 4px;border-bottom:1px solid var(--border-soft);}
   .step-row:last-child{border-bottom:none;}
-  .step-chk{appearance:none;width:21px;height:21px;border-radius:6px;border:2px solid var(--border);flex:none;margin-top:1px;cursor:pointer;position:relative;background:var(--surface);}
-  .step-chk:checked{background:var(--accent);border-color:var(--accent);}
-  .step-chk:checked::after{content:'';position:absolute;left:5px;top:1px;width:6px;height:11px;border:solid #fff;border-width:0 2px 2px 0;transform:rotate(45deg);}
+  .step-row:hover{background:var(--surface-alt);margin:0 -6px;padding-left:10px;padding-right:10px;border-radius:8px;}
+  .step-chk{appearance:none;width:23px;height:23px;border-radius:50%;border:2px solid var(--border);flex:none;margin-top:1px;cursor:pointer;position:relative;background:var(--surface);transition:all .12s;}
+  .step-chk:hover{border-color:var(--accent);}
+  .step-chk:checked{background:var(--accent-grad);border-color:var(--accent);}
+  .step-chk:checked::after{content:'';position:absolute;left:7px;top:3px;width:6px;height:11px;border:solid #fff;border-width:0 2px 2px 0;transform:rotate(45deg);}
   .step-text{font-size:13.5px;font-weight:500;}
   .step-text.strike{text-decoration:line-through;color:var(--text-faint);}
   .step-note{font-size:11px;color:var(--warn);margin-top:2px;}
@@ -129,8 +148,8 @@
   .badge{font-size:9.5px;font-weight:700;border-radius:20px;padding:1px 7px;background:var(--warn-soft);color:var(--warn);}
   .badge.today{background:var(--accent-soft);color:var(--accent-deep);}
 
-  .checkin-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:14px 16px;margin-bottom:12px;box-shadow:var(--shadow);}
-  .checkin-card h3{font-size:14px;margin:0 0 3px;display:flex;align-items:center;gap:7px;}
+  .checkin-card{background:var(--surface);border:1px solid var(--border);border-left:4px solid var(--track);border-radius:var(--radius-lg);padding:16px 17px;margin-bottom:13px;box-shadow:var(--shadow);}
+  .checkin-card h3{font-size:15px;margin:0 0 3px;display:flex;align-items:center;gap:7px;font-family:'Manrope',sans-serif;}
   .gym-sync-tag{font-size:9.5px;font-weight:700;background:var(--accent-soft);color:var(--accent-deep);border-radius:20px;padding:2px 8px;}
   .gym-log-link{display:inline-block;font-size:12.5px;font-weight:700;color:var(--accent-deep);text-decoration:none;background:var(--accent-soft);padding:8px 13px;border-radius:8px;}
   .checkin-card .ci-sub{font-size:11.5px;color:var(--text-faint);margin-bottom:10px;}
@@ -174,31 +193,52 @@
   /* ---- Progress tab, product cabinet, reactions, timer (ported from
      the local prototype) ---- */
   .opt-tag{font-size:8.5px;font-weight:800;color:var(--text-faint);margin-left:5px;letter-spacing:.04em;}
-  .stats-row{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:14px;}
-  .stat-tile{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-md);padding:11px 12px;box-shadow:var(--shadow);}
-  .stat-tile label{display:block;font-size:9px;color:var(--text-faint);text-transform:uppercase;letter-spacing:.06em;font-weight:800;}
-  .stat-tile b{display:block;font-size:19px;font-family:'Manrope',sans-serif;margin-top:3px;}
+  .stats-row{display:grid;grid-template-columns:repeat(4,1fr);gap:9px;margin-bottom:16px;}
+  .stat-tile{background:var(--surface);border:1px solid var(--border);border-top:3px solid var(--accent);border-radius:var(--radius-md);padding:12px 11px;box-shadow:var(--shadow-sm);}
+  .stat-tile:nth-child(2){border-top-color:var(--body-c);}
+  .stat-tile:nth-child(3){border-top-color:var(--night);}
+  .stat-tile:nth-child(4){border-top-color:var(--track);}
+  .stat-tile label{display:block;font-size:8.5px;color:var(--text-faint);text-transform:uppercase;letter-spacing:.06em;font-weight:800;}
+  .stat-tile b{display:block;font-size:20px;font-family:'Manrope',sans-serif;margin-top:4px;letter-spacing:-.02em;}
   .stat-tile b small{font-size:10px;color:var(--text-faint);font-weight:600;margin-left:2px;}
-  .reaction-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:6px;margin-top:4px;}
-  .reaction-grid button{border:1px solid var(--border);background:var(--surface);border-radius:8px;padding:7px 5px;font-size:11px;font-weight:700;cursor:pointer;color:var(--text-soft);}
-  .reaction-grid button.on{background:var(--text);color:#fff;border-color:var(--text);}
-  .reaction-alert{background:var(--warn-soft);border:1px solid var(--warn);color:#7c302a;border-radius:var(--radius-md);padding:10px 12px;font-size:11.5px;line-height:1.55;margin-top:9px;}
-  .chart-card,.heat-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:14px 16px;margin-bottom:12px;box-shadow:var(--shadow);}
+
+  .overall-grid{display:flex;gap:7px;margin-top:5px;}
+  .overall-grid button{flex:1;border:1.5px solid var(--border);background:var(--surface);border-radius:10px;padding:9px 4px;font-size:12px;font-weight:700;cursor:pointer;color:var(--text-soft);transition:all .12s;}
+  .overall-grid button.better.on{background:var(--good-soft);border-color:var(--good);color:var(--good);}
+  .overall-grid button.same.on{background:var(--surface-alt);border-color:var(--text-soft);color:var(--text);}
+  .overall-grid button.worse.on{background:var(--warn-soft);border-color:var(--warn);color:var(--warn);}
+  .reaction-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:7px;margin-top:4px;}
+  .reaction-grid button{border:1.5px solid var(--border);background:var(--surface);border-radius:10px;padding:8px 6px;font-size:11.5px;font-weight:700;cursor:pointer;color:var(--text-soft);transition:all .12s;}
+  .reaction-grid button:hover{border-color:var(--track);}
+  .reaction-grid button.on{background:var(--track);color:#fff;border-color:var(--track);}
+  .reaction-alert{background:var(--warn-soft);border:1px solid var(--warn);color:#7c302a;border-radius:var(--radius-md);padding:11px 13px;font-size:11.5px;line-height:1.55;margin-top:10px;}
+
+  /* Nightly per-symptom sliders */
+  .track-field{background:var(--surface-alt);border-radius:var(--radius-sm);padding:9px 11px;margin-bottom:7px;}
+  .track-field label{display:flex;justify-content:space-between;align-items:center;font-size:10.5px;color:var(--text-soft);font-weight:700;text-transform:uppercase;letter-spacing:.03em;margin-bottom:5px;}
+  .track-field .tf-val{font-family:'Manrope',sans-serif;font-weight:800;font-size:13px;color:var(--track-deep);background:var(--track-soft);padding:1px 8px;border-radius:20px;text-transform:none;letter-spacing:0;}
+  .track-field input[type=range]{-webkit-appearance:none;width:100%;height:5px;border-radius:99px;background:linear-gradient(90deg,var(--track),var(--track) var(--fillpct,50%),var(--border) var(--fillpct,50%),var(--border));cursor:pointer;}
+  .track-field input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:18px;height:18px;border-radius:50%;background:#fff;border:3px solid var(--track);box-shadow:0 2px 5px rgba(0,0,0,.18);cursor:pointer;}
+  .track-field input[type=range]::-moz-range-thumb{width:18px;height:18px;border-radius:50%;background:#fff;border:3px solid var(--track);box-shadow:0 2px 5px rgba(0,0,0,.18);cursor:pointer;}
+  .track-field input[type=text]{width:100%;font-size:13px;padding:7px 9px;border-radius:8px;border:1px solid var(--border);box-sizing:border-box;}
+  .chart-card,.heat-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:15px 16px;margin-bottom:13px;box-shadow:var(--shadow);}
   .chart-card .ch-head,.heat-card .ch-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;gap:10px;}
-  .chart-card h3,.heat-card h3{font-size:13px;margin:0;}
+  .chart-card h3,.heat-card h3{font-size:13.5px;margin:0;font-family:'Manrope',sans-serif;font-weight:800;}
   .chart-card select{font-size:11.5px;border:1px solid var(--border);border-radius:8px;padding:6px 8px;background:var(--surface-alt);}
   .chart-empty{height:170px;display:flex;align-items:center;justify-content:center;color:var(--text-faint);font-size:12px;text-align:center;padding:0 20px;}
   .skin-chart{width:100%;height:180px;display:block;}
   .heatmap{display:grid;grid-template-columns:repeat(14,1fr);gap:4px;}
-  .heat{aspect-ratio:1;border-radius:4px;background:var(--surface-alt);}
-  .heat.low{background:#eadbb8;}
-  .heat.mid{background:#d0a957;}
-  .heat.high{background:var(--accent);}
+  .heat{aspect-ratio:1;border-radius:5px;background:var(--surface-alt);}
+  .heat.low{background:#f0dcb0;}
+  .heat.mid{background:#e0a94a;}
+  .heat.high{background:var(--good);}
   .heat.future{opacity:.35;}
-  .insight-list{display:grid;gap:7px;}
-  .insight{display:flex;gap:9px;align-items:flex-start;background:var(--surface-alt);border-radius:10px;padding:9px 10px;}
-  .insight i{font-style:normal;width:22px;height:22px;flex:none;border-radius:7px;background:var(--accent-soft);color:var(--accent-deep);display:flex;align-items:center;justify-content:center;font-size:11px;}
-  .insight b{font-size:11px;display:block;}
+  .heat-legend{display:flex;align-items:center;gap:6px;font-size:10px;color:var(--text-faint);margin-top:9px;font-weight:600;}
+  .heat-legend .heat{width:12px;height:12px;aspect-ratio:auto;flex:none;}
+  .insight-list{display:grid;gap:8px;}
+  .insight{display:flex;gap:10px;align-items:flex-start;background:var(--surface-alt);border-radius:11px;padding:10px 11px;}
+  .insight i{font-style:normal;width:24px;height:24px;flex:none;border-radius:8px;background:var(--accent-soft);color:var(--accent-deep);display:flex;align-items:center;justify-content:center;font-size:12px;}
+  .insight b{font-size:11.5px;display:block;}
   .insight p{margin:2px 0 0;color:var(--text-soft);font-size:10.5px;}
   .review-form textarea{width:100%;font-size:12.5px;padding:8px 9px;border-radius:8px;border:1px solid var(--border);box-sizing:border-box;resize:vertical;}
   .review-form select,.review-form input[type=range]{width:100%;}
@@ -213,19 +253,22 @@
   .mr-field-grid label{font-size:10px;color:var(--text-faint);font-weight:700;display:block;margin-bottom:3px;}
   .mr-field-grid select{width:100%;font-size:12px;padding:6px 7px;border-radius:7px;border:1px solid var(--border);}
 
-  .subtabs2{display:flex;gap:2px;background:var(--surface-alt);border-radius:999px;padding:3px;margin-bottom:12px;max-width:280px;}
-  .subtabs2 button{flex:1;border:none;background:transparent;border-radius:999px;padding:7px 4px;font-size:11.5px;font-weight:700;color:var(--text-soft);cursor:pointer;}
-  .subtabs2 button.active{background:var(--surface);color:var(--text);box-shadow:var(--shadow);}
-  .product-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;}
-  .product-cabinet-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-md);padding:13px 14px;box-shadow:var(--shadow);display:flex;flex-direction:column;}
-  .product-cabinet-card.low{border-color:#e7c8a1;}
-  .product-cabinet-card h4{font-size:13px;margin:0 0 8px;line-height:1.3;}
-  .stock-track{height:7px;background:var(--surface-alt);border-radius:99px;overflow:hidden;margin-top:auto;}
-  .stock-fill{height:100%;border-radius:99px;}
-  .stock-row{display:flex;justify-content:space-between;align-items:center;font-size:10.5px;color:var(--text-soft);margin-top:6px;}
+  .subtabs2{display:flex;gap:2px;background:var(--surface-alt);border-radius:999px;padding:4px;margin-bottom:13px;max-width:280px;box-shadow:inset 0 1px 3px rgba(0,0,0,.05);}
+  .subtabs2 button{flex:1;border:none;background:transparent;border-radius:999px;padding:8px 4px;font-size:11.5px;font-weight:700;color:var(--text-soft);cursor:pointer;}
+  .subtabs2 button.active{background:var(--surface);color:var(--accent-deep);box-shadow:var(--shadow-sm);}
+  .product-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:11px;}
+  .product-cabinet-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-md);padding:14px 15px;box-shadow:var(--shadow-sm);display:flex;flex-direction:column;position:relative;overflow:hidden;}
+  .product-cabinet-card::before{content:'';position:absolute;left:0;top:0;bottom:0;width:4px;background:var(--good);}
+  .product-cabinet-card.low::before{background:var(--warn);}
+  .product-cabinet-card.low{background:linear-gradient(180deg,var(--warn-soft) 0%,var(--surface) 55px);}
+  .product-cabinet-card h4{font-size:13px;margin:0 0 9px;line-height:1.32;font-weight:700;}
+  .stock-track{height:8px;background:var(--surface-alt);border-radius:99px;overflow:hidden;margin-top:auto;}
+  .stock-fill{height:100%;border-radius:99px;transition:width .2s;}
+  .stock-row{display:flex;justify-content:space-between;align-items:center;font-size:10.5px;color:var(--text-soft);margin-top:7px;font-weight:600;}
   .stock-row input{width:56px;border:1px solid var(--border);border-radius:6px;padding:4px 5px;font-size:11px;}
-  .pc-actions{display:flex;gap:6px;margin-top:9px;}
-  .pc-actions button{flex:1;font-size:10px;padding:6px 4px;border-radius:7px;border:1px solid var(--border);background:var(--surface-alt);color:var(--text-soft);font-weight:700;cursor:pointer;}
+  .pc-actions{display:flex;gap:6px;margin-top:10px;}
+  .pc-actions button{flex:1;font-size:10px;padding:7px 4px;border-radius:8px;border:1px solid var(--border);background:var(--surface-alt);color:var(--text-soft);font-weight:700;cursor:pointer;}
+  .pc-actions button:hover{border-color:var(--accent);color:var(--accent-deep);}
 
   .timer{font-size:32px;font-weight:900;text-align:center;letter-spacing:-.03em;padding:16px;background:var(--text);color:#fff;border-radius:12px;margin:12px 0;font-family:'Manrope',sans-serif;}
   .timer-open{font-size:11px;font-weight:700;background:var(--surface-alt);color:var(--accent-deep);border:1px solid var(--accent);border-radius:8px;padding:6px 10px;cursor:pointer;margin-top:6px;}
@@ -925,16 +968,29 @@ function restoreProductUse(stepKeyStr){
   if(ps) ps.remaining = Math.min(ps.capacity, ps.remaining + Number(entry.weight||1));
   delete usageLedger[stepKeyStr];
 }
+// Looks up a Cabinet product's matching Shopping-tab catalog entry (by
+// name — the two lists are kept in sync 1:1) so a low-stock "Send to
+// Grocery" click carries the same real price/link/retailer the Shopping
+// tab would have sent, not just a bare name.
+function findShoppingItemByName(name){
+  if(activeProfile === 'Anusha') return SHOPPING_LIST_ANUSHA.find(function(it){ return it.name===name; });
+  const all = [].concat(SKIN_SHOPPING_BY_MONTH.m1, SKIN_SHOPPING_BY_MONTH.m2, SKIN_SHOPPING_BY_MONTH.m3, SKIN_SHOPPING_BY_MONTH.m4, SKIN_SHOPPING_BY_MONTH.m5);
+  return all.find(function(it){ return it.name===name; });
+}
 function productCabinetCardHtml(p){
   const ps = productState[p.id] || {capacity:p.capacity, remaining:p.capacity};
   const pct = productPercent(p.id);
   const status = productStatusLabel(pct);
   const color = pct<=15 ? 'var(--warn)' : pct<=30 ? 'var(--accent)' : '#2f7c5a';
-  return '<div class="product-cabinet-card'+(pct<=30?' low':'')+'"><h4>'+escapeHtml(p.name)+'</h4>'+
+  const low = pct<=30;
+  const sentDate = shoppingLog[p.name];
+  const sentNote = (low && sentDate) ? '<div class="shop-sent" style="margin-top:5px;">Sent to Grocery '+(daysAgo(sentDate)===0?'today':daysAgo(sentDate)+'d ago')+'</div>' : '';
+  return '<div class="product-cabinet-card'+(low?' low':'')+'"><h4>'+escapeHtml(p.name)+'</h4>'+
     '<div class="stock-track"><div class="stock-fill" style="width:'+pct+'%;background:'+color+';"></div></div>'+
     '<div class="stock-row"><span>'+pct+'% · '+roundDose(ps.remaining)+' left</span><input type="number" min="0" step="0.5" value="'+roundDose(ps.remaining)+'" data-remainingfor="'+p.id+'" aria-label="'+escapeHtml(p.name)+' remaining"></div>'+
     '<div class="stock-row" style="margin-top:2px;"><span>'+status+'</span><span>'+roundDose(ps.capacity)+' per container</span></div>'+
     '<div class="pc-actions"><button type="button" data-refillfor="'+p.id+'">Refilled</button><button type="button" data-capacityfor="'+p.id+'">Edit size</button></div>'+
+    (low ? '<button type="button" class="send-grocery-btn wide" style="margin-top:8px;" data-sendproductfor="'+p.id+'">'+(sentDate?'Send again':'Send to Grocery')+'</button>'+sentNote : '')+
   '</div>';
 }
 function attachProductCabinetHandlers(el){
@@ -955,6 +1011,23 @@ function attachProductCabinetHandlers(el){
       ps.remaining = ps.capacity;
       ps.refills = (ps.refills||0) + 1;
       await saveProductState();
+      renderProductCabinet(document.getElementById('shopping-view'));
+    });
+  });
+  el.querySelectorAll('[data-sendproductfor]').forEach(function(btn){
+    btn.addEventListener('click', async function(){
+      const id = btn.dataset.sendproductfor, p = findProduct(id);
+      if(!p) return;
+      const item = findShoppingItemByName(p.name) || {name:p.name};
+      btn.disabled = true; btn.textContent = 'Sending…';
+      const result = await sendItemToGrocery(item);
+      if(result && result.error){
+        btn.disabled = false; btn.textContent = 'Send to Grocery';
+        alert('Couldn\'t reach Grocery — open the Grocery app once first, then try again.');
+        return;
+      }
+      shoppingLog[p.name] = todayStr();
+      await saveShoppingLog();
       renderProductCabinet(document.getElementById('shopping-view'));
     });
   });
@@ -1083,7 +1156,7 @@ function renderTodayAnusha(){
     '<div class="routine-card am"><div class="rc-head"><div class="rc-icon">☀️</div><div><div class="rc-title">Morning</div></div>'+rcLinkBtnHtml('am')+'</div>'+
       ANUSHA_MORNING.map(function(s,i){ return stepRowHtml(today,'am',i,s); }).join('')+
     '</div>'+
-    '<div class="routine-card pm"><div class="rc-head"><div class="rc-icon">🌙</div><div><div class="rc-title">Night</div></div>'+rcLinkBtnHtml('pm')+'</div>'+
+    '<div class="routine-card pm night"><div class="rc-head"><div class="rc-icon">🌙</div><div><div class="rc-title">Night</div></div>'+rcLinkBtnHtml('pm')+'</div>'+
       ANUSHA_NIGHT.map(function(s,i){ return stepRowHtml(today,'pm',i,s); }).join('')+
     '</div>';
   attachStepHandlers(el);
@@ -1108,17 +1181,17 @@ function renderTodayBhargav(){
     SKIN_AM_ROUTINE.map(function(s,i){ return stepRowHtml(today,'am',i,s); }).join('')+
   '</div>';
 
-  html += '<div class="routine-card pm"><div class="rc-head"><div class="rc-icon">🚿</div><div><div class="rc-title">Shower & body</div><div class="rc-time">7:30 PM</div></div>'+rcLinkBtnHtml('body')+'</div>'+
+  html += '<div class="routine-card pm body"><div class="rc-head"><div class="rc-icon">🚿</div><div><div class="rc-title">Shower & body</div><div class="rc-time">7:30 PM</div></div>'+rcLinkBtnHtml('body')+'</div>'+
     bodySteps.map(function(s,i){ return stepRowHtml(today,'body',i,s); }).join('')+
   '</div>';
 
   if(entry.nizoral){
-    html += '<div class="routine-card pm"><div class="rc-head"><div class="rc-icon">🧴</div><div><div class="rc-title">Nizoral — scheduled tonight</div></div>'+rcLinkBtnHtml('nizoral')+'</div>'+
+    html += '<div class="routine-card pm night"><div class="rc-head"><div class="rc-icon">🧴</div><div><div class="rc-title">Nizoral — scheduled tonight</div></div>'+rcLinkBtnHtml('nizoral')+'</div>'+
       [{text:'Wet the scalp completely'},{text:'Apply '+SKIN_QTY.nizoral, product:'nizoral'},{text:'Massage gently for 30 seconds'},{text:'Leave on for the time on the bottle'},{text:'Rinse thoroughly'}].map(function(s,i){ return stepRowHtml(today,'nizoral',i,s); }).join('')+
     '</div>';
   }
 
-  html += '<div class="routine-card pm"><div class="rc-head"><div class="rc-icon">🌙</div><div><div class="rc-title">'+escapeHtml(treatment.label)+'</div><div class="rc-time">9:30 PM</div></div>'+rcLinkBtnHtml('face')+'</div>'+
+  html += '<div class="routine-card pm night"><div class="rc-head"><div class="rc-icon">🌙</div><div><div class="rc-title">'+escapeHtml(treatment.label)+'</div><div class="rc-time">9:30 PM</div></div>'+rcLinkBtnHtml('face')+'</div>'+
     treatment.steps.map(function(s,i){ return stepRowHtml(today,'face',i,s); }).join('')+
     (entry.note ? '<div class="step-note" style="color:var(--text-faint);">'+escapeHtml(entry.note)+'</div>' : '')+
   '</div>';
@@ -1141,20 +1214,21 @@ function renderTrackingCardHtml(date, monthKey){
   const reactions = rec.reactions || [];
   const rows = fields.map(function(f){
     if(f.type==='text'){
-      return '<div class="f" style="flex:1 1 100%;"><label>'+escapeHtml(f.label)+'</label><input type="text" data-trackfield="'+f.key+'" value="'+escapeHtml(rec[f.key]||'')+'" placeholder="none" style="width:100%;"></div>';
+      return '<div class="track-field"><label>'+escapeHtml(f.label)+'</label><input type="text" data-trackfield="'+f.key+'" value="'+escapeHtml(rec[f.key]||'')+'" placeholder="none"></div>';
     }
-    return '<div class="f"><label>'+escapeHtml(f.label)+' (0–10)</label><input type="number" min="0" max="10" data-trackfield="'+f.key+'" value="'+(rec[f.key]!=null?escapeHtml(rec[f.key]):'')+'" style="width:60px;"></div>';
+    const hasVal = rec[f.key]!=null && rec[f.key]!=='';
+    const val = hasVal ? Number(rec[f.key]) : 5;
+    const pct = Math.round(val/10*100);
+    return '<div class="track-field"><label><span>'+escapeHtml(f.label)+'</span><span class="tf-val" data-tfval="'+f.key+'">'+(hasVal?val:'–')+'</span></label>'+
+      '<input type="range" min="0" max="10" step="1" data-trackfield="'+f.key+'" data-touched="'+(hasVal?'1':'0')+'" value="'+val+'" style="--fillpct:'+pct+'%;"></div>';
   }).join('');
   const concerning = reactions.some(function(r){ return SKIN_CONCERNING_REACTIONS.indexOf(r)!==-1; });
-  return '<div class="checkin-card"><h3>Daily tracking</h3><div class="ci-sub">Fill this in each night.</div>'+
-    '<div class="ci-form" style="flex-wrap:wrap;">'+rows+'</div>'+
-    '<div class="ci-form" style="margin-top:10px;"><div class="f"><label>Overall today</label><select data-trackfield="overall">'+
-      '<option value="">—</option>'+
-      '<option value="better" '+(rec.overall==='better'?'selected':'')+'>Better</option>'+
-      '<option value="same" '+(rec.overall==='same'?'selected':'')+'>Same</option>'+
-      '<option value="worse" '+(rec.overall==='worse'?'selected':'')+'>Worse</option>'+
-    '</select></div></div>'+
-    '<div class="f" style="margin-top:10px;"><label>Reaction or discomfort</label><div class="reaction-grid" id="reaction-grid">'+
+  return '<div class="checkin-card"><h3>🌙 Daily tracking</h3><div class="ci-sub">Fill this in each night.</div>'+
+    '<div>'+rows+'</div>'+
+    '<div class="f" style="margin-top:4px;"><label>Overall today</label><div class="overall-grid" id="overall-grid">'+
+      ['better','same','worse'].map(function(v){ const lbl=v==='better'?'🙂 Better':v==='same'?'😐 Same':'🙁 Worse'; return '<button type="button" class="'+v+(rec.overall===v?' on':'')+'" data-overall="'+v+'">'+lbl+'</button>'; }).join('')+
+    '</div><input type="hidden" data-trackfield="overall" value="'+(rec.overall||'')+'"></div>'+
+    '<div class="f" style="margin-top:12px;"><label>Reaction or discomfort</label><div class="reaction-grid" id="reaction-grid">'+
       SKIN_REACTIONS.map(function(r){ return '<button type="button" class="'+(reactions.indexOf(r)!==-1?'on':'')+'" data-reaction="'+escapeHtml(r)+'">'+escapeHtml(r)+'</button>'; }).join('')+
     '</div></div>'+
     '<div class="reaction-alert" id="reaction-alert" style="'+(concerning?'':'display:none;')+'">You logged a possible reaction. The tracker keeps the planned routine as-is, but this isn’t a diagnosis — consider pausing the affected active and checking with a qualified clinician if it’s significant, persistent, or getting worse.</div>'+
@@ -1165,6 +1239,24 @@ function renderTrackingCardHtml(date, monthKey){
 function attachTrackingHandlers(el, date){
   const btn = document.getElementById('save-tracking-btn');
   if(!btn) return;
+  el.querySelectorAll('input[type=range][data-trackfield]').forEach(function(range){
+    range.addEventListener('input', function(){
+      range.dataset.touched = '1';
+      const key = range.dataset.trackfield;
+      const badge = el.querySelector('[data-tfval="'+key+'"]');
+      if(badge) badge.textContent = range.value;
+      range.style.setProperty('--fillpct', Math.round(Number(range.value)/10*100)+'%');
+    });
+  });
+  el.querySelectorAll('[data-overall]').forEach(function(obtn){
+    obtn.addEventListener('click', function(){
+      const grid = document.getElementById('overall-grid');
+      grid.querySelectorAll('button').forEach(function(x){ x.classList.remove('on'); });
+      obtn.classList.add('on');
+      const hidden = el.querySelector('[data-trackfield="overall"]');
+      if(hidden) hidden.value = obtn.dataset.overall;
+    });
+  });
   el.querySelectorAll('[data-reaction]').forEach(function(rbtn){
     rbtn.addEventListener('click', function(){
       if(rbtn.dataset.reaction==='No reaction'){
@@ -1182,7 +1274,10 @@ function attachTrackingHandlers(el, date){
   });
   btn.addEventListener('click', async function(){
     const rec = trackingLog[date] || {};
-    el.querySelectorAll('[data-trackfield]').forEach(function(input){ rec[input.dataset.trackfield] = input.value; });
+    el.querySelectorAll('[data-trackfield]').forEach(function(input){
+      if(input.type==='range' && input.dataset.touched!=='1') return; // leave un-dragged sliders unanswered
+      rec[input.dataset.trackfield] = input.value;
+    });
     rec.reactions = [...el.querySelectorAll('[data-reaction].on')].map(function(x){ return x.dataset.reaction; });
     rec.savedAt = new Date().toISOString();
     trackingLog[date] = rec;
