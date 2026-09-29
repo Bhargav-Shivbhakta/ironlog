@@ -835,77 +835,162 @@ function attachBlockTodoHandlers(wrap){
 }
 
 /* =====================================================================
-   SKINCARE INTEGRATION — a schedule block can be explicitly linked to
-   one or more skincare-routine sections (block.linkedSkin, an array of
-   section keys, stored directly on the block object so the link moves
-   with the block through reorders and survives renames). Step TEXT is
-   ported verbatim from skin.html's own morningFaceSteps/morningScalp-
-   Steps/nightSteps/ANUSHA_MORNING/ANUSHA_NIGHT (day/week-phased for
-   Bhargav, fixed for Anusha) so "today's steps" agrees exactly with
-   what skin.html itself would show; only the done/not-done log
-   (stepLog) is actually shared — the same doc skin.html reads/writes.
+   SKINCARE INTEGRATION — the link now lives on the SKIN side (same
+   pattern as Chores/To-dos/Diet): skin.html's own "🔗 Attach to
+   Schedule" picker on each routine card writes an array of {wd,label}
+   pairs per section (skin-profiles/{profile}/data/blockLinks). Here we
+   only READ that doc and match it against this block's weekday+activity
+   text, exactly like choresLinkedToBlock/linkedTasksForBlock/
+   dietMealsLinkedToBlock do for their own apps. Step TEXT is ported
+   verbatim from skin.html's own plan data (SKIN_AM_ROUTINE/SKIN_TREAT-
+   MENTS/skinBodyStepsFor/ANUSHA_MORNING/ANUSHA_NIGHT) so "today's
+   steps" agrees exactly with what skin.html itself would show; only
+   the done/not-done log (stepLog) is actually shared — the same doc
+   skin.html reads/writes.
 ===================================================================== */
 function skinProfileDoc(profile, key){
   return db.collection('users').doc(currentUser.uid).collection('skin-profiles').doc(profile).collection('data').doc(key);
 }
 let skinStepLogCache = { Bhargav:{}, Anusha:{} };
-let skinStartDateCache = '2026-09-02';
+let skinBlockLinksCache = { Bhargav:{}, Anusha:{} };
 async function preloadSkinSyncData(){
   try{
-    const [logDoc, startDoc] = await Promise.all([
+    const [logDoc, linksDoc] = await Promise.all([
       skinProfileDoc(activeProfile,'stepLog').get().catch(function(){ return null; }),
-      activeProfile==='Bhargav' ? skinProfileDoc('Bhargav','startDate').get().catch(function(){ return null; }) : Promise.resolve(null)
+      skinProfileDoc(activeProfile,'blockLinks').get().catch(function(){ return null; })
     ]);
     skinStepLogCache[activeProfile] = (logDoc && logDoc.exists && logDoc.data().json) ? JSON.parse(logDoc.data().json) : {};
-    if(startDoc && startDoc.exists && startDoc.data().value) skinStartDateCache = startDoc.data().value;
-  }catch(e){ skinStepLogCache[activeProfile] = {}; }
+    skinBlockLinksCache[activeProfile] = (linksDoc && linksDoc.exists && linksDoc.data().json) ? JSON.parse(linksDoc.data().json) : {};
+  }catch(e){ skinStepLogCache[activeProfile] = {}; skinBlockLinksCache[activeProfile] = {}; }
+}
+// Every section linked (from the skin side) to THIS specific block, for
+// the date it falls on — mirrors choresLinkedToBlock/linkedTasksForBlock.
+function skinSectionsLinkedToBlock(dateStr, tKey, activity){
+  const links = skinBlockLinksCache[activeProfile] || {};
+  const allSections = skinSectionsForProfile(activeProfile, dateStr);
+  return allSections.filter(function(s){
+    const arr = links[s.key];
+    return Array.isArray(arr) && arr.some(function(l){ return l.wd===tKey && l.label===activity; });
+  });
 }
 async function saveSkinStepLog(){
   try{ await skinProfileDoc(activeProfile,'stepLog').set({json: JSON.stringify(skinStepLogCache[activeProfile])}); }
   catch(e){ console.error('skin stepLog save failed', e); }
 }
-function skinWeekNumberFor(dateStr){
-  const start = new Date(skinStartDateCache+'T00:00:00');
-  const d = new Date(dateStr+'T00:00:00');
-  const diffDays = Math.floor((d-start)/86400000);
-  return Math.max(1, Math.floor(diffDays/7)+1);
-}
-// ---- Ported verbatim from skin.html (Bhargav's phased morning/night routine) ----
-function skinMorningFaceSteps(weekday, week){
-  const azelaicOK = week>=5;
-  const azelaicDaysByPhase = week===5 ? [1,5] : (week>=6 ? [1,3,5] : []);
-  const hasAzelaic = azelaicOK && azelaicDaysByPhase.includes(weekday);
-  if(weekday===1 || weekday===3 || weekday===5){
-    const steps = ['Gentle cleanser'];
-    if(hasAzelaic) steps.push('Azelaic acid (thin layer)');
-    steps.push('Moisturizer','Tinted SPF 50');
-    return steps;
+// ---- Ported verbatim from skin.html (Bhargav's 5-month plan, Oct 1
+// 2026 – Feb 28 2027, fixed against the real calendar; no start-date/
+// week-number concept anymore). Sections are 'am' / 'body' / 'nizoral'
+// (only on Nizoral dates) / 'face' — matching skin.html's own section
+// keys exactly so stepKey(date,section,idx) lines up with the SAME
+// stepLog doc skin.html itself reads/writes. ----
+const SKIN_QTY = {
+  cleanser: '1 pump',
+  faceMoisturizer: '2 pea-sized amounts — face & neck',
+  faceSunscreen: '2 full finger-lengths — face, ears, neck',
+  bodySunscreen: '~1 shot-glass — exposed areas, if leaving home',
+  nizoral: '1–2 teaspoons — scalp',
+  eucerinArms: '2 tsp — both arms',
+  eucerinLegs: '4 tsp — both legs',
+  eucerinChest: '2 tsp — chest & stomach',
+  eucerinBack: '2–3 tsp — back',
+  differin: '1 pea-sized amount — entire face (not per area)',
+  azelaic: '1 pea-sized amount — uneven/pigmented areas',
+  ceraveSAArms: '~2 tsp — both arms',
+  ceraveSALegs: '~4 tsp — both legs',
+  bha: '4–6 drops — nose, forehead, blackhead-prone areas'
+};
+const SKIN_AM_ROUTINE = [
+  {text:'Cleanser', qty:SKIN_QTY.cleanser},
+  {text:'Moisturizer — face & neck', qty:SKIN_QTY.faceMoisturizer},
+  {text:'Sunscreen — face, ears, neck', qty:SKIN_QTY.faceSunscreen},
+  {text:'Body sunscreen on exposed areas (if leaving home)', qty:SKIN_QTY.bodySunscreen}
+];
+const SKIN_TREATMENTS = {
+  regular: { label: 'Regular face routine', steps: [
+    {text:'Cleanser', qty:SKIN_QTY.cleanser},
+    {text:'Moisturizer — face & neck', qty:SKIN_QTY.faceMoisturizer}
+  ]},
+  differin: { label: 'Differin night', steps: [
+    {text:'Cleanser', qty:SKIN_QTY.cleanser},
+    {text:'Let face dry 15–20 minutes'},
+    {text:'Thin layer of moisturizer'},
+    {text:'Differin — entire face', qty:SKIN_QTY.differin},
+    {text:'Another thin layer of moisturizer'}
+  ]},
+  azelaic: { label: 'Azelaic acid night', steps: [
+    {text:'Cleanser', qty:SKIN_QTY.cleanser},
+    {text:'Let skin dry completely'},
+    {text:'Azelaic acid on uneven/pigmented areas', qty:SKIN_QTY.azelaic},
+    {text:'Moisturizer after it absorbs', qty:SKIN_QTY.faceMoisturizer}
+  ]},
+  bha: { label: 'BHA night', steps: [
+    {text:'Cleanser', qty:SKIN_QTY.cleanser},
+    {text:'Paula’s Choice 2% BHA — nose, forehead, blackhead-prone areas', qty:SKIN_QTY.bha},
+    {text:'Wait 5–10 minutes'},
+    {text:'Moisturizer', qty:SKIN_QTY.faceMoisturizer}
+  ]}
+};
+function skinBodyStepsFor(entry){
+  if(entry.ceraveSA){
+    return [
+      {text:'Shower, lukewarm, 5–10 min; pat partially dry'},
+      {text:'CeraVe SA on rough/bumpy arms', qty:SKIN_QTY.ceraveSAArms},
+      {text:'CeraVe SA on rough/bumpy legs', qty:SKIN_QTY.ceraveSALegs},
+      {text:'Eucerin on the rest of the body — within 3 minutes of showering'}
+    ];
   }
-  if(weekday===2 || weekday===4) return ['Benzoyl peroxide wash (~60 sec massage, rinse)','Moisturizer','Tinted SPF 50'];
-  if(weekday===6){
-    const bpStarted = week>=3;
-    const steps = bpStarted ? ['Benzoyl peroxide wash (~60 sec massage, rinse)'] : ['Gentle cleanser'];
-    steps.push('Moisturizer','Tinted SPF 50');
-    return steps;
+  return [
+    {text:'Shower, lukewarm, 5–10 min; pat partially dry'},
+    {text:'Eucerin — both arms', qty:SKIN_QTY.eucerinArms},
+    {text:'Eucerin — both legs', qty:SKIN_QTY.eucerinLegs},
+    {text:'Eucerin — chest & stomach', qty:SKIN_QTY.eucerinChest},
+    {text:'Eucerin — back', qty:SKIN_QTY.eucerinBack},
+    {text:'Apply within 3 minutes of showering'}
+  ];
+}
+function skinBuildDatePlan(){
+  const plan = {};
+  const nizoralOct = ['2026-10-01','2026-10-03','2026-10-06','2026-10-08','2026-10-10','2026-10-13','2026-10-15','2026-10-17','2026-10-20','2026-10-22','2026-10-24','2026-10-27','2026-10-29','2026-10-31'];
+  for(let d=1; d<=31; d++){
+    const ds = '2026-10-'+pad2(d);
+    plan[ds] = {face:'regular', nizoral: nizoralOct.indexOf(ds)!==-1, ceraveSA:false};
   }
-  return ['Gentle cleanser','Moisturizer','Tinted SPF 50'];
+  const nov = {
+    1:{face:'regular'}, 2:{face:'regular'}, 3:{face:'regular',nizoral:true,ceraveSA:true}, 4:{face:'differin'},
+    5:{face:'regular'}, 6:{face:'regular'}, 7:{face:'regular',nizoral:true,ceraveSA:true},
+    8:{face:'differin'}, 9:{face:'regular'}, 10:{face:'regular',nizoral:true,ceraveSA:true}, 11:{face:'regular'},
+    12:{face:'regular'}, 13:{face:'differin'}, 14:{face:'regular',nizoral:true,ceraveSA:true},
+    15:{face:'regular'}, 16:{face:'differin'}, 17:{face:'regular',nizoral:true,ceraveSA:true}, 18:{face:'azelaic'},
+    19:{face:'regular'}, 20:{face:'differin'}, 21:{face:'regular',nizoral:true,ceraveSA:true},
+    22:{face:'regular'}, 23:{face:'differin'}, 24:{face:'regular',nizoral:true,ceraveSA:true}, 25:{face:'azelaic'},
+    26:{face:'regular'}, 27:{face:'differin'}, 28:{face:'azelaic',nizoral:true,ceraveSA:true},
+    29:{face:'regular'}, 30:{face:'differin'}
+  };
+  Object.keys(nov).forEach(function(d){ plan['2026-11-'+pad2(d)] = Object.assign({face:'regular',nizoral:false,ceraveSA:false}, nov[d]); });
+  const decByWeekday = {2:{face:'azelaic',ceraveSA:true}, 3:{face:'differin'}, 4:{face:'regular',ceraveSA:true}, 5:{face:'azelaic'}, 6:{face:'differin',nizoral:true,ceraveSA:true}, 0:{face:'regular'}, 1:{face:'differin'}};
+  for(let d=1; d<=31; d++){
+    const ds = '2026-12-'+pad2(d);
+    plan[ds] = Object.assign({face:'regular',nizoral:false,ceraveSA:false}, decByWeekday[weekdayOf(ds)]);
+  }
+  const janByWeekday = {1:{face:'differin',ceraveSA:true}, 2:{face:'azelaic'}, 3:{face:'differin',ceraveSA:true}, 4:{face:'regular'}, 5:{face:'azelaic',ceraveSA:true}, 6:{face:'differin',nizoral:true}, 0:{face:'regular',note:'Optional: 5-minute gentle facial massage using moisturizer.'}};
+  for(let d=1; d<=31; d++){
+    const ds = '2027-01-'+pad2(d);
+    plan[ds] = Object.assign({face:'regular',nizoral:false,ceraveSA:false}, janByWeekday[weekdayOf(ds)]);
+  }
+  const feb = {
+    1:{face:'differin',ceraveSA:true}, 2:{face:'azelaic'}, 3:{face:'regular'}, 4:{face:'bha',ceraveSA:true}, 5:{face:'differin'},
+    6:{face:'differin',nizoral:true,ceraveSA:true}, 7:{face:'azelaic'},
+    8:{face:'differin',ceraveSA:true}, 9:{face:'azelaic'}, 10:{face:'regular'}, 11:{face:'bha',ceraveSA:true}, 12:{face:'differin'},
+    13:{face:'differin',nizoral:true,ceraveSA:true}, 14:{face:'azelaic'},
+    15:{face:'differin',ceraveSA:true}, 16:{face:'azelaic'}, 17:{face:'regular'}, 18:{face:'bha',ceraveSA:true}, 19:{face:'differin'},
+    20:{face:'differin',nizoral:true,ceraveSA:true}, 21:{face:'azelaic'},
+    22:{face:'differin',ceraveSA:true}, 23:{face:'azelaic'}, 24:{face:'regular'}, 25:{face:'bha',ceraveSA:true}, 26:{face:'differin'},
+    27:{face:'differin',nizoral:true,ceraveSA:true}, 28:{face:'azelaic'}
+  };
+  Object.keys(feb).forEach(function(d){ plan['2027-02-'+pad2(d)] = Object.assign({face:'regular',nizoral:false,ceraveSA:false}, feb[d]); });
+  return plan;
 }
-function skinMorningScalpSteps(weekday){
-  if(weekday===2 || weekday===6) return ['Ketoconazole 1% shampoo on scalp (per label contact time)','Conditioner on hair lengths only','Wash face after rinsing hair'];
-  if(weekday===0) return ['Gentle shampoo — only if necessary'];
-  return ['Regular shampoo — only if necessary'];
-}
-function skinNightSteps(weekday, week){
-  let adapalene = false;
-  if(week<=4) adapalene = (weekday===1 || weekday===5);
-  else if(week<=8) adapalene = (weekday===1 || weekday===3 || weekday===5);
-  else adapalene = (weekday===1 || weekday===3 || weekday===5 || weekday===0);
-  const steps = ['Cleanser'];
-  if(adapalene) steps.push('Wait ~10 min after cleansing','Moisturizer','Adapalene — pea-sized, whole face (avoid eyelids/lips/nostrils/neck)');
-  else steps.push('Moisturizer');
-  if(weekday===1 || weekday===3 || weekday===5) steps.push('Elbows/knees: 10% urea or 10–12% lactic acid lotion (not on adapalene nights near irritated skin)');
-  return steps;
-}
+const SKIN_DATE_PLAN = skinBuildDatePlan();
 const SKIN_ANUSHA_MORNING = [
   'Rinse with water — INKEY List Salicylic Acid Cleanser only if face is oily',
   'Tone: Anua Heartleaf 77 + Hyaluron Soothing Toner',
@@ -922,18 +1007,27 @@ const SKIN_ANUSHA_NIGHT = [
   'Moisturize: Anua Ceramide 3 + Panthenol Barrier Cream'
 ];
 // Every valid section key per profile, for the link-picker checkboxes.
-function skinSectionsForProfile(profile){
-  return profile==='Bhargav'
-    ? [{key:'am-face',label:'Morning — Face'},{key:'am-scalp',label:'Morning — Scalp/Hair'},{key:'pm',label:'Night'}]
-    : [{key:'am',label:'Morning'},{key:'pm',label:'Night'}];
+function skinSectionsForProfile(profile, dateStr){
+  if(profile==='Bhargav'){
+    const entry = SKIN_DATE_PLAN[dateStr || todayStr()];
+    const sections = [{key:'am',label:'Morning'},{key:'body',label:'Shower & body'}];
+    if(entry && entry.nizoral) sections.push({key:'nizoral',label:'Nizoral'});
+    sections.push({key:'face',label:'Night — face'});
+    return sections;
+  }
+  return [{key:'am',label:'Morning'},{key:'pm',label:'Night'}];
 }
 function skinStepsForSection(profile, dateStr, section){
-  const weekday = weekdayOf(dateStr);
   if(profile==='Bhargav'){
-    const week = skinWeekNumberFor(dateStr);
-    if(section==='am-face') return skinMorningFaceSteps(weekday, week);
-    if(section==='am-scalp') return skinMorningScalpSteps(weekday);
-    if(section==='pm') return skinNightSteps(weekday, week);
+    const entry = SKIN_DATE_PLAN[dateStr];
+    if(!entry) return [];
+    if(section==='am') return SKIN_AM_ROUTINE.map(function(s){ return s.text; });
+    if(section==='body') return skinBodyStepsFor(entry).map(function(s){ return s.text; });
+    if(section==='nizoral') return entry.nizoral ? ['Wet the scalp completely','Apply '+SKIN_QTY.nizoral,'Massage gently for 30 seconds','Leave on for the time on the bottle','Rinse thoroughly'] : [];
+    if(section==='face'){
+      const treatment = SKIN_TREATMENTS[entry.face] || SKIN_TREATMENTS.regular;
+      return treatment.steps.map(function(s){ return s.text; });
+    }
     return [];
   }
   if(section==='am') return SKIN_ANUSHA_MORNING;
@@ -2019,24 +2113,20 @@ function renderBlockExpandPanel(dateStr, tKey, idx, b){
       }).join('')
     : '';
 
-  const skinSections = skinSectionsForProfile(activeProfile);
-  const linkedSkin = Array.isArray(b.linkedSkin) ? b.linkedSkin : [];
-  const skinChecklistHtml = linkedSkin.length
-    ? linkedSkin.map(function(section){
-        const secMeta = skinSections.find(function(s){ return s.key===section; });
-        const steps = skinStepsForSection(activeProfile, dateStr, section);
-        const rows = steps.map(function(text, i){
-          const key = skinStepKey(dateStr, section, i);
-          const done = !!skinStepLogCache[activeProfile][key];
-          return '<div class="rb-link-row"><label><input type="checkbox" data-skinstep="'+escapeHtml(key)+'" '+(done?'checked':'')+'> <span class="'+(done?'strike':'')+'">'+escapeHtml(text)+'</span></label></div>';
-        }).join('');
-        return '<div class="rb-link-section"><div class="rb-link-section-title">'+escapeHtml(secMeta?secMeta.label:section)+'</div>'+rows+'</div>';
-      }).join('')
+  const linkedSkinSections = skinSectionsLinkedToBlock(dateStr, tKey, b.activity);
+  const skinChecklistHtml = linkedSkinSections.length
+    ? '<div class="rb-link-section"><div class="rb-link-section-title">Skincare</div>'+
+        linkedSkinSections.map(function(secMeta){
+          const steps = skinStepsForSection(activeProfile, dateStr, secMeta.key);
+          const rows = steps.map(function(text, i){
+            const key = skinStepKey(dateStr, secMeta.key, i);
+            const done = !!skinStepLogCache[activeProfile][key];
+            return '<div class="rb-link-row"><label><input type="checkbox" data-skinstep="'+escapeHtml(key)+'" '+(done?'checked':'')+'> <span class="'+(done?'strike':'')+'">'+escapeHtml(text)+'</span></label></div>';
+          }).join('');
+          return '<div class="rb-link-subsection" style="margin-top:6px;"><div style="font-size:11px;font-weight:700;color:var(--text-faint);margin-bottom:2px;">'+escapeHtml(secMeta.label)+'</div>'+rows+'</div>';
+        }).join('')+
+      '</div>'
     : '';
-  const skinPickerHtml = '<div class="rb-link-picker">'+skinSections.map(function(s){
-      const checked = linkedSkin.indexOf(s.key)!==-1;
-      return '<label style="display:flex;align-items:center;gap:4px;"><input type="checkbox" data-skinlink="'+s.key+'" data-tplkey="'+tKey+'" data-tplidx="'+idx+'" '+(checked?'checked':'')+'> '+escapeHtml(s.label)+'</label>';
-    }).join('')+'</div>';
 
   const linkedMeals = dietStateCache ? dietMealsLinkedToBlock(tKey, b.activity) : [];
   const dietHtml = !dietStateCache
@@ -2075,7 +2165,6 @@ function renderBlockExpandPanel(dateStr, tKey, idx, b){
     (choresHtml ? '<div class="rb-link-section"><div class="rb-link-section-title">Chores</div>'+choresHtml+'</div>' : '')+
     (todosHtml ? '<div class="rb-link-section"><div class="rb-link-section-title">To-dos</div>'+todosHtml+'</div>' : '')+
     skinChecklistHtml+
-    '<div class="rb-link-section"><div class="rb-link-section-title">Skincare — link this block</div>'+skinPickerHtml+'</div>'+
     (dietHtml ? '<div class="rb-link-section"><div class="rb-link-section-title">Diet</div>'+dietHtml+'</div>' : '')+
     '<div class="rb-link-section"><div class="rb-link-section-title">Link — attach an app or a URL</div>'+linkPickerHtml+'</div>';
 }
@@ -2132,18 +2221,6 @@ function attachRoutineHandlers(wrap, dateStr){
       const key = e.target.dataset.skinstep;
       if(e.target.checked) skinStepLogCache[activeProfile][key] = true; else delete skinStepLogCache[activeProfile][key];
       await saveSkinStepLog();
-      if(activeView==='today') renderToday(); else renderWeek();
-    });
-  });
-  wrap.querySelectorAll('[data-skinlink]').forEach(cb=>{
-    cb.addEventListener('change', async e=>{
-      const tplKey = e.target.dataset.tplkey, idx = Number(e.target.dataset.tplidx), section = e.target.dataset.skinlink;
-      const block = dayTemplates[tplKey] && dayTemplates[tplKey][idx];
-      if(!block) return;
-      const current = Array.isArray(block.linkedSkin) ? block.linkedSkin : [];
-      block.linkedSkin = e.target.checked ? current.concat([section]) : current.filter(function(s){ return s!==section; });
-      if(!block.linkedSkin.length) delete block.linkedSkin;
-      await saveDayTemplates();
       if(activeView==='today') renderToday(); else renderWeek();
     });
   });
