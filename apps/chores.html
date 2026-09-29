@@ -1051,6 +1051,7 @@ function choreRowHtml(chore, showCompleteBtn, showManageIcons){
         (chore.dueTime ? '<span class="time-pill">🕐 '+fmtTime12(chore.dueTime)+'</span>' : '')+
         (chore.rotationEnabled ? '<span class="rotation-tag">↻ Next: '+escapeHtml(rotationNext)+'</span>' : '')+
         '<span class="freq-tag">'+freqLabel(chore)+'</span>'+
+        (chore.startDate && chore.freqType!=='everyNDays' ? '<span class="freq-tag" title="Just a record of when you started tracking this chore">📌 Since '+fmtShort(chore.startDate)+'</span>' : '')+
         (chore.scheduleSync ? '<span class="freq-tag" title="Only counted as due on days '+chore.scheduleSync.profile+'\'s Schedule has a matching block: '+escapeHtml((Array.isArray(chore.scheduleSync.keyword)?chore.scheduleSync.keyword:[chore.scheduleSync.keyword]).join(', '))+'">🔗 '+escapeHtml(chore.scheduleSync.profile)+'\'s Schedule</span>' : '')+
       '</div>'+
       (chore.notes ? '<div class="cr-note">'+escapeHtml(chore.notes)+'</div>' : '')+
@@ -1077,7 +1078,8 @@ function editFormHtml(chore){
       '<option value="asNeeded" '+(freqType==='asNeeded'?'selected':'')+'>As needed</option>'+
     '</select></div>'+
     '<div class="f" id="edit-n-wrap-'+chore.id+'" style="'+(freqType==='everyNDays'?'':'display:none;')+'"><label>N days</label><input type="number" id="edit-n-'+chore.id+'" value="'+(chore.freqDays||7)+'" min="1"></div>'+
-    '<div class="f" id="edit-startdate-wrap-'+chore.id+'" style="'+(freqType==='everyNDays'?'':'display:none;')+'"><label>Start date</label><input type="date" id="edit-startdate-'+chore.id+'" value="'+(chore.startDate||'')+'"></div>'+
+    '<div class="f" id="edit-startdate-wrap-'+chore.id+'"><label>Start date (optional)</label><input type="date" id="edit-startdate-'+chore.id+'" value="'+(chore.startDate||'')+'"></div>'+
+    '<div class="sync-block-hint" id="edit-startdate-hint-'+chore.id+'" style="grid-column:1/-1;margin-top:-6px;">'+(freqType==='everyNDays' ? 'The N-day cycle repeats from this date.' : 'Just a record of when you started tracking this chore — doesn\'t change when it\'s due.')+'</div>'+
     '<div class="f"><label>Room</label><select id="edit-category-'+chore.id+'">'+['Kitchen','Bathroom','Laundry','Cleaning','Shopping','Home'].map(function(x){ return '<option '+(x===(chore.category||inferCategory(chore.name))?'selected':'')+'>'+x+'</option>'; }).join('')+'</select></div>'+
     '<div class="f"><label>Minutes</label><input type="number" id="edit-minutes-'+chore.id+'" value="'+(chore.estimatedMinutes||10)+'" min="1" max="240"></div>'+
     '<div class="f"><label>Time of day (optional)</label><input type="time" id="edit-duetime-'+chore.id+'" value="'+(chore.dueTime||'')+'"></div>'+
@@ -1121,11 +1123,11 @@ function attachManageHandlers(el){
     const choreId = panel.id.replace('edit-','');
     const freqSel = panel.querySelector('#edit-freq-'+choreId);
     const nWrap = panel.querySelector('#edit-n-wrap-'+choreId);
-    const startWrap = panel.querySelector('#edit-startdate-wrap-'+choreId);
+    const startHint = panel.querySelector('#edit-startdate-hint-'+choreId);
     const daysWrap = panel.querySelector('#edit-days-wrap-'+choreId);
     freqSel.addEventListener('change', function(){
       nWrap.style.display = freqSel.value==='everyNDays' ? 'flex' : 'none';
-      startWrap.style.display = freqSel.value==='everyNDays' ? 'flex' : 'none';
+      startHint.textContent = freqSel.value==='everyNDays' ? 'The N-day cycle repeats from this date.' : 'Just a record of when you started tracking this chore — doesn\'t change when it\'s due.';
       daysWrap.style.display = freqSel.value==='specificDays' ? 'flex' : 'none';
     });
     panel.querySelectorAll('[data-editday]').forEach(function(btn){
@@ -1157,7 +1159,7 @@ function attachManageHandlers(el){
       chore.name = name;
       chore.freqType = freqSel.value;
       chore.freqDays = freqSel.value==='everyNDays' ? (Number(panel.querySelector('#edit-n-'+choreId).value)||7) : undefined;
-      chore.startDate = freqSel.value==='everyNDays' ? (panel.querySelector('#edit-startdate-'+choreId).value || null) : null;
+      chore.startDate = panel.querySelector('#edit-startdate-'+choreId).value || null;
       chore.days = freqSel.value==='specificDays' ? [...panel.querySelectorAll('[data-editday].on')].map(function(b){ return Number(b.dataset.editday); }).sort() : undefined;
       const rotationOn = panel.querySelector('#edit-rotation-'+choreId).checked && assigned.length>1;
       chore.rotationEnabled = rotationOn;
@@ -1374,7 +1376,8 @@ function addFormHtml(){
       '<option value="asNeeded">As needed</option>'+
     '</select></div>'+
     '<div class="f" id="freq-n-wrap"><label>N days</label><input type="number" id="new-chore-n" value="7" min="1"></div>'+
-    '<div class="f" id="freq-startdate-wrap" style="display:none;"><label>Start date</label><input type="date" id="new-chore-startdate"></div>'+
+    '<div class="f" id="freq-startdate-wrap"><label>Start date (optional)</label><input type="date" id="new-chore-startdate"></div>'+
+    '<div class="sync-block-hint" id="freq-startdate-hint" style="grid-column:1/-1;margin-top:-6px;">Just a record of when you started tracking this chore — doesn\'t change when it\'s due.</div>'+
     '<div class="f"><label>Room</label><select id="new-chore-category">'+['Kitchen','Bathroom','Laundry','Cleaning','Shopping','Home'].map(function(x){ return '<option>'+x+'</option>'; }).join('')+'</select></div>'+
     '<div class="f"><label>Minutes</label><input type="number" id="new-chore-minutes" value="10" min="1" max="240"></div>'+
     '<div class="f"><label>Time of day (optional)</label><input type="time" id="new-chore-duetime"></div>'+
@@ -1397,11 +1400,11 @@ function addFormHtml(){
 function wireAddForm(root){
   const freqSel = root.querySelector('#new-chore-freq');
   const nWrap = root.querySelector('#freq-n-wrap');
-  const startWrap = root.querySelector('#freq-startdate-wrap');
+  const startHint = root.querySelector('#freq-startdate-hint');
   const daysWrap = root.querySelector('#freq-days-wrap');
   freqSel.addEventListener('change', function(){
     nWrap.style.display = freqSel.value==='everyNDays' ? 'flex' : 'none';
-    startWrap.style.display = freqSel.value==='everyNDays' ? 'flex' : 'none';
+    startHint.textContent = freqSel.value==='everyNDays' ? 'The N-day cycle repeats from this date.' : 'Just a record of when you started tracking this chore — doesn\'t change when it\'s due.';
     daysWrap.style.display = freqSel.value==='specificDays' ? 'flex' : 'none';
   });
   const syncProfileSel = root.querySelector('#new-chore-syncprofile');
@@ -1442,7 +1445,7 @@ function wireAddForm(root){
     const newChore = {
       id: 'chore-'+Date.now(), name: name, freqType: freqType,
       freqDays: freqType==='everyNDays' ? Number(root.querySelector('#new-chore-n').value)||7 : undefined,
-      startDate: freqType==='everyNDays' ? (root.querySelector('#new-chore-startdate').value || null) : null,
+      startDate: root.querySelector('#new-chore-startdate').value || null,
       days: freqType==='specificDays' ? [...daySet].sort() : undefined,
       assignedTo: rotate ? [selected[0]] : selected,
       rotationEnabled: rotate,
