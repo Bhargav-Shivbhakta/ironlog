@@ -235,6 +235,21 @@
   .rb-linked-tasks{display:flex;flex-wrap:wrap;gap:4px;margin-top:5px;}
   .rb-linked-task{font-size:10.5px;font-weight:600;padding:2px 7px;border-radius:999px;background:var(--accent-soft, rgba(91,108,255,.1));color:var(--accent-ink, var(--gold));text-decoration:none;cursor:pointer;}
   .rb-linked-task:hover{filter:brightness(0.95);text-decoration:underline;}
+  .rb-expand-btn{flex:none;background:none;border:none;cursor:pointer;font-size:13px;color:var(--text-faint);padding:4px 6px;border-radius:6px;}
+  .rb-expand-btn:hover{background:var(--surface-alt);}
+  .routine-block-wrap{margin-bottom:4px;}
+  .routine-block-wrap .routine-block{margin-bottom:0;}
+  .rb-expand-panel{background:var(--surface);border-radius:0 0 var(--radius-sm) var(--radius-sm);margin-top:-4px;padding:8px 10px 10px 23px;display:flex;flex-direction:column;gap:8px;}
+  .rb-link-section{display:flex;flex-direction:column;gap:4px;}
+  .rb-link-section-title{font-size:9.5px;font-weight:700;text-transform:uppercase;color:var(--text-faint);letter-spacing:0.03em;}
+  .rb-link-row{display:flex;align-items:center;gap:6px;font-size:12.5px;}
+  .rb-link-row label{display:flex;align-items:center;gap:6px;flex:1;min-width:0;cursor:pointer;}
+  .rb-link-row .strike{text-decoration:line-through;color:var(--text-faint);}
+  .rb-link-empty{font-size:11.5px;color:var(--text-faint);font-style:italic;}
+  .rb-link-picker{display:flex;flex-wrap:wrap;gap:6px;align-items:center;}
+  .rb-link-picker select{font-size:11.5px;padding:4px 6px;border-radius:6px;border:1px solid var(--border);background:var(--surface);}
+  .rb-diet-info{font-size:12px;color:var(--text-soft);}
+  .rb-diet-info .rb-diet-name{font-weight:600;color:var(--text);}
   .rb-time-input{
     font-size:13px;color:var(--text-faint);background:transparent;border:none;padding:2px 3px;
     border-radius:4px;width:98px;font-family:'Inter',sans-serif;
@@ -786,6 +801,180 @@ function todoPriorityDotClass(p){ return p===1?'high':p===2?'medium':p===3?'low'
 function todoPriorityLabel(p){ return p===1?'P1':p===2?'P2':p===3?'P3':'No priority'; }
 
 /* =====================================================================
+   BLOCK-LINKED CHORES — a household chore counts as "linked" to a given
+   schedule block when its scheduleSync (set from chores.html's own
+   "Attach to Schedule" picker) has a keyword matching this block's
+   activity text. Same substring match hcIsDueTodayByScheduleSync uses,
+   just scoped to one specific block instead of "any block today".
+===================================================================== */
+function choresLinkedToBlock(activity){
+  const act = (activity||'').toLowerCase();
+  return householdChores.filter(function(c){
+    if(!c.scheduleSync || c.scheduleSync.profile !== activeProfile) return false;
+    const kws = (Array.isArray(c.scheduleSync.keyword) ? c.scheduleSync.keyword : [c.scheduleSync.keyword]).map(function(k){ return (k||'').toLowerCase(); });
+    return kws.some(function(kw){ return kw && act.indexOf(kw) !== -1; });
+  });
+}
+function attachBlockTodoHandlers(wrap){
+  wrap.querySelectorAll('[data-blocktodo]').forEach(function(cb){
+    cb.addEventListener('change', async function(e){
+      const found = findTodoTaskAnywhere(e.target.dataset.blocktodo);
+      if(!found) return;
+      found.t.done = e.target.checked;
+      found.t.completedAt = e.target.checked ? new Date().toISOString() : null;
+      await saveTodoTasksFor(found.shared);
+      showView(activeView);
+    });
+  });
+}
+
+/* =====================================================================
+   SKINCARE INTEGRATION — a schedule block can be explicitly linked to
+   one or more skincare-routine sections (block.linkedSkin, an array of
+   section keys, stored directly on the block object so the link moves
+   with the block through reorders and survives renames). Step TEXT is
+   ported verbatim from skin.html's own morningFaceSteps/morningScalp-
+   Steps/nightSteps/ANUSHA_MORNING/ANUSHA_NIGHT (day/week-phased for
+   Bhargav, fixed for Anusha) so "today's steps" agrees exactly with
+   what skin.html itself would show; only the done/not-done log
+   (stepLog) is actually shared — the same doc skin.html reads/writes.
+===================================================================== */
+function skinProfileDoc(profile, key){
+  return db.collection('users').doc(currentUser.uid).collection('skin-profiles').doc(profile).collection('data').doc(key);
+}
+let skinStepLogCache = { Bhargav:{}, Anusha:{} };
+let skinStartDateCache = '2026-09-02';
+async function preloadSkinSyncData(){
+  try{
+    const [logDoc, startDoc] = await Promise.all([
+      skinProfileDoc(activeProfile,'stepLog').get().catch(function(){ return null; }),
+      activeProfile==='Bhargav' ? skinProfileDoc('Bhargav','startDate').get().catch(function(){ return null; }) : Promise.resolve(null)
+    ]);
+    skinStepLogCache[activeProfile] = (logDoc && logDoc.exists && logDoc.data().json) ? JSON.parse(logDoc.data().json) : {};
+    if(startDoc && startDoc.exists && startDoc.data().value) skinStartDateCache = startDoc.data().value;
+  }catch(e){ skinStepLogCache[activeProfile] = {}; }
+}
+async function saveSkinStepLog(){
+  try{ await skinProfileDoc(activeProfile,'stepLog').set({json: JSON.stringify(skinStepLogCache[activeProfile])}); }
+  catch(e){ console.error('skin stepLog save failed', e); }
+}
+function skinWeekNumberFor(dateStr){
+  const start = new Date(skinStartDateCache+'T00:00:00');
+  const d = new Date(dateStr+'T00:00:00');
+  const diffDays = Math.floor((d-start)/86400000);
+  return Math.max(1, Math.floor(diffDays/7)+1);
+}
+// ---- Ported verbatim from skin.html (Bhargav's phased morning/night routine) ----
+function skinMorningFaceSteps(weekday, week){
+  const azelaicOK = week>=5;
+  const azelaicDaysByPhase = week===5 ? [1,5] : (week>=6 ? [1,3,5] : []);
+  const hasAzelaic = azelaicOK && azelaicDaysByPhase.includes(weekday);
+  if(weekday===1 || weekday===3 || weekday===5){
+    const steps = ['Gentle cleanser'];
+    if(hasAzelaic) steps.push('Azelaic acid (thin layer)');
+    steps.push('Moisturizer','Tinted SPF 50');
+    return steps;
+  }
+  if(weekday===2 || weekday===4) return ['Benzoyl peroxide wash (~60 sec massage, rinse)','Moisturizer','Tinted SPF 50'];
+  if(weekday===6){
+    const bpStarted = week>=3;
+    const steps = bpStarted ? ['Benzoyl peroxide wash (~60 sec massage, rinse)'] : ['Gentle cleanser'];
+    steps.push('Moisturizer','Tinted SPF 50');
+    return steps;
+  }
+  return ['Gentle cleanser','Moisturizer','Tinted SPF 50'];
+}
+function skinMorningScalpSteps(weekday){
+  if(weekday===2 || weekday===6) return ['Ketoconazole 1% shampoo on scalp (per label contact time)','Conditioner on hair lengths only','Wash face after rinsing hair'];
+  if(weekday===0) return ['Gentle shampoo — only if necessary'];
+  return ['Regular shampoo — only if necessary'];
+}
+function skinNightSteps(weekday, week){
+  let adapalene = false;
+  if(week<=4) adapalene = (weekday===1 || weekday===5);
+  else if(week<=8) adapalene = (weekday===1 || weekday===3 || weekday===5);
+  else adapalene = (weekday===1 || weekday===3 || weekday===5 || weekday===0);
+  const steps = ['Cleanser'];
+  if(adapalene) steps.push('Wait ~10 min after cleansing','Moisturizer','Adapalene — pea-sized, whole face (avoid eyelids/lips/nostrils/neck)');
+  else steps.push('Moisturizer');
+  if(weekday===1 || weekday===3 || weekday===5) steps.push('Elbows/knees: 10% urea or 10–12% lactic acid lotion (not on adapalene nights near irritated skin)');
+  return steps;
+}
+const SKIN_ANUSHA_MORNING = [
+  'Rinse with water — INKEY List Salicylic Acid Cleanser only if face is oily',
+  'Tone: Anua Heartleaf 77 + Hyaluron Soothing Toner',
+  'Brighten: INKEY List 15% Vitamin C + EGF Serum — 1–2 pumps',
+  'Hydrate: Atomy Hydra Brightening Capsule Essence — 1–2 pumps',
+  'Moisturize: Atomy Hydra Brightening Cream',
+  'Broad-spectrum sunscreen SPF 30–50'
+];
+const SKIN_ANUSHA_NIGHT = [
+  'Cleanse: INKEY List Salicylic Acid Cleanser',
+  'Tone: Anua Heartleaf 77 + Hyaluron Soothing Toner',
+  'Treat: Anua Azelaic Acid 10% Serum — 2–3 drops',
+  'Hydrate: Atomy Hydra Brightening Capsule Essence — 1–2 pumps',
+  'Moisturize: Anua Ceramide 3 + Panthenol Barrier Cream'
+];
+// Every valid section key per profile, for the link-picker checkboxes.
+function skinSectionsForProfile(profile){
+  return profile==='Bhargav'
+    ? [{key:'am-face',label:'Morning — Face'},{key:'am-scalp',label:'Morning — Scalp/Hair'},{key:'pm',label:'Night'}]
+    : [{key:'am',label:'Morning'},{key:'pm',label:'Night'}];
+}
+function skinStepsForSection(profile, dateStr, section){
+  const weekday = weekdayOf(dateStr);
+  if(profile==='Bhargav'){
+    const week = skinWeekNumberFor(dateStr);
+    if(section==='am-face') return skinMorningFaceSteps(weekday, week);
+    if(section==='am-scalp') return skinMorningScalpSteps(weekday);
+    if(section==='pm') return skinNightSteps(weekday, week);
+    return [];
+  }
+  if(section==='am') return SKIN_ANUSHA_MORNING;
+  if(section==='pm') return SKIN_ANUSHA_NIGHT;
+  return [];
+}
+function skinStepKey(date, section, idx){ return date+':'+section+':'+idx; }
+
+/* =====================================================================
+   DIET INTEGRATION — a schedule block can be explicitly linked to one
+   diet meal slot (block.linkedDiet, e.g. 'Breakfast'). Reads/writes the
+   SAME whole-state doc diet.html itself uses (nourish-diet-v2/data/
+   state) — kept deliberately shallow (toggling only a diary entry's
+   status) rather than re-deriving nutrition/consumption math, so this
+   never risks corrupting diet.html's own calculations.
+===================================================================== */
+function dietStateDoc(){
+  return db.collection('users').doc(currentUser.uid).collection('apps').doc('nourish-diet-v2').collection('data').doc('state');
+}
+let dietStateCache = null;
+async function preloadDietSyncData(){
+  try{
+    const doc = await dietStateDoc().get();
+    dietStateCache = (doc.exists && doc.data().json) ? JSON.parse(doc.data().json) : null;
+  }catch(e){ dietStateCache = null; }
+}
+async function saveDietState(){
+  if(!dietStateCache) return;
+  try{ await dietStateDoc().set({json: JSON.stringify(dietStateCache)}); }
+  catch(e){ console.error('diet state save failed', e); }
+}
+const DIET_SLOTS = ['After gym','Breakfast','Lunch','Snack','Dinner'];
+function dietProfileId(){ return activeProfile==='Bhargav' ? 'bhargav' : 'anusha'; }
+// The meal TEMPLATE for this slot (name/time/icon) — always exists, even
+// on a date nothing's been logged yet.
+function dietMealTemplateForSlot(slot){
+  if(!dietStateCache || !dietStateCache.meals) return null;
+  return dietStateCache.meals.find(function(m){ return m.profileId===dietProfileId() && m.slot===slot; }) || null;
+}
+// Actual logged/planned diary entries for this slot today, if any exist.
+function dietDiaryForSlot(dateStr, slot){
+  if(!dietStateCache || !dietStateCache.diary) return [];
+  const mealIds = (dietStateCache.meals||[]).filter(function(m){ return m.profileId===dietProfileId() && m.slot===slot; }).map(function(m){ return m.id; });
+  return dietStateCache.diary.filter(function(e){ return e.date===dateStr && e.profileId===dietProfileId() && mealIds.indexOf(e.mealId)!==-1; });
+}
+
+/* =====================================================================
    AUTH
 ===================================================================== */
 let authMode = 'signin';
@@ -856,7 +1045,8 @@ async function enterProfile(profileId){
   await Promise.all([
     loadEvents(), loadChores(), loadChoreLog(), loadAutoConfig(),
     loadDayTemplates(), loadTemplateLog(), loadTodoTasks(),
-    loadHouseholdChores(), loadHouseholdChoreHistory(), loadFocusData()
+    loadHouseholdChores(), loadHouseholdChoreHistory(), loadFocusData(),
+    preloadSkinSyncData(), preloadDietSyncData()
   ]);
   renderNotifBanner();
   showView('today');
@@ -1211,6 +1401,7 @@ let chores = [];
 let choreLog = {};
 let dayTemplates = {};
 let activeCategoryFilter = null; // null = show everything; a category key (e.g. 'study') = show only that category's blocks, across the whole day
+let expandedBlockKey = null; // templateBlockKey(dateStr, idx) of whichever block is currently expanded to show its linked chores/todos/skincare/diet, or null
 // One delegated listener handles the filter chips wherever they render —
 // Today view or Week view — rather than re-wiring after every render.
 document.addEventListener('click', function(e){
@@ -1689,20 +1880,26 @@ function renderDailyRoutineHtml(dateStr){
     const statusBadge = isDone ? '<span class="rb-status done" title="Done">✓</span>' : (isPast ? '<span class="rb-status missed" title="Time passed, not checked off">✗</span>' : '');
     const linkedTasks = linkedTasksForBlock(tKey, b.activity);
     const linkedTasksHtml = linkedTasks.length ? '<div class="rb-linked-tasks">'+linkedTasks.map(lt=>'<a class="rb-linked-task" href="todo.html?task='+encodeURIComponent(lt.id)+'&profile='+encodeURIComponent(activeProfile)+'" title="Open in To-Do" onclick="event.stopPropagation()">📋 '+escapeHtml(lt.title)+'</a>').join('')+'</div>' : '';
-    return '<div class="routine-block '+(isDone?'done':'')+' '+(isNow?'now':'')+' '+(isPast?'past':'')+'" style="border-left-color:'+meta.color+';'+(hiddenByFilter?'display:none;':'')+'">'+
-      '<input type="checkbox" class="routine-chk" data-blockkey="'+key+'" '+(isDone?'checked':'')+'>'+
-      '<div class="rb-body">'+
-        '<div class="rb-title '+(isDone?'strike':'')+'" contenteditable="true" data-tplkey="'+tKey+'" data-tplidx="'+i+'" data-field="activity">'+escapeHtml(b.activity)+'</div>'+
-        (isNow?'<span class="now-badge">now</span>':'')+
-        '<div class="rb-time-edit">'+
-          '<input type="time" class="rb-time-input" value="'+b.start+'" data-tplkey="'+tKey+'" data-tplidx="'+i+'" data-field="start">'+
-          '<span class="rb-time-dash">–</span>'+
-          '<input type="time" class="rb-time-input" value="'+b.end+'" data-tplkey="'+tKey+'" data-tplidx="'+i+'" data-field="end">'+
+    const isExpanded = expandedBlockKey === key;
+    const expandPanelHtml = isExpanded ? '<div class="rb-expand-panel">'+renderBlockExpandPanel(dateStr, tKey, i, b)+'</div>' : '';
+    return '<div class="routine-block-wrap">'+
+      '<div class="routine-block '+(isDone?'done':'')+' '+(isNow?'now':'')+' '+(isPast?'past':'')+'" style="border-left-color:'+meta.color+';'+(hiddenByFilter?'display:none;':'')+'">'+
+        '<input type="checkbox" class="routine-chk" data-blockkey="'+key+'" '+(isDone?'checked':'')+'>'+
+        '<div class="rb-body">'+
+          '<div class="rb-title '+(isDone?'strike':'')+'" contenteditable="true" data-tplkey="'+tKey+'" data-tplidx="'+i+'" data-field="activity">'+escapeHtml(b.activity)+'</div>'+
+          (isNow?'<span class="now-badge">now</span>':'')+
+          '<div class="rb-time-edit">'+
+            '<input type="time" class="rb-time-input" value="'+b.start+'" data-tplkey="'+tKey+'" data-tplidx="'+i+'" data-field="start">'+
+            '<span class="rb-time-dash">–</span>'+
+            '<input type="time" class="rb-time-input" value="'+b.end+'" data-tplkey="'+tKey+'" data-tplidx="'+i+'" data-field="end">'+
+          '</div>'+
+          linkedTasksHtml+
         '</div>'+
-        linkedTasksHtml+
+        statusBadge+
+        '<span class="rb-cat" style="background:'+meta.soft+';color:'+meta.color+';">'+meta.label+'</span>'+
+        '<button type="button" class="rb-expand-btn" data-expandkey="'+key+'" title="Show linked chores, to-dos, skincare and diet">'+(isExpanded?'▲':'▾')+'</button>'+
       '</div>'+
-      statusBadge+
-      '<span class="rb-cat" style="background:'+meta.soft+';color:'+meta.color+';">'+meta.label+'</span>'+
+      expandPanelHtml+
     '</div>';
   }).join('');
 
@@ -1724,6 +1921,75 @@ function renderDailyRoutineHtml(dateStr){
     <div class="cat-legend">${legend}</div>
     <div id="routine-blocks">${rows}</div>
   `;
+}
+
+// The expanded view under a clicked block: whatever chores/to-dos/
+// skincare steps/diet meals are actually linked to it for this exact
+// day, each as a tickable checkbox where that makes sense, plus the
+// link pickers for skincare/diet (chores/to-dos are linked from their
+// own apps' own pickers, so there's nothing to set here for those two).
+function renderBlockExpandPanel(dateStr, tKey, idx, b){
+  const linkedChores = choresLinkedToBlock(b.activity);
+  const choresHtml = linkedChores.length
+    ? linkedChores.map(function(c){
+        const overdue = hcStatusFor(c)==='overdue';
+        return '<div class="rb-link-row"><label><input type="checkbox" data-hchoreid="'+c.id+'"> <span>🧹 '+escapeHtml(c.name)+(overdue?' <span style="color:var(--danger);font-weight:700;">overdue</span>':'')+'</span></label></div>';
+      }).join('')
+    : '<div class="rb-link-empty">No chores linked to this block. Attach one from Household Chores → edit a chore → Attach to Schedule.</div>';
+
+  const linkedTasks = linkedTasksForBlock(tKey, b.activity);
+  const todosHtml = linkedTasks.length
+    ? linkedTasks.map(function(t){
+        return '<div class="rb-link-row"><label><input type="checkbox" data-blocktodo="'+t.id+'" '+(t.done?'checked':'')+'> <span class="'+(t.done?'strike':'')+'">📋 '+escapeHtml(t.title)+'</span></label></div>';
+      }).join('')
+    : '<div class="rb-link-empty">No to-dos linked to this block. Attach one from To-Do → edit a task → link it to a schedule block.</div>';
+
+  const skinSections = skinSectionsForProfile(activeProfile);
+  const linkedSkin = Array.isArray(b.linkedSkin) ? b.linkedSkin : [];
+  const skinChecklistHtml = linkedSkin.length
+    ? linkedSkin.map(function(section){
+        const secMeta = skinSections.find(function(s){ return s.key===section; });
+        const steps = skinStepsForSection(activeProfile, dateStr, section);
+        const rows = steps.map(function(text, i){
+          const key = skinStepKey(dateStr, section, i);
+          const done = !!skinStepLogCache[activeProfile][key];
+          return '<div class="rb-link-row"><label><input type="checkbox" data-skinstep="'+escapeHtml(key)+'" '+(done?'checked':'')+'> <span class="'+(done?'strike':'')+'">'+escapeHtml(text)+'</span></label></div>';
+        }).join('');
+        return '<div class="rb-link-section"><div class="rb-link-section-title">'+escapeHtml(secMeta?secMeta.label:section)+'</div>'+rows+'</div>';
+      }).join('')
+    : '';
+  const skinPickerHtml = '<div class="rb-link-picker">'+skinSections.map(function(s){
+      const checked = linkedSkin.indexOf(s.key)!==-1;
+      return '<label style="display:flex;align-items:center;gap:4px;"><input type="checkbox" data-skinlink="'+s.key+'" data-tplkey="'+tKey+'" data-tplidx="'+idx+'" '+(checked?'checked':'')+'> '+escapeHtml(s.label)+'</label>';
+    }).join('')+'</div>';
+
+  const linkedDiet = b.linkedDiet || '';
+  let dietHtml = '';
+  if(linkedDiet && dietStateCache){
+    const tmpl = dietMealTemplateForSlot(linkedDiet);
+    const entries = dietDiaryForSlot(dateStr, linkedDiet);
+    if(entries.length){
+      dietHtml = entries.map(function(e){
+        const eaten = e.status==='eaten';
+        return '<div class="rb-link-row"><label><input type="checkbox" data-dietentry="'+e.id+'" '+(eaten?'checked':'')+'> <span class="'+(eaten?'strike':'')+'">🍽️ '+escapeHtml(e.name||(tmpl?tmpl.name:linkedDiet))+'</span></label></div>';
+      }).join('');
+    } else {
+      dietHtml = '<div class="rb-diet-info">🍽️ <span class="rb-diet-name">'+escapeHtml(tmpl?tmpl.name:linkedDiet)+'</span> — planned'+(tmpl&&tmpl.time?' for '+escapeHtml(tmpl.time):'')+', not logged yet today. <a class="rb-linked-task" href="diet.html?profile='+encodeURIComponent(activeProfile)+'" onclick="event.stopPropagation()">Open Diet</a></div>';
+    }
+  } else if(linkedDiet && !dietStateCache){
+    dietHtml = '<div class="rb-link-empty">Diet plan not reachable right now.</div>';
+  }
+  const dietPickerHtml = '<div class="rb-link-picker"><select data-dietlink data-tplkey="'+tKey+'" data-tplidx="'+idx+'"><option value="">Not linked to a meal</option>'+
+    DIET_SLOTS.map(function(slot){ return '<option value="'+escapeHtml(slot)+'" '+(linkedDiet===slot?'selected':'')+'>'+escapeHtml(slot)+'</option>'; }).join('')+
+    '</select></div>';
+
+  return ''+
+    '<div class="rb-link-section"><div class="rb-link-section-title">Chores</div>'+choresHtml+'</div>'+
+    '<div class="rb-link-section"><div class="rb-link-section-title">To-dos</div>'+todosHtml+'</div>'+
+    skinChecklistHtml+
+    '<div class="rb-link-section"><div class="rb-link-section-title">Skincare — link this block</div>'+skinPickerHtml+'</div>'+
+    (dietHtml ? '<div class="rb-link-section"><div class="rb-link-section-title">Diet</div>'+dietHtml+'</div>' : '')+
+    '<div class="rb-link-section"><div class="rb-link-section-title">Diet — link this block</div>'+dietPickerHtml+'</div>';
 }
 
 function attachRoutineHandlers(wrap, dateStr){
@@ -1755,6 +2021,60 @@ function attachRoutineHandlers(wrap, dateStr){
       const block = dayTemplates[tplKey] && dayTemplates[tplKey][idx];
       if(!block || !inp.value) return;
       block[field] = inp.value;
+      await saveDayTemplates();
+      if(activeView==='today') renderToday(); else renderWeek();
+    });
+  });
+  wrap.querySelectorAll('.rb-expand-btn').forEach(btn=>{
+    btn.addEventListener('click', e=>{
+      e.stopPropagation();
+      const key = btn.dataset.expandkey;
+      expandedBlockKey = (expandedBlockKey === key) ? null : key;
+      if(activeView==='today') renderToday(); else renderWeek();
+    });
+  });
+  // Chores linked inside an expanded block reuse the exact same
+  // [data-hchoreid] checkbox as their own full panel — both renderToday()
+  // and renderWeek() already call attachHouseholdChoreHandlers() on an
+  // outer element that contains this routine wrap, so it picks these up
+  // too without a second, duplicate binding here.
+  attachBlockTodoHandlers(wrap);
+  wrap.querySelectorAll('[data-skinstep]').forEach(cb=>{
+    cb.addEventListener('change', async e=>{
+      const key = e.target.dataset.skinstep;
+      if(e.target.checked) skinStepLogCache[activeProfile][key] = true; else delete skinStepLogCache[activeProfile][key];
+      await saveSkinStepLog();
+      if(activeView==='today') renderToday(); else renderWeek();
+    });
+  });
+  wrap.querySelectorAll('[data-skinlink]').forEach(cb=>{
+    cb.addEventListener('change', async e=>{
+      const tplKey = e.target.dataset.tplkey, idx = Number(e.target.dataset.tplidx), section = e.target.dataset.skinlink;
+      const block = dayTemplates[tplKey] && dayTemplates[tplKey][idx];
+      if(!block) return;
+      const current = Array.isArray(block.linkedSkin) ? block.linkedSkin : [];
+      block.linkedSkin = e.target.checked ? current.concat([section]) : current.filter(function(s){ return s!==section; });
+      if(!block.linkedSkin.length) delete block.linkedSkin;
+      await saveDayTemplates();
+      if(activeView==='today') renderToday(); else renderWeek();
+    });
+  });
+  wrap.querySelectorAll('[data-dietentry]').forEach(cb=>{
+    cb.addEventListener('change', async e=>{
+      if(!dietStateCache) return;
+      const entry = (dietStateCache.diary||[]).find(function(x){ return x.id===e.target.dataset.dietentry; });
+      if(!entry) return;
+      entry.status = e.target.checked ? 'eaten' : 'planned';
+      await saveDietState();
+      if(activeView==='today') renderToday(); else renderWeek();
+    });
+  });
+  wrap.querySelectorAll('[data-dietlink]').forEach(sel=>{
+    sel.addEventListener('change', async e=>{
+      const tplKey = e.target.dataset.tplkey, idx = Number(e.target.dataset.tplidx);
+      const block = dayTemplates[tplKey] && dayTemplates[tplKey][idx];
+      if(!block) return;
+      if(e.target.value) block.linkedDiet = e.target.value; else delete block.linkedDiet;
       await saveDayTemplates();
       if(activeView==='today') renderToday(); else renderWeek();
     });
