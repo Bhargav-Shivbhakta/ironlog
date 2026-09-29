@@ -634,7 +634,13 @@ function openNewFoodFromUniversal(){closeUniversalLog();openFoodModal()}
     return db.collection('users').doc(appUser.uid).collection('schedule-profiles').doc(profileCap).collection('data').doc(key);
   }
   let dietScheduleTemplatesCache = {};
-  async function ensureScheduleTemplatesLoaded(profileCap){
+  // These three are called from renderMealSchedulePicker/openNewMealModal/
+  // editMealSlot, which are declared OUTSIDE this IIFE — so unlike the
+  // rest of the functions in here, they must be implicit-global
+  // assignments (not `function name(){}` declarations), or callers
+  // outside this closure get a silent ReferenceError and the "Loading
+  // Schedule…" placeholder in the meal modal never gets replaced.
+  ensureScheduleTemplatesLoaded=async function(profileCap){
     if(dietScheduleTemplatesCache[profileCap]) return dietScheduleTemplatesCache[profileCap];
     try{
       const doc = await scheduleProfileDocForDiet(profileCap,'dayTemplates').get();
@@ -643,7 +649,7 @@ function openNewFoodFromUniversal(){closeUniversalLog();openFoodModal()}
     return dietScheduleTemplatesCache[profileCap];
   }
   const SCHEDULE_WD_ORDER = ['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'];
-  function mealScheduleChecklistHtml(templates, selected){
+  mealScheduleChecklistHtml=function(templates, selected){
     const sel = new Set((selected||[]).map(function(s){ return s.wd+'||'+s.label; }));
     let html = '';
     SCHEDULE_WD_ORDER.forEach(function(wd){
@@ -661,7 +667,7 @@ function openNewFoodFromUniversal(){closeUniversalLog();openFoodModal()}
   // Blocks whose activity text matches the meal's own slot/name — used to
   // smart-default a fresh (never-linked) meal's picker, so "Breakfast"
   // auto-picks every day's Breakfast block instead of starting empty.
-  function autoMatchingScheduleBlocks(templates, meal){
+  autoMatchingScheduleBlocks=function(templates, meal){
     const needle = (meal.slot||meal.name||'').toLowerCase();
     if(!needle) return [];
     const out = [];
