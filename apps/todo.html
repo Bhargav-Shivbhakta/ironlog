@@ -448,7 +448,12 @@
   .sbp-clear{position:absolute;right:26px;top:6px;background:none;border:none;color:var(--text-faint);cursor:pointer;font-size:12px;padding:2px 4px;}
   .sbp-panel{position:absolute;z-index:40;top:calc(100% + 4px);left:0;right:0;background:var(--surface);border:1px solid var(--border);border-radius:10px;box-shadow:var(--shadow);padding:8px;max-height:280px;overflow:hidden;display:flex;flex-direction:column;gap:6px;}
   .sbp-search{font-size:12.5px;padding:7px 9px;border-radius:7px;border:1px solid var(--border);background:var(--surface-2);color:var(--text);width:100%;flex:none;}
-  .sbp-results{overflow-y:auto;flex:1;min-height:0;}
+  /* An explicit max-height + its own overflow-y (rather than relying on
+     flex:1 shrinking inside .sbp-panel's max-height, which this browser
+     doesn't reliably honor) is what actually makes this box scrollable —
+     without it, content past 280px was just getting clipped off by the
+     parent's overflow:hidden with no way to reach it. */
+  .sbp-results{overflow-y:auto;max-height:220px;}
   .sbp-day-head{width:100%;display:flex;align-items:center;gap:6px;background:none;border:none;color:var(--text);font-size:12.5px;font-weight:700;padding:6px 4px;cursor:pointer;text-align:left;}
   .sbp-daycount{color:var(--text-faint);font-weight:500;}
   .sbp-day-caret{margin-left:auto;color:var(--text-faint);font-size:10px;}
