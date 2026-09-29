@@ -11,16 +11,19 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
 <style>
   :root{
-    --bg:#F5F6F3; --surface:#FFFFFF; --surface-alt:#EFF1EC;
-    --border:#DEE2D8; --border-soft:#E9EBE5;
-    --text:#1C201A; --text-soft:#5B6355; --text-faint:#8E9587;
-    --accent:#3F7A54; --accent-soft:#E3EEE5; --accent-deep:#2C5A3C;
-    --am:#D97A3F; --am-soft:#FBEADC;
-    --pm:#5B5FA8; --pm-soft:#E7E7F5;
-    --warn:#B4483B; --warn-soft:#F7E4E1;
+    --bg:#F4F4F0; --surface:#FFFFFF; --surface-alt:#F2F0E9;
+    --border:#E3E3DC; --border-soft:#ECECE6;
+    --text:#20211E; --text-soft:#74766F; --text-faint:#9C9E97;
+    --accent:#AD7B20; --accent-soft:#F7EFD9; --accent-deep:#6F4A08;
+    --am:#C97C2E; --am-soft:#F6E9D3;
+    --pm:#5B5773; --pm-soft:#E9E8EF;
+    --warn:#B8493F; --warn-soft:#FAECEA;
     --radius-lg:16px; --radius-md:11px; --radius-sm:8px;
-    --shadow:0 1px 2px rgba(28,32,26,0.05), 0 8px 20px -14px rgba(28,32,26,0.16);
+    --shadow:0 18px 50px rgba(37,38,32,.08);
   }
+  /* Same per-profile accent-override pattern schedule.html/todo.html use
+     for Anusha, so both apps feel like one suite instead of two skins. */
+  body[data-profile="anusha"]{--accent:#B25C78;--accent-soft:#FAEAF0;--accent-deep:#813B53;}
   *{box-sizing:border-box;}
   body{margin:0;font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;padding:16px 14px 60px;-webkit-font-smoothing:antialiased;}
   .wrap{max-width:min(90vw,960px);margin:0 auto;}
@@ -36,8 +39,8 @@
   .profile-card{background:none;border:none;color:var(--text);display:flex;flex-direction:column;align-items:center;gap:10px;cursor:pointer;}
   .profile-avatar{width:88px;height:88px;border-radius:16px;display:flex;align-items:center;justify-content:center;font-size:30px;font-weight:800;color:#fff;border:3px solid transparent;font-family:'Manrope',sans-serif;}
   .profile-card:hover .profile-avatar{border-color:var(--accent);}
-  .av-b{background:linear-gradient(135deg,#3F7A54,#2C5A3C);}
-  .av-a{background:linear-gradient(135deg,#C97BA0,#A8517A);}
+  .av-b{background:linear-gradient(135deg,#AD7B20,#6F4A08);}
+  .av-a{background:linear-gradient(135deg,#B25C78,#813B53);}
   .profile-name{font-size:13.5px;font-weight:600;color:var(--text-soft);}
 
   .topbar{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;}
@@ -46,8 +49,8 @@
 
   .who-badge{display:inline-flex;align-items:center;gap:7px;background:var(--surface);border:1px solid var(--border);border-radius:20px;padding:3px 13px 3px 4px;margin-bottom:8px;}
   .who-avatar{width:20px;height:20px;border-radius:6px;font-size:10px;font-weight:800;color:#fff;display:flex;align-items:center;justify-content:center;font-family:'Manrope',sans-serif;}
-  .who-avatar.av-b{background:#3F7A54;}
-  .who-avatar.av-a{background:#A8517A;}
+  .who-avatar.av-b{background:#AD7B20;}
+  .who-avatar.av-a{background:#813B53;}
   .who-name{font-size:11.5px;font-weight:700;color:var(--text-soft);}
 
 
@@ -69,6 +72,20 @@
   .segmented{max-width:460px;margin:0 auto 14px;background:var(--surface-alt);border-radius:999px;padding:3px;display:flex;gap:2px;}
   .segmented button{flex:1;border:none;background:transparent;border-radius:999px;padding:8px 4px;font-size:12px;font-weight:700;color:var(--text-soft);cursor:pointer;}
   .segmented button.active{background:var(--surface);color:var(--text);box-shadow:var(--shadow);}
+
+  .control-bar{display:flex;align-items:center;justify-content:center;gap:14px;flex-wrap:wrap;background:var(--surface);border:1px solid var(--border-soft);border-radius:var(--radius-lg);padding:10px 14px;box-shadow:var(--shadow);margin-bottom:14px;}
+  .cb-nav{display:flex;align-items:center;gap:6px;}
+  .cb-nav button{width:30px;height:30px;border:1px solid var(--border);background:var(--surface-alt);border-radius:var(--radius-sm);color:var(--text);font-size:15px;cursor:pointer;flex:none;}
+  .cb-nav input{height:30px;border:1px solid var(--border);background:var(--surface);border-radius:var(--radius-sm);padding:0 8px;color:var(--text);font-weight:700;font-size:12.5px;width:132px;}
+  .cb-pill{border:0;border-radius:var(--radius-sm);padding:7px 12px;font-size:12px;font-weight:800;cursor:pointer;white-space:nowrap;background:var(--accent-soft);color:var(--accent-deep);}
+
+  .month-tabs{max-width:100%;margin:0 0 12px;background:var(--surface-alt);border-radius:999px;padding:3px;display:flex;gap:2px;overflow-x:auto;}
+  .month-tabs button{flex:1;border:none;background:transparent;border-radius:999px;padding:8px 4px;font-size:11.5px;font-weight:700;color:var(--text-soft);cursor:pointer;white-space:nowrap;}
+  .month-tabs button.active{background:var(--surface);color:var(--text);box-shadow:var(--shadow);}
+  .opt-badge{font-size:9.5px;font-weight:700;background:var(--surface-alt);color:var(--text-faint);border-radius:20px;padding:1px 7px;margin-left:4px;}
+  .shop-buy{font-size:11.5px;margin-top:3px;}
+  .shop-buy a{font-weight:700;text-decoration:none;}
+  .shop-buy a:hover{text-decoration:underline;}
 
   .routine-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:14px 16px;margin-bottom:12px;box-shadow:var(--shadow);}
   .routine-card .rc-head{display:flex;align-items:center;gap:9px;margin-bottom:10px;}
@@ -309,29 +326,61 @@ function attachRcLinkHandlers(el){
 }
 
 /* =====================================================================
-   GROCERY INTEGRATION — sends a product into Grocery's own list (Week 1
-   tray, same shape as a manually-added item there) rather than keeping
-   a second disconnected shopping list. Safe to send again any time you
-   run out and need to restock — it just skips adding a duplicate if
-   one's already sitting there unbought.
+   GROCERY INTEGRATION — sends a product into Provision's real weekly plan
+   (apps/grocery-v4/data/modernState — the same document Provision itself
+   reads/writes), tagged category:'skin' in its catalog, rather than a
+   disconnected shopping list of our own. Matches an existing catalog
+   product by name when one exists (so price/link/category stay the
+   single source of truth Provision already has); otherwise creates a
+   minimal skin-category catalog entry on the fly. Safe to send again any
+   time you run out and need to restock — it just skips adding a
+   duplicate open (not-yet-purchased) line if one's already there.
 ===================================================================== */
 function groceryStateDoc(){
-  return db.collection('users').doc(currentUser.uid).collection('apps').doc('grocery').collection('data').doc('state');
+  return db.collection('users').doc(currentUser.uid).collection('apps').doc('grocery-v4').collection('data').doc('modernState');
 }
-async function sendItemToGrocery(name){
+async function sendItemToGrocery(item){
+  if(typeof item === 'string') item = { name: item };
   try{
     const doc = await groceryStateDoc().get();
-    let state = (doc.exists && doc.data().json) ? JSON.parse(doc.data().json) : {checked:{},customItems:{},qtyOverride:{},sectionOverride:{}};
-    if(!state.customItems) state.customItems = {};
-    if(!state.customItems['1']) state.customItems['1'] = [];
-    const already = state.customItems['1'].some(function(it){ return it.name === name; });
-    if(!already){
-      state.customItems['1'].push({
-        id: 'skin-'+Date.now()+'-'+Math.floor(Math.random()*1000),
-        name: name, qty: '', section: 'tray', kitchenZone: 'pantry'
-      });
-      await groceryStateDoc().set({json: JSON.stringify(state)});
+    if(!doc.exists || !doc.data().json){
+      // Provision has never been opened on this account yet, so there's no
+      // week/cycle to add a line into — nothing safe to create from here.
+      return { added:false, error:true, reason:'no-provision-state' };
     }
+    const state = JSON.parse(doc.data().json);
+    state.products = state.products || [];
+    let product = state.products.find(function(p){ return p.name === item.name; });
+    if(!product){
+      const priceNum = Number(String(item.price||'0').replace(/[^0-9.]/g,'')) || 0;
+      product = {
+        id: 'skin-custom-'+Date.now()+'-'+Math.floor(Math.random()*1000),
+        name: item.name, store: item.retailer || 'Skin plan', note: item.sub || '',
+        price: priceNum, link: item.url || '', category: 'skin',
+        purchaseUnit: 'piece', purchaseQty: 1, servingUnit: 'piece', servingSize: 1,
+        macros: {}
+      };
+      state.products.push(product);
+    }
+    const week = state.weeks && state.activeWeek ? state.weeks[state.activeWeek] : null;
+    if(!week){
+      // Same fallback — Provision always ensures its active week exists on
+      // load, so this only happens if the account truly has none yet.
+      return { added:false, error:true, reason:'no-active-week' };
+    }
+    week.items = week.items || [];
+    const already = week.items.some(function(x){
+      return x.productId === product.id && !(x.plannedQty > 0 && x.purchasedQty >= x.plannedQty);
+    });
+    if(!already){
+      week.items.push({
+        id: 'skin-'+Date.now()+'-'+Math.floor(Math.random()*1000),
+        productId: product.id, plannedQty: 1, purchasedQty: 0,
+        unitPrice: product.price || 0, actualPrice: null,
+        carriedQty: 0, dismissedQty: 0, source: 'skin-plan'
+      });
+    }
+    await groceryStateDoc().set({ json: JSON.stringify(state) });
     return { added: !already };
   }catch(e){ console.error('send to grocery failed', e); return { added:false, error:true }; }
 }
@@ -378,6 +427,9 @@ function showProfilePicker(){
 async function enterProfile(profileId){
   activeProfile = profileId;
   try{ localStorage.setItem(LAST_PROFILE_KEY, profileId); localStorage.setItem('hub-active-profile', profileId); }catch(e){}
+  document.body.dataset.profile = profileId.toLowerCase();
+  selectedDay = todayStr();
+  shoppingMonthView = null;
   document.getElementById('loading-gate').style.display = 'none';
   document.getElementById('profile-overlay').style.display = 'none';
   document.getElementById('app-wrap').style.display = 'block';
@@ -581,19 +633,33 @@ const SKIN_TRACKING_FIELDS = {
 
 const SKIN_REVIEW_DATES = ['2026-10-31','2026-11-30','2026-12-31','2027-01-31','2027-02-28'];
 
-const SHOPPING_LIST_BHARGAV = [
-  {name:'Vanicream Gentle Facial Cleanser', sub:'1 pump per wash, AM & PM — from Month 1'},
-  {name:'Vanicream Daily Facial Moisturizer or CeraVe PM', sub:'2 pea-sized amounts, face & neck — from Month 1'},
-  {name:'Broad-spectrum SPF 30–50 sunscreen', sub:'2 finger-lengths face + ~1 shot-glass body — from Month 1'},
-  {name:'Nizoral A-D 1%', sub:'1–2 tsp on scalp, scheduled nights — from Month 1'},
-  {name:'Eucerin Advanced Repair Lotion', sub:'Body, nightly unless a CeraVe SA night — from Month 1'},
-  {name:'Differin Gel 0.1% (adapalene)', sub:'1 pea-sized amount, entire face — from Month 2'},
-  {name:'Azelaic acid 10%', sub:'1 pea-sized amount, uneven/pigmented areas — from Month 2'},
-  {name:'CeraVe SA Lotion', sub:'Body bumps — 2 tsp both arms / 4 tsp both legs — from Month 2'},
-  {name:'Paula’s Choice 2% BHA Liquid', sub:'4–6 drops, nose/forehead/blackhead-prone — from Month 5'},
-  {name:'Tinted SPF with iron oxides (optional)', sub:'Modeling photo days — from Month 4'},
-  {name:'Non-comedogenic pore-blurring primer (optional)', sub:'Photography only — from Month 4'}
-];
+// Bought month by month, right before each product is first needed —
+// not all at once. Only 2 of these are actually carried by Sephora (The
+// Ordinary and Paula's Choice); the rest are drugstore items Sephora
+// doesn't stock, so those point to Target instead. Every link/price
+// below was checked live — nothing here is guessed.
+const SKIN_SHOPPING_BY_MONTH = {
+  m1: [
+    {name:'Vanicream Gentle Facial Cleanser', sub:'1 pump per wash, AM & PM', price:'$9.99', size:'8 fl oz', retailer:'Target', url:'https://www.target.com/p/vanicream-unscented-gentle-facial-cleanser-8-fl-oz/-/A-17425434'},
+    {name:'Vanicream Daily Facial Moisturizer', sub:'2 pea-sized amounts, face & neck', price:'$13.99', size:'3 fl oz', retailer:'Target', url:'https://www.target.com/p/vanicream-daily-facial-moisturizer-for-sensitive-skin-3-fl-oz/-/A-80038093'},
+    {name:'La Roche-Posay Anthelios Melt-In Milk SPF 60', sub:'2 finger-lengths face + ~1 shot-glass body', price:'$25.99', size:'3 fl oz', retailer:'Target', url:'https://www.target.com/p/la-roche-posay-anthelios-sunscreen-melt-in-milk-lotion-face-and-body-sunscreen-spf-60-3oz/-/A-75573636'},
+    {name:'Nizoral A-D Anti-Dandruff Shampoo 1%', sub:'1–2 tsp on scalp, scheduled nights', price:'$16.89', size:'7 fl oz', retailer:'Target', url:'https://www.target.com/p/nizoral-anti-dandruff-shampoo-with-1-ketoconazole-clean-fresh-scent-7-fl-oz/-/A-15603485'},
+    {name:'Eucerin Advanced Repair Lotion', sub:'Body, nightly unless a CeraVe SA night', price:'$12.79', size:'16.9 fl oz', retailer:'Target', url:'https://www.target.com/p/eucerin-advanced-repair-unscented-body-lotion-for-dry-skin-16-9-fl-oz/-/A-11005178'}
+  ],
+  m2: [
+    {name:'Differin Gel 0.1% (adapalene)', sub:'1 pea-sized amount, entire face', price:'$13.49', size:'15g', retailer:'Target', url:'https://www.target.com/p/differin-acne-retinoid-treatment-gel-adapalene-0-1-15g/-/A-51346324'},
+    {name:'The Ordinary Azelaic Acid Suspension 10%', sub:'1 pea-sized amount, uneven/pigmented areas', price:'$12.20', size:'30 mL', retailer:'Sephora', url:'https://www.sephora.com/product/the-ordinary-deciem-azelaic-acid-suspension-10-P427411'},
+    {name:'CeraVe SA Lotion', sub:'Body bumps — 2 tsp both arms / 4 tsp both legs', price:'$16.19', size:'8 fl oz', retailer:'Target', url:'https://www.target.com/p/cerave-sa-body-lotion-for-rough-and-bumpy-skin-fragrance-free-8-fl-oz/-/A-15025381'}
+  ],
+  m3: [],
+  m4: [
+    {name:'Supergoop Glowscreen SPF 40', sub:'Optional — tinted, iron oxides, a little extra glow on days that matter', price:'$38.00', size:'1.7 fl oz', retailer:'Sephora', url:'https://www.sephora.com/product/supergoop-glowscreen-sunscreen-spf-40-P456218', optional:true},
+    {name:'Sephora Collection Smooth + Blur Primer', sub:'Optional — non-comedogenic, pore-blurring', price:'$18.00', retailer:'Sephora', url:'https://www.sephora.com/product/sephora-collection-smooth-blur-primer-P474102', optional:true}
+  ],
+  m5: [
+    {name:'Paula’s Choice Skin Perfecting 2% BHA Liquid Exfoliant', sub:'4–6 drops, nose/forehead/blackhead-prone', price:'$37.00', size:'4 fl oz', retailer:'Sephora', url:'https://www.sephora.com/product/paula-s-choice-skin-perfecting-2-bha-liquid-exfoliant-P469502'}
+  ]
+};
 
 const MILESTONES_BHARGAV = SKIN_REVIEW_DATES.map(function(d){
   const m = skinMonthFor(d);
@@ -628,7 +694,6 @@ const SHOPPING_LIST_ANUSHA = [
 ];
 const MILESTONES_ANUSHA = [];
 
-function currentShoppingList(){ return activeProfile==='Anusha' ? SHOPPING_LIST_ANUSHA : SHOPPING_LIST_BHARGAV; }
 function currentMilestones(){ return activeProfile==='Anusha' ? MILESTONES_ANUSHA : MILESTONES_BHARGAV; }
 
 /* =====================================================================
@@ -640,6 +705,26 @@ let milestoneLog = {}; // { 'date:text': true }
 let checkins = { weight:[], waist:[], photos:[], pimples:[] }; // Anusha only, going forward
 let trackingLog = {};  // Bhargav's nightly tracking — { 'YYYY-MM-DD': {fields..., overall, observation, savedAt} }
 let activeTab = 'today';
+// Which day the Today view is showing — lets you flip forward/back
+// instead of always being pinned to the actual today (same pattern as
+// schedule.html's day-nav).
+let selectedDay = todayStr();
+function dateNavHtml(dateStr){
+  const isActualToday = dateStr === todayStr();
+  return '<div class="control-bar"><div class="cb-nav">'+
+      '<button type="button" id="day-prev" aria-label="Previous day">‹</button>'+
+      '<input id="day-picker" type="date" value="'+dateStr+'" aria-label="Selected date">'+
+      '<button type="button" id="day-next" aria-label="Next day">›</button>'+
+    '</div>'+
+    (isActualToday ? '' : '<button type="button" class="cb-pill" id="day-today">Today</button>')+
+  '</div>';
+}
+function wireDateNav(el){
+  const prev = el.querySelector('#day-prev'); if(prev) prev.onclick = function(){ selectedDay = addDays(selectedDay,-1); renderToday(); };
+  const next = el.querySelector('#day-next'); if(next) next.onclick = function(){ selectedDay = addDays(selectedDay,1); renderToday(); };
+  const picker = el.querySelector('#day-picker'); if(picker) picker.onchange = function(e){ if(e.target.value){ selectedDay = e.target.value; renderToday(); } };
+  const todayBtn = el.querySelector('#day-today'); if(todayBtn) todayBtn.onclick = function(){ selectedDay = todayStr(); renderToday(); };
+}
 
 async function loadAll(){
   const [stepRes, shopRes, milestoneRes, checkinRes, trackingRes, blockLinksRes] = await Promise.all([
@@ -696,10 +781,10 @@ function showTab(name){
 function renderWeekBanner(){
   const el = document.getElementById('week-banner-wrap');
   if(activeProfile === 'Anusha'){
-    el.innerHTML = '<div class="week-banner"><div class="wb-top"><span class="wb-week">Daily routine</span><span class="wb-dates">'+fmtHeaderDate(todayStr())+'</span></div><div class="wb-note">Same routine every day — no phases to track.</div></div>';
+    el.innerHTML = '<div class="week-banner"><div class="wb-top"><span class="wb-week">Daily routine</span><span class="wb-dates">'+fmtHeaderDate(selectedDay)+'</span></div><div class="wb-note">Same routine every day — no phases to track.</div></div>';
     return;
   }
-  const today = todayStr();
+  const today = selectedDay;
   const month = skinMonthFor(today);
   if(!month){
     const beforeStart = today < SKIN_MONTHS[0].range[0];
@@ -730,13 +815,14 @@ function attachStepHandlers(el){
   });
 }
 function renderToday(){
+  renderWeekBanner();
   if(activeProfile === 'Anusha') renderTodayAnusha();
   else renderTodayBhargav();
 }
 function renderTodayAnusha(){
-  const today = todayStr();
+  const today = selectedDay;
   const el = document.getElementById('today-view');
-  el.innerHTML =
+  el.innerHTML = dateNavHtml(today)+
     '<div class="routine-card am"><div class="rc-head"><div class="rc-icon">☀️</div><div><div class="rc-title">Morning</div></div>'+rcLinkBtnHtml('am')+'</div>'+
       ANUSHA_MORNING.map(function(s,i){ return stepRowHtml(today,'am',i,s); }).join('')+
     '</div>'+
@@ -745,20 +831,22 @@ function renderTodayAnusha(){
     '</div>';
   attachStepHandlers(el);
   attachRcLinkHandlers(el);
+  wireDateNav(el);
 }
 function renderTodayBhargav(){
-  const today = todayStr();
+  const today = selectedDay;
   const entry = SKIN_DATE_PLAN[today];
   const month = skinMonthFor(today);
   const el = document.getElementById('today-view');
   if(!entry || !month){
-    el.innerHTML = '<div class="routine-card"><div class="empty-note">No plan defined for today — the 5-month program runs Oct 1, 2026 through Feb 28, 2027.</div></div>';
+    el.innerHTML = dateNavHtml(today)+'<div class="routine-card"><div class="empty-note">No plan defined for '+fmtHeaderDate(today)+' — the 5-month program runs Oct 1, 2026 through Feb 28, 2027.</div></div>';
+    wireDateNav(el);
     return;
   }
   const treatment = SKIN_TREATMENTS[entry.face] || SKIN_TREATMENTS.regular;
   const bodySteps = skinBodyStepsFor(entry);
 
-  let html = '';
+  let html = dateNavHtml(today);
   html += '<div class="routine-card am"><div class="rc-head"><div class="rc-icon">☀️</div><div><div class="rc-title">Morning</div><div class="rc-time">7:00 AM</div></div>'+rcLinkBtnHtml('am')+'</div>'+
     SKIN_AM_ROUTINE.map(function(s,i){ return stepRowHtml(today,'am',i,s.text,s.qty); }).join('')+
   '</div>';
@@ -784,6 +872,7 @@ function renderTodayBhargav(){
   attachStepHandlers(el);
   attachTrackingHandlers(el, today);
   attachRcLinkHandlers(el);
+  wireDateNav(el);
 }
 function renderTrackingCardHtml(date, monthKey){
   const fields = SKIN_TRACKING_FIELDS[monthKey] || [];
@@ -824,41 +913,86 @@ function attachTrackingHandlers(el, date){
    SHOPPING
 ===================================================================== */
 function daysAgo(dateStr){ return Math.floor((new Date(todayStr()+'T00:00:00') - new Date(dateStr+'T00:00:00'))/86400000); }
-function renderShopping(){
-  const el = document.getElementById('shopping-view');
-  el.innerHTML = '<div class="routine-card"><div class="rc-head"><div><div class="rc-title">Products</div><div class="rc-time">Skip scrubs, brushes, bleach, pore vacuums, strong peels, extra acids/serums. Send anything you\'re low on straight into Grocery\'s list — safe to send again whenever you run out.</div></div></div>'+
-    currentShoppingList().map(function(it){
-      const sentDate = shoppingLog[it.name];
-      const statusHtml = sentDate
-        ? '<span class="shop-sent">Sent to Grocery '+(daysAgo(sentDate)===0?'today':daysAgo(sentDate)+'d ago')+'</span>'
-        : '';
-      return '<div class="shop-row"><div style="flex:1;"><div class="shop-text">'+escapeHtml(it.name)+'</div><div class="shop-sub">'+escapeHtml(it.sub)+'</div>'+statusHtml+'</div>'+
-        '<button class="send-grocery-btn" data-senditem="'+escapeHtml(it.name)+'">'+(sentDate?'Send again':'Send to Grocery')+'</button></div>';
-    }).join('')+
-    '<div style="margin-top:10px;"><button class="send-grocery-btn wide" id="send-all-btn">Send everything not yet sent</button></div>'+
-  '</div>';
-
+function shopRowHtml(it){
+  const sentDate = shoppingLog[it.name];
+  const statusHtml = sentDate
+    ? '<span class="shop-sent">Sent to Grocery '+(daysAgo(sentDate)===0?'today':daysAgo(sentDate)+'d ago')+'</span>'
+    : '';
+  const buyHtml = it.url
+    ? '<div class="shop-buy"><a href="'+escapeHtml(it.url)+'" target="_blank" rel="noopener">Buy at '+escapeHtml(it.retailer)+'</a> — '+escapeHtml(it.price)+(it.size?' · '+escapeHtml(it.size):'')+'</div>'
+    : '';
+  return '<div class="shop-row"><div style="flex:1;"><div class="shop-text">'+escapeHtml(it.name)+(it.optional?' <span class="opt-badge">optional</span>':'')+'</div>'+
+    '<div class="shop-sub">'+escapeHtml(it.sub)+'</div>'+buyHtml+statusHtml+'</div>'+
+    '<button class="send-grocery-btn" data-senditem="'+escapeHtml(it.name)+'">'+(sentDate?'Send again':'Send to Grocery')+'</button></div>';
+}
+function wireShoppingRowHandlers(el, items){
   el.querySelectorAll('[data-senditem]').forEach(function(btn){
     btn.addEventListener('click', async function(){
       const name = btn.dataset.senditem;
+      const item = items.find(function(it){ return it.name === name; }) || { name: name };
       btn.disabled = true; btn.textContent = 'Sending…';
-      const result = await sendItemToGrocery(name);
+      const result = await sendItemToGrocery(item);
+      if(result && result.error){
+        btn.disabled = false; btn.textContent = 'Send to Grocery';
+        alert('Couldn\'t reach Grocery — open the Grocery app once first, then try again.');
+        return;
+      }
       shoppingLog[name] = todayStr();
       await saveShoppingLog();
       renderShopping();
     });
   });
-  document.getElementById('send-all-btn').addEventListener('click', async function(){
-    const btn = document.getElementById('send-all-btn');
-    btn.disabled = true; btn.textContent = 'Sending…';
-    const unsent = currentShoppingList().filter(function(it){ return !shoppingLog[it.name]; });
+  const sendAllBtn = document.getElementById('send-all-btn');
+  if(sendAllBtn) sendAllBtn.addEventListener('click', async function(){
+    sendAllBtn.disabled = true; sendAllBtn.textContent = 'Sending…';
+    const unsent = items.filter(function(it){ return !shoppingLog[it.name]; });
+    let failed = false;
     for(const it of unsent){
-      await sendItemToGrocery(it.name);
+      const result = await sendItemToGrocery(it);
+      if(result && result.error){ failed = true; break; }
       shoppingLog[it.name] = todayStr();
     }
     await saveShoppingLog();
+    if(failed) alert('Couldn\'t reach Grocery — open the Grocery app once first, then try again.');
     renderShopping();
   });
+}
+// Which month's buy list opens by default — whatever real month we're
+// actually in right now (not tied to the routine's date-changer).
+function skinShoppingDefaultMonthKey(){
+  const m = skinMonthFor(todayStr());
+  if(m) return m.key;
+  return todayStr() < SKIN_MONTHS[0].range[0] ? 'm1' : 'm5';
+}
+let shoppingMonthView = null;
+function renderShopping(){
+  if(activeProfile === 'Anusha'){ renderShoppingAnusha(); return; }
+  if(!shoppingMonthView) shoppingMonthView = skinShoppingDefaultMonthKey();
+  const el = document.getElementById('shopping-view');
+  const items = SKIN_SHOPPING_BY_MONTH[shoppingMonthView] || [];
+  const monthMeta = SKIN_MONTHS.find(function(m){ return m.key===shoppingMonthView; });
+  el.innerHTML =
+    '<div class="month-tabs">'+SKIN_MONTHS.map(function(m){
+      return '<button type="button" data-shopmonth="'+m.key+'" class="'+(shoppingMonthView===m.key?'active':'')+'">M'+m.key.slice(1)+' · '+fmtHeaderDate(m.range[0])+'</button>';
+    }).join('')+'</div>'+
+    '<div class="routine-card"><div class="rc-head"><div><div class="rc-title">'+escapeHtml(monthMeta?monthMeta.name:'')+'</div><div class="rc-time">Bought before '+(monthMeta?fmtHeaderDate(monthMeta.range[0]):'')+' — not all five months at once. Skip scrubs, brushes, bleach, pore vacuums, strong peels, extra acids/serums.</div></div></div>'+
+    (items.length
+      ? items.map(shopRowHtml).join('')+'<div style="margin-top:10px;"><button class="send-grocery-btn wide" id="send-all-btn">Send everything not yet sent</button></div>'
+      : '<div class="empty-note">Nothing new to buy this month — keep using what you already have.</div>')+
+  '</div>';
+
+  el.querySelectorAll('[data-shopmonth]').forEach(function(btn){
+    btn.addEventListener('click', function(){ shoppingMonthView = btn.dataset.shopmonth; renderShopping(); });
+  });
+  wireShoppingRowHandlers(el, items);
+}
+function renderShoppingAnusha(){
+  const el = document.getElementById('shopping-view');
+  el.innerHTML = '<div class="routine-card"><div class="rc-head"><div><div class="rc-title">Products</div><div class="rc-time">Skip scrubs, brushes, bleach, pore vacuums, strong peels, extra acids/serums. Send anything you\'re low on straight into Grocery\'s list — safe to send again whenever you run out.</div></div></div>'+
+    SHOPPING_LIST_ANUSHA.map(shopRowHtml).join('')+
+    '<div style="margin-top:10px;"><button class="send-grocery-btn wide" id="send-all-btn">Send everything not yet sent</button></div>'+
+  '</div>';
+  wireShoppingRowHandlers(el, SHOPPING_LIST_ANUSHA);
 }
 
 /* =====================================================================
