@@ -134,6 +134,23 @@
 
   .emergency-banner{background:var(--warn-soft);border:1px solid var(--warn);color:var(--warn);border-radius:var(--radius-md);padding:10px 14px;margin-bottom:12px;font-size:12px;}
   .emergency-banner b{display:block;margin-bottom:4px;}
+
+  .rc-link-btn{margin-left:auto;flex:none;background:var(--surface-alt);border:1px solid var(--border);border-radius:20px;padding:4px 10px;font-size:11px;font-weight:700;color:var(--text-soft);cursor:pointer;}
+  .rc-link-btn.linked{background:var(--accent-soft);border-color:var(--accent);color:var(--accent-deep);}
+
+  .modal-overlay{position:fixed;inset:0;background:rgba(28,32,26,0.45);display:none;align-items:center;justify-content:center;z-index:210;padding:16px;}
+  .modal-overlay.open{display:flex;}
+  .modal-box{background:var(--surface);border-radius:var(--radius-lg);padding:18px;max-width:420px;width:100%;max-height:80vh;overflow-y:auto;box-shadow:var(--shadow);}
+  .modal-box h3{margin:0 0 4px;font-size:15px;}
+  .modal-sub{font-size:11.5px;color:var(--text-faint);margin:0 0 12px;}
+  .modal-actions{display:flex;justify-content:flex-end;gap:8px;margin-top:14px;}
+  .subtle{color:var(--text-faint);font-size:12px;}
+  .ms-sched-day{margin-bottom:10px;}
+  .ms-sched-daylabel{font-size:10.5px;font-weight:800;color:var(--text-faint);text-transform:uppercase;margin-bottom:4px;}
+  .ms-sched-row{display:block;font-size:12.5px;padding:5px 2px;cursor:pointer;}
+  .ms-sched-row input{margin-right:6px;}
+  .modal-btn{background:var(--accent);color:#fff;border:none;border-radius:8px;padding:8px 14px;font-size:12.5px;font-weight:700;cursor:pointer;}
+  .modal-btn.secondary{background:var(--surface-alt);color:var(--text);}
 </style>
 </head>
 <body>
@@ -174,6 +191,18 @@
   <div id="checkins-view" style="display:none;"></div>
 </div>
 
+<div class="modal-overlay" id="skinLinkModal">
+  <div class="modal-box">
+    <h3 id="skinLinkModalTitle">Attach to Schedule</h3>
+    <p class="modal-sub">Check every Schedule block this routine should show up under.</p>
+    <div id="skinLinkWrap"><div class="subtle">Loading Schedule…</div></div>
+    <div class="modal-actions">
+      <button type="button" class="modal-btn secondary" id="skinLinkCancelBtn">Cancel</button>
+      <button type="button" class="modal-btn" id="skinLinkSaveBtn">Save</button>
+    </div>
+  </div>
+</div>
+
 <script>
 /* =====================================================================
    FIREBASE — same account as the rest of the hub; sign-in lives on the
@@ -202,6 +231,81 @@ const LAST_PROFILE_KEY = 'skin-last-profile';
 
 function skinDoc(key){
   return db.collection('users').doc(currentUser.uid).collection('skin-profiles').doc(activeProfile).collection('data').doc(key);
+}
+
+/* =====================================================================
+   SCHEDULE INTEGRATION — a routine card here ("Morning", "Shower &
+   body", "Nizoral", "Night — face", or Anusha's "Morning"/"Night") can
+   be attached to one or more Schedule blocks (skinBlockLinks, keyed by
+   section, each an array of {wd,label} pairs — same shape chores.html/
+   todo.html/diet.html already write from their own "Attach to
+   Schedule" pickers). schedule.html reads this SAME doc and matches it
+   against each block's weekday+activity text to decide what to show in
+   that block's expand panel — the link is set here, not there.
+===================================================================== */
+function scheduleProfileDocForSkin(profileCap, key){
+  return db.collection('users').doc(currentUser.uid).collection('schedule-profiles').doc(profileCap).collection('data').doc(key);
+}
+let skinScheduleTemplatesCache = {};
+async function ensureSkinScheduleTemplatesLoaded(profileCap){
+  if(skinScheduleTemplatesCache[profileCap]) return skinScheduleTemplatesCache[profileCap];
+  try{
+    const doc = await scheduleProfileDocForSkin(profileCap,'dayTemplates').get();
+    skinScheduleTemplatesCache[profileCap] = (doc.exists && doc.data().json) ? JSON.parse(doc.data().json) : {};
+  }catch(e){ skinScheduleTemplatesCache[profileCap] = {}; }
+  return skinScheduleTemplatesCache[profileCap];
+}
+const SKIN_SCHED_WD_ORDER = ['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'];
+function skinScheduleChecklistHtml(templates, selected){
+  const sel = new Set((selected||[]).map(function(s){ return s.wd+'||'+s.label; }));
+  let html = '';
+  SKIN_SCHED_WD_ORDER.forEach(function(wd){
+    const blocks = (templates[wd]||[]).filter(function(b){ return b.activity; });
+    if(!blocks.length) return;
+    html += '<div class="ms-sched-day"><div class="ms-sched-daylabel">'+escapeHtml(wd)+'</div>'+
+      blocks.map(function(b){
+        const checked = sel.has(wd+'||'+b.activity);
+        return '<label class="ms-sched-row"><input type="checkbox" data-skwd="'+escapeHtml(wd)+'" data-sklabel="'+escapeHtml(b.activity)+'" '+(checked?'checked':'')+'> '+escapeHtml(b.activity)+(b.start?' <small class="subtle">('+escapeHtml(b.start)+')</small>':'')+'</label>';
+      }).join('')+
+    '</div>';
+  });
+  return html || '<div class="subtle" style="padding:6px 0;">No Schedule blocks set up yet for this profile.</div>';
+}
+let skinBlockLinks = {}; // { sectionKey: [{wd,label}] }
+async function saveSkinBlockLinks(){ try{ await skinDoc('blockLinks').set({json: JSON.stringify(skinBlockLinks)}); }catch(e){} }
+let skinLinkModalSection = null;
+const SKIN_SECTION_LABELS = {am:'Morning', body:'Shower & body', nizoral:'Nizoral', face:'Night — face', pm:'Night'};
+async function openSkinLinkModal(section){
+  skinLinkModalSection = section;
+  document.getElementById('skinLinkModalTitle').textContent = 'Attach "'+(SKIN_SECTION_LABELS[section]||section)+'" to Schedule';
+  document.getElementById('skinLinkWrap').innerHTML = '<div class="subtle">Loading Schedule…</div>';
+  document.getElementById('skinLinkModal').classList.add('open');
+  const templates = await ensureSkinScheduleTemplatesLoaded(activeProfile);
+  if(skinLinkModalSection !== section) return; // closed/reopened while loading
+  document.getElementById('skinLinkWrap').innerHTML = skinScheduleChecklistHtml(templates, skinBlockLinks[section]||[]);
+}
+function closeSkinLinkModal(){
+  document.getElementById('skinLinkModal').classList.remove('open');
+  skinLinkModalSection = null;
+}
+async function saveSkinLinkSelection(){
+  if(!skinLinkModalSection) return closeSkinLinkModal();
+  const wrap = document.getElementById('skinLinkWrap');
+  const selected = [...wrap.querySelectorAll('input[data-skwd]')].filter(function(cb){ return cb.checked; }).map(function(cb){ return {wd:cb.dataset.skwd, label:cb.dataset.sklabel}; });
+  skinBlockLinks[skinLinkModalSection] = selected;
+  await saveSkinBlockLinks();
+  closeSkinLinkModal();
+  renderToday();
+}
+function skinLinkCount(section){ return (skinBlockLinks[section]||[]).length; }
+function rcLinkBtnHtml(section){
+  const n = skinLinkCount(section);
+  return '<button type="button" class="rc-link-btn'+(n?' linked':'')+'" data-linksection="'+section+'" title="Attach to Schedule">🔗'+(n?' '+n:'')+'</button>';
+}
+function attachRcLinkHandlers(el){
+  el.querySelectorAll('.rc-link-btn').forEach(function(btn){
+    btn.addEventListener('click', function(){ openSkinLinkModal(btn.dataset.linksection); });
+  });
 }
 
 /* =====================================================================
@@ -278,7 +382,8 @@ async function enterProfile(profileId){
   document.getElementById('profile-overlay').style.display = 'none';
   document.getElementById('app-wrap').style.display = 'block';
   document.getElementById('who-badge').innerHTML = '<span class="who-avatar av-'+(profileId==='Bhargav'?'b':'a')+'">'+profileId[0]+'</span><span class="who-name">'+profileId+'</span>';
-  document.getElementById('app-sub').textContent = profileId==='Bhargav' ? '12-week transformation — Sep 2 to Dec 2, 2026' : 'Daily routine';
+  document.getElementById('app-sub').textContent = profileId==='Bhargav' ? '5-month program — Oct 2026 to Feb 2027' : 'Daily routine';
+  document.getElementById('tab-checkins-btn').textContent = profileId==='Anusha' ? 'Check-ins' : 'Month review';
   document.getElementById('switch-profile-btn').textContent = 'Switch to '+(profileId==='Bhargav'?'Anusha':'Bhargav');
   document.getElementById('switch-profile-btn').onclick = function(){ enterProfile(profileId==='Bhargav'?'Anusha':'Bhargav'); };
   await init();
@@ -297,110 +402,203 @@ auth.onAuthStateChanged(function(user){
 });
 
 /* =====================================================================
-   PLAN DATA — the whole 12-week plan, baked in. Nothing to configure.
+   PLAN DATA — Bhargav's 5-month program (Oct 1, 2026 – Feb 28, 2027),
+   baked in against the real calendar. No "start date" to configure —
+   unlike the old 12-week plan this replaces, every date is fixed.
 ===================================================================== */
-let START_DATE = '2026-09-02';
-async function loadSkinStartDate(){
-  if(activeProfile !== 'Bhargav') return;
-  try{
-    const doc = await skinDoc('startDate').get();
-    if(doc.exists && doc.data().value) START_DATE = doc.data().value;
-  }catch(e){}
-}
-async function saveSkinStartDate(newDate){
-  START_DATE = newDate;
-  try{ await skinDoc('startDate').set({value: newDate}); }catch(e){}
-}
 const DAY_NAMES = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
 
 function pad2(n){ return String(n).padStart(2,'0'); }
 function todayStr(){ const d = new Date(); return d.getFullYear()+'-'+pad2(d.getMonth()+1)+'-'+pad2(d.getDate()); }
 function addDays(dateStr, n){ const d = new Date(dateStr+'T00:00:00'); d.setDate(d.getDate()+n); return d.getFullYear()+'-'+pad2(d.getMonth()+1)+'-'+pad2(d.getDate()); }
 function weekdayOf(dateStr){ return new Date(dateStr+'T00:00:00').getDay(); }
-function weekNumberFor(dateStr){
-  const start = new Date(START_DATE+'T00:00:00');
-  const d = new Date(dateStr+'T00:00:00');
-  const diffDays = Math.floor((d-start)/86400000);
-  return Math.max(1, Math.floor(diffDays/7)+1);
-}
 function fmtHeaderDate(dateStr){ return new Date(dateStr+'T00:00:00').toLocaleDateString(undefined,{month:'short',day:'numeric'}); }
 
-// ---- Morning face routine, by weekday, with azelaic acid phased in ----
-function morningFaceSteps(weekday, week){
-  const azelaicOK = week>=5;
-  const azelaicDaysByPhase = week===5 ? [1,5] : (week>=6 ? [1,3,5] : []); // Mon=1,Wed=3,Fri=5
-  const hasAzelaic = azelaicOK && azelaicDaysByPhase.includes(weekday);
-  if(weekday===1 || weekday===3 || weekday===5){ // Mon/Wed/Fri
-    const steps = ['Gentle cleanser'];
-    if(hasAzelaic) steps.push('Azelaic acid (thin layer)');
-    steps.push('Moisturizer','Tinted SPF 50');
-    return steps;
-  }
-  if(weekday===2 || weekday===4){ // Tue/Thu
-    return ['Benzoyl peroxide wash (~60 sec massage, rinse)','Moisturizer','Tinted SPF 50'];
-  }
-  if(weekday===6){ // Saturday
-    const bpStarted = week>=3;
-    const steps = bpStarted ? ['Benzoyl peroxide wash (~60 sec massage, rinse)'] : ['Gentle cleanser'];
-    steps.push('Moisturizer','Tinted SPF 50');
-    return steps;
-  }
-  // Sunday
-  return ['Gentle cleanser','Moisturizer','Tinted SPF 50'];
-}
-function morningScalpSteps(weekday){
-  if(weekday===2 || weekday===6) return ['Ketoconazole 1% shampoo on scalp (per label contact time)','Conditioner on hair lengths only','Wash face after rinsing hair'];
-  if(weekday===0) return ['Gentle shampoo — only if necessary'];
-  return ['Regular shampoo — only if necessary'];
-}
-// ---- Night routine, by weekday, with adapalene phased in ----
-function nightSteps(weekday, week){
-  let adapalene = false;
-  if(week<=4) adapalene = (weekday===1 || weekday===5); // Mon, Fri
-  else if(week<=8) adapalene = (weekday===1 || weekday===3 || weekday===5); // Mon, Wed, Fri
-  else adapalene = (weekday===1 || weekday===3 || weekday===5 || weekday===0); // + Sunday
+const SKIN_QTY = {
+  cleanser: '1 pump',
+  faceMoisturizer: '2 pea-sized amounts — face & neck',
+  faceSunscreen: '2 full finger-lengths — face, ears, neck',
+  bodySunscreen: '~1 shot-glass — exposed areas, if leaving home',
+  nizoral: '1–2 teaspoons — scalp',
+  eucerinArms: '2 tsp — both arms',
+  eucerinLegs: '4 tsp — both legs',
+  eucerinChest: '2 tsp — chest & stomach',
+  eucerinBack: '2–3 tsp — back',
+  differin: '1 pea-sized amount — entire face (not per area)',
+  azelaic: '1 pea-sized amount — uneven/pigmented areas',
+  ceraveSAArms: '~2 tsp — both arms',
+  ceraveSALegs: '~4 tsp — both legs',
+  bha: '4–6 drops — nose, forehead, blackhead-prone areas'
+};
 
-  const steps = ['Cleanser'];
-  if(adapalene){
-    steps.push('Wait ~10 min after cleansing','Moisturizer','Adapalene — pea-sized, whole face (avoid eyelids/lips/nostrils/neck)');
-  } else {
-    steps.push('Moisturizer');
+// 7:00 AM — identical every day across all 5 months.
+const SKIN_AM_ROUTINE = [
+  {text:'Cleanser', qty:SKIN_QTY.cleanser},
+  {text:'Moisturizer — face & neck', qty:SKIN_QTY.faceMoisturizer},
+  {text:'Sunscreen — face, ears, neck', qty:SKIN_QTY.faceSunscreen},
+  {text:'Body sunscreen on exposed areas (if leaving home)', qty:SKIN_QTY.bodySunscreen}
+];
+
+// 9:30 PM face treatment, keyed by the code each date carries in
+// SKIN_DATE_PLAN. Body lotion (Eucerin vs CeraVe SA) is tracked
+// separately per date since it combines with any of these.
+const SKIN_TREATMENTS = {
+  regular: {
+    label: 'Regular face routine',
+    steps: [
+      {text:'Cleanser', qty:SKIN_QTY.cleanser},
+      {text:'Moisturizer — face & neck', qty:SKIN_QTY.faceMoisturizer}
+    ]
+  },
+  differin: {
+    label: 'Differin night',
+    steps: [
+      {text:'Cleanser', qty:SKIN_QTY.cleanser},
+      {text:'Let face dry 15–20 minutes'},
+      {text:'Thin layer of moisturizer'},
+      {text:'Differin — entire face', qty:SKIN_QTY.differin},
+      {text:'Another thin layer of moisturizer'}
+    ]
+  },
+  azelaic: {
+    label: 'Azelaic acid night',
+    steps: [
+      {text:'Cleanser', qty:SKIN_QTY.cleanser},
+      {text:'Let skin dry completely'},
+      {text:'Azelaic acid on uneven/pigmented areas', qty:SKIN_QTY.azelaic},
+      {text:'Moisturizer after it absorbs', qty:SKIN_QTY.faceMoisturizer}
+    ]
+  },
+  bha: {
+    label: 'BHA night',
+    steps: [
+      {text:'Cleanser', qty:SKIN_QTY.cleanser},
+      {text:'Paula’s Choice 2% BHA — nose, forehead, blackhead-prone areas', qty:SKIN_QTY.bha},
+      {text:'Wait 5–10 minutes'},
+      {text:'Moisturizer', qty:SKIN_QTY.faceMoisturizer}
+    ]
   }
-  if(weekday===1 || weekday===3 || weekday===5){
-    steps.push('Elbows/knees: 10% urea or 10–12% lactic acid lotion (not on adapalene nights near irritated skin)');
+};
+
+// 7:30 PM shower/body step — CeraVe SA on rough/bumpy areas on the
+// dates that call for it, Eucerin everywhere else (or the rest of the
+// body on a CeraVe SA night).
+function skinBodyStepsFor(entry){
+  if(entry.ceraveSA){
+    return [
+      {text:'Shower, lukewarm, 5–10 min; pat partially dry'},
+      {text:'CeraVe SA on rough/bumpy arms', qty:SKIN_QTY.ceraveSAArms},
+      {text:'CeraVe SA on rough/bumpy legs', qty:SKIN_QTY.ceraveSALegs},
+      {text:'Eucerin on the rest of the body — within 3 minutes of showering'}
+    ];
   }
-  return steps;
+  return [
+    {text:'Shower, lukewarm, 5–10 min; pat partially dry'},
+    {text:'Eucerin — both arms', qty:SKIN_QTY.eucerinArms},
+    {text:'Eucerin — both legs', qty:SKIN_QTY.eucerinLegs},
+    {text:'Eucerin — chest & stomach', qty:SKIN_QTY.eucerinChest},
+    {text:'Eucerin — back', qty:SKIN_QTY.eucerinBack},
+    {text:'Apply within 3 minutes of showering'}
+  ];
 }
-function bodyAcneNote(weekday){
-  if([2,4,6].includes(weekday)) return "If chest/shoulder/back breakouts: benzoyl peroxide wash on body, leave ~2 min, rinse.";
-  return null;
+
+const SKIN_MONTHS = [
+  {key:'m1', name:'Month 1 — Hydration & Repair', range:['2026-10-01','2026-10-31'],
+   objective:'Hydrate the face and body, reduce dandruff and scaling, improve roughness, protect against further tanning, and prepare skin for blackhead and pigmentation treatments in Month 2.'},
+  {key:'m2', name:'Month 2 — Blackheads, Pigmentation & Body Bumps', range:['2026-11-01','2026-11-30'],
+   objective:'Reduce blackheads and clogged pores, improve uneven facial texture, begin fading pigmentation, smooth body bumps, maintain dandruff control.'},
+  {key:'m3', name:'Month 3 — Stronger Blackhead, Pigmentation & Texture Treatment', range:['2026-12-01','2026-12-31'],
+   objective:'Reduce visible blackheads, improve uneven pigmentation, smooth facial texture, improve body bumps, maintain dandruff control, build a healthier natural glow.'},
+  {key:'m4', name:'Month 4 — Maintenance, Glow & Modeling Prep', range:['2027-01-01','2027-01-31'],
+   objective:'Maintain fewer blackheads, continue improving uneven pigmentation, improve facial smoothness, maintain smoother body texture, keep dandruff controlled, build a hydrated, camera-ready appearance.'},
+  {key:'m5', name:'Month 5 — Maintenance & Pore-Focused Refinement', range:['2027-02-01','2027-02-28'],
+   objective:'Maintain progress while adding a controlled pore-clearing step for remaining blackheads.'}
+];
+function skinMonthFor(dateStr){ return SKIN_MONTHS.find(function(m){ return dateStr>=m.range[0] && dateStr<=m.range[1]; }) || null; }
+
+// ---- Per-date plan: which face treatment, whether Nizoral, whether
+// CeraVe SA on the body tonight. Month 1 is a flat "regular" routine
+// with Nizoral on 14 listed dates. Months 3 & 4 follow a clean, single
+// weekly pattern all month (verified against the actual calendar — Dec
+// 1, 2026 is a real Tuesday and Jan 1, 2027 a real Friday, matching the
+// plan's own day labels), so those are built from a weekday lookup.
+// Months 2 & 5 are phased/one-off, so those are transcribed exactly.
+function buildSkinDatePlan(){
+  const plan = {};
+  const nizoralOct = ['2026-10-01','2026-10-03','2026-10-06','2026-10-08','2026-10-10','2026-10-13','2026-10-15','2026-10-17','2026-10-20','2026-10-22','2026-10-24','2026-10-27','2026-10-29','2026-10-31'];
+  for(let d=1; d<=31; d++){
+    const ds = '2026-10-'+pad2(d);
+    plan[ds] = {face:'regular', nizoral: nizoralOct.indexOf(ds)!==-1, ceraveSA:false};
+  }
+  const nov = {
+    1:{face:'regular'}, 2:{face:'regular'}, 3:{face:'regular',nizoral:true,ceraveSA:true}, 4:{face:'differin'},
+    5:{face:'regular'}, 6:{face:'regular'}, 7:{face:'regular',nizoral:true,ceraveSA:true},
+    8:{face:'differin'}, 9:{face:'regular'}, 10:{face:'regular',nizoral:true,ceraveSA:true}, 11:{face:'regular'},
+    12:{face:'regular'}, 13:{face:'differin'}, 14:{face:'regular',nizoral:true,ceraveSA:true},
+    15:{face:'regular'}, 16:{face:'differin'}, 17:{face:'regular',nizoral:true,ceraveSA:true}, 18:{face:'azelaic'},
+    19:{face:'regular'}, 20:{face:'differin'}, 21:{face:'regular',nizoral:true,ceraveSA:true},
+    22:{face:'regular'}, 23:{face:'differin'}, 24:{face:'regular',nizoral:true,ceraveSA:true}, 25:{face:'azelaic'},
+    26:{face:'regular'}, 27:{face:'differin'}, 28:{face:'azelaic',nizoral:true,ceraveSA:true},
+    29:{face:'regular'}, 30:{face:'differin'}
+  };
+  Object.keys(nov).forEach(function(d){ plan['2026-11-'+pad2(d)] = Object.assign({face:'regular',nizoral:false,ceraveSA:false}, nov[d]); });
+
+  // getDay(): Sun=0 Mon=1 Tue=2 Wed=3 Thu=4 Fri=5 Sat=6
+  const decByWeekday = {2:{face:'azelaic',ceraveSA:true}, 3:{face:'differin'}, 4:{face:'regular',ceraveSA:true}, 5:{face:'azelaic'}, 6:{face:'differin',nizoral:true,ceraveSA:true}, 0:{face:'regular'}, 1:{face:'differin'}};
+  for(let d=1; d<=31; d++){
+    const ds = '2026-12-'+pad2(d);
+    plan[ds] = Object.assign({face:'regular',nizoral:false,ceraveSA:false}, decByWeekday[weekdayOf(ds)]);
+  }
+  const janByWeekday = {1:{face:'differin',ceraveSA:true}, 2:{face:'azelaic'}, 3:{face:'differin',ceraveSA:true}, 4:{face:'regular'}, 5:{face:'azelaic',ceraveSA:true}, 6:{face:'differin',nizoral:true}, 0:{face:'regular',note:'Optional: 5-minute gentle facial massage using moisturizer.'}};
+  for(let d=1; d<=31; d++){
+    const ds = '2027-01-'+pad2(d);
+    plan[ds] = Object.assign({face:'regular',nizoral:false,ceraveSA:false}, janByWeekday[weekdayOf(ds)]);
+  }
+  const feb = {
+    1:{face:'differin',ceraveSA:true}, 2:{face:'azelaic'}, 3:{face:'regular'}, 4:{face:'bha',ceraveSA:true}, 5:{face:'differin'},
+    6:{face:'differin',nizoral:true,ceraveSA:true}, 7:{face:'azelaic'},
+    8:{face:'differin',ceraveSA:true}, 9:{face:'azelaic'}, 10:{face:'regular'}, 11:{face:'bha',ceraveSA:true}, 12:{face:'differin'},
+    13:{face:'differin',nizoral:true,ceraveSA:true}, 14:{face:'azelaic'},
+    15:{face:'differin',ceraveSA:true}, 16:{face:'azelaic'}, 17:{face:'regular'}, 18:{face:'bha',ceraveSA:true}, 19:{face:'differin'},
+    20:{face:'differin',nizoral:true,ceraveSA:true}, 21:{face:'azelaic'},
+    22:{face:'differin',ceraveSA:true}, 23:{face:'azelaic'}, 24:{face:'regular'}, 25:{face:'bha',ceraveSA:true}, 26:{face:'differin'},
+    27:{face:'differin',nizoral:true,ceraveSA:true}, 28:{face:'azelaic'}
+  };
+  Object.keys(feb).forEach(function(d){ plan['2027-02-'+pad2(d)] = Object.assign({face:'regular',nizoral:false,ceraveSA:false}, feb[d]); });
+  return plan;
 }
+const SKIN_DATE_PLAN = buildSkinDatePlan();
+
+// Ratings tracked nightly, per month (matches what each month's own
+// "Daily tracking" template asks for).
+const SKIN_TRACKING_FIELDS = {
+  m1: [ {key:'dryness',label:'Facial dryness',type:'scale'}, {key:'comfort',label:'Facial comfort',type:'scale'}, {key:'dandruff',label:'Scalp dandruff',type:'scale'}, {key:'itchiness',label:'Scalp itchiness',type:'scale'}, {key:'roughness',label:'Body roughness',type:'scale'}, {key:'bumps',label:'New facial bumps',type:'text'} ],
+  m2: [ {key:'dryness',label:'Facial dryness',type:'scale'}, {key:'comfort',label:'Facial comfort',type:'scale'}, {key:'blackheads',label:'Blackhead congestion',type:'scale'}, {key:'pigmentation',label:'Pigmentation visibility',type:'scale'}, {key:'roughness',label:'Body roughness',type:'scale'}, {key:'dandruff',label:'Scalp dandruff',type:'scale'}, {key:'bumps',label:'New facial bumps',type:'text'} ],
+  m3: [ {key:'blackheads',label:'Blackhead congestion',type:'scale'}, {key:'pigmentation',label:'Pigmentation visibility',type:'scale'}, {key:'texture',label:'Facial texture',type:'scale'}, {key:'comfort',label:'Facial comfort',type:'scale'}, {key:'roughness',label:'Body roughness',type:'scale'}, {key:'dandruff',label:'Scalp dandruff',type:'scale'}, {key:'bumps',label:'New facial bumps',type:'text'} ],
+  m4: [ {key:'blackheads',label:'Blackhead visibility',type:'scale'}, {key:'pigmentation',label:'Pigmentation visibility',type:'scale'}, {key:'smoothness',label:'Facial smoothness',type:'scale'}, {key:'glow',label:'Glow/hydration',type:'scale'}, {key:'roughness',label:'Body roughness',type:'scale'}, {key:'dandruff',label:'Scalp dandruff',type:'scale'} ],
+  m5: [ {key:'blackheads',label:'Blackhead visibility',type:'scale'}, {key:'pores',label:'Pore visibility',type:'scale'}, {key:'pigmentation',label:'Pigmentation visibility',type:'scale'}, {key:'smoothness',label:'Facial smoothness',type:'scale'}, {key:'roughness',label:'Body roughness',type:'scale'}, {key:'glow',label:'Overall glow',type:'scale'} ]
+};
+
+const SKIN_REVIEW_DATES = ['2026-10-31','2026-11-30','2026-12-31','2027-01-31','2027-02-28'];
 
 const SHOPPING_LIST_BHARGAV = [
-  {name:'Gentle cleanser', sub:'Fragrance-free, non-comedogenic'},
-  {name:'Benzoyl peroxide wash', sub:'2.5%, max 4%'},
-  {name:'Adapalene gel', sub:'0.1%'},
-  {name:'Azelaic acid', sub:'10%'},
-  {name:'Face moisturizer', sub:'Lightweight, fragrance-free, non-comedogenic'},
-  {name:'Face sunscreen', sub:'Tinted, broad-spectrum, water-resistant SPF 50, iron oxides preferred'},
-  {name:'Dandruff shampoo', sub:'Ketoconazole 1%'},
-  {name:'Regular shampoo', sub:'Gentle, non-oily'},
-  {name:'Conditioner', sub:'Lightweight, hair lengths only'},
-  {name:'Body lotion', sub:'10% urea or ~10–12% lactic acid'},
-  {name:'Body sunscreen', sub:'Broad-spectrum SPF 50'}
+  {name:'Vanicream Gentle Facial Cleanser', sub:'1 pump per wash, AM & PM — from Month 1'},
+  {name:'Vanicream Daily Facial Moisturizer or CeraVe PM', sub:'2 pea-sized amounts, face & neck — from Month 1'},
+  {name:'Broad-spectrum SPF 30–50 sunscreen', sub:'2 finger-lengths face + ~1 shot-glass body — from Month 1'},
+  {name:'Nizoral A-D 1%', sub:'1–2 tsp on scalp, scheduled nights — from Month 1'},
+  {name:'Eucerin Advanced Repair Lotion', sub:'Body, nightly unless a CeraVe SA night — from Month 1'},
+  {name:'Differin Gel 0.1% (adapalene)', sub:'1 pea-sized amount, entire face — from Month 2'},
+  {name:'Azelaic acid 10%', sub:'1 pea-sized amount, uneven/pigmented areas — from Month 2'},
+  {name:'CeraVe SA Lotion', sub:'Body bumps — 2 tsp both arms / 4 tsp both legs — from Month 2'},
+  {name:'Paula’s Choice 2% BHA Liquid', sub:'4–6 drops, nose/forehead/blackhead-prone — from Month 5'},
+  {name:'Tinted SPF with iron oxides (optional)', sub:'Modeling photo days — from Month 4'},
+  {name:'Non-comedogenic pore-blurring primer (optional)', sub:'Photography only — from Month 4'}
 ];
 
-const MILESTONES_BHARGAV = [
-  {date:'2026-09-02', text:'Baseline photos + start basic routine'},
-  {date:'2026-09-05', text:'Introduce benzoyl peroxide and adapalene schedule'},
-  {date:'2026-09-16', text:'Book/attend dermatologist visit (within first 2 weeks)'},
-  {date:'2026-09-16', text:'Check dandruff and irritation'},
-  {date:'2026-10-02', text:'First complete photo comparison'},
-  {date:'2026-10-05', text:'Introduce azelaic acid'},
-  {date:'2026-11-02', text:'Second photo comparison and acne count'},
-  {date:'2026-11-18', text:'Stop experimentation and new products'},
-  {date:'2026-12-02', text:'Full three-month review and Phase 2 plan'}
-];
+const MILESTONES_BHARGAV = SKIN_REVIEW_DATES.map(function(d){
+  const m = skinMonthFor(d);
+  return {date:d, text:(m?m.name:'Program')+' review — compare progress & completion counts'};
+});
 
 // ---- Anusha: fixed daily routine (same every day, no phases) ----
 const ANUSHA_MORNING = [
@@ -439,25 +637,31 @@ function currentMilestones(){ return activeProfile==='Anusha' ? MILESTONES_ANUSH
 let stepLog = {};      // { 'date:section:stepIndex': true }
 let shoppingLog = {};  // { itemName: 'YYYY-MM-DD' } — last date sent to Grocery
 let milestoneLog = {}; // { 'date:text': true }
-let checkins = { weight:[], waist:[], photos:[], pimples:[] };
+let checkins = { weight:[], waist:[], photos:[], pimples:[] }; // Anusha only, going forward
+let trackingLog = {};  // Bhargav's nightly tracking — { 'YYYY-MM-DD': {fields..., overall, observation, savedAt} }
 let activeTab = 'today';
 
 async function loadAll(){
-  const [stepRes, shopRes, milestoneRes, checkinRes] = await Promise.all([
+  const [stepRes, shopRes, milestoneRes, checkinRes, trackingRes, blockLinksRes] = await Promise.all([
     skinDoc('stepLog').get().catch(function(){ return null; }),
     skinDoc('shoppingLog').get().catch(function(){ return null; }),
     skinDoc('milestoneLog').get().catch(function(){ return null; }),
-    skinDoc('checkins').get().catch(function(){ return null; })
+    skinDoc('checkins').get().catch(function(){ return null; }),
+    skinDoc('trackingLog').get().catch(function(){ return null; }),
+    skinDoc('blockLinks').get().catch(function(){ return null; })
   ]);
   try{ stepLog = (stepRes && stepRes.exists && stepRes.data().json) ? JSON.parse(stepRes.data().json) : {}; }catch(e){ stepLog = {}; }
   try{ shoppingLog = (shopRes && shopRes.exists && shopRes.data().json) ? JSON.parse(shopRes.data().json) : {}; }catch(e){ shoppingLog = {}; }
   try{ milestoneLog = (milestoneRes && milestoneRes.exists && milestoneRes.data().json) ? JSON.parse(milestoneRes.data().json) : {}; }catch(e){ milestoneLog = {}; }
   try{ checkins = (checkinRes && checkinRes.exists && checkinRes.data().json) ? JSON.parse(checkinRes.data().json) : {weight:[],waist:[],photos:[],pimples:[]}; }catch(e){ checkins = {weight:[],waist:[],photos:[],pimples:[]}; }
+  try{ trackingLog = (trackingRes && trackingRes.exists && trackingRes.data().json) ? JSON.parse(trackingRes.data().json) : {}; }catch(e){ trackingLog = {}; }
+  try{ skinBlockLinks = (blockLinksRes && blockLinksRes.exists && blockLinksRes.data().json) ? JSON.parse(blockLinksRes.data().json) : {}; }catch(e){ skinBlockLinks = {}; }
 }
 async function saveStepLog(){ try{ await skinDoc('stepLog').set({json: JSON.stringify(stepLog)}); }catch(e){} }
 async function saveShoppingLog(){ try{ await skinDoc('shoppingLog').set({json: JSON.stringify(shoppingLog)}); }catch(e){} }
 async function saveMilestoneLog(){ try{ await skinDoc('milestoneLog').set({json: JSON.stringify(milestoneLog)}); }catch(e){} }
 async function saveCheckins(){ try{ await skinDoc('checkins').set({json: JSON.stringify(checkins)}); }catch(e){} }
+async function saveTrackingLog(){ try{ await skinDoc('trackingLog').set({json: JSON.stringify(trackingLog)}); }catch(e){} }
 
 function escapeHtml(s){
   return String(s==null?'':s).replace(/[&<>"']/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; });
@@ -467,12 +671,13 @@ function escapeHtml(s){
    INIT / TABS
 ===================================================================== */
 async function init(){
-  // Three independent reads, previously sequential — run together.
-  await Promise.all([loadAll(), loadGymLogs(), loadSkinStartDate()]);
+  await Promise.all([loadAll(), loadGymLogs()]);
   document.getElementById('tab-today-btn').onclick = function(){ showTab('today'); };
   document.getElementById('tab-shopping-btn').onclick = function(){ showTab('shopping'); };
   document.getElementById('tab-milestones-btn').onclick = function(){ showTab('milestones'); };
   document.getElementById('tab-checkins-btn').onclick = function(){ showTab('checkins'); };
+  document.getElementById('skinLinkCancelBtn').onclick = closeSkinLinkModal;
+  document.getElementById('skinLinkSaveBtn').onclick = saveSkinLinkSelection;
   renderWeekBanner();
   showTab('today');
 }
@@ -495,55 +700,24 @@ function renderWeekBanner(){
     return;
   }
   const today = todayStr();
-  const week = weekNumberFor(today);
-  const editRow = '<div class="wb-editrow">'+
-    '<span id="wb-startdate-display">Started '+fmtHeaderDate(START_DATE)+'</span>'+
-    '<button type="button" id="wb-edit-startdate-btn">✎ Edit start date</button>'+
-    '<input type="date" id="wb-startdate-input" value="'+START_DATE+'" style="display:none;">'+
-  '</div>';
-  if(week > 13){
-    el.innerHTML = '<div class="week-banner done"><div class="wb-top"><span class="wb-week">Plan complete</span><span class="wb-dates">Review was Dec 2</span></div><div class="wb-note">Time for the Phase 2 conversation with your dermatologist.</div></div>'+editRow;
-    wireStartDateEditor();
+  const month = skinMonthFor(today);
+  if(!month){
+    const beforeStart = today < SKIN_MONTHS[0].range[0];
+    el.innerHTML = '<div class="week-banner'+(beforeStart?'':' done')+'"><div class="wb-top"><span class="wb-week">'+(beforeStart?'Program starts Oct 1, 2026':'5-month program complete')+'</span></div><div class="wb-note">'+(beforeStart?'Nothing to do yet — the plan begins '+fmtHeaderDate(SKIN_MONTHS[0].range[0])+'.':'Review your Feb 28 comparison, then keep this as your long-term maintenance routine.')+'</div></div>';
     return;
   }
-  const weekStart = addDays(START_DATE, (week-1)*7);
-  const weekEnd = addDays(weekStart, 6);
-  let note = '';
-  if(week<=4) note = 'Adapalene: Mon + Fri nights. Azelaic acid: not yet. Saturday: gentle cleanser (BP starts week 3 on face routine, already active).';
-  if(week===5) note = 'Azelaic acid introduced — Monday & Friday mornings.';
-  if(week>=6 && week<=8) note = 'Adapalene: Mon/Wed/Fri nights. Azelaic acid: Mon/Wed/Fri mornings.';
-  if(week>=9) note = 'Adapalene: Mon/Wed/Fri + Sunday if no irritation. Azelaic acid: Mon/Wed/Fri mornings.';
-  if(week===3) note = 'Saturday benzoyl peroxide begins this week.';
-  el.innerHTML = '<div class="week-banner"><div class="wb-top"><span class="wb-week">Week '+week+' of 12</span><span class="wb-dates">'+fmtHeaderDate(weekStart)+' – '+fmtHeaderDate(weekEnd)+'</span></div><div class="wb-note">'+note+'</div></div>'+editRow;
-  wireStartDateEditor();
-}
-function wireStartDateEditor(){
-  const btn = document.getElementById('wb-edit-startdate-btn');
-  const display = document.getElementById('wb-startdate-display');
-  const input = document.getElementById('wb-startdate-input');
-  btn.addEventListener('click', function(){
-    const editing = input.style.display !== 'none';
-    if(editing){
-      input.style.display = 'none'; display.style.display = 'inline'; btn.textContent = '✎ Edit start date';
-    } else {
-      input.style.display = 'inline-block'; display.style.display = 'none'; btn.textContent = 'Cancel';
-    }
-  });
-  input.addEventListener('change', async function(){
-    await saveSkinStartDate(input.value);
-    renderWeekBanner();
-  });
+  el.innerHTML = '<div class="week-banner"><div class="wb-top"><span class="wb-week">'+escapeHtml(month.name)+'</span><span class="wb-dates">'+fmtHeaderDate(month.range[0])+' – '+fmtHeaderDate(month.range[1])+'</span></div><div class="wb-note">'+escapeHtml(month.objective)+'</div></div>';
 }
 
 /* =====================================================================
    TODAY
 ===================================================================== */
 function stepKey(date, section, idx){ return date+':'+section+':'+idx; }
-function stepRowHtml(date, section, idx, text){
+function stepRowHtml(date, section, idx, text, qty){
   const key = stepKey(date, section, idx);
   const done = !!stepLog[key];
   return '<div class="step-row"><input type="checkbox" class="step-chk" data-stepkey="'+key+'" '+(done?'checked':'')+'>'+
-    '<div class="step-text '+(done?'strike':'')+'">'+escapeHtml(text)+'</div></div>';
+    '<div><div class="step-text '+(done?'strike':'')+'">'+escapeHtml(text)+'</div>'+(qty?'<div class="step-note" style="color:var(--text-faint);">'+escapeHtml(qty)+'</div>':'')+'</div></div>';
 }
 function attachStepHandlers(el){
   el.querySelectorAll('.step-chk').forEach(function(cb){
@@ -563,43 +737,87 @@ function renderTodayAnusha(){
   const today = todayStr();
   const el = document.getElementById('today-view');
   el.innerHTML =
-    '<div class="routine-card am"><div class="rc-head"><div class="rc-icon">☀️</div><div><div class="rc-title">Morning</div></div></div>'+
+    '<div class="routine-card am"><div class="rc-head"><div class="rc-icon">☀️</div><div><div class="rc-title">Morning</div></div>'+rcLinkBtnHtml('am')+'</div>'+
       ANUSHA_MORNING.map(function(s,i){ return stepRowHtml(today,'am',i,s); }).join('')+
     '</div>'+
-    '<div class="routine-card pm"><div class="rc-head"><div class="rc-icon">🌙</div><div><div class="rc-title">Night</div></div></div>'+
+    '<div class="routine-card pm"><div class="rc-head"><div class="rc-icon">🌙</div><div><div class="rc-title">Night</div></div>'+rcLinkBtnHtml('pm')+'</div>'+
       ANUSHA_NIGHT.map(function(s,i){ return stepRowHtml(today,'pm',i,s); }).join('')+
     '</div>';
   attachStepHandlers(el);
+  attachRcLinkHandlers(el);
 }
 function renderTodayBhargav(){
   const today = todayStr();
-  const week = weekNumberFor(today);
-  const wd = weekdayOf(today);
+  const entry = SKIN_DATE_PLAN[today];
+  const month = skinMonthFor(today);
   const el = document.getElementById('today-view');
+  if(!entry || !month){
+    el.innerHTML = '<div class="routine-card"><div class="empty-note">No plan defined for today — the 5-month program runs Oct 1, 2026 through Feb 28, 2027.</div></div>';
+    return;
+  }
+  const treatment = SKIN_TREATMENTS[entry.face] || SKIN_TREATMENTS.regular;
+  const bodySteps = skinBodyStepsFor(entry);
 
-  const morningFace = morningFaceSteps(wd, week);
-  const morningScalp = morningScalpSteps(wd);
-  const night = nightSteps(wd, week);
-  const bodyNote = bodyAcneNote(wd);
+  let html = '';
+  html += '<div class="routine-card am"><div class="rc-head"><div class="rc-icon">☀️</div><div><div class="rc-title">Morning</div><div class="rc-time">7:00 AM</div></div>'+rcLinkBtnHtml('am')+'</div>'+
+    SKIN_AM_ROUTINE.map(function(s,i){ return stepRowHtml(today,'am',i,s.text,s.qty); }).join('')+
+  '</div>';
 
-  el.innerHTML =
-    '<div class="routine-card am"><div class="rc-head"><div class="rc-icon">☀️</div><div><div class="rc-title">Morning — '+DAY_NAMES[wd]+'</div><div class="rc-time">'+(wd===2?'~7:30 AM':(wd===0||wd===6?'~9:45 AM (after gym)':'~7:15–7:30 AM (after workout/shower)'))+'</div></div></div>'+
-      morningFace.map(function(s,i){ return stepRowHtml(today,'am-face',i,s); }).join('')+
-      '<div style="height:8px;"></div>'+
-      morningScalp.map(function(s,i){ return stepRowHtml(today,'am-scalp',i,s); }).join('')+
-    '</div>'+
-    '<div class="routine-card pm"><div class="rc-head"><div class="rc-icon">🌙</div><div><div class="rc-title">Night — '+DAY_NAMES[wd]+'</div><div class="rc-time">~9:30 PM, or 30–60 min before sleep</div></div></div>'+
-      night.map(function(s,i){ return stepRowHtml(today,'pm',i,s); }).join('')+
-      (bodyNote ? '<div class="step-note">'+escapeHtml(bodyNote)+'</div>' : '')+
-    '</div>'+
-    '<details class="reference"><summary>Application notes</summary>'+
-      '<p><b>Benzoyl peroxide:</b> wet face, small amount, massage ~60 sec, rinse, moisturizer, sunscreen. Can bleach towels/clothing — use white towels.</p>'+
-      '<p><b>Adapalene:</b> cleanse, pat dry, wait ~10 min, moisturizer, pea-sized amount whole face, avoid eyelids/lips/nostril corners/neck, never directly under eyes.</p>'+
-      '<p><b>Dark circles:</b> mornings — moisturizer around orbital bone + sunscreen (not inside eye area) + sunglasses outside. Nights — plain moisturizer only under eyes, no actives.</p>'+
-    '</details>'+
-    '<div class="emergency-banner"><b>Irritation emergency rule</b>If strong burning, swelling, cracking, severe peeling, or rapidly worsening pigmentation: stop adapalene, benzoyl peroxide, and azelaic acid. Use only gentle cleanser, moisturizer, and sunscreen until skin fully settles, then restart one active at a time. Seek medical care for facial swelling, blistering, or severe symptoms.</div>';
+  html += '<div class="routine-card pm"><div class="rc-head"><div class="rc-icon">🚿</div><div><div class="rc-title">Shower & body</div><div class="rc-time">7:30 PM</div></div>'+rcLinkBtnHtml('body')+'</div>'+
+    bodySteps.map(function(s,i){ return stepRowHtml(today,'body',i,s.text,s.qty); }).join('')+
+  '</div>';
 
+  if(entry.nizoral){
+    html += '<div class="routine-card pm"><div class="rc-head"><div class="rc-icon">🧴</div><div><div class="rc-title">Nizoral — scheduled tonight</div></div>'+rcLinkBtnHtml('nizoral')+'</div>'+
+      ['Wet the scalp completely','Apply '+SKIN_QTY.nizoral,'Massage gently for 30 seconds','Leave on for the time on the bottle','Rinse thoroughly'].map(function(s,i){ return stepRowHtml(today,'nizoral',i,s); }).join('')+
+    '</div>';
+  }
+
+  html += '<div class="routine-card pm"><div class="rc-head"><div class="rc-icon">🌙</div><div><div class="rc-title">'+escapeHtml(treatment.label)+'</div><div class="rc-time">9:30 PM</div></div>'+rcLinkBtnHtml('face')+'</div>'+
+    treatment.steps.map(function(s,i){ return stepRowHtml(today,'face',i,s.text,s.qty); }).join('')+
+    (entry.note ? '<div class="step-note" style="color:var(--text-faint);">'+escapeHtml(entry.note)+'</div>' : '')+
+  '</div>';
+
+  html += renderTrackingCardHtml(today, month.key);
+
+  el.innerHTML = html;
   attachStepHandlers(el);
+  attachTrackingHandlers(el, today);
+  attachRcLinkHandlers(el);
+}
+function renderTrackingCardHtml(date, monthKey){
+  const fields = SKIN_TRACKING_FIELDS[monthKey] || [];
+  const rec = trackingLog[date] || {};
+  const rows = fields.map(function(f){
+    if(f.type==='text'){
+      return '<div class="f" style="flex:1 1 100%;"><label>'+escapeHtml(f.label)+'</label><input type="text" data-trackfield="'+f.key+'" value="'+escapeHtml(rec[f.key]||'')+'" placeholder="none" style="width:100%;"></div>';
+    }
+    return '<div class="f"><label>'+escapeHtml(f.label)+' (0–10)</label><input type="number" min="0" max="10" data-trackfield="'+f.key+'" value="'+(rec[f.key]!=null?escapeHtml(rec[f.key]):'')+'" style="width:60px;"></div>';
+  }).join('');
+  return '<div class="checkin-card"><h3>Daily tracking</h3><div class="ci-sub">Fill this in each night.</div>'+
+    '<div class="ci-form" style="flex-wrap:wrap;">'+rows+'</div>'+
+    '<div class="ci-form" style="margin-top:10px;"><div class="f"><label>Overall today</label><select data-trackfield="overall">'+
+      '<option value="">—</option>'+
+      '<option value="better" '+(rec.overall==='better'?'selected':'')+'>Better</option>'+
+      '<option value="same" '+(rec.overall==='same'?'selected':'')+'>Same</option>'+
+      '<option value="worse" '+(rec.overall==='worse'?'selected':'')+'>Worse</option>'+
+    '</select></div></div>'+
+    '<div class="f" style="margin-top:8px;"><label>One observation</label><textarea data-trackfield="observation" rows="2" style="width:100%;font-size:12.5px;padding:7px 9px;border-radius:8px;border:1px solid var(--border);box-sizing:border-box;">'+escapeHtml(rec.observation||'')+'</textarea></div>'+
+    '<button type="button" id="save-tracking-btn" class="send-grocery-btn" style="margin-top:8px;">'+(rec.savedAt?'Update tonight’s tracking':'Save tonight’s tracking')+'</button>'+
+  '</div>';
+}
+function attachTrackingHandlers(el, date){
+  const btn = document.getElementById('save-tracking-btn');
+  if(!btn) return;
+  btn.addEventListener('click', async function(){
+    const rec = trackingLog[date] || {};
+    el.querySelectorAll('[data-trackfield]').forEach(function(input){ rec[input.dataset.trackfield] = input.value; });
+    rec.savedAt = new Date().toISOString();
+    trackingLog[date] = rec;
+    await saveTrackingLog();
+    btn.textContent = 'Saved ✓';
+    setTimeout(function(){ btn.textContent = 'Update tonight’s tracking'; }, 1500);
+  });
 }
 
 /* =====================================================================
@@ -688,6 +906,7 @@ function dueNote(arr, intervalDays, label){
   return 'Logged '+since+' day'+(since===1?'':'s')+' ago. Next due in '+(intervalDays-since)+' day'+((intervalDays-since)===1?'':'s')+'.';
 }
 function renderCheckins(){
+  if(activeProfile !== 'Anusha'){ renderMonthReviewBhargav(); return; }
   const el = document.getElementById('checkins-view');
   el.innerHTML =
     gymSyncedCardHtml('Weight', 'Weekly, same conditions', 'kg', 7, gymWeightEntries)+
@@ -737,6 +956,32 @@ function photosCardHtml(){
     '<div class="ci-form"><button id="log-photos-btn">Mark photos taken today</button></div>'+
     (recent.length ? '<div class="ci-log">'+recent.map(function(e){ return '<div class="ci-log-row"><span>'+fmtHeaderDate(e.date)+'</span><span>✓ taken</span></div>'; }).join('')+'</div>' : '')+
   '</div>';
+}
+
+/* =====================================================================
+   MONTH REVIEW (Bhargav) — how many nights each month's tracking form
+   has actually been filled in, out of the days elapsed so far.
+===================================================================== */
+function renderMonthReviewBhargav(){
+  const el = document.getElementById('checkins-view');
+  const today = todayStr();
+  el.innerHTML = SKIN_MONTHS.map(function(m){
+    const start = m.range[0], end = m.range[1];
+    let status = 'Starts '+fmtHeaderDate(start);
+    let bodyHtml = '';
+    if(today >= start){
+      const elapsedEnd = today > end ? end : today;
+      let loggedDays = 0, elapsedDays = 0, d = start;
+      while(d <= elapsedEnd){
+        elapsedDays++;
+        if(trackingLog[d] && trackingLog[d].savedAt) loggedDays++;
+        d = addDays(d, 1);
+      }
+      status = today > end ? 'Complete' : 'In progress';
+      bodyHtml = '<div class="ci-due">Tracking logged '+loggedDays+' of '+elapsedDays+' day'+(elapsedDays===1?'':'s')+' so far.</div>';
+    }
+    return '<div class="checkin-card"><h3>'+escapeHtml(m.name)+'</h3><div class="ci-sub">'+fmtHeaderDate(start)+' – '+fmtHeaderDate(end)+' · '+status+'</div>'+bodyHtml+'</div>';
+  }).join('');
 }
 </script>
 </body>
