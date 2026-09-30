@@ -178,7 +178,19 @@
 
   .modal-overlay{position:fixed;inset:0;background:rgba(28,32,26,0.45);display:none;align-items:center;justify-content:center;z-index:210;padding:16px;}
   .modal-overlay.open{display:flex;}
-  .modal-box{background:var(--surface);border-radius:var(--radius-lg);padding:18px;max-width:420px;width:100%;max-height:80vh;overflow-y:auto;box-shadow:var(--shadow);}
+  .modal-box{background:var(--surface);border-radius:var(--radius-lg);padding:18px;max-width:420px;width:100%;max-height:80vh;overflow-y:auto;box-shadow:var(--shadow);position:relative;}
+  .modal-box.wide{max-width:480px;padding:20px 18px 18px;}
+  .modal-box .checkin-card{border:none;box-shadow:none;padding:0;margin-bottom:0;}
+  .modal-x{position:absolute;top:12px;right:12px;width:28px;height:28px;border-radius:50%;border:none;background:var(--surface-alt);color:var(--text-soft);font-size:13px;cursor:pointer;display:flex;align-items:center;justify-content:center;z-index:2;}
+  .modal-x:hover{background:var(--track-soft);color:var(--track-deep);}
+
+  .checkin-fab{position:fixed;top:14px;right:14px;z-index:150;background:var(--accent-grad);color:#fff;border:none;border-radius:999px;padding:10px 16px 10px 14px;font-size:12.5px;font-weight:800;font-family:'Manrope',sans-serif;box-shadow:0 10px 24px rgba(111,74,8,.32);cursor:pointer;display:flex;align-items:center;gap:6px;transition:transform .12s;}
+  .checkin-fab:hover{transform:translateY(-1px);}
+  .checkin-fab:active{transform:translateY(0);}
+  .fab-dot{width:8px;height:8px;border-radius:50%;background:transparent;flex:none;}
+  .checkin-fab.done .fab-dot{background:#fff;box-shadow:0 0 0 2px rgba(255,255,255,.35);}
+  body[data-profile="anusha"] .checkin-fab{background:var(--accent-grad);}
+  @media (max-width:420px){ .checkin-fab span{display:none;} .checkin-fab{padding:10px;} }
   .modal-box h3{margin:0 0 4px;font-size:15px;}
   .modal-sub{font-size:11.5px;color:var(--text-faint);margin:0 0 12px;}
   .modal-actions{display:flex;justify-content:flex-end;gap:8px;margin-top:14px;}
@@ -295,6 +307,8 @@
     </div>
   </div>
 
+  <button type="button" class="checkin-fab" id="checkin-fab-btn" style="display:none;">🌙 <span>Check-in</span><i class="fab-dot" id="checkin-fab-dot"></i></button>
+
   <header class="app-head">
     <div class="who-badge" id="who-badge"></div>
     <h1>Skin Plan</h1>
@@ -343,6 +357,13 @@
     <div class="modal-actions">
       <button type="button" class="modal-btn secondary" id="backupCloseBtn">Close</button>
     </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="trackingModal">
+  <div class="modal-box wide">
+    <button type="button" class="modal-x" id="trackingCloseBtn" aria-label="Close">✕</button>
+    <div id="tracking-modal-body"></div>
   </div>
 </div>
 
@@ -1111,6 +1132,9 @@ async function init(){
   document.getElementById('backupExportBtn').onclick = exportBackup;
   document.getElementById('backupImportBtn').onclick = function(){ document.getElementById('backupImportFile').click(); };
   document.getElementById('backupImportFile').onchange = function(e){ importBackup(e.target.files[0]); e.target.value=''; };
+  document.getElementById('checkin-fab-btn').onclick = openTrackingModal;
+  document.getElementById('trackingCloseBtn').onclick = closeTrackingModal;
+  document.getElementById('trackingModal').onclick = function(e){ if(e.target.id==='trackingModal') closeTrackingModal(); };
   renderWeekBanner();
   showTab('today');
 }
@@ -1125,6 +1149,7 @@ function showTab(name){
   if(name==='milestones') renderMilestones();
   if(name==='checkins') renderCheckins();
   if(name==='progress') renderProgress();
+  refreshCheckinFab();
 }
 
 function renderWeekBanner(){
@@ -1265,13 +1290,11 @@ function renderTodayBhargav(){
     (entry.note ? '<div class="step-note" style="color:var(--text-faint);">'+escapeHtml(entry.note)+'</div>' : '')+
   '</div>';
 
-  html += renderTrackingCardHtml(today, month.key);
-
   el.innerHTML = html;
   attachStepHandlers(el);
-  attachTrackingHandlers(el, today);
   attachRcLinkHandlers(el);
   wireDateNav(el);
+  refreshCheckinFab();
 }
 // Reaction options ported from the local prototype — picking a
 // concerning one shows a caution banner (never a diagnosis).
@@ -1352,9 +1375,45 @@ function attachTrackingHandlers(el, date){
     trackingLog[date] = rec;
     await saveTrackingLog();
     btn.textContent = 'Saved ✓';
-    setTimeout(function(){ btn.textContent = 'Update tonight’s tracking'; }, 1500);
     refreshStatsRow();
+    refreshCheckinFab();
+    setTimeout(function(){
+      btn.textContent = 'Update tonight’s tracking';
+      closeTrackingModal();
+    }, 900);
   });
+}
+function openTrackingModal(){
+  renderTrackingModalBody();
+  document.getElementById('trackingModal').classList.add('open');
+}
+function closeTrackingModal(){
+  document.getElementById('trackingModal').classList.remove('open');
+}
+function renderTrackingModalBody(){
+  const body = document.getElementById('tracking-modal-body');
+  const month = skinMonthFor(selectedDay);
+  if(!month){
+    body.innerHTML = '<div class="empty-note">No tracking fields defined for '+fmtHeaderDate(selectedDay)+' — it\'s outside the 5-month program.</div>';
+    return;
+  }
+  body.innerHTML = renderTrackingCardHtml(selectedDay, month.key);
+  attachTrackingHandlers(body, selectedDay);
+}
+// Small floating corner button that opens tonight's check-in as an
+// overlay on top of whatever tab you're on — same "always-reachable"
+// pattern the local prototype used, instead of a card buried in the
+// Today tab. Bhargav-only: Anusha has her own, simpler Check-ins tab.
+function refreshCheckinFab(){
+  const fab = document.getElementById('checkin-fab-btn');
+  if(!fab) return;
+  if(activeProfile !== 'Bhargav' || !skinMonthFor(selectedDay)){
+    fab.style.display = 'none';
+    return;
+  }
+  fab.style.display = 'flex';
+  const rec = trackingLog[selectedDay];
+  fab.classList.toggle('done', !!(rec && rec.savedAt));
 }
 
 /* =====================================================================
