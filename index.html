@@ -47,6 +47,32 @@
     <aside class="sidebar">
       <button class="brand" id="sidebar-toggle" type="button" aria-label="Collapse or expand the sidebar"><span class="brand-mark small">H</span><span>Home Hub</span></button>
       <a href="apps/clock.html" class="hub-clock" id="hub-clock" data-profile-link data-nav-clock aria-label="Clock"><i data-lucide="clock" class="hub-clock-icon"></i><span class="hub-clock-text">--:--:-- <small id="hub-clock-date">--</small></span></a>
+
+      <!-- Weather widget — same spot/feel as the clock above it, but always
+           shown in full (not collapsed to an icon) since a temperature by
+           itself isn't very useful at a glance. Data comes from Open-Meteo
+           (no API key, fetched client-side) using the browser's own
+           geolocation when granted, falling back to a fixed default city
+           otherwise — see WEATHER_FALLBACK + initHubWeather() in app.js. -->
+      <div class="hub-weather" id="hub-weather" aria-live="polite">
+        <div class="hub-weather-top">
+          <i data-lucide="loader-circle" class="hub-weather-icon" id="hub-weather-icon"></i>
+          <div class="hub-weather-temp-wrap">
+            <strong class="hub-weather-temp" id="hub-weather-temp">--°</strong>
+            <span class="hub-weather-cond" id="hub-weather-cond">Loading weather…</span>
+          </div>
+        </div>
+        <div class="hub-weather-detail" id="hub-weather-detail" hidden>
+          <div class="hub-weather-hilo"><span id="hub-weather-hi">H --°</span><span id="hub-weather-lo">L --°</span></div>
+          <div class="hub-weather-meta">
+            <span><i data-lucide="droplets"></i><b id="hub-weather-humidity">--%</b></span>
+            <span><i data-lucide="wind"></i><b id="hub-weather-wind">-- mph</b></span>
+          </div>
+          <div class="hub-weather-hours" id="hub-weather-hours"></div>
+          <button type="button" class="hub-weather-place" id="hub-weather-place-btn" title="Use my location"><i data-lucide="map-pin"></i><span id="hub-weather-place">Default location</span></button>
+        </div>
+      </div>
+
       <nav class="main-nav" aria-label="Primary navigation">
         <button class="active" type="button" data-route="today"><i data-lucide="sun"></i><span>Today</span></button>
         <button type="button" data-route="planner"><i data-lucide="calendar-days"></i><span>Planner</span></button>
@@ -99,25 +125,19 @@
           <div><span class="status-value" id="stat-tasks">0</span><span class="status-label">Tasks remaining</span></div>
           <div><span class="status-value" id="stat-focus">0h</span><span class="status-label">Planned time</span></div>
         </div>
-        <div class="today-grid">
-          <section class="surface schedule-surface" aria-labelledby="schedule-heading">
-            <div class="section-head"><div><p class="section-kicker">Your time</p><h2 id="schedule-heading">Today's schedule</h2></div><a class="text-link" href="apps/schedule.html" data-profile-link>Open planner <i data-lucide="arrow-up-right"></i></a></div>
-            <div class="timeline" id="today-timeline"></div>
-          </section>
-          <section class="surface priority-surface" aria-labelledby="priority-heading">
-            <div class="section-head"><div><p class="section-kicker">Stay precise</p><h2 id="priority-heading">Priorities</h2></div><a class="text-link" href="apps/todo.html" data-profile-link>All tasks <i data-lucide="arrow-up-right"></i></a></div>
-            <div class="task-list" id="today-tasks"></div>
-          </section>
+
+        <!-- Widget board — everything below the status strip is now a
+             movable/resizable widget, not a fixed layout. Drag a widget's
+             handle to reorder it, use the size button to cycle small/
+             medium/large/tall, and "+ Add widget" drops in a new one from
+             any app. Layout is saved per-profile (see WIDGET_TYPES +
+             renderWidgetBoard() in app.js) so each person's Today page can
+             look completely different. -->
+        <div class="widget-board-head">
+          <p class="widget-board-hint"><i data-lucide="move"></i> Drag to rearrange · resize or remove from each widget's corner</p>
+          <button class="button secondary" id="widget-add-open" type="button"><i data-lucide="plus"></i><span>Add widget</span></button>
         </div>
-        <section class="surface" style="margin-top:20px" aria-labelledby="chores-heading">
-          <div class="section-head"><div><p class="section-kicker">Household</p><h2 id="chores-heading">Chores due today</h2></div><a class="text-link" href="apps/chores.html" data-profile-link>Open chores <i data-lucide="arrow-up-right"></i></a></div>
-          <div class="chores-mini-list" id="today-chores-list"></div>
-        </section>
-        <section class="daily-row" aria-label="Daily areas">
-          <a href="gym/index.html" data-profile-link><span class="area-icon"><i data-lucide="dumbbell"></i></span><span><strong>Training</strong><small id="training-status">Open today's workout</small></span><i data-lucide="chevron-right"></i></a>
-          <a href="apps/diet.html" data-profile-link><span class="area-icon"><i data-lucide="utensils"></i></span><span><strong>Nutrition</strong><small>Meals and daily targets</small></span><i data-lucide="chevron-right"></i></a>
-          <a href="apps/chores.html" data-profile-link><span class="area-icon"><i data-lucide="sparkles"></i></span><span><strong>Household</strong><small id="chores-status">Check today's chores</small></span><i data-lucide="chevron-right"></i></a>
-        </section>
+        <div class="widget-board" id="widget-board"></div>
       </section>
 
       <section class="page" id="page-planner" data-page="planner" data-category="planner">
@@ -142,49 +162,100 @@
       </section>
 
       <section class="page" id="page-insights" data-page="insights">
-        <header class="page-header"><div><p class="eyebrow">Your momentum</p><h1>Insights</h1><p class="page-subtitle">The whole system, in one place — proof of what you've kept showing up for.</p></div></header>
-
-        <section class="momentum-hero" id="momentum-hero">
-          <div class="momentum-hero-main">
-            <p class="momentum-kicker" id="momentum-kicker">This week</p>
-            <h2 id="momentum-headline">Loading your week…</h2>
-            <p id="momentum-subtext"></p>
+        <header class="page-header">
+          <div><p class="eyebrow">Your momentum</p><h1>Insights</h1><p class="page-subtitle">The whole system, in one place — proof of what you've kept showing up for.</p></div>
+          <div class="insights-head-actions">
+            <div class="insights-range" id="insights-range">
+              <button type="button" class="active" data-range="week">7 days</button>
+              <button type="button" data-range="month">28 days</button>
+              <button type="button" data-range="all">60 days</button>
+            </div>
+            <button type="button" class="insights-replay" id="insights-replay"><i data-lucide="play"></i> Replay</button>
           </div>
-          <div class="momentum-hero-streak">
-            <span class="momentum-flame" id="momentum-flame">🔥</span>
-            <strong id="momentum-streak-num">0</strong>
-            <small>day streak</small>
-          </div>
-        </section>
+        </header>
 
-        <div class="momentum-stats" id="momentum-stats"></div>
+        <div class="insights-cinema" id="insights-cinema">
+          <div class="insights-scanline" id="insights-scanline"></div>
 
-        <div class="momentum-row">
-          <section class="surface momentum-week-card">
-            <div class="section-head"><div><p class="section-kicker">Last 7 days</p><h2>Daily momentum</h2></div></div>
-            <div class="momentum-bars" id="momentum-bars"></div>
+          <section class="insights-hero reveal" id="insights-hero">
+            <div class="insights-hero-grid">
+              <div>
+                <p class="insights-score-label">Consistency, selected range</p>
+                <div class="insights-score" id="insights-score">0%</div>
+                <p class="insights-score-message" id="insights-score-message">Loading your activity…</p>
+                <div class="insights-delta" id="insights-delta"></div>
+              </div>
+              <div class="insights-chart-wrap">
+                <div class="insights-chart-meta"><span id="insights-chart-start">—</span><span>Daily activity</span><span id="insights-chart-end">—</span></div>
+                <svg class="insights-chart" id="insights-chart" viewBox="0 0 760 190" preserveAspectRatio="none" aria-label="Daily activity trend">
+                  <defs><linearGradient id="insightsAreaGrad" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#42e6a4" stop-opacity=".4"/><stop offset="1" stop-color="#42e6a4" stop-opacity="0"/></linearGradient></defs>
+                  <g id="insights-chart-grid"></g>
+                  <path class="insights-chart-area" id="insights-chart-area"/>
+                  <path class="insights-chart-line" id="insights-chart-line"/>
+                </svg>
+              </div>
+            </div>
+            <div class="insights-hero-foot" id="insights-hero-foot"></div>
           </section>
-          <section class="surface momentum-surprise" id="momentum-surprise">
-            <div class="section-head"><div><p class="section-kicker">Just for you</p><h2 id="surprise-title">Something to notice</h2></div></div>
-            <p id="surprise-body"></p>
+
+          <section class="insights-command reveal" id="insights-command">
+            <div class="insights-command-main">
+              <p class="insights-chapter">Right now</p>
+              <h2 id="insights-headline">Loading your week…</h2>
+              <p id="insights-subtext"></p>
+              <div class="insights-streak-row" id="insights-streak-row">
+                <span class="insights-flame" id="insights-flame">🔥</span>
+                <strong id="insights-streak-num">0</strong><small>day streak</small>
+              </div>
+            </div>
+            <div class="insights-command-surprise">
+              <p class="insights-chapter">Just for you</p>
+              <h3 id="insights-surprise-title">Something to notice</h3>
+              <p id="insights-surprise-body"></p>
+            </div>
+          </section>
+
+          <div class="insights-section-head"><div><h2>Activity grid</h2><p>60 days across tasks, chores, training and care — tap a dot to see that day</p></div><button type="button" id="insights-grid-jump">Jump to today</button></div>
+          <section class="insights-card insights-grid-card reveal" id="insights-grid-card">
+            <div class="insights-grid-scroll"><div class="insights-grid" id="insights-grid"></div></div>
+            <div class="insights-grid-legend"><span>Less</span><span class="igrid-dot l0"></span><span class="igrid-dot l1"></span><span class="igrid-dot l2"></span><span class="igrid-dot l3"></span><span>More</span></div>
+            <div class="insights-day-detail" id="insights-day-detail"></div>
+          </section>
+
+          <div class="insights-section-head"><div><h2>Your constellation</h2><p>Each point is a badge you've actually earned — not one you were given</p></div></div>
+          <section class="insights-constellation reveal" id="insights-constellation-card">
+            <canvas id="insights-canvas" aria-label="Constellation of earned badges"></canvas>
+            <div class="insights-constellation-copy">
+              <p class="insights-chapter">Earned the hard way</p>
+              <h3>Proof you can look back on.</h3>
+              <p id="insights-constellation-note">—</p>
+              <div class="insights-badge-list" id="insights-badge-list"></div>
+            </div>
+            <div class="insights-constellation-status" id="insights-constellation-status"><strong>0 / 6</strong><span>badges earned</span></div>
+          </section>
+
+          <div class="insights-section-head"><div><h2>Life systems</h2><p>This week vs. your own best week for each system — no invented targets</p></div></div>
+          <section class="insights-two-col reveal" id="insights-systems-row">
+            <div class="insights-card"><div class="insights-rings" id="insights-rings"></div></div>
+            <div class="insights-card">
+              <div class="insights-section-head" style="margin:0 0 12px"><div><h2>Most consistent</h2><p>Ranked by days active this week</p></div></div>
+              <div class="insights-rank-list" id="insights-rank-list"></div>
+            </div>
+          </section>
+
+          <div class="insights-section-head" id="milestones-section-head"><div><h2>Skin plan milestones</h2><p>Monthly reviews, shifted to match your actual start date</p></div></div>
+          <section class="insights-card reveal" id="milestones-card"><div id="milestones-list"></div></section>
+
+          <div class="insights-section-head"><div><h2>What this week proves</h2><p>Interpretation grounded in your actual activity — not a random quote</p></div></div>
+          <section class="insights-story-grid reveal" id="insights-story-row">
+            <div class="insights-card insights-story"><div class="insights-quote">"</div><h3 id="insights-story-title"></h3><p id="insights-story-body"></p></div>
+            <div class="insights-card insights-thread">
+              <p class="insights-chapter">For the difficult days</p><h3>Keep the thread.</h3>
+              <p id="insights-thread-body">Today doesn't need to be perfect. Complete one meaningful action and keep your relationship with progress alive.</p>
+              <button type="button" id="insights-thread-btn">Choose my smallest meaningful action</button>
+            </div>
           </section>
         </div>
-
-        <div class="momentum-row" id="milestones-row">
-          <section class="surface momentum-milestones" id="milestones-card">
-            <div class="section-head"><div><p class="section-kicker">Skin plan</p><h2>Milestones</h2></div></div>
-            <div id="milestones-list"></div>
-          </section>
-          <section class="surface momentum-badges">
-            <div class="section-head"><div><p class="section-kicker">Earned the hard way</p><h2>Achievements</h2></div></div>
-            <div class="badge-grid" id="badge-grid"></div>
-          </section>
-        </div>
-
-        <section class="darkest-days" id="darkest-days">
-          <p class="dd-eyebrow">For the days it's hard</p>
-          <p class="dd-text" id="dd-text">You don't have to feel motivated to keep a streak alive. You just have to do one small thing today — that's the whole job.</p>
-        </section>
       </section>
 
       <section class="page" id="page-settings" data-page="settings">
@@ -230,6 +301,31 @@
       </form>
     </div>
   </div>
+  <div class="insights-recovery" id="insights-recovery" hidden>
+    <div class="insights-recovery-card">
+      <div class="insights-pulse-orb">◇</div>
+      <h2>Nothing is over. We begin smaller.</h2>
+      <p id="insights-recovery-sub">Today has been reduced to three actions. Completing one is enough to restart movement.</p>
+      <div class="insights-reset-steps">
+        <div class="insights-reset-step"><b>01</b><div><strong>Close the open loops</strong><span>Open Priorities and pick the single task that will make tomorrow lighter.</span></div></div>
+        <div class="insights-reset-step"><b>02</b><div><strong>Protect one basic routine</strong><span>Complete the shortest care or training action already planned.</span></div></div>
+        <div class="insights-reset-step"><b>03</b><div><strong>Prepare the first step</strong><span>Add tomorrow's first task now, before today ends.</span></div></div>
+      </div>
+      <div class="insights-recovery-actions">
+        <button type="button" class="insights-begin-reset" id="insights-begin-reset">Take me to Priorities</button>
+        <button type="button" class="insights-close-reset" id="insights-close-reset">Close</button>
+      </div>
+    </div>
+  </div>
+  <div class="insights-celebration" id="insights-celebration"></div>
+
+  <div class="modal-backdrop" id="widget-add-modal" hidden>
+    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="widget-add-title">
+      <div class="modal-head"><div><p class="eyebrow">Today page</p><h2 id="widget-add-title">Add a widget</h2></div><button class="icon-button" id="widget-add-close" type="button" aria-label="Close"><i data-lucide="x"></i></button></div>
+      <div class="widget-catalog" id="widget-catalog"></div>
+    </div>
+  </div>
+
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
   <!-- Rings above everything — the sidebar, whatever app is open in the

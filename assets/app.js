@@ -3,7 +3,7 @@ firebase.initializeApp(FIREBASE_CONFIG);
 const auth=firebase.auth(),db=firebase.firestore();
 try{db.enablePersistence({synchronizeTabs:true}).catch(()=>{});}catch(e){}
 
-const state={user:null,profile:null,templates:{},events:[],personalTasks:[],sharedTasks:[],chores:[],choreHistory:[],dailyLog:null,apps:[],categories:{},order:[],hidden:[],insights:null,theme:null};
+const state={user:null,profile:null,templates:{},events:[],personalTasks:[],sharedTasks:[],chores:[],choreHistory:[],dailyLog:null,apps:[],categories:{},order:[],hidden:[],insights:null,theme:null,widgets:[]};
 const PROFILE_KEY='hub-active-profile',DAYS=['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
 const $=id=>document.getElementById(id);
 const today=()=>{const d=new Date();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')};
@@ -55,7 +55,14 @@ const WALLPAPER_PRESETS=[
   {id:'meadow',name:'Meadow',css:'linear-gradient(135deg,#eef6ee 0%,#e3f1e6 50%,#dceee0 100%)'},
   {id:'sky',name:'Sky',css:'linear-gradient(135deg,#eaf2fb 0%,#e2eefa 50%,#dce9f7 100%)'},
   {id:'dusk',name:'Dusk',css:'linear-gradient(135deg,#f3eef7 0%,#ece4f2 50%,#e5dcec 100%)'},
-  {id:'sand',name:'Sand',css:'linear-gradient(135deg,#f7f3ea 0%,#f1e9d8 50%,#ebdfc4 100%)'}
+  {id:'sand',name:'Sand',css:'linear-gradient(135deg,#f7f3ea 0%,#f1e9d8 50%,#ebdfc4 100%)'},
+  // "Live" wallpapers — same idea, but a bigger multi-stop gradient that
+  // slowly drifts (background-position animated in app.css under
+  // html.wallpaper-live) instead of sitting static. Kept subtle/slow on
+  // purpose since this sits behind a whole workday, not a splash screen.
+  {id:'aurora',name:'Aurora',live:true,css:'linear-gradient(120deg,#e7f6ef 0%,#dcf0f5 25%,#e8ecf8 50%,#f3e9f6 75%,#f7ecdf 100%)'},
+  {id:'ember',name:'Ember Drift',live:true,css:'linear-gradient(120deg,#fdf1e3 0%,#fbe3d6 25%,#f8d9d9 50%,#fbe6e0 75%,#fdf1e3 100%)'},
+  {id:'tide',name:'Tide',live:true,css:'linear-gradient(120deg,#e3f1fb 0%,#dbeef4 25%,#e2f4ec 50%,#eaf6e5 75%,#e3f1fb 100%)'}
 ];
 function applyTheme(){
   const t=state.theme||DEFAULT_THEME;
@@ -73,6 +80,8 @@ function applyTheme(){
   const wpCss=t.wallpaper&&t.wallpaper.css;
   if(wpCss)document.documentElement.style.setProperty('--bg',wpCss);
   else document.documentElement.style.removeProperty('--bg');
+  const wpPreset=WALLPAPER_PRESETS.find(w=>w.id===((t.wallpaper&&t.wallpaper.id)||'none'));
+  document.documentElement.classList.toggle('wallpaper-live',!!(wpPreset&&wpPreset.live));
 }
 async function saveHubTheme(){try{await hubRef('theme').set({json:JSON.stringify(state.theme)})}catch(e){}}
 
@@ -136,12 +145,13 @@ async function discoverApps(){
 }
 
 async function loadHubMeta(){
-  const [categories,order,hidden,theme] = await Promise.all([
+  const [categories,order,hidden,theme,widgets] = await Promise.all([
     readJson(hubRef('categories'), {}), readJson(hubRef('order'), []), readJson(hubRef('hidden'), []),
-    readJson(hubRef('theme'), null)
+    readJson(hubRef('theme'), null), readJson(hubRef('widgets'), null)
   ]);
   state.categories = categories; state.order = order; state.hidden = hidden;
   state.theme = (theme && theme.accents) ? theme : JSON.parse(JSON.stringify(DEFAULT_THEME));
+  state.widgets = (widgets && widgets[state.profile] && widgets[state.profile].length) ? widgets[state.profile].filter(w=>WIDGET_TYPES[w.type]) : widgetDefaultLayout();
   applyTheme();
 }
 async function saveHubCategories(){ try{ await hubRef('categories').set({json: JSON.stringify(state.categories)}); }catch(e){} }
@@ -264,7 +274,7 @@ async function loadDashboard(){
   // same way the original hub always special-cased it.
   const appsWithGym = [{ file:'gym.html', path:'gym/index.html', title:'Gym', icon:'tile-icons/gym.png' }].concat(apps.map(a => ({...a, path:'apps/'+a.file})));
   Object.assign(state,{templates,events,personalTasks:personal,sharedTasks:shared,chores,choreHistory,dailyLog,apps:appsWithGym});
-  renderDashboard();renderAllCategoryPages();startHubClock();startTimelineAutoAdvance();setGate(null);
+  renderDashboard();renderAllCategoryPages();startHubClock();initHubWeather();startTimelineAutoAdvance();wireWidgetModal();setGate(null);
   // A reload used to always drop you back at the Hub even if you had an
   // app open in the viewer, because nothing recorded "which app" anywhere
   // durable — the iframe's contents live only in memory. openAppFrame now
@@ -339,8 +349,7 @@ function renderDashboard(){
   $('today-summary').textContent=tasks.length?tasks.length+' task'+(tasks.length===1?'':'s')+' need your attention today.':'Your priority list is clear.';
   const nowM=new Date().getHours()*60+new Date().getMinutes(),next=timeline.find(x=>minutes(x.time)>=nowM);
   $('stat-next').textContent=next?(next.time?time12(next.time):'Anytime'):'Clear';$('stat-tasks').textContent=tasks.length;$('stat-focus').textContent=plannedHours(timeline);
-  $('chores-status').textContent=chores.length?chores.length+' chore'+(chores.length===1?'':'s')+' due today':'No chores due';
-  renderTimeline(timeline);renderTasks(tasks.slice(0,5));renderChoresList(chores);renderTraining();
+  renderWidgetBoard();
 }
 // The item "now" falls into: the last one whose start time has already
 // passed. Items are pre-sorted by start time (todaysTimeline()), so the
@@ -355,15 +364,16 @@ function currentTimelineIndex(items){
 // survives the 30s auto-refresh re-render instead of resetting closed
 // every time.
 let timelineShowPast=false;
-function renderTimeline(items){
-  const el=$('today-timeline');if(!items.length){el.innerHTML='<div class="empty-state"><strong>No scheduled blocks</strong>Your day is open. Add plans from the schedule.</div>';return}
+function renderTimelineInto(el,items){
+  if(!el)return;
+  if(!items.length){el.innerHTML='<div class="empty-state"><strong>No scheduled blocks</strong>Your day is open. Add plans from the schedule.</div>';return}
   const curIdx=currentTimelineIndex(items);
   const pastCount=curIdx>=0?curIdx:0;
   const toggleHtml=pastCount>0?('<div class="timeline-toggle-row" id="timeline-toggle-row"><span class="timeline-time"></span><span></span><span class="timeline-content"><button type="button" class="timeline-toggle-link" id="timeline-toggle-btn">'+(timelineShowPast?'Hide earlier':pastCount+' earlier today · Show')+'</button></span></div>'):'';
   el.innerHTML=toggleHtml+items.map((x,i)=>'<div class="timeline-row '+(x.kind==='event'?'':'muted')+(i===curIdx?' current':i<curIdx?' past':'')+'" data-tl-row="'+i+'"><span class="timeline-time">'+esc(time12(x.time))+'</span><span class="timeline-dot"></span><span class="timeline-content"><strong>'+esc(x.title)+'</strong><small>'+(x.end?esc(time12(x.time)+' – '+time12(x.end)):(x.notes?esc(x.notes):x.kind==='event'?'Event':'Routine'))+'</small></span></div>').join('');
   el.classList.toggle('show-past', timelineShowPast);
   const toggleBtn=$('timeline-toggle-btn');
-  if(toggleBtn) toggleBtn.addEventListener('click', ()=>{ timelineShowPast=!timelineShowPast; renderTimeline(items); });
+  if(toggleBtn) toggleBtn.addEventListener('click', ()=>{ timelineShowPast=!timelineShowPast; renderTimelineInto(el,items); });
   // Keep "now" in view inside the timeline's own scroll area (not the
   // whole page) as the day's list grows — scrollIntoView with a nearest
   // ancestor scroll container does exactly that without jumping the page.
@@ -373,21 +383,185 @@ function renderTimeline(items){
   }
 }
 // Re-checks which block is "current" every 30s so the highlight (and
-// auto-scroll) advances through the day on its own, without a refresh.
+// auto-scroll) advances through the day on its own, without a refresh —
+// only matters while the schedule widget is actually on the board.
 let timelineRefreshTimer=null;
 function startTimelineAutoAdvance(){
   if(timelineRefreshTimer) clearInterval(timelineRefreshTimer);
-  timelineRefreshTimer=setInterval(()=>{ if(state.templates) renderTimeline(todaysTimeline()); }, 30000);
+  timelineRefreshTimer=setInterval(()=>{
+    const el=document.querySelector('.widget-card[data-widget-type="schedule"] .widget-card-body');
+    if(state.templates&&el) renderTimelineInto(el,todaysTimeline());
+  }, 30000);
 }
-function renderTasks(items){
-  const el=$('today-tasks');if(!items.length){el.innerHTML='<div class="empty-state"><strong>You are caught up</strong>No open tasks are due today.</div>';return}
+function renderTasksInto(el,items){
+  if(!el)return;
+  if(!items.length){el.innerHTML='<div class="empty-state"><strong>You are caught up</strong>No open tasks are due today.</div>';return}
   el.innerHTML=items.map(t=>'<div class="task-row" data-task-id="'+esc(t.id)+'"><button class="task-check" type="button" aria-label="Complete '+esc(t.title)+'"><i data-lucide="check"></i></button><span class="task-copy"><strong>'+esc(t.title)+'</strong><small>'+(t._shared?'Shared':esc(t.listId||'Personal'))+(t.dueTime?' · '+esc(time12(t.dueTime)):'')+'</small></span>'+(t.priority?'<span class="priority-mark">'+(t.priority>1?'Urgent':'Important')+'</span>':'')+'</div>').join('');
   lucide.createIcons();el.querySelectorAll('.task-check').forEach(btn=>btn.addEventListener('click',()=>completeTask(btn.closest('.task-row').dataset.taskId)));
 }
-function renderChoresList(chores){
-  const el=$('today-chores-list');
+function renderChoresListInto(el,chores){
+  if(!el)return;
   if(!chores.length){ el.innerHTML='<div class="empty-state"><strong>Nothing due</strong>No chores need attention today.</div>'; return; }
   el.innerHTML = chores.map(c => '<div class="chores-mini-row'+(c.overdue?' overdue':'')+'"><span>'+esc(c.name)+'</span><span>'+(c.overdue?'Overdue':'Due today')+'</span></div>').join('');
+}
+
+/* =====================================================================
+   WIDGET BOARD — the customizable Today page. Each entry in
+   state.widgets is {id, type, size}; `type` maps into WIDGET_TYPES
+   below for its title/icon/render(). Layout is saved per-profile at
+   apps/hub/data/widgets under a key named after the profile, same
+   storage pattern as theme/categories/order above.
+===================================================================== */
+const WIDGET_SIZES=['sm','md','tall','lg'];
+function widgetDefaultLayout(){
+  return [
+    {id:'w-schedule',type:'schedule',size:'lg'},
+    {id:'w-priorities',type:'priorities',size:'lg'},
+    {id:'w-chores',type:'chores',size:'md'},
+    {id:'w-quicklinks',type:'quicklinks',size:'md'}
+  ];
+}
+const WIDGET_TYPES={
+  schedule:{title:"Today's schedule",icon:'calendar-clock',desc:"Your planned blocks for today, same list as the Planner.",defaultSize:'lg',
+    render(el){renderTimelineInto(el,todaysTimeline())}},
+  priorities:{title:'Priorities',icon:'list-checks',desc:'Tasks due today — check them off right from the board.',defaultSize:'lg',
+    render(el){renderTasksInto(el,dueTasks().slice(0,8))}},
+  chores:{title:'Chores due today',icon:'sparkles',desc:'Household chores due or overdue today.',defaultSize:'md',
+    render(el){renderChoresListInto(el,choresDueToday())}},
+  training:{title:'Training',icon:'dumbbell',desc:"Whether today's workout check-in has been started.",defaultSize:'sm',
+    render(el){el.innerHTML='<p style="margin:0 0 10px">'+(state.dailyLog?"Today's check-in is started.":'No check-in yet today.')+'</p><a class="widget-card-link" href="gym/index.html" data-profile-link>Open Gym <i data-lucide="arrow-up-right"></i></a>';updateProfileLinks();if(window.lucide)lucide.createIcons()}},
+  quicklinks:{title:'Quick links',icon:'grid-2x2',desc:'Shortcuts to Training, Nutrition, and Household.',defaultSize:'md',
+    render(el){el.innerHTML='<div style="display:grid;gap:8px">'+
+      '<a class="widget-card-link" style="margin:0" href="gym/index.html" data-profile-link><span class="area-icon" style="width:26px;height:26px;border-radius:8px"><i data-lucide="dumbbell" style="width:13px;height:13px"></i></span> Training</a>'+
+      '<a class="widget-card-link" style="margin:0" href="apps/diet.html" data-profile-link><span class="area-icon" style="width:26px;height:26px;border-radius:8px"><i data-lucide="utensils" style="width:13px;height:13px"></i></span> Nutrition</a>'+
+      '<a class="widget-card-link" style="margin:0" href="apps/chores.html" data-profile-link><span class="area-icon" style="width:26px;height:26px;border-radius:8px"><i data-lucide="sparkles" style="width:13px;height:13px"></i></span> Household</a>'+
+      '</div>';updateProfileLinks();if(window.lucide)lucide.createIcons()}},
+  focus:{title:'Focus today',icon:'timer',desc:"Minutes logged in Clock's focus timer today.",defaultSize:'sm',
+    async render(el){
+      el.innerHTML='<div class="empty-state"><strong>Loading…</strong></div>';
+      try{
+        const ref=db.collection('users').doc(state.user.uid).collection('clock-profiles').doc(state.profile).collection('data').doc('focusSessions');
+        const snap=await ref.get();
+        const sessions=snap.exists?safeJson(snap.data().json,[]):[];
+        const todayStr=new Date().toDateString();
+        const mins=sessions.filter(s=>new Date(s.date).toDateString()===todayStr).reduce((s,x)=>s+(x.minutes||0),0);
+        el.innerHTML='<strong style="display:block;font-size:26px;font-weight:700;letter-spacing:-.02em">'+mins+'<small style="font-size:13px;font-weight:600;color:var(--muted)"> min</small></strong><p style="margin:4px 0 10px;color:var(--muted)">focused today</p><a class="widget-card-link" href="apps/clock.html" data-profile-link>Open Clock <i data-lucide="arrow-up-right"></i></a>';
+        updateProfileLinks();if(window.lucide)lucide.createIcons();
+      }catch(e){el.innerHTML='<div class="empty-state"><strong>Unavailable</strong>Could not load focus time.</div>'}
+    }},
+  skin:{title:'Skin program',icon:'sparkle',desc:'Which day of your current skin program you’re on.',defaultSize:'sm',
+    async render(el){
+      el.innerHTML='<div class="empty-state"><strong>Loading…</strong></div>';
+      try{
+        const ref=db.collection('users').doc(state.user.uid).collection('skin-profiles').doc(state.profile).collection('data').doc('programStart');
+        const snap=await ref.get();
+        const startDate=(snap.exists&&snap.data().startDate)||null;
+        if(!startDate){el.innerHTML='<div class="empty-state"><strong>Not started</strong>No active skin program yet.</div>';return}
+        const dayNum=Math.max(1,daysBetween(startDate,today())+1);
+        el.innerHTML='<strong style="display:block;font-size:26px;font-weight:700;letter-spacing:-.02em">Day '+dayNum+'</strong><p style="margin:4px 0 10px;color:var(--muted)">of your skin program</p><a class="widget-card-link" href="apps/skin.html" data-profile-link>Open Skin <i data-lucide="arrow-up-right"></i></a>';
+        updateProfileLinks();if(window.lucide)lucide.createIcons();
+      }catch(e){el.innerHTML='<div class="empty-state"><strong>Unavailable</strong>Could not load skin program.</div>'}
+    }},
+  grocery:{title:'Grocery list',icon:'shopping-cart',desc:"How many items are still left to buy this week.",defaultSize:'sm',
+    async render(el){
+      el.innerHTML='<div class="empty-state"><strong>Loading…</strong></div>';
+      try{
+        const ref=db.collection('users').doc(state.user.uid).collection('apps').doc('grocery-v4').collection('data').doc('modernState');
+        const snap=await ref.get();
+        const gState=snap.exists&&snap.data().json?safeJson(snap.data().json,null):null;
+        const wk=gState&&gState.weeks&&gState.weeks[gState.activeWeek];
+        const remaining=wk?wk.items.filter(i=>(i.purchasedQty||0)<(i.plannedQty||0)).length:0;
+        el.innerHTML='<strong style="display:block;font-size:26px;font-weight:700;letter-spacing:-.02em">'+remaining+'</strong><p style="margin:4px 0 10px;color:var(--muted)">item'+(remaining===1?'':'s')+' still to buy</p><a class="widget-card-link" href="apps/grocery.html" data-profile-link>Open Grocery <i data-lucide="arrow-up-right"></i></a>';
+        updateProfileLinks();if(window.lucide)lucide.createIcons();
+      }catch(e){el.innerHTML='<div class="empty-state"><strong>Unavailable</strong>Could not load the grocery list.</div>'}
+    }}
+};
+let saveWidgetsTimer=null;
+function saveWidgetLayout(){
+  clearTimeout(saveWidgetsTimer);
+  saveWidgetsTimer=setTimeout(async ()=>{
+    try{
+      const snap=await hubRef('widgets').get();
+      const raw=snap.exists?safeJson(snap.data().json,{}):{};
+      raw[state.profile]=state.widgets;
+      await hubRef('widgets').set({json:JSON.stringify(raw)});
+    }catch(e){}
+  },250);
+}
+let widgetDragId=null;
+function renderWidgetBoard(){
+  const board=$('widget-board');if(!board||!state.widgets)return;
+  if(!state.widgets.length){board.innerHTML='<div class="widget-board-empty">No widgets yet — use <strong>+ Add widget</strong> above to put something here.</div>';return}
+  board.innerHTML=state.widgets.map(w=>{
+    const def=WIDGET_TYPES[w.type];if(!def)return'';
+    return '<div class="widget-card" data-widget-id="'+esc(w.id)+'" data-widget-type="'+esc(w.type)+'" data-size="'+esc(w.size||def.defaultSize)+'">'+
+      '<div class="widget-card-head">'+
+        '<div class="widget-card-title"><span class="widget-drag-handle" data-widget-drag title="Drag to move"><i data-lucide="grip-vertical"></i></span><strong>'+esc(def.title)+'</strong></div>'+
+        '<div class="widget-card-controls">'+
+          '<button type="button" class="widget-ctrl-btn" data-widget-resize title="Change size"><i data-lucide="maximize-2"></i></button>'+
+          '<button type="button" class="widget-ctrl-btn" data-widget-remove title="Remove widget"><i data-lucide="x"></i></button>'+
+        '</div>'+
+      '</div>'+
+      '<div class="widget-card-body"></div>'+
+    '</div>';
+  }).join('');
+  if(window.lucide)lucide.createIcons();
+  board.querySelectorAll('.widget-card').forEach(card=>{
+    const type=card.dataset.widgetType,def=WIDGET_TYPES[type];
+    if(def)def.render(card.querySelector('.widget-card-body'));
+    wireWidgetCard(card);
+  });
+}
+function wireWidgetCard(card){
+  const handle=card.querySelector('[data-widget-drag]');
+  handle.addEventListener('mousedown',()=>card.draggable=true);
+  handle.addEventListener('touchstart',()=>card.draggable=true,{passive:true});
+  card.addEventListener('dragend',()=>{card.draggable=false;card.classList.remove('dragging');document.querySelectorAll('.widget-card.drag-over').forEach(c=>c.classList.remove('drag-over'))});
+  card.addEventListener('dragstart',e=>{widgetDragId=card.dataset.widgetId;card.classList.add('dragging');e.dataTransfer.setData('text/plain',widgetDragId)});
+  card.addEventListener('dragover',e=>{e.preventDefault();if(card.dataset.widgetId!==widgetDragId)card.classList.add('drag-over')});
+  card.addEventListener('dragleave',()=>card.classList.remove('drag-over'));
+  card.addEventListener('drop',e=>{
+    e.preventDefault();card.classList.remove('drag-over');
+    const fromId=widgetDragId,toId=card.dataset.widgetId;if(!fromId||fromId===toId)return;
+    const ids=state.widgets.map(w=>w.id),from=ids.indexOf(fromId),to=ids.indexOf(toId);
+    if(from<0||to<0)return;
+    const [moved]=state.widgets.splice(from,1);state.widgets.splice(to,0,moved);
+    saveWidgetLayout();renderWidgetBoard();
+  });
+  card.querySelector('[data-widget-resize]').addEventListener('click',()=>{
+    const w=state.widgets.find(x=>x.id===card.dataset.widgetId);if(!w)return;
+    const def=WIDGET_TYPES[w.type];
+    const cur=w.size||def.defaultSize,next=WIDGET_SIZES[(WIDGET_SIZES.indexOf(cur)+1)%WIDGET_SIZES.length];
+    w.size=next;card.dataset.size=next;saveWidgetLayout();
+  });
+  card.querySelector('[data-widget-remove]').addEventListener('click',()=>{
+    state.widgets=state.widgets.filter(w=>w.id!==card.dataset.widgetId);
+    saveWidgetLayout();renderWidgetBoard();
+  });
+}
+function renderWidgetCatalog(){
+  const addedTypes=new Set(state.widgets.map(w=>w.type));
+  $('widget-catalog').innerHTML=Object.keys(WIDGET_TYPES).map(type=>{
+    const def=WIDGET_TYPES[type],added=addedTypes.has(type);
+    return '<button type="button" class="widget-catalog-item'+(added?' added':'')+'" data-widget-type-add="'+type+'">'+
+      '<span class="widget-catalog-icon"><i data-lucide="'+def.icon+'"></i></span>'+
+      '<span class="widget-catalog-copy"><strong>'+esc(def.title)+'</strong><span>'+(added?'Already on your board':esc(def.desc))+'</span></span>'+
+    '</button>';
+  }).join('');
+  if(window.lucide)lucide.createIcons();
+}
+let widgetModalWired=false;
+function wireWidgetModal(){
+  if(widgetModalWired)return;widgetModalWired=true;
+  $('widget-add-open').addEventListener('click',()=>{renderWidgetCatalog();$('widget-add-modal').hidden=false});
+  $('widget-add-close').addEventListener('click',()=>$('widget-add-modal').hidden=true);
+  $('widget-add-modal').addEventListener('click',e=>{if(e.target.id==='widget-add-modal')$('widget-add-modal').hidden=true});
+  $('widget-catalog').addEventListener('click',e=>{
+    const btn=e.target.closest('[data-widget-type-add]');if(!btn||btn.classList.contains('added'))return;
+    const type=btn.dataset.widgetTypeAdd,def=WIDGET_TYPES[type];
+    state.widgets.push({id:'w-'+type+'-'+Date.now(),type,size:def.defaultSize});
+    saveWidgetLayout();renderWidgetBoard();$('widget-add-modal').hidden=true;toast(def.title+' added to your Today page');
+  });
 }
 async function completeTask(id){
   let list=state.personalTasks,task=list.find(t=>t.id===id),ref=profileRef('todo-profiles','tasks');
@@ -491,11 +665,26 @@ function computeInsights(){
   const thisWeekGymDays=last7.reduce((s,t)=>s+t.gym,0), thisWeekSkinDays=last7.reduce((s,t)=>s+t.skin,0);
   const thisWeekTogether=window.slice(-7).reduce((s,dt)=>s+(choresTogetherByDate[dt]||0),0);
   const tasksAllTime=tasksAll.filter(t=>t.done).length;
+  // Per-system "best week in the last 60 days" — used to turn each
+  // system into an honest 0-100% ring (this week vs your own best week
+  // for that same system), rather than an invented external target.
+  const bestWeekFor=key=>{let best=0;for(let i=0;i<=totals.length-7;i++){const sum=totals.slice(i,i+7).reduce((s,t)=>s+t[key],0);best=Math.max(best,sum);}return best};
+  const bestWeekTasks=Math.max(bestWeekFor('tasks'),thisWeekTasks,1);
+  const bestWeekChores=Math.max(bestWeekFor('chores'),thisWeekChores,1);
+  // Consistency score — the % of the last 7 days with *something* logged
+  // across any system. This is the page's headline "score", and it's a
+  // real, legible number rather than a composite index nobody could
+  // reconstruct.
+  const activeDaysThisWeek=last7.filter(t=>t.total>0).length;
+  const activeDaysPrevWeek=prev7.filter(t=>t.total>0).length;
+  const consistencyScore=Math.round(activeDaysThisWeek/7*100);
+  const consistencyDelta=Math.round((activeDaysThisWeek-activeDaysPrevWeek)/7*100);
   return {
     d, tasksByDate, choresMineByDate, choresTogetherByDate,
-    last7Dates:window.slice(-7), totals, todayActive, currentStreak, longestStreak,
+    last7Dates:window.slice(-7), last28Dates:window.slice(-28), last60Dates:window, totals, todayActive, currentStreak, longestStreak,
     thisWeekTotal, prevWeekTotal, bestWeekTotal,
     thisWeekTasks, thisWeekChores, thisWeekGymDays, thisWeekSkinDays, thisWeekTogether,
+    bestWeekTasks, bestWeekChores, activeDaysThisWeek, consistencyScore, consistencyDelta,
     tasksAllTime, gymDaysAllTime:ins.gymDates.size, skinNightsAllTime:ins.skinCheckedDates.size
   };
 }
@@ -568,48 +757,231 @@ function heroMessage(m){
     sub:m.thisWeekTotal+' things done this week, on a '+m.currentStreak+'-day streak. Consistency like this is what actually moves the needle.'};
 }
 
-function renderMomentumHero(m){
-  const msg=heroMessage(m);
-  $('momentum-kicker').textContent=msg.kicker;
-  $('momentum-headline').textContent=msg.headline;
-  $('momentum-subtext').textContent=msg.sub;
-  $('momentum-streak-num').textContent=m.currentStreak;
-  const streakEl=document.querySelector('.momentum-hero-streak');
-  streakEl.classList.toggle('active', m.currentStreak>0);
+/* ===== Insights — "mission control" render suite =====
+   insightsRange controls the hero score/chart/foot window (7/28/60 days,
+   all sliced from the same 60-day computeInsights() scan — no re-fetch).
+   The activity grid and constellation always show the full 60-day/badge
+   picture regardless of range, since they're meant as the "whole story"
+   sections, not the headline metric. */
+let insightsRange='week';
+let insightsCurrentM=null;
+let insightsConstellationRAF=null;
+let insightsRevealedOnce=false;
+let insightsPrevUnlocked=null;
+const INSIGHTS_RANGE_DAYS={week:7,month:28,all:60};
+
+function insightsRangeTotals(m){ return m.totals.slice(-INSIGHTS_RANGE_DAYS[insightsRange]); }
+function insightsDateLabel(dt){ return new Date(dt+'T00:00:00').toLocaleDateString(undefined,{month:'short',day:'numeric'}); }
+
+function insightsScoreFor(m){
+  const totals=insightsRangeTotals(m);
+  const active=totals.filter(t=>t.total>0).length;
+  return Math.round(active/totals.length*100);
 }
-function renderMomentumStats(m){
+function insightsScoreMessage(m){
+  const totals=insightsRangeTotals(m);
+  const days=totals.length, active=totals.filter(t=>t.total>0).length;
+  return active+' of '+days+' day'+(days===1?'':'s')+' had something logged — tasks, chores, training or care.';
+}
+function insightsDeltaFor(m){
+  const days=INSIGHTS_RANGE_DAYS[insightsRange];
+  if(days*2>m.totals.length) return null;
+  const cur=m.totals.slice(-days).filter(t=>t.total>0).length;
+  const prev=m.totals.slice(-days*2,-days).filter(t=>t.total>0).length;
+  return Math.round((cur-prev)/days*100);
+}
+function insightsActiveDaysThisWeek(m,key){
+  return m.totals.slice(-7).filter(t=>t[key]>0).length;
+}
+
+function renderInsightsChart(m){
+  const totals=insightsRangeTotals(m);
+  const n=totals.length, w=760, h=190, padTop=10, padBottom=10;
+  const max=Math.max(1,...totals.map(t=>t.total));
+  const pts=totals.map((t,i)=>{
+    const x=n===1?w/2:(i/(n-1))*w;
+    const y=h-padBottom-(t.total/max)*(h-padTop-padBottom);
+    return [Math.round(x*10)/10, Math.round(y*10)/10];
+  });
+  const line=pts.map((p,i)=>(i===0?'M':'L')+p[0]+','+p[1]).join(' ');
+  const area=line+' L'+pts[pts.length-1][0]+','+h+' L'+pts[0][0]+','+h+' Z';
+  const lineEl=$('insights-chart-line'), areaEl=$('insights-chart-area');
+  lineEl.setAttribute('d',line); lineEl.setAttribute('pathLength','1');
+  areaEl.setAttribute('d',area);
+  lineEl.classList.remove('draw'); areaEl.classList.remove('draw');
+  void lineEl.getBoundingClientRect();
+  lineEl.classList.add('draw'); areaEl.classList.add('draw');
+  const gridRows=4;
+  let gridHtml='';
+  for(let i=0;i<=gridRows;i++){ const y=Math.round((h/gridRows)*i); gridHtml+='<line x1="0" y1="'+y+'" x2="'+w+'" y2="'+y+'"/>'; }
+  $('insights-chart-grid').innerHTML=gridHtml;
+  const dates=m.last60Dates.slice(-n);
+  $('insights-chart-start').textContent=insightsDateLabel(dates[0]);
+  $('insights-chart-end').textContent='Today';
+}
+function renderInsightsHeroFoot(m){
+  const totals=insightsRangeTotals(m);
+  const sum=k=>totals.reduce((s,t)=>s+t[k],0);
   const tiles=[
-    {cls:'c-tasks',icon:'✓',label:'Tasks',value:m.thisWeekTasks,sub:'completed this week'},
-    {cls:'c-chores',icon:'🏠',label:'Chores',value:m.thisWeekChores,sub:'done by you this week'},
-    {cls:'c-gym',icon:'💪',label:'Training',value:m.thisWeekGymDays,sub:'days logged this week'},
-    {cls:'c-skin',icon:'🌙',label:'Care routine',value:m.thisWeekSkinDays,sub:'nights logged this week'}
+    {label:'Tasks',value:sum('tasks')},
+    {label:'Chores',value:sum('chores')},
+    {label:'Training days',value:sum('gym')},
+    {label:'Care nights',value:sum('skin')}
   ];
-  $('momentum-stats').innerHTML=tiles.map(t=>'<article class="momentum-stat '+t.cls+'"><span>'+esc(t.label)+'</span><strong>'+t.value+'</strong><small>'+esc(t.sub)+'</small></article>').join('');
+  $('insights-hero-foot').innerHTML=tiles.map(t=>'<div><b>'+t.value+'</b><span>'+esc(t.label)+'</span></div>').join('');
 }
-function renderMomentumBars(m){
-  const max=Math.max(1,...m.totals.slice(-7).map(t=>t.total));
-  const labels=m.last7Dates.map(dt=>new Date(dt+'T00:00:00').toLocaleDateString(undefined,{weekday:'short'})[0]);
-  const todayD=today();
-  $('momentum-bars').innerHTML=m.totals.slice(-7).map((t,i)=>{
-    const pct=Math.max(6,Math.round(t.total/max*100));
-    const isToday=m.last7Dates[i]===todayD;
-    return '<div class="mbar-col'+(isToday?' is-today':'')+'"><div class="mbar-track"><div class="mbar-fill" style="height:'+pct+'%"></div></div><span>'+labels[i]+'</span></div>';
+function renderInsightsHero(m){
+  const score=insightsScoreFor(m);
+  const scoreEl=$('insights-score');
+  scoreEl.textContent=score+'%';
+  scoreEl.classList.remove('flash'); void scoreEl.offsetWidth; scoreEl.classList.add('flash');
+  $('insights-score-message').textContent=insightsScoreMessage(m);
+  const delta=insightsDeltaFor(m);
+  const deltaEl=$('insights-delta');
+  if(delta===null){ deltaEl.style.display='none'; }
+  else{
+    deltaEl.style.display='';
+    deltaEl.classList.toggle('is-down',delta<0);
+    deltaEl.innerHTML='<i data-lucide="'+(delta>=0?'trending-up':'trending-down')+'"></i> '+(delta>=0?'+':'')+delta+'% vs previous '+INSIGHTS_RANGE_DAYS[insightsRange]+' days';
+    if(window.lucide)lucide.createIcons();
+  }
+  renderInsightsChart(m);
+  renderInsightsHeroFoot(m);
+}
+function renderInsightsCommand(m){
+  const msg=heroMessage(m);
+  $('insights-headline').textContent=msg.headline;
+  $('insights-subtext').textContent=msg.sub;
+  $('insights-streak-num').textContent=m.currentStreak;
+  $('insights-streak-row').classList.toggle('active',m.currentStreak>0);
+  const s=pickSurprise(m);
+  $('insights-surprise-title').textContent=s.icon+' '+s.title;
+  $('insights-surprise-body').textContent=s.body;
+}
+function igridLevel(val,kind){
+  if(kind==='binary') return val>0?3:0;
+  if(val<=0) return 0;
+  if(val===1) return 1;
+  if(val<=3) return 2;
+  return 3;
+}
+function renderInsightsGrid(m){
+  const rows=[
+    {label:'Tasks',key:'tasks',kind:'count'},
+    {label:'Chores',key:'chores',kind:'count'},
+    {label:'Training',key:'gym',kind:'binary'},
+    {label:'Care',key:'skin',kind:'binary'}
+  ];
+  const totals=m.totals, days=totals.length, todayIdxLocal=days-1;
+  let html='';
+  rows.forEach(r=>{
+    html+='<span class="igrid-label">'+esc(r.label)+'</span>';
+    for(let i=0;i<days;i++){
+      const lvl=igridLevel(totals[i][r.key],r.kind);
+      html+='<button type="button" class="igrid-dot l'+lvl+(i===todayIdxLocal?' is-today':'')+'" data-day-idx="'+i+'" aria-label="'+esc(r.label)+' — '+insightsDateLabel(m.last60Dates[i])+'"></button>';
+    }
+  });
+  $('insights-grid').innerHTML=html;
+  showInsightsDayDetail(m,todayIdxLocal);
+}
+function showInsightsDayDetail(m,idx){
+  const t=m.totals[idx], dt=m.last60Dates[idx];
+  const label=new Date(dt+'T00:00:00').toLocaleDateString(undefined,{weekday:'long',month:'short',day:'numeric'});
+  const parts=[];
+  if(t.tasks) parts.push(t.tasks+' task'+(t.tasks===1?'':'s')+' completed');
+  if(t.chores) parts.push(t.chores+' chore'+(t.chores===1?'':'s')+' done');
+  if(t.gym) parts.push('training logged');
+  if(t.skin) parts.push('care routine logged');
+  const body=parts.length?parts.join(' · '):'Nothing logged this day.';
+  $('insights-day-detail').innerHTML='<b>'+esc(label)+'</b> — '+esc(body);
+  $('insights-day-detail').classList.add('open');
+}
+function renderInsightsConstellation(m){
+  const badges=insightsBadges(m);
+  const unlockedCount=badges.filter(b=>b.unlocked).length;
+  $('insights-constellation-note').textContent = unlockedCount===0
+    ? 'No badges unlocked yet — the first one might be closer than you think.'
+    : unlockedCount===badges.length
+      ? 'Every badge on this page, earned.'
+      : unlockedCount+' of '+badges.length+' earned. Each one required real days, not luck.';
+  $('insights-badge-list').innerHTML=badges.map(b=>'<span class="insights-badge-chip'+(b.unlocked?' unlocked':'')+'">'+b.icon+' '+esc(b.label)+'</span>').join('');
+  $('insights-constellation-status').innerHTML='<strong>'+unlockedCount+' / '+badges.length+'</strong><span>badges earned</span>';
+
+  const canvas=$('insights-canvas');
+  const wrap=canvas.parentElement;
+  const rect=wrap.getBoundingClientRect();
+  if(rect.width<10||rect.height<10) return;
+  const dpr=Math.min(2,window.devicePixelRatio||1);
+  canvas.width=Math.max(1,Math.round(rect.width*dpr));
+  canvas.height=Math.max(1,Math.round(rect.height*dpr));
+  canvas.style.width=rect.width+'px';
+  canvas.style.height=rect.height+'px';
+  const ctx=canvas.getContext('2d');
+  const cx=canvas.width/2, cy=canvas.height*0.46;
+  const radius=Math.min(canvas.width,canvas.height)*0.32;
+  const n=badges.length;
+  const pts=badges.map((b,i)=>{
+    const angle=(i/n)*Math.PI*2-Math.PI/2;
+    return {x:cx+Math.cos(angle)*radius, y:cy+Math.sin(angle)*radius, badge:b};
+  });
+  if(insightsConstellationRAF) cancelAnimationFrame(insightsConstellationRAF);
+  const reduceMotion=window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  let start=null;
+  function frame(ts){
+    if(!start) start=ts;
+    const t=(ts-start)/1000;
+    ctx.clearRect(0,0,canvas.width,canvas.height);
+    ctx.strokeStyle='rgba(66,230,164,.35)';
+    ctx.lineWidth=1.5*dpr;
+    ctx.beginPath();
+    let prev=null;
+    pts.forEach(p=>{ if(p.badge.unlocked){ if(prev) ctx.lineTo(p.x,p.y); else ctx.moveTo(p.x,p.y); prev=p; } });
+    ctx.stroke();
+    pts.forEach((p,i)=>{
+      const pulse=reduceMotion?0:Math.sin(t*1.6+i)*1.4;
+      const r=(p.badge.unlocked?5:3.4)*dpr+pulse*dpr;
+      ctx.beginPath(); ctx.arc(p.x,p.y,Math.max(1,r),0,Math.PI*2);
+      ctx.fillStyle=p.badge.unlocked?'#42e6a4':'rgba(140,150,144,.35)';
+      ctx.fill();
+      if(p.badge.unlocked){
+        ctx.beginPath(); ctx.arc(p.x,p.y,r+3*dpr,0,Math.PI*2);
+        ctx.strokeStyle='rgba(66,230,164,.25)'; ctx.lineWidth=1*dpr; ctx.stroke();
+      }
+    });
+    if(!reduceMotion) insightsConstellationRAF=requestAnimationFrame(frame);
+  }
+  frame(performance.now());
+}
+function renderInsightsRings(m){
+  const pillars=[
+    {label:'Training',value:m.thisWeekGymDays,best:7,color:'#c9622e',suffix:'/7 days'},
+    {label:'Care',value:m.thisWeekSkinDays,best:7,color:'#a3568a',suffix:'/7 nights'},
+    {label:'Tasks',value:m.thisWeekTasks,best:m.bestWeekTasks,color:'#5b7fd6',suffix:' this week'},
+    {label:'Chores',value:m.thisWeekChores,best:m.bestWeekChores,color:'#2f7c5a',suffix:' this week'}
+  ];
+  $('insights-rings').innerHTML=pillars.map(p=>{
+    const pct=Math.max(0,Math.min(100,Math.round(p.value/Math.max(1,p.best)*100)));
+    return '<div class="insights-pillar"><div class="insights-big-ring" style="--progress:'+pct+'%;--c:'+p.color+'"><b>'+pct+'%</b></div><strong>'+esc(p.label)+'</strong><span>'+p.value+esc(p.suffix)+'</span></div>';
   }).join('');
 }
-function renderMomentumSurprise(m){
-  const s=pickSurprise(m);
-  $('surprise-title').textContent=s.icon+' '+s.title;
-  $('surprise-body').textContent=s.body;
+function renderInsightsRankList(m){
+  const items=[
+    {label:'Training',days:m.thisWeekGymDays},
+    {label:'Care routine',days:m.thisWeekSkinDays},
+    {label:'Tasks',days:insightsActiveDaysThisWeek(m,'tasks')},
+    {label:'Chores',days:insightsActiveDaysThisWeek(m,'chores')}
+  ];
+  items.sort((a,b)=>b.days-a.days);
+  $('insights-rank-list').innerHTML=items.map((it,i)=>{
+    const pct=Math.round(it.days/7*100);
+    return '<div class="insights-rank"><span class="insights-rank-num">'+(i+1)+'</span><div><b>'+esc(it.label)+'</b><div class="insights-rank-track"><span style="transform:scaleX('+(pct/100)+')"></span></div></div><strong>'+it.days+'/7</strong></div>';
+  }).join('');
 }
-function renderMomentumMilestones(){
-  const card=$('milestones-row');
-  if(state.profile!=='Bhargav'){
-    $('milestones-card').style.display='none';
-    $('milestones-row').style.gridTemplateColumns='1fr';
-    return;
-  }
-  $('milestones-card').style.display='';
-  $('milestones-row').style.gridTemplateColumns='';
+function renderInsightsMilestones(){
+  const show=state.profile==='Bhargav';
+  $('milestones-section-head').style.display=show?'':'none';
+  $('milestones-card').style.display=show?'':'none';
+  if(!show) return;
   const dates=insightsMilestoneDates();
   const d=today();
   const nextIdx=dates.findIndex(dt=>!milestoneHitOn(dt) && dt>=d);
@@ -626,28 +998,86 @@ function renderMomentumMilestones(){
   }).join('');
   $('milestones-list').innerHTML=rows;
 }
-function renderMomentumBadges(m){
-  const badges=insightsBadges(m);
-  $('badge-grid').innerHTML=badges.map(b=>'<div class="badge-tile'+(b.unlocked?' unlocked':'')+'"><span class="bt-icon">'+b.icon+'</span><strong>'+esc(b.label)+'</strong><small>'+esc(b.sub)+'</small></div>').join('');
+function renderInsightsStory(m){
+  const msg=heroMessage(m);
+  $('insights-story-title').textContent=msg.headline;
+  $('insights-story-body').textContent=msg.sub;
+  $('insights-thread-body').textContent = m.currentStreak>0
+    ? 'You’re '+m.currentStreak+' day'+(m.currentStreak===1?'':'s')+' deep right now. On the days it feels pointless, you don’t need motivation — just one small thing before the day ends.'
+    : 'No streak running right now, and that’s a fact, not a verdict. Every streak on this page started on a day that felt exactly like today. Do one small thing — that’s the whole job.';
 }
-function renderDarkestDays(m){
-  const el=$('dd-text');
-  if(m.currentStreak>0){
-    el.textContent='Right now you’re '+m.currentStreak+' day'+(m.currentStreak===1?'':'s')+' deep. On the days it feels pointless, remember: you don’t have to feel motivated to protect a streak — you just have to do one small thing before the day ends.';
-  }else{
-    el.textContent='No streak running right now, and that’s a fact, not a verdict. Every streak on this page started on a day that felt exactly like today. Do one small thing — that’s the whole job.';
+function insightsFireCelebration(){
+  const host=$('insights-celebration');
+  const colors=['','gold'];
+  const cx=window.innerWidth/2, cy=window.innerHeight*0.35;
+  let html='';
+  for(let i=0;i<26;i++){
+    const angle=Math.random()*Math.PI*2, dist=60+Math.random()*180;
+    const x=Math.cos(angle)*dist, y=Math.sin(angle)*dist;
+    const cls=colors[Math.random()<0.3?1:0];
+    html+='<span class="insights-spark'+(cls?' '+cls:'')+'" style="left:'+cx+'px;top:'+cy+'px;--x:'+x+'px;--y:'+y+'px;animation-delay:'+(Math.random()*0.2)+'s"></span>';
   }
+  host.innerHTML=html;
+  setTimeout(()=>{ if(host.innerHTML===html) host.innerHTML=''; },1600);
+}
+function wireInsightsInteractions(){
+  if(wireInsightsInteractions._wired) return; wireInsightsInteractions._wired=true;
+  $('insights-range').addEventListener('click',e=>{
+    const btn=e.target.closest('button[data-range]'); if(!btn) return;
+    insightsRange=btn.dataset.range;
+    $('insights-range').querySelectorAll('button').forEach(b=>b.classList.toggle('active',b===btn));
+    if(insightsCurrentM) renderInsightsHero(insightsCurrentM);
+  });
+  $('insights-grid').addEventListener('click',e=>{
+    const dot=e.target.closest('.igrid-dot'); if(!dot||!insightsCurrentM) return;
+    showInsightsDayDetail(insightsCurrentM,Number(dot.dataset.dayIdx));
+  });
+  $('insights-grid-jump').addEventListener('click',()=>{
+    const sc=document.querySelector('.insights-grid-scroll'); if(sc) sc.scrollLeft=sc.scrollWidth;
+  });
+  $('insights-replay').addEventListener('click',()=>{ insightsRevealedOnce=false; playInsightsReveal(); });
+  $('insights-thread-btn').addEventListener('click',()=>{ $('insights-recovery').hidden=false; });
+  $('insights-close-reset').addEventListener('click',()=>{ $('insights-recovery').hidden=true; });
+  $('insights-begin-reset').addEventListener('click',()=>{
+    $('insights-recovery').hidden=true;
+    showRoute('today');
+    setTimeout(()=>{
+      const pr=document.querySelector('.widget-card[data-widget-type="priorities"]');
+      if(pr) pr.scrollIntoView({behavior:'smooth',block:'center'});
+    },80);
+  });
+  window.addEventListener('resize',()=>{ if(insightsCurrentM && document.getElementById('page-insights').classList.contains('active')) renderInsightsConstellation(insightsCurrentM); });
+}
+function playInsightsReveal(){
+  const cinema=$('insights-cinema');
+  const scan=$('insights-scanline');
+  scan.classList.remove('go'); void scan.offsetWidth; scan.classList.add('go');
+  const cards=cinema.querySelectorAll('.reveal');
+  cards.forEach(c=>c.classList.remove('in'));
+  cards.forEach((c,i)=>setTimeout(()=>c.classList.add('in'), 90*i));
+  if(insightsCurrentM) setTimeout(()=>renderInsightsConstellation(insightsCurrentM), 90*cards.length+120);
 }
 async function renderInsightsPage(){
   await ensureInsightsLoaded();
   const m=computeInsights();
-  renderMomentumHero(m);
-  renderMomentumStats(m);
-  renderMomentumBars(m);
-  renderMomentumSurprise(m);
-  renderMomentumMilestones();
-  renderMomentumBadges(m);
-  renderDarkestDays(m);
+  insightsCurrentM=m;
+  wireInsightsInteractions();
+  renderInsightsHero(m);
+  renderInsightsCommand(m);
+  renderInsightsGrid(m);
+  renderInsightsConstellation(m);
+  renderInsightsRings(m);
+  renderInsightsRankList(m);
+  renderInsightsMilestones();
+  renderInsightsStory(m);
+  if(window.lucide)lucide.createIcons();
+  if(!insightsRevealedOnce){ insightsRevealedOnce=true; requestAnimationFrame(()=>playInsightsReveal()); }
+  else{
+    $('insights-cinema').querySelectorAll('.reveal').forEach(c=>c.classList.add('in'));
+  }
+  const nowUnlocked=insightsBadges(m).filter(b=>b.unlocked).map(b=>b.id);
+  if(insightsPrevUnlocked && nowUnlocked.some(id=>!insightsPrevUnlocked.includes(id))) insightsFireCelebration();
+  insightsPrevUnlocked=nowUnlocked;
 }
 
 /* =====================================================================
@@ -667,7 +1097,7 @@ function renderSettingsPage(){
   }).join('');
   $('settings-palette-presets').innerHTML=PALETTE_PRESETS.map(p=>'<button type="button" class="palette-swatch" data-preset="'+esc(p.name)+'" title="'+esc(p.name)+'"><span class="ps-dot" style="background:'+p.Bhargav+'"></span><span class="ps-dot" style="background:'+p.Anusha+'"></span><small>'+esc(p.name)+'</small></button>').join('');
   const activeWallpaper=(t.wallpaper&&t.wallpaper.id)||'none';
-  $('settings-wallpaper-presets').innerHTML=WALLPAPER_PRESETS.map(w=>'<button type="button" class="wallpaper-swatch'+(activeWallpaper===w.id?' active':'')+'" data-wallpaper="'+w.id+'" title="'+esc(w.name)+'"><span class="ws-preview" style="background:'+(w.css||'var(--surface-soft)')+'"></span><small>'+esc(w.name)+'</small></button>').join('');
+  $('settings-wallpaper-presets').innerHTML=WALLPAPER_PRESETS.map(w=>'<button type="button" class="wallpaper-swatch'+(activeWallpaper===w.id?' active':'')+(w.live?' is-live':'')+'" data-wallpaper="'+w.id+'" title="'+esc(w.name)+(w.live?' (live, animated)':'')+'"><span class="ws-preview" style="background:'+(w.css||'var(--surface-soft)')+'">'+(w.live?'<span class="ws-live-badge"><i data-lucide="sparkles"></i>Live</span>':'')+'</span><small>'+esc(w.name)+'</small></button>').join('');
   if(window.lucide)lucide.createIcons();
   wireSettingsEvents();
 }
@@ -743,6 +1173,98 @@ function startHubClock(){
     $('hub-clock-date').textContent = now.toLocaleDateString(undefined,{weekday:'short',month:'short',day:'numeric'}) + (tzLabel ? ' · '+tzLabel : '');
   };
   tick(); clockTimer = setInterval(tick, 1000);
+}
+
+/* =====================================================================
+   WEATHER — a small detailed widget in the sidebar, right under the
+   clock. Uses Open-Meteo (no API key, CORS-friendly) with the browser's
+   own geolocation when granted; falls back to a fixed default city
+   otherwise so the widget is never empty. Cached in localStorage for 20
+   minutes so switching pages/profiles doesn't refetch every time.
+===================================================================== */
+const WEATHER_CACHE_KEY='hub-weather-cache-v1';
+const WEATHER_TTL_MS=20*60*1000;
+const WEATHER_FALLBACK={lat:32.7157,lon:-117.1611,label:'San Diego, CA'}; // used only if geolocation is denied/unavailable
+const WEATHER_CODES={
+  0:['sun','Clear sky'],1:['sun','Mostly clear'],2:['cloud-sun','Partly cloudy'],3:['cloud','Overcast'],
+  45:['cloud-fog','Foggy'],48:['cloud-fog','Freezing fog'],
+  51:['cloud-drizzle','Light drizzle'],53:['cloud-drizzle','Drizzle'],55:['cloud-drizzle','Heavy drizzle'],
+  56:['cloud-drizzle','Freezing drizzle'],57:['cloud-drizzle','Freezing drizzle'],
+  61:['cloud-rain','Light rain'],63:['cloud-rain','Rain'],65:['cloud-rain','Heavy rain'],
+  66:['cloud-rain','Freezing rain'],67:['cloud-rain','Freezing rain'],
+  71:['cloud-snow','Light snow'],73:['cloud-snow','Snow'],75:['cloud-snow','Heavy snow'],77:['cloud-snow','Snow grains'],
+  80:['cloud-rain-wind','Rain showers'],81:['cloud-rain-wind','Rain showers'],82:['cloud-rain-wind','Violent showers'],
+  85:['cloud-snow','Snow showers'],86:['cloud-snow','Snow showers'],
+  95:['cloud-lightning','Thunderstorm'],96:['cloud-lightning','Thunderstorm, hail'],99:['cloud-lightning','Thunderstorm, hail']
+};
+function weatherIconFor(code){return (WEATHER_CODES[code]||['cloud','Unknown'])[0]}
+function weatherLabelFor(code){return (WEATHER_CODES[code]||['cloud','Unknown'])[1]}
+async function fetchWeather(lat,lon){
+  const url='https://api.open-meteo.com/v1/forecast?latitude='+lat+'&longitude='+lon+
+    '&current=temperature_2m,apparent_temperature,relative_humidity_2m,wind_speed_10m,weather_code'+
+    '&hourly=temperature_2m,weather_code&daily=temperature_2m_max,temperature_2m_min'+
+    '&temperature_unit=fahrenheit&wind_speed_unit=mph&timezone=auto&forecast_days=1';
+  const res=await fetch(url);
+  if(!res.ok)throw new Error('weather fetch failed');
+  return res.json();
+}
+function renderWeather(data,label){
+  const icon=$('hub-weather-icon');
+  icon.classList.remove('spin');
+  icon.setAttribute('data-lucide',weatherIconFor(data.current.weather_code));
+  $('hub-weather-temp').textContent=Math.round(data.current.temperature_2m)+'°';
+  $('hub-weather-cond').textContent=weatherLabelFor(data.current.weather_code);
+  $('hub-weather-hi').textContent='H '+Math.round(data.daily.temperature_2m_max[0])+'°';
+  $('hub-weather-lo').textContent='L '+Math.round(data.daily.temperature_2m_min[0])+'°';
+  $('hub-weather-humidity').textContent=Math.round(data.current.relative_humidity_2m)+'%';
+  $('hub-weather-wind').textContent=Math.round(data.current.wind_speed_10m)+' mph';
+  $('hub-weather-place').textContent=label;
+  // Next few hours, starting from the current hour, skipping ones already past.
+  const nowHour=new Date().getHours();
+  const hourly=data.hourly.time.map((t,i)=>({hour:new Date(t).getHours(),temp:data.hourly.temperature_2m[i],code:data.hourly.weather_code[i]}))
+    .filter(h=>h.hour>=nowHour).slice(0,5);
+  $('hub-weather-hours').innerHTML=hourly.map(h=>{
+    const label=h.hour===0?'12A':h.hour===12?'12P':h.hour>12?(h.hour-12)+'P':h.hour+'A';
+    return '<div class="hub-weather-hour"><span>'+label+'</span><i data-lucide="'+weatherIconFor(h.code)+'"></i><b>'+Math.round(h.temp)+'°</b></div>';
+  }).join('');
+  $('hub-weather-detail').hidden=false;
+  if(window.lucide)lucide.createIcons();
+}
+function weatherError(){
+  const icon=$('hub-weather-icon');
+  if(icon){icon.classList.remove('spin');icon.setAttribute('data-lucide','cloud-off');if(window.lucide)lucide.createIcons()}
+  const cond=$('hub-weather-cond');if(cond)cond.textContent='Weather unavailable';
+}
+async function loadWeatherFor(lat,lon,label,skipCache){
+  try{
+    if(!skipCache){
+      const cached=safeJson(localStorage.getItem(WEATHER_CACHE_KEY),null);
+      if(cached && cached.lat===lat && cached.lon===lon && (Date.now()-cached.at)<WEATHER_TTL_MS){renderWeather(cached.data,label);return}
+    }
+    const data=await fetchWeather(lat,lon);
+    localStorage.setItem(WEATHER_CACHE_KEY,JSON.stringify({lat,lon,at:Date.now(),data}));
+    renderWeather(data,label);
+  }catch(e){console.warn('weather',e);weatherError()}
+}
+function requestPreciseWeather(){
+  const icon=$('hub-weather-icon');if(icon){icon.setAttribute('data-lucide','loader-circle');icon.classList.add('spin');if(window.lucide)lucide.createIcons()}
+  if(!navigator.geolocation){loadWeatherFor(WEATHER_FALLBACK.lat,WEATHER_FALLBACK.lon,WEATHER_FALLBACK.label,true);return}
+  navigator.geolocation.getCurrentPosition(
+    pos=>loadWeatherFor(Number(pos.coords.latitude.toFixed(3)),Number(pos.coords.longitude.toFixed(3)),'Your location',true),
+    ()=>loadWeatherFor(WEATHER_FALLBACK.lat,WEATHER_FALLBACK.lon,WEATHER_FALLBACK.label,true),
+    {timeout:8000,maximumAge:600000}
+  );
+}
+function initHubWeather(){
+  if(!$('hub-weather'))return;
+  $('hub-weather-place-btn').addEventListener('click',requestPreciseWeather);
+  if(!navigator.geolocation){loadWeatherFor(WEATHER_FALLBACK.lat,WEATHER_FALLBACK.lon,WEATHER_FALLBACK.label);return}
+  navigator.geolocation.getCurrentPosition(
+    pos=>loadWeatherFor(Number(pos.coords.latitude.toFixed(3)),Number(pos.coords.longitude.toFixed(3)),'Your location'),
+    ()=>loadWeatherFor(WEATHER_FALLBACK.lat,WEATHER_FALLBACK.lon,WEATHER_FALLBACK.label),
+    {timeout:8000,maximumAge:600000}
+  );
+  setInterval(()=>{const cached=safeJson(localStorage.getItem(WEATHER_CACHE_KEY),null);if(cached)loadWeatherFor(cached.lat,cached.lon,$('hub-weather-place').textContent,true)},WEATHER_TTL_MS);
 }
 
 /* =====================================================================
