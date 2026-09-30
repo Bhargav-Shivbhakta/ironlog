@@ -55,13 +55,14 @@
            geolocation when granted, falling back to a fixed default city
            otherwise — see WEATHER_FALLBACK + initHubWeather() in app.js. -->
       <div class="hub-weather" id="hub-weather" aria-live="polite">
-        <div class="hub-weather-top">
+        <button type="button" class="hub-weather-top" id="hub-weather-toggle" aria-expanded="false">
           <i data-lucide="loader-circle" class="hub-weather-icon" id="hub-weather-icon"></i>
           <div class="hub-weather-temp-wrap">
             <strong class="hub-weather-temp" id="hub-weather-temp">--°</strong>
             <span class="hub-weather-cond" id="hub-weather-cond">Loading weather…</span>
           </div>
-        </div>
+          <i data-lucide="chevron-down" class="hub-weather-chevron"></i>
+        </button>
         <div class="hub-weather-detail" id="hub-weather-detail" hidden>
           <div class="hub-weather-hilo"><span id="hub-weather-hi">H --°</span><span id="hub-weather-lo">L --°</span></div>
           <div class="hub-weather-meta">
@@ -134,8 +135,11 @@
              renderWidgetBoard() in app.js) so each person's Today page can
              look completely different. -->
         <div class="widget-board-head">
-          <p class="widget-board-hint"><i data-lucide="move"></i> Drag to rearrange · resize or remove from each widget's corner</p>
-          <button class="button secondary" id="widget-add-open" type="button"><i data-lucide="plus"></i><span>Add widget</span></button>
+          <p class="widget-board-hint"><i data-lucide="move"></i> Press and hold a widget to rearrange, resize, or remove it</p>
+          <div class="widget-board-head-actions">
+            <button class="button primary" id="widget-edit-done" type="button" hidden>Done</button>
+            <button class="button secondary" id="widget-add-open" type="button"><i data-lucide="plus"></i><span>Add widget</span></button>
+          </div>
         </div>
         <div class="widget-board" id="widget-board"></div>
       </section>

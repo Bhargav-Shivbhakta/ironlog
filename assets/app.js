@@ -489,20 +489,35 @@ function saveWidgetLayout(){
   },250);
 }
 let widgetDragId=null;
+let widgetEditMode=false;
+// True for the duration of any drag/resize gesture, plus a short tail
+// after pointerup — a drag that ends over the bare board background (not
+// over a card) still makes the browser fire a synthetic "click" on the
+// board itself, which would otherwise be mistaken for an intentional tap
+// on empty space to exit edit mode.
+let widgetGestureActive=false;
+const WIDGET_SIZE_SPANS={sm:[1,1],md:[2,1],tall:[1,2],lg:[2,2]};
+// "Jiggle mode" — nothing on a widget (drag handle, remove badge, resize
+// handle) is visible or interactive until you press and hold, same as
+// rearranging icons on an iPhone home screen. Exited via the Done button
+// (or tapping empty board space), not by a second press.
+function widgetSetEditMode(on){
+  widgetEditMode=on;
+  const board=$('widget-board');if(board)board.classList.toggle('editing',on);
+  const doneBtn=$('widget-edit-done');if(doneBtn)doneBtn.hidden=!on;
+}
 function renderWidgetBoard(){
   const board=$('widget-board');if(!board||!state.widgets)return;
   if(!state.widgets.length){board.innerHTML='<div class="widget-board-empty">No widgets yet — use <strong>+ Add widget</strong> above to put something here.</div>';return}
   board.innerHTML=state.widgets.map(w=>{
     const def=WIDGET_TYPES[w.type];if(!def)return'';
     return '<div class="widget-card" data-widget-id="'+esc(w.id)+'" data-widget-type="'+esc(w.type)+'" data-size="'+esc(w.size||def.defaultSize)+'">'+
+      '<button type="button" class="widget-remove-badge" data-widget-remove title="Remove widget" tabindex="-1"><i data-lucide="minus"></i></button>'+
       '<div class="widget-card-head">'+
         '<div class="widget-card-title"><span class="widget-drag-handle" data-widget-drag title="Drag to move"><i data-lucide="grip-vertical"></i></span><strong>'+esc(def.title)+'</strong></div>'+
-        '<div class="widget-card-controls">'+
-          '<button type="button" class="widget-ctrl-btn" data-widget-resize title="Change size"><i data-lucide="maximize-2"></i></button>'+
-          '<button type="button" class="widget-ctrl-btn" data-widget-remove title="Remove widget"><i data-lucide="x"></i></button>'+
-        '</div>'+
       '</div>'+
       '<div class="widget-card-body"></div>'+
+      '<span class="widget-resize-handle" data-widget-resize title="Drag to resize" tabindex="-1"><i data-lucide="move-diagonal-2"></i></span>'+
     '</div>';
   }).join('');
   if(window.lucide)lucide.createIcons();
@@ -512,29 +527,136 @@ function renderWidgetBoard(){
     wireWidgetCard(card);
   });
 }
-function wireWidgetCard(card){
-  const handle=card.querySelector('[data-widget-drag]');
-  handle.addEventListener('mousedown',()=>card.draggable=true);
-  handle.addEventListener('touchstart',()=>card.draggable=true,{passive:true});
-  card.addEventListener('dragend',()=>{card.draggable=false;card.classList.remove('dragging');document.querySelectorAll('.widget-card.drag-over').forEach(c=>c.classList.remove('drag-over'))});
-  card.addEventListener('dragstart',e=>{widgetDragId=card.dataset.widgetId;card.classList.add('dragging');e.dataTransfer.setData('text/plain',widgetDragId)});
-  card.addEventListener('dragover',e=>{e.preventDefault();if(card.dataset.widgetId!==widgetDragId)card.classList.add('drag-over')});
-  card.addEventListener('dragleave',()=>card.classList.remove('drag-over'));
-  card.addEventListener('drop',e=>{
-    e.preventDefault();card.classList.remove('drag-over');
-    const fromId=widgetDragId,toId=card.dataset.widgetId;if(!fromId||fromId===toId)return;
+// Pointer Events (not HTML5 dragstart/dragover) so reordering actually
+// works on iPhone/touch — native HTML5 drag-and-drop has no touch
+// equivalent in iOS Safari, so the old dragstart-based version silently
+// did nothing on a phone.
+// Shared drag-to-reorder, used both by a direct grab on the handle and by
+// a long-press anywhere else on the card (see wireWidgetCard below). Uses
+// Pointer Events + elementFromPoint rather than HTML5 dragstart/dragover,
+// which has no touch equivalent on iOS.
+function startWidgetDrag(card,pointerId,startClientX,startClientY){
+  widgetDragId=card.dataset.widgetId;
+  widgetGestureActive=true;
+  card.classList.add('dragging');
+  const onMove=ev=>{
+    if(ev.pointerId!==pointerId)return;
+    ev.preventDefault();
+    document.querySelectorAll('.widget-card.drag-over').forEach(c=>c.classList.remove('drag-over'));
+    const el=document.elementFromPoint(ev.clientX,ev.clientY);
+    const over=el&&el.closest('.widget-card');
+    if(over && over!==card && over.closest('#widget-board')) over.classList.add('drag-over');
+  };
+  const onUp=ev=>{
+    if(ev.pointerId!==pointerId)return;
+    document.removeEventListener('pointermove',onMove);
+    document.removeEventListener('pointerup',onUp);
+    document.removeEventListener('pointercancel',onUp);
+    card.classList.remove('dragging');
+    const overEl=document.querySelector('.widget-card.drag-over');
+    document.querySelectorAll('.widget-card.drag-over').forEach(c=>c.classList.remove('drag-over'));
+    const fromId=widgetDragId,toId=overEl&&overEl.dataset.widgetId;
+    widgetDragId=null;
+    setTimeout(()=>{widgetGestureActive=false;},60);
+    if(!overEl||!fromId||fromId===toId)return;
     const ids=state.widgets.map(w=>w.id),from=ids.indexOf(fromId),to=ids.indexOf(toId);
     if(from<0||to<0)return;
     const [moved]=state.widgets.splice(from,1);state.widgets.splice(to,0,moved);
     saveWidgetLayout();renderWidgetBoard();
+  };
+  document.addEventListener('pointermove',onMove);
+  document.addEventListener('pointerup',onUp);
+  document.addEventListener('pointercancel',onUp);
+}
+// Drag the corner handle to resize live (snaps to the nearest of the 4
+// size buckets as you move); a tap with no real movement falls back to
+// cycling to the next size, so it's still usable without precise drag.
+function startWidgetResize(card,pointerId,startClientX,startClientY){
+  const w=state.widgets.find(x=>x.id===card.dataset.widgetId);if(!w)return;
+  const def=WIDGET_TYPES[w.type];
+  const startSize=w.size||def.defaultSize;
+  const [startCol,startRow]=WIDGET_SIZE_SPANS[startSize]||WIDGET_SIZE_SPANS.sm;
+  const STEP=70;
+  let moved=false;
+  widgetGestureActive=true;
+  card.classList.add('resizing');
+  const onMove=ev=>{
+    if(ev.pointerId!==pointerId)return;
+    ev.preventDefault();
+    const dx=ev.clientX-startClientX,dy=ev.clientY-startClientY;
+    if(Math.hypot(dx,dy)>8)moved=true;
+    const colStep=Math.max(-1,Math.min(1,Math.round(dx/STEP)));
+    const rowStep=Math.max(-1,Math.min(1,Math.round(dy/STEP)));
+    const newCol=Math.max(1,Math.min(2,startCol+colStep));
+    const newRow=Math.max(1,Math.min(2,startRow+rowStep));
+    const newSize=Object.keys(WIDGET_SIZE_SPANS).find(k=>WIDGET_SIZE_SPANS[k][0]===newCol&&WIDGET_SIZE_SPANS[k][1]===newRow);
+    if(newSize && card.dataset.size!==newSize)card.dataset.size=newSize;
+  };
+  const onUp=ev=>{
+    if(ev.pointerId!==pointerId)return;
+    document.removeEventListener('pointermove',onMove);
+    document.removeEventListener('pointerup',onUp);
+    document.removeEventListener('pointercancel',onUp);
+    card.classList.remove('resizing');
+    if(!moved){
+      const cur=w.size||def.defaultSize,next=WIDGET_SIZES[(WIDGET_SIZES.indexOf(cur)+1)%WIDGET_SIZES.length];
+      w.size=next;card.dataset.size=next;
+    }else{
+      w.size=card.dataset.size||startSize;
+    }
+    saveWidgetLayout();
+    setTimeout(()=>{widgetGestureActive=false;},60);
+  };
+  document.addEventListener('pointermove',onMove);
+  document.addEventListener('pointerup',onUp);
+  document.addEventListener('pointercancel',onUp);
+}
+// "Press and hold" like an iPhone home screen: holding anywhere on a
+// widget that isn't one of its interactive bits (a link, a task
+// checkbox…) jiggles the whole board and starts dragging that widget as
+// soon as the hold fires, without needing to lift and grab again. Once
+// jiggling, a fresh press on any widget drags immediately — no second
+// hold needed, same as iOS.
+function wireWidgetCard(card){
+  const isInteractive=el=>!!el.closest('a,button,input,textarea,select,[data-task-id]');
+  const LONG_PRESS_MS=450;
+  card.addEventListener('pointerdown',e=>{
+    if(e.button!==undefined && e.button!==0)return;
+    if(isInteractive(e.target))return;
+    const startX=e.clientX,startY=e.clientY,pointerId=e.pointerId;
+    if(widgetEditMode){ startWidgetDrag(card,pointerId,startX,startY); return; }
+    let fired=false;
+    const timer=setTimeout(()=>{
+      fired=true;
+      if(navigator.vibrate){ try{navigator.vibrate(12);}catch(err){} }
+      widgetSetEditMode(true);
+      startWidgetDrag(card,pointerId,startX,startY);
+    },LONG_PRESS_MS);
+    const cleanup=()=>{
+      clearTimeout(timer);
+      card.removeEventListener('pointerup',cleanup);
+      card.removeEventListener('pointerleave',cleanup);
+      card.removeEventListener('pointermove',moveCheck);
+    };
+    const moveCheck=ev=>{ if(!fired && Math.hypot(ev.clientX-startX,ev.clientY-startY)>10)cleanup(); };
+    card.addEventListener('pointerup',cleanup);
+    card.addEventListener('pointerleave',cleanup);
+    card.addEventListener('pointermove',moveCheck);
   });
-  card.querySelector('[data-widget-resize]').addEventListener('click',()=>{
-    const w=state.widgets.find(x=>x.id===card.dataset.widgetId);if(!w)return;
-    const def=WIDGET_TYPES[w.type];
-    const cur=w.size||def.defaultSize,next=WIDGET_SIZES[(WIDGET_SIZES.indexOf(cur)+1)%WIDGET_SIZES.length];
-    w.size=next;card.dataset.size=next;saveWidgetLayout();
+  const handle=card.querySelector('[data-widget-drag]');
+  handle.addEventListener('pointerdown',e=>{
+    e.preventDefault();e.stopPropagation();
+    widgetSetEditMode(true);
+    startWidgetDrag(card,e.pointerId,e.clientX,e.clientY);
   });
-  card.querySelector('[data-widget-remove]').addEventListener('click',()=>{
+  card.querySelector('[data-widget-resize]').addEventListener('pointerdown',e=>{
+    e.preventDefault();e.stopPropagation();
+    if(!widgetEditMode)return;
+    startWidgetResize(card,e.pointerId,e.clientX,e.clientY);
+  });
+  card.querySelector('[data-widget-remove]').addEventListener('click',e=>{
+    e.stopPropagation();
+    if(!widgetEditMode)return;
     state.widgets=state.widgets.filter(w=>w.id!==card.dataset.widgetId);
     saveWidgetLayout();renderWidgetBoard();
   });
@@ -553,7 +675,9 @@ function renderWidgetCatalog(){
 let widgetModalWired=false;
 function wireWidgetModal(){
   if(widgetModalWired)return;widgetModalWired=true;
-  $('widget-add-open').addEventListener('click',()=>{renderWidgetCatalog();$('widget-add-modal').hidden=false});
+  $('widget-edit-done').addEventListener('click',()=>widgetSetEditMode(false));
+  $('widget-board').addEventListener('click',e=>{ if(e.target.id==='widget-board' && widgetEditMode && !widgetGestureActive)widgetSetEditMode(false); });
+  $('widget-add-open').addEventListener('click',()=>{widgetSetEditMode(false);renderWidgetCatalog();$('widget-add-modal').hidden=false});
   $('widget-add-close').addEventListener('click',()=>$('widget-add-modal').hidden=true);
   $('widget-add-modal').addEventListener('click',e=>{if(e.target.id==='widget-add-modal')$('widget-add-modal').hidden=true});
   $('widget-catalog').addEventListener('click',e=>{
@@ -1255,9 +1379,21 @@ function requestPreciseWeather(){
     {timeout:8000,maximumAge:600000}
   );
 }
+// Collapsed by default (it was overwhelming the sidebar above the nav) —
+// remembers the person's choice across visits via localStorage.
+function hubWeatherSetCollapsed(collapsed){
+  const el=$('hub-weather'); if(!el) return;
+  el.classList.toggle('is-collapsed',collapsed);
+  const btn=$('hub-weather-toggle');
+  if(btn) btn.setAttribute('aria-expanded', collapsed?'false':'true');
+  try{ localStorage.setItem('hub-weather-collapsed', collapsed?'1':'0'); }catch(e){}
+}
 function initHubWeather(){
   if(!$('hub-weather'))return;
-  $('hub-weather-place-btn').addEventListener('click',requestPreciseWeather);
+  const savedCollapsed=(function(){ try{ const v=localStorage.getItem('hub-weather-collapsed'); return v===null?true:v==='1'; }catch(e){ return true; } })();
+  hubWeatherSetCollapsed(savedCollapsed);
+  $('hub-weather-toggle').addEventListener('click',()=>{ hubWeatherSetCollapsed(!$('hub-weather').classList.contains('is-collapsed')); });
+  $('hub-weather-place-btn').addEventListener('click',e=>{ e.stopPropagation(); requestPreciseWeather(); });
   if(!navigator.geolocation){loadWeatherFor(WEATHER_FALLBACK.lat,WEATHER_FALLBACK.lon,WEATHER_FALLBACK.label);return}
   navigator.geolocation.getCurrentPosition(
     pos=>loadWeatherFor(Number(pos.coords.latitude.toFixed(3)),Number(pos.coords.longitude.toFixed(3)),'Your location'),
