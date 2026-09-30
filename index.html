@@ -263,10 +263,16 @@
       </section>
 
       <section class="page" id="page-settings" data-page="settings">
-        <header class="page-header"><div><p class="eyebrow">Make it yours</p><h1>Settings</h1><p class="page-subtitle">Colors and backgrounds — synced across every app in the Hub, not just this page.</p></div></header>
+        <header class="page-header"><div><p class="eyebrow">Make it yours</p><h1>Settings</h1><p class="page-subtitle">Appearance, colors, and backgrounds — synced across every app in the Hub, not just this page.</p></div></header>
 
         <section class="surface settings-card">
-          <div class="section-head"><div><p class="section-kicker">Palette</p><h2>Profile colors</h2></div></div>
+          <div class="section-head with-icon"><span class="section-head-icon"><i data-lucide="sparkles"></i></span><div><p class="section-kicker">Appearance</p><h2>Theme</h2></div></div>
+          <p class="settings-hint">Changes the look of the whole Hub — not just this page. Pick one now; more will show up here over time.</p>
+          <div class="theme-mode-grid" id="settings-theme-modes"></div>
+        </section>
+
+        <section class="surface settings-card">
+          <div class="section-head with-icon"><span class="section-head-icon"><i data-lucide="palette"></i></span><div><p class="section-kicker">Palette</p><h2>Profile colors</h2></div></div>
           <p class="settings-hint">Each person gets one base color. Every app in the suite — Diet, Grocery, Chores, Skin, Planner, and here — derives its own accents from it, so it stays consistent everywhere you open.</p>
           <div class="settings-swatch-pickers" id="settings-profile-pickers"></div>
           <p class="settings-hint" style="margin-top:18px">Or start from a matched pair:</p>
@@ -274,9 +280,11 @@
         </section>
 
         <section class="surface settings-card">
-          <div class="section-head"><div><p class="section-kicker">Background</p><h2>Wallpaper</h2></div></div>
-          <p class="settings-hint">Shows behind every page here in the Hub. Apps you open keep their own look.</p>
+          <div class="section-head with-icon"><span class="section-head-icon"><i data-lucide="image"></i></span><div><p class="section-kicker">Background</p><h2>Wallpaper</h2></div></div>
+          <p class="settings-hint">Shows behind every page here in the Hub. Apps you open keep their own look. Upload your own photo, or pick one of the presets.</p>
           <div class="settings-wallpaper-gallery" id="settings-wallpaper-presets"></div>
+          <input type="file" id="settings-wallpaper-file" accept="image/*" hidden>
+          <p class="settings-upload-progress" id="settings-upload-progress" hidden></p>
         </section>
 
         <button class="button secondary" id="settings-reset" type="button"><i data-lucide="rotate-ccw"></i><span>Reset to defaults</span></button>

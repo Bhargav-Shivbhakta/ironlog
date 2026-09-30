@@ -1,9 +1,35 @@
 :root{--bg:#f4f4f0;--surface:#fff;--surface-soft:#f8f8f5;--line:#e3e3dc;--text:#20211e;--muted:#74766f;--faint:#9c9e97;--ink:#171714;--accent:#ad7b20;--accent-soft:#f7efd9;--accent-ink:#6f4a08;--accent-bhargav:#ad7b20;--accent-anusha:#b25c78;--danger:#b8493f;--success:#2f7c5a;--shadow:0 18px 50px rgba(37,38,32,.08);--sidebar:236px;--radius:16px}
 body[data-profile="Anusha"]{--accent:#b25c78;--accent-soft:#faeaf0;--accent-ink:#813b53}
-*{box-sizing:border-box}html{background:var(--bg);color:var(--text);font-family:Inter,system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+/* =====================================================================
+   THEME MODES — an app-wide look, independent of the per-profile accent
+   color above. "light" is the original/default look (no overrides
+   needed). Each other mode just redeclares the base surface/text tokens
+   everything else in this file already paints with, so switching modes
+   reskins the whole Hub without touching a single component rule. New
+   modes can be added later the same way — one block, one entry in the
+   THEME_MODES list in app.js. */
+/* --ink stays a near-black "high contrast" color in every mode (several
+   rules pair it with a hardcoded white foreground — sidebar, primary
+   buttons, the toast — so it can darken per theme but never flip light). */
+:root[data-theme="dark"]{--bg:#121212;--surface:#1b1b1a;--surface-soft:#232322;--line:#323230;--text:#f2f1ed;--muted:#a7a59d;--faint:#79776f;--ink:#0a0a09;--shadow:0 18px 50px rgba(0,0,0,.4)}
+:root[data-theme="midnight"]{--bg:#0b0e1a;--surface:#131829;--surface-soft:#1a2036;--line:#262e4a;--text:#eef0f8;--muted:#9298b3;--faint:#636a87;--ink:#070912;--shadow:0 18px 50px rgba(0,0,10,.45)}
+:root[data-theme="sepia"]{--bg:#f6ecd9;--surface:#fbf5e8;--surface-soft:#f1e5cd;--line:#e1cfa8;--text:#3a2f1e;--muted:#7a6a4d;--faint:#a3937080;--ink:#2c2413;--shadow:0 18px 50px rgba(90,70,20,.12)}
+:root[data-theme="dark"],:root[data-theme="midnight"]{color-scheme:dark}
+*{box-sizing:border-box}html{background:var(--bg);color:var(--text);font-family:Inter,system-ui,sans-serif;-webkit-font-smoothing:antialiased;transition:background-color .25s ease,color .25s ease}
 html.wallpaper-live{background-size:250% 250%;animation:wallpaper-drift 24s ease-in-out infinite}
 @keyframes wallpaper-drift{0%{background-position:0% 30%}50%{background-position:100% 70%}100%{background-position:0% 30%}}
 @media(prefers-reduced-motion:reduce){html.wallpaper-live{animation:none;background-position:30% 30%}}
+/* Same link-row look the Today page used before the widget board — reused
+   inside the "Quick links" widget's own body so a wide/short card looks
+   like the original full-width row instead of a cramped stacked list. */
+.qlinks-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;height:100%}
+.qlinks-row>a{display:grid;grid-template-columns:38px 1fr 18px;align-items:center;gap:11px;text-decoration:none;padding:16px;background:transparent;border:1px solid var(--line);border-radius:13px;color:inherit;min-width:0}
+.qlinks-row>a:hover{background:var(--surface-soft)}
+.qlinks-row>a>svg{width:17px;color:var(--faint)}
+.qlinks-row strong,.qlinks-row small{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.qlinks-row strong{font-size:13px;font-weight:500}
+.qlinks-row small{font-size:11px;color:var(--muted);margin-top:3px}
+@media(max-width:560px){.qlinks-row{grid-template-columns:1fr}}
 .wallpaper-swatch{position:relative}
 .wallpaper-swatch .ws-live-badge{position:absolute;top:4px;right:4px;background:var(--ink);color:#fff;font-size:7px;font-weight:800;text-transform:uppercase;letter-spacing:.05em;padding:2px 5px;border-radius:99px;display:flex;align-items:center;gap:2px}
 .wallpaper-swatch .ws-live-badge svg{width:7px;height:7px}
@@ -49,20 +75,26 @@ html.wallpaper-live{background-size:250% 250%;animation:wallpaper-drift 24s ease
 .widget-board-head-actions{display:flex;align-items:center;gap:10px}
 .widget-board-hint{display:flex;align-items:center;gap:6px;margin:0;color:var(--faint);font-size:11.5px}
 .widget-board-hint svg{width:13px;height:13px}
-.widget-board{display:grid;grid-template-columns:repeat(4,1fr);grid-auto-rows:118px;gap:14px}
+.widget-board{display:grid;grid-template-columns:repeat(4,1fr);grid-auto-rows:144px;gap:14px}
 .widget-card{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:16px;display:flex;flex-direction:column;position:relative;min-width:0;min-height:0;transition:box-shadow .2s ease,border-color .2s ease;animation:card-in .4s cubic-bezier(.16,1,.3,1) both}
+/* 7 sizes: sm/md/tall/lg for small widgets, plus wide/xl/full for the
+   big panels (schedule, priorities, chores...) so the default layout can
+   match the original full-size Today page instead of a cramped grid. */
 .widget-card[data-size="sm"]{grid-column:span 1;grid-row:span 1}
 .widget-card[data-size="md"]{grid-column:span 2;grid-row:span 1}
 .widget-card[data-size="tall"]{grid-column:span 1;grid-row:span 2}
 .widget-card[data-size="lg"]{grid-column:span 2;grid-row:span 2}
+.widget-card[data-size="wide"]{grid-column:span 4;grid-row:span 1}
+.widget-card[data-size="xl"]{grid-column:span 2;grid-row:span 3}
+.widget-card[data-size="full"]{grid-column:span 4;grid-row:span 2}
 .widget-card.dragging{opacity:.4;z-index:5}
 .widget-card.resizing{box-shadow:0 0 0 2px var(--accent);z-index:5}
 .widget-card.drag-over{border-color:var(--accent);box-shadow:0 0 0 2px var(--accent-soft)}
 .widget-card-head{display:flex;align-items:flex-start;justify-content:space-between;gap:8px;margin-bottom:10px}
 .widget-card-title{display:flex;align-items:center;gap:8px;min-width:0}
-/* Jiggle mode: nothing here is visible or interactive until the board
-   gets .editing (entered by a press-and-hold on any widget), same as
-   rearranging icons on an iPhone home screen. */
+/* Press-and-hold reveals the drag handle, remove badge and resize handle
+   (none of them are visible or interactive otherwise) — no rotation or
+   wobble, just controls appearing/disappearing. */
 .widget-drag-handle{display:none;cursor:grab;color:var(--faint);flex:none;touch-action:none}
 .widget-drag-handle:active{cursor:grabbing}
 .widget-drag-handle svg{width:15px;height:15px}
@@ -74,33 +106,34 @@ html.wallpaper-live{background-size:250% 250%;animation:wallpaper-drift 24s ease
 .widget-board.editing .widget-drag-handle,
 .widget-board.editing .widget-remove-badge,
 .widget-board.editing .widget-resize-handle{display:flex}
-@keyframes widget-jiggle{0%{transform:rotate(-1deg)}50%{transform:rotate(1deg)}100%{transform:rotate(-1deg)}}
-.widget-board.editing .widget-card{animation:card-in .4s cubic-bezier(.16,1,.3,1) both,widget-jiggle .26s ease-in-out .05s infinite}
-.widget-board.editing .widget-card:nth-child(3n+1){animation-delay:0s,.04s}
-.widget-board.editing .widget-card:nth-child(3n+2){animation-delay:0s,.09s}
-.widget-board.editing .widget-card.dragging,
-.widget-board.editing .widget-card.resizing{animation:none}
-@media(prefers-reduced-motion:reduce){.widget-board.editing .widget-card{animation:none}}
 .widget-card-body{flex:1;min-height:0;overflow:auto;font-size:12.5px}
 .widget-card-body .empty-state{padding:14px 4px;text-align:left}
 .widget-card-link{margin-top:auto;padding-top:10px;display:flex;align-items:center;gap:5px;color:var(--muted);font-size:11px;text-decoration:none}
 .widget-card-link:hover{color:var(--text)}
 .widget-card-link svg{width:12px;height:12px}
 .widget-board-empty{grid-column:1/-1;padding:44px 20px;text-align:center;color:var(--muted);border:1.5px dashed var(--line);border-radius:var(--radius)}
-@media(max-width:900px){.widget-board{grid-template-columns:repeat(2,1fr)}}
-@media(max-width:700px){.widget-board{grid-template-columns:1fr 1fr;grid-auto-rows:132px;gap:10px}.widget-board-head{align-items:flex-start;flex-direction:column;gap:10px}}
+@media(max-width:900px){
+  .widget-board{grid-template-columns:repeat(2,1fr)}
+  /* Only 2 columns here, so the 4-wide sizes just become "full row" —
+     same idea as "lg" but keeping their own row-height. */
+  .widget-card[data-size="wide"]{grid-column:span 2;grid-row:span 1}
+  .widget-card[data-size="full"]{grid-column:span 2;grid-row:span 2}
+}
+@media(max-width:700px){.widget-board{grid-template-columns:1fr 1fr;grid-auto-rows:140px;gap:10px}.widget-board-head{align-items:flex-start;flex-direction:column;gap:10px}}
 @media(max-width:560px){
   /* Phone: one full-width column, sized to each widget's own size
-     variant instead of a fixed grid row — "sm/tall" only meant
-     something as a column/row span on a multi-column grid, so on a
-     single column it now controls height directly, and resizing
-     actually looks different after each tap. */
+     variant instead of a fixed grid row — size now controls height
+     directly (via each card's own max-height below) instead of a
+     column/row span, so resizing still looks different after each tap. */
   .widget-board{grid-template-columns:1fr;grid-auto-rows:auto;gap:12px}
   .widget-card[data-size]{grid-column:1/-1;grid-row:auto}
   .widget-card[data-size="sm"] .widget-card-body,
-  .widget-card[data-size="md"] .widget-card-body{max-height:180px}
+  .widget-card[data-size="md"] .widget-card-body,
+  .widget-card[data-size="wide"] .widget-card-body{max-height:200px}
   .widget-card[data-size="tall"] .widget-card-body,
-  .widget-card[data-size="lg"] .widget-card-body{max-height:340px}
+  .widget-card[data-size="lg"] .widget-card-body{max-height:360px}
+  .widget-card[data-size="xl"] .widget-card-body,
+  .widget-card[data-size="full"] .widget-card-body{max-height:520px}
   .widget-remove-badge{width:30px;height:30px;top:-10px;left:-10px}
   .widget-remove-badge svg{width:15px;height:15px}
   .widget-resize-handle{width:34px;height:34px}
@@ -198,7 +231,15 @@ html.wallpaper-live{background-size:250% 250%;animation:wallpaper-drift 24s ease
 .insights-replay:hover{color:var(--text);border-color:#c6c6bd}
 .insights-replay svg{width:12px;height:12px}
 
-:root{--ic-bg:#090d0a;--ic-surface:#0f1511;--ic-surface-2:#141c17;--ic-line:#222c25;--ic-text:#eef3ef;--ic-muted:#8d9a92;--ic-faint:#5f6c64;--ic-emerald:#42e6a4;--ic-emerald-deep:#1cbf7a;--ic-gold:#d8a83e}
+/* Insights used to force this dark cinematic palette regardless of the
+   rest of the app's theme. Now the --ic-* tokens follow whichever theme
+   mode is active: light/sepia alias them to the app's own surface/text
+   variables (see the light-mode override block further down for the few
+   hardcoded gradients that couldn't just be a token swap), while
+   dark/midnight keep the original dramatic values. */
+:root{--ic-bg:var(--surface-soft);--ic-surface:var(--surface);--ic-surface-2:var(--surface-soft);--ic-line:var(--line);--ic-text:var(--text);--ic-muted:var(--muted);--ic-faint:var(--faint);--ic-emerald:var(--success);--ic-emerald-deep:color-mix(in srgb,var(--success) 72%,black);--ic-gold:var(--accent-ink)}
+:root[data-theme="dark"]{--ic-bg:#090d0a;--ic-surface:#0f1511;--ic-surface-2:#141c17;--ic-line:#222c25;--ic-text:#eef3ef;--ic-muted:#8d9a92;--ic-faint:#5f6c64;--ic-emerald:#42e6a4;--ic-emerald-deep:#1cbf7a;--ic-gold:#d8a83e}
+:root[data-theme="midnight"]{--ic-bg:#090c14;--ic-surface:#111627;--ic-surface-2:#171d30;--ic-line:#262d45;--ic-text:#eef0f8;--ic-muted:#9298b3;--ic-faint:#636a87;--ic-emerald:#7fa2ff;--ic-emerald-deep:#4f74e6;--ic-gold:#e0b64e}
 .insights-cinema{background:radial-gradient(circle at 70% 0%,rgba(66,230,164,.08),transparent 38%),var(--ic-bg);color:var(--ic-text);border-radius:22px;padding:22px;margin-top:16px;position:relative;overflow:hidden}
 .insights-scanline{position:absolute;inset:0;z-index:2;pointer-events:none;opacity:0;background:linear-gradient(180deg,transparent,rgba(66,230,164,.05),transparent);transform:translateY(-100%)}
 .insights-scanline.go{animation:insights-scan 1.4s ease forwards}
@@ -208,6 +249,37 @@ html.wallpaper-live{background-size:250% 250%;animation:wallpaper-drift 24s ease
 .insights-cinema .insights-section-head p{margin:3px 0 0;font-size:10.5px;color:var(--ic-faint)}
 .insights-cinema .insights-section-head button{border:0;background:none;color:var(--ic-emerald);font-size:10px;font-weight:800}
 .insights-card{background:var(--ic-surface);border:1px solid var(--ic-line);border-radius:17px;padding:18px;box-shadow:0 12px 35px rgba(0,0,0,.16)}
+
+/* Light/sepia override for the handful of Insights blocks whose dark
+   gradient backgrounds were written as literal hex rather than the
+   --ic-* tokens above (a full recolor of every line would mean redoing
+   Insights' whole visual design, which is intentionally out of scope
+   here — this keeps it legible and on-theme without touching its layout,
+   motion, or structure). */
+:root:not([data-theme="dark"]):not([data-theme="midnight"]) .insights-hero{background:radial-gradient(circle at 82% -10%,color-mix(in srgb,var(--ic-emerald) 14%,transparent),transparent 40%),var(--ic-surface);border-color:var(--ic-line);box-shadow:0 16px 40px rgba(32,33,30,.08)}
+:root:not([data-theme="dark"]):not([data-theme="midnight"]) .insights-command-main{background:radial-gradient(circle at 90% 20%,color-mix(in srgb,var(--ic-emerald) 12%,transparent),transparent 34%),var(--ic-surface);border-color:var(--ic-line)}
+:root:not([data-theme="dark"]):not([data-theme="midnight"]) .insights-command-surprise{background:var(--ic-surface-2);border-color:var(--ic-line)}
+:root:not([data-theme="dark"]):not([data-theme="midnight"]) .insights-constellation{background:radial-gradient(circle at 50% 45%,color-mix(in srgb,var(--ic-emerald) 10%,transparent),transparent 36%),var(--ic-surface-2)}
+:root:not([data-theme="dark"]):not([data-theme="midnight"]) .insights-story{background:var(--ic-surface)}
+:root:not([data-theme="dark"]):not([data-theme="midnight"]) .insights-thread{background:var(--ic-surface-2);border-color:var(--ic-line)}
+:root:not([data-theme="dark"]):not([data-theme="midnight"]) .insights-thread h3{color:var(--ic-text)}
+:root:not([data-theme="dark"]):not([data-theme="midnight"]) .insights-thread p{color:var(--ic-muted)}
+:root:not([data-theme="dark"]):not([data-theme="midnight"]) .insights-thread .insights-chapter{color:var(--ic-emerald-deep)}
+:root:not([data-theme="dark"]):not([data-theme="midnight"]) .insights-recovery-card{background:var(--ic-surface);color:var(--ic-text);border-color:var(--ic-line);box-shadow:0 35px 100px rgba(20,20,17,.22)}
+:root:not([data-theme="dark"]):not([data-theme="midnight"]) .insights-recovery-card>p{color:var(--ic-muted)}
+:root:not([data-theme="dark"]):not([data-theme="midnight"]) .insights-reset-step{background:var(--ic-surface-2)}
+:root:not([data-theme="dark"]):not([data-theme="midnight"]) .insights-reset-step b{background:color-mix(in srgb,var(--ic-emerald) 16%,var(--ic-surface-2));color:var(--ic-emerald-deep)}
+:root:not([data-theme="dark"]):not([data-theme="midnight"]) .insights-reset-step span{color:var(--ic-faint)}
+:root:not([data-theme="dark"]):not([data-theme="midnight"]) .insights-close-reset{background:var(--ic-line);color:var(--ic-muted)}
+:root:not([data-theme="dark"]):not([data-theme="midnight"]) .insights-recovery{background:rgba(20,20,17,.45)}
+:root:not([data-theme="dark"]):not([data-theme="midnight"]) .igrid-dot{background:var(--ic-line)}
+:root:not([data-theme="dark"]):not([data-theme="midnight"]) .igrid-dot.l1{background:color-mix(in srgb,var(--ic-emerald) 35%,var(--ic-line))}
+:root:not([data-theme="dark"]):not([data-theme="midnight"]) .igrid-dot.l2{background:color-mix(in srgb,var(--ic-emerald) 65%,var(--ic-line))}
+:root:not([data-theme="dark"]):not([data-theme="midnight"]) .insights-rank-track{background:var(--ic-line)}
+:root:not([data-theme="dark"]):not([data-theme="midnight"]) .insights-badge-chip{background:var(--ic-surface-2);border-color:var(--ic-line);color:var(--ic-muted)}
+:root:not([data-theme="dark"]):not([data-theme="midnight"]) .insights-badge-chip.unlocked{background:color-mix(in srgb,var(--ic-emerald) 14%,transparent);border-color:color-mix(in srgb,var(--ic-emerald) 40%,transparent);color:var(--ic-emerald-deep)}
+:root:not([data-theme="dark"]):not([data-theme="midnight"]) .insights-delta{border-color:color-mix(in srgb,var(--ic-emerald) 35%,transparent);background:color-mix(in srgb,var(--ic-emerald) 12%,transparent);color:var(--ic-emerald-deep)}
+:root:not([data-theme="dark"]):not([data-theme="midnight"]) #insights-thread-btn{color:#fff}
 
 .reveal{opacity:0;transform:translateY(26px) scale(.985);filter:blur(6px);transition:opacity .7s ease,transform .7s cubic-bezier(.2,.75,.2,1),filter .7s ease}
 .reveal.in{opacity:1;transform:none;filter:none}
@@ -449,9 +521,44 @@ html.wallpaper-live{background-size:250% 250%;animation:wallpaper-drift 24s ease
 .hub-alarm-dismiss{border:0;background:#fff;color:var(--ink);font-size:16px;font-weight:700;padding:16px 46px;border-radius:999px;cursor:pointer}
 .hub-alarm-dismiss:hover{background:var(--accent-soft)}
 
-/* ===== Settings — palette + wallpaper editor ===== */
-.settings-card{margin-bottom:16px}
+/* ===== Settings — appearance, palette + wallpaper editor ===== */
+.settings-card{margin-bottom:16px;transition:background-color .25s ease,border-color .25s ease}
 .settings-hint{margin:2px 0 0;color:var(--muted);font-size:13px;line-height:1.55;max-width:640px}
+.section-head-icon{width:34px;height:34px;border-radius:10px;background:var(--accent-soft);color:var(--accent-ink);display:grid;place-items:center;flex:none}
+.section-head-icon svg{width:16px;height:16px}
+.section-head.with-icon{display:flex;align-items:flex-start;gap:12px}
+.settings-page-intro{display:flex;align-items:center;gap:6px;color:var(--accent-ink);font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase}
+
+/* Theme mode — a small grid of preview cards, each a mini mock of that
+   mode's own palette (not just a plain color dot), so picking one feels
+   like picking a look rather than a swatch. */
+.theme-mode-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(132px,1fr));gap:12px;margin-top:14px}
+.theme-mode-swatch{position:relative;display:flex;flex-direction:column;gap:9px;border:1.5px solid var(--line);background:var(--surface);border-radius:15px;padding:10px;transition:.15s;text-align:left}
+.theme-mode-swatch:hover{border-color:var(--accent);transform:translateY(-1px);box-shadow:0 8px 20px rgba(32,33,30,.07)}
+.theme-mode-swatch.active{border-color:var(--accent);box-shadow:0 0 0 2px var(--accent-soft)}
+.theme-mode-swatch.active:after{content:"";position:absolute;top:9px;right:9px;width:18px;height:18px;border-radius:50%;background:var(--accent);box-shadow:0 0 0 2px var(--surface)}
+.tm-preview{height:52px;border-radius:9px;overflow:hidden;position:relative;display:flex}
+.tm-preview .tm-rail{width:26%;height:100%}
+.tm-preview .tm-body{flex:1;height:100%;display:flex;align-items:flex-end;padding:7px;gap:4px}
+.tm-preview .tm-chip{width:16px;height:16px;border-radius:50%}
+.tm-preview .tm-line{flex:1;height:7px;border-radius:99px;align-self:center}
+.theme-mode-swatch strong{font-size:12.5px;font-weight:600}
+.theme-mode-swatch small{font-size:10.5px;color:var(--muted)}
+.theme-mode-swatch.is-locked{opacity:.55;cursor:default}
+.theme-mode-swatch.is-locked:hover{border-color:var(--line);transform:none;box-shadow:none}
+.theme-mode-swatch.is-locked .tm-lock{position:absolute;top:9px;right:9px;width:20px;height:20px;border-radius:50%;background:var(--surface-soft);border:1px solid var(--line);display:grid;place-items:center;color:var(--faint)}
+.theme-mode-swatch.is-locked .tm-lock svg{width:10px;height:10px}
+
+/* Wallpaper: same gallery as before, plus an "upload your own photo" tile
+   that sits first and either invites a file or previews the current one. */
+.wallpaper-upload-tile{border-style:dashed}
+.wallpaper-upload-tile .ws-preview{display:grid;place-items:center;color:var(--faint);background:var(--surface-soft)}
+.wallpaper-upload-tile .ws-preview svg{width:18px;height:18px}
+.wallpaper-upload-tile.has-photo{border-style:solid}
+.wallpaper-photo-actions{display:flex;gap:6px;width:100%}
+.wallpaper-photo-actions button{flex:1;border:1px solid var(--line);background:var(--surface-soft);border-radius:8px;padding:5px 4px;font-size:10px;font-weight:600;color:var(--muted)}
+.wallpaper-photo-actions button:hover{color:var(--text);border-color:var(--accent)}
+.settings-upload-progress{font-size:11px;color:var(--muted);margin-top:8px}
 .settings-swatch-pickers{display:grid;gap:10px;margin-top:16px}
 .settings-picker-row{display:grid;grid-template-columns:44px 1fr 52px 100px;align-items:center;gap:12px;background:var(--surface-soft);border:1px solid var(--line);border-radius:14px;padding:10px 12px}
 .settings-avatar-swatch{width:44px;height:44px;border-radius:12px;font-size:16px;transition:background .1s ease}

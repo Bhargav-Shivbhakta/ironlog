@@ -33,7 +33,17 @@ async function readJson(ref,fallback=[]){try{const snap=await ref.get();return s
    suite, not just this page. Stored at apps/hub/data/theme so it's one
    shared setting, same as categories/order/hidden above.
 ===================================================================== */
-const DEFAULT_THEME={accents:{Bhargav:'#ad7b20',Anusha:'#b25c78'},wallpaper:{id:'none',css:''}};
+const DEFAULT_THEME={accents:{Bhargav:'#ad7b20',Anusha:'#b25c78'},wallpaper:{id:'none',css:''},mode:'light'};
+// One app-wide look, layered on top of the per-profile accent color above.
+// Adding a new one later is just a new entry here plus a matching
+// :root[data-theme="..."] block in app.css — nothing else has to change.
+const THEME_MODES=[
+  {id:'light',name:'Light',desc:'The original look',rail:'#171714',body:'#f4f4f0',chip:'#ad7b20',line:'#e3e3dc'},
+  {id:'dark',name:'Dark',desc:'Easy on the eyes',rail:'#0a0a09',body:'#1b1b1a',chip:'#42e6a4',line:'#323230'},
+  {id:'midnight',name:'Midnight',desc:'Deep blue-black',rail:'#060811',body:'#131829',chip:'#7fa2ff',line:'#262e4a'},
+  {id:'sepia',name:'Sepia',desc:'Warm paper tone',rail:'#2c2413',body:'#fbf5e8',chip:'#a8672e',line:'#e1cfa8'},
+  {id:'__locked',name:'More soon',desc:'Added here over time',locked:true}
+];
 function hexToRgb(hex){hex=(hex||'').replace('#','');if(hex.length===3)hex=hex.split('').map(c=>c+c).join('');const n=parseInt(hex,16)||0;return[n>>16&255,n>>8&255,n&255]}
 function rgbToHsl(r,g,b){r/=255;g/=255;b/=255;const mx=Math.max(r,g,b),mn=Math.min(r,g,b);let h,s,l=(mx+mn)/2;if(mx===mn){h=s=0}else{const d=mx-mn;s=l>0.5?d/(2-mx-mn):d/(mx+mn);if(mx===r)h=(g-b)/d+(g<b?6:0);else if(mx===g)h=(b-r)/d+2;else h=(r-g)/d+4;h/=6}return[h*360,s*100,l*100]}
 function hslToHex(h,s,l){h=((h%360)+360)%360/360;s=Math.max(0,Math.min(100,s))/100;l=Math.max(0,Math.min(100,l))/100;let r,g,b;if(s===0){r=g=b=l}else{const q=l<0.5?l*(1+s):l+s-l*s,p=2*l-q;const hue2rgb=(p,q,t)=>{if(t<0)t+=1;if(t>1)t-=1;if(t<1/6)return p+(q-p)*6*t;if(t<1/2)return q;if(t<2/3)return p+(q-p)*(2/3-t)*6;return p};r=hue2rgb(p,q,h+1/3);g=hue2rgb(p,q,h);b=hue2rgb(p,q,h-1/3)}const toHex=x=>Math.round(x*255).toString(16).padStart(2,'0');return'#'+toHex(r)+toHex(g)+toHex(b)}
@@ -82,6 +92,7 @@ function applyTheme(){
   else document.documentElement.style.removeProperty('--bg');
   const wpPreset=WALLPAPER_PRESETS.find(w=>w.id===((t.wallpaper&&t.wallpaper.id)||'none'));
   document.documentElement.classList.toggle('wallpaper-live',!!(wpPreset&&wpPreset.live));
+  document.documentElement.dataset.theme=(t.mode&&THEME_MODES.some(m=>m.id===t.mode))?t.mode:'light';
 }
 async function saveHubTheme(){try{await hubRef('theme').set({json:JSON.stringify(state.theme)})}catch(e){}}
 
@@ -151,6 +162,7 @@ async function loadHubMeta(){
   ]);
   state.categories = categories; state.order = order; state.hidden = hidden;
   state.theme = (theme && theme.accents) ? theme : JSON.parse(JSON.stringify(DEFAULT_THEME));
+  if(!state.theme.mode)state.theme.mode='light'; // older saved themes predate the mode switcher
   state.widgets = (widgets && widgets[state.profile] && widgets[state.profile].length) ? widgets[state.profile].filter(w=>WIDGET_TYPES[w.type]) : widgetDefaultLayout();
   applyTheme();
 }
@@ -412,13 +424,19 @@ function renderChoresListInto(el,chores){
    apps/hub/data/widgets under a key named after the profile, same
    storage pattern as theme/categories/order above.
 ===================================================================== */
-const WIDGET_SIZES=['sm','md','tall','lg'];
+// 7 sizes now (was 4) — sm/md/tall/lg plus wide/xl/full, so resizing has
+// real range instead of jumping between a couple of cramped options. The
+// default layout below reproduces the original, pre-widget Today page
+// almost exactly (big side-by-side schedule+priorities, full-width
+// chores, a short full-width link row) — widgets are an option to
+// rearrange from here, not a smaller starting point.
+const WIDGET_SIZES=['sm','md','tall','lg','wide','xl','full'];
 function widgetDefaultLayout(){
   return [
-    {id:'w-schedule',type:'schedule',size:'lg'},
-    {id:'w-priorities',type:'priorities',size:'lg'},
-    {id:'w-chores',type:'chores',size:'md'},
-    {id:'w-quicklinks',type:'quicklinks',size:'md'}
+    {id:'w-schedule',type:'schedule',size:'xl'},
+    {id:'w-priorities',type:'priorities',size:'xl'},
+    {id:'w-chores',type:'chores',size:'full'},
+    {id:'w-quicklinks',type:'quicklinks',size:'wide'}
   ];
 }
 const WIDGET_TYPES={
@@ -430,12 +448,16 @@ const WIDGET_TYPES={
     render(el){renderChoresListInto(el,choresDueToday())}},
   training:{title:'Training',icon:'dumbbell',desc:"Whether today's workout check-in has been started.",defaultSize:'sm',
     render(el){el.innerHTML='<p style="margin:0 0 10px">'+(state.dailyLog?"Today's check-in is started.":'No check-in yet today.')+'</p><a class="widget-card-link" href="gym/index.html" data-profile-link>Open Gym <i data-lucide="arrow-up-right"></i></a>';updateProfileLinks();if(window.lucide)lucide.createIcons()}},
-  quicklinks:{title:'Quick links',icon:'grid-2x2',desc:'Shortcuts to Training, Nutrition, and Household.',defaultSize:'md',
-    render(el){el.innerHTML='<div style="display:grid;gap:8px">'+
-      '<a class="widget-card-link" style="margin:0" href="gym/index.html" data-profile-link><span class="area-icon" style="width:26px;height:26px;border-radius:8px"><i data-lucide="dumbbell" style="width:13px;height:13px"></i></span> Training</a>'+
-      '<a class="widget-card-link" style="margin:0" href="apps/diet.html" data-profile-link><span class="area-icon" style="width:26px;height:26px;border-radius:8px"><i data-lucide="utensils" style="width:13px;height:13px"></i></span> Nutrition</a>'+
-      '<a class="widget-card-link" style="margin:0" href="apps/chores.html" data-profile-link><span class="area-icon" style="width:26px;height:26px;border-radius:8px"><i data-lucide="sparkles" style="width:13px;height:13px"></i></span> Household</a>'+
-      '</div>';updateProfileLinks();if(window.lucide)lucide.createIcons()}},
+  quicklinks:{title:'Quick links',icon:'grid-2x2',desc:'Shortcuts to Training, Nutrition, and Household.',defaultSize:'wide',
+    render(el){
+      const chores=choresDueToday();
+      const choresStatus=chores.length?chores.length+' chore'+(chores.length===1?'':'s')+' due today':'No chores due';
+      const trainingStatus=state.dailyLog?"Today's check-in is started":"Open today's workout";
+      el.innerHTML='<div class="qlinks-row">'+
+        '<a href="gym/index.html" data-profile-link><span class="area-icon"><i data-lucide="dumbbell"></i></span><span><strong>Training</strong><small>'+esc(trainingStatus)+'</small></span><i data-lucide="chevron-right"></i></a>'+
+        '<a href="apps/diet.html" data-profile-link><span class="area-icon"><i data-lucide="utensils"></i></span><span><strong>Nutrition</strong><small>Meals and daily targets</small></span><i data-lucide="chevron-right"></i></a>'+
+        '<a href="apps/chores.html" data-profile-link><span class="area-icon"><i data-lucide="sparkles"></i></span><span><strong>Household</strong><small>'+esc(choresStatus)+'</small></span><i data-lucide="chevron-right"></i></a>'+
+        '</div>';updateProfileLinks();if(window.lucide)lucide.createIcons()}},
   focus:{title:'Focus today',icon:'timer',desc:"Minutes logged in Clock's focus timer today.",defaultSize:'sm',
     async render(el){
       el.innerHTML='<div class="empty-state"><strong>Loading…</strong></div>';
@@ -496,7 +518,7 @@ let widgetEditMode=false;
 // board itself, which would otherwise be mistaken for an intentional tap
 // on empty space to exit edit mode.
 let widgetGestureActive=false;
-const WIDGET_SIZE_SPANS={sm:[1,1],md:[2,1],tall:[1,2],lg:[2,2]};
+const WIDGET_SIZE_SPANS={sm:[1,1],md:[2,1],tall:[1,2],lg:[2,2],wide:[4,1],xl:[2,3],full:[4,2]};
 // "Jiggle mode" — nothing on a widget (drag handle, remove badge, resize
 // handle) is visible or interactive until you press and hold, same as
 // rearranging icons on an iPhone home screen. Exited via the Done button
@@ -577,6 +599,13 @@ function startWidgetResize(card,pointerId,startClientX,startClientY){
   const startSize=w.size||def.defaultSize;
   const [startCol,startRow]=WIDGET_SIZE_SPANS[startSize]||WIDGET_SIZE_SPANS.sm;
   const STEP=70;
+  // How many columns the board is actually showing right now (4 on
+  // desktop, fewer on tablet/phone) — bounds which of the 7 sizes are
+  // worth offering as a live drag target here; the rest stay reachable
+  // via the tap-to-cycle fallback regardless of width.
+  const board=$('widget-board');
+  const boardCols=board?getComputedStyle(board).gridTemplateColumns.split(' ').filter(Boolean).length:4;
+  const maxCol=Math.max(1,Math.min(4,boardCols));
   let moved=false;
   widgetGestureActive=true;
   card.classList.add('resizing');
@@ -585,12 +614,16 @@ function startWidgetResize(card,pointerId,startClientX,startClientY){
     ev.preventDefault();
     const dx=ev.clientX-startClientX,dy=ev.clientY-startClientY;
     if(Math.hypot(dx,dy)>8)moved=true;
-    const colStep=Math.max(-1,Math.min(1,Math.round(dx/STEP)));
-    const rowStep=Math.max(-1,Math.min(1,Math.round(dy/STEP)));
-    const newCol=Math.max(1,Math.min(2,startCol+colStep));
-    const newRow=Math.max(1,Math.min(2,startRow+rowStep));
-    const newSize=Object.keys(WIDGET_SIZE_SPANS).find(k=>WIDGET_SIZE_SPANS[k][0]===newCol&&WIDGET_SIZE_SPANS[k][1]===newRow);
-    if(newSize && card.dataset.size!==newSize)card.dataset.size=newSize;
+    const rawCol=Math.max(1,Math.min(maxCol,startCol+dx/STEP));
+    const rawRow=Math.max(1,Math.min(3,startRow+dy/STEP));
+    let best=null,bestDist=Infinity;
+    Object.keys(WIDGET_SIZE_SPANS).forEach(k=>{
+      const [c,r]=WIDGET_SIZE_SPANS[k];
+      if(c>maxCol)return;
+      const dist=Math.hypot(c-rawCol,r-rawRow);
+      if(dist<bestDist){bestDist=dist;best=k;}
+    });
+    if(best && card.dataset.size!==best)card.dataset.size=best;
   };
   const onUp=ev=>{
     if(ev.pointerId!==pointerId)return;
@@ -703,7 +736,6 @@ async function completeTask(id){
   renderDashboard();toast('Task completed');
   try{await ref.set({json:JSON.stringify(list),updatedAt:firebase.firestore.FieldValue.serverTimestamp()},{merge:true})}catch(e){list.splice(originalLength);task.done=false;task.completedOn=null;renderDashboard();toast('Could not save. Try again.')}
 }
-function renderTraining(){$('training-status').textContent=state.dailyLog?"Today's check-in is started":"Open today's workout"}
 
 /* =====================================================================
    INSIGHTS — "momentum" tab. Pulls a thin, read-only slice from every
@@ -1215,15 +1247,80 @@ async function renderInsightsPage(){
 ===================================================================== */
 function renderSettingsPage(){
   const t=state.theme||DEFAULT_THEME;
+  const activeMode=t.mode||'light';
+  $('settings-theme-modes').innerHTML=THEME_MODES.map(m=>{
+    if(m.locked)return '<div class="theme-mode-swatch is-locked" title="More themes will land here later"><span class="tm-lock"><i data-lucide="lock"></i></span><div class="tm-preview" style="background:var(--surface-soft)"></div><strong>'+esc(m.name)+'</strong><small>'+esc(m.desc)+'</small></div>';
+    return '<button type="button" class="theme-mode-swatch'+(activeMode===m.id?' active':'')+'" data-theme-mode="'+m.id+'" title="'+esc(m.name)+'"><div class="tm-preview" style="background:'+m.body+'"><span class="tm-rail" style="background:'+m.rail+'"></span><span class="tm-body"><span class="tm-chip" style="background:'+m.chip+'"></span><span class="tm-line" style="background:'+m.line+'"></span></span></div><strong>'+esc(m.name)+'</strong><small>'+esc(m.desc)+'</small></button>';
+  }).join('');
   $('settings-profile-pickers').innerHTML=['Bhargav','Anusha'].map(name=>{
     const hex=(t.accents&&t.accents[name])||DEFAULT_THEME.accents[name];
     return '<div class="settings-picker-row" data-profile="'+name+'"><span class="avatar settings-avatar-swatch '+name.toLowerCase()+'" style="background:'+hex+'">'+name[0]+'</span><div class="settings-picker-copy"><strong>'+name+'’s color</strong><small>Used across every app when '+name+' is active</small></div><input type="color" value="'+hex+'" data-profile-color="'+name+'" aria-label="'+name+'’s color"><input type="text" class="input settings-hex" value="'+hex+'" data-profile-hex="'+name+'" maxlength="7" spellcheck="false" aria-label="'+name+'’s color, as hex"></div>';
   }).join('');
   $('settings-palette-presets').innerHTML=PALETTE_PRESETS.map(p=>'<button type="button" class="palette-swatch" data-preset="'+esc(p.name)+'" title="'+esc(p.name)+'"><span class="ps-dot" style="background:'+p.Bhargav+'"></span><span class="ps-dot" style="background:'+p.Anusha+'"></span><small>'+esc(p.name)+'</small></button>').join('');
   const activeWallpaper=(t.wallpaper&&t.wallpaper.id)||'none';
-  $('settings-wallpaper-presets').innerHTML=WALLPAPER_PRESETS.map(w=>'<button type="button" class="wallpaper-swatch'+(activeWallpaper===w.id?' active':'')+(w.live?' is-live':'')+'" data-wallpaper="'+w.id+'" title="'+esc(w.name)+(w.live?' (live, animated)':'')+'"><span class="ws-preview" style="background:'+(w.css||'var(--surface-soft)')+'">'+(w.live?'<span class="ws-live-badge"><i data-lucide="sparkles"></i>Live</span>':'')+'</span><small>'+esc(w.name)+'</small></button>').join('');
+  const customPhoto=t.wallpaper&&t.wallpaper.id==='custom'&&t.wallpaper.css;
+  // A <button> can't contain nested <button>s (the browser silently
+  // splits the markup apart, which was breaking this tile into stray
+  // top-level grid cells) — so the "has a photo" state is a plain <div>
+  // wrapping two real buttons instead of one button wrapping two more.
+  const uploadTile=customPhoto
+    ?'<div class="wallpaper-swatch wallpaper-upload-tile has-photo active" id="settings-wallpaper-upload-tile"><span class="ws-preview" style="background:'+t.wallpaper.css.replace(/"/g,'&quot;')+'"></span><small>Your photo</small><span class="wallpaper-photo-actions"><button type="button" id="settings-photo-change">Change</button><button type="button" id="settings-photo-remove">Remove</button></span></div>'
+    :'<button type="button" class="wallpaper-swatch wallpaper-upload-tile" id="settings-wallpaper-upload-tile" title="Upload your own photo"><span class="ws-preview"><i data-lucide="upload"></i></span><small>Upload photo</small></button>';
+  $('settings-wallpaper-presets').innerHTML=uploadTile+WALLPAPER_PRESETS.map(w=>'<button type="button" class="wallpaper-swatch'+(activeWallpaper===w.id?' active':'')+(w.live?' is-live':'')+'" data-wallpaper="'+w.id+'" title="'+esc(w.name)+(w.live?' (live, animated)':'')+'"><span class="ws-preview" style="background:'+(w.css||'var(--surface-soft)')+'">'+(w.live?'<span class="ws-live-badge"><i data-lucide="sparkles"></i>Live</span>':'')+'</span><small>'+esc(w.name)+'</small></button>').join('');
   if(window.lucide)lucide.createIcons();
   wireSettingsEvents();
+}
+function setThemeMode(id){
+  if(!THEME_MODES.some(m=>m.id===id))return;
+  state.theme=state.theme||JSON.parse(JSON.stringify(DEFAULT_THEME));
+  state.theme.mode=id;
+  applyTheme();saveHubTheme();renderSettingsPage();
+}
+// Firestore documents cap out around 1MiB; a raw photo can blow past that
+// easily, so every upload is redrawn onto a canvas, shrunk to a sane max
+// dimension, and re-encoded as JPEG — stepping the quality (and, if it's
+// still too big, the dimension) down until the resulting data URL comfortably
+// fits alongside the rest of the theme doc's JSON.
+const WALLPAPER_MAX_BASE64=850000;
+function fileToImage(file){
+  return new Promise((resolve,reject)=>{
+    const reader=new FileReader();
+    reader.onload=()=>{const img=new Image();img.onload=()=>resolve(img);img.onerror=reject;img.src=reader.result;};
+    reader.onerror=reject;
+    reader.readAsDataURL(file);
+  });
+}
+function compressWallpaperPhoto(img){
+  let maxDim=1600;
+  for(let attempt=0;attempt<6;attempt++){
+    const scale=Math.min(1,maxDim/Math.max(img.width,img.height));
+    const w=Math.round(img.width*scale),h=Math.round(img.height*scale);
+    const canvas=document.createElement('canvas');canvas.width=w;canvas.height=h;
+    const ctx=canvas.getContext('2d');ctx.drawImage(img,0,0,w,h);
+    for(let q=0.78;q>=0.35;q-=0.1){
+      const dataUrl=canvas.toDataURL('image/jpeg',q);
+      if(dataUrl.length<=WALLPAPER_MAX_BASE64)return dataUrl;
+    }
+    maxDim=Math.round(maxDim*0.75); // still too big even at low quality — shrink further and retry
+  }
+  return null; // couldn't get under the limit even at the smallest size tried
+}
+async function handleWallpaperUpload(file){
+  if(!file||!/^image\//.test(file.type))return;
+  const progress=$('settings-upload-progress');
+  progress.hidden=false;progress.textContent='Preparing your photo…';
+  try{
+    const img=await fileToImage(file);
+    const dataUrl=compressWallpaperPhoto(img);
+    if(!dataUrl){progress.textContent='That photo is too large even after compressing — try a smaller image.';setTimeout(()=>{progress.hidden=true},3500);return}
+    state.theme=state.theme||JSON.parse(JSON.stringify(DEFAULT_THEME));
+    state.theme.wallpaper={id:'custom',css:'url("'+dataUrl+'") center/cover no-repeat'};
+    applyTheme();progress.hidden=true;
+    await saveHubTheme();
+    renderSettingsPage();
+  }catch(e){
+    console.warn(e);progress.textContent="Couldn't read that photo — try another one.";setTimeout(()=>{progress.hidden=true},3500);
+  }
 }
 function applyProfileColorLive(name,hex){
   if(!/^#[0-9a-fA-F]{6}$/i.test(hex))return;
@@ -1266,9 +1363,19 @@ function wireSettingsEvents(){
   page.addEventListener('change',e=>{
     if(e.target.dataset.profileColor)commitProfileColor(e.target.dataset.profileColor,e.target.value);
     else if(e.target.dataset.profileHex)commitProfileColor(e.target.dataset.profileHex,e.target.value.trim());
+    else if(e.target.id==='settings-wallpaper-file'){
+      const file=e.target.files&&e.target.files[0];
+      handleWallpaperUpload(file);
+      e.target.value=''; // so picking the same file again still fires change
+    }
   });
   page.addEventListener('click',e=>{
+    const mode=e.target.closest('[data-theme-mode]'); if(mode){setThemeMode(mode.dataset.themeMode);return}
     const preset=e.target.closest('[data-preset]'); if(preset){applyPalettePreset(preset.dataset.preset);return}
+    if(e.target.closest('#settings-photo-remove')){setWallpaper('none');return}
+    if(e.target.closest('#settings-photo-change')){$('settings-wallpaper-file').click();return}
+    const uploadTile=e.target.closest('#settings-wallpaper-upload-tile');
+    if(uploadTile){ if(!uploadTile.classList.contains('has-photo'))$('settings-wallpaper-file').click(); return }
     const wp=e.target.closest('[data-wallpaper]'); if(wp){setWallpaper(wp.dataset.wallpaper);return}
     if(e.target.closest('#settings-reset'))resetTheme();
   });
