@@ -75,18 +75,15 @@ html.wallpaper-live{background-size:250% 250%;animation:wallpaper-drift 24s ease
 .widget-board-head-actions{display:flex;align-items:center;gap:10px}
 .widget-board-hint{display:flex;align-items:center;gap:6px;margin:0;color:var(--faint);font-size:11.5px}
 .widget-board-hint svg{width:13px;height:13px}
-.widget-board{display:grid;grid-template-columns:repeat(4,1fr);grid-auto-rows:144px;gap:14px}
-.widget-card{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:16px;display:flex;flex-direction:column;position:relative;min-width:0;min-height:0;transition:box-shadow .2s ease,border-color .2s ease;animation:card-in .4s cubic-bezier(.16,1,.3,1) both}
-/* 7 sizes: sm/md/tall/lg for small widgets, plus wide/xl/full for the
-   big panels (schedule, priorities, chores...) so the default layout can
-   match the original full-size Today page instead of a cramped grid. */
-.widget-card[data-size="sm"]{grid-column:span 1;grid-row:span 1}
-.widget-card[data-size="md"]{grid-column:span 2;grid-row:span 1}
-.widget-card[data-size="tall"]{grid-column:span 1;grid-row:span 2}
-.widget-card[data-size="lg"]{grid-column:span 2;grid-row:span 2}
-.widget-card[data-size="wide"]{grid-column:span 4;grid-row:span 1}
-.widget-card[data-size="xl"]{grid-column:span 2;grid-row:span 3}
-.widget-card[data-size="full"]{grid-column:span 4;grid-row:span 2}
+/* Free-form widget sizing — a fine 12-column grid with a small 22px row
+   unit, and "dense" auto-placement so when a widget grows or shrinks,
+   every other widget reflows to fill the gap on its own (native CSS Grid
+   behavior, not something tracked in JS). Each card's exact size lives in
+   two custom properties, --cs (columns) and --rs (rows), set inline per
+   widget by renderWidgetBoard/startWidgetResize in app.js — so a widget
+   can be dragged to any width/height, not just one of a few presets. */
+.widget-board{display:grid;grid-template-columns:repeat(12,1fr);grid-auto-rows:22px;grid-auto-flow:row dense;gap:14px}
+.widget-card{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:16px;display:flex;flex-direction:column;position:relative;min-width:0;min-height:0;transition:box-shadow .2s ease,border-color .2s ease;animation:card-in .4s cubic-bezier(.16,1,.3,1) both;grid-column:span min(var(--cs,6),12);grid-row:span var(--rs,10)}
 .widget-card.dragging{opacity:.4;z-index:5}
 .widget-card.resizing{box-shadow:0 0 0 2px var(--accent);z-index:5}
 .widget-card.drag-over{border-color:var(--accent);box-shadow:0 0 0 2px var(--accent-soft)}
@@ -112,28 +109,45 @@ html.wallpaper-live{background-size:250% 250%;animation:wallpaper-drift 24s ease
 .widget-card-link:hover{color:var(--text)}
 .widget-card-link svg{width:12px;height:12px}
 .widget-board-empty{grid-column:1/-1;padding:44px 20px;text-align:center;color:var(--muted);border:1.5px dashed var(--line);border-radius:var(--radius)}
+/* Photo widget — a little self-contained gallery: a framed image plus a
+   row of controls, sized to fill whatever height/width the widget card
+   has been freely resized to (see the free-form widget board above). */
+.photo-widget{height:100%;display:flex;flex-direction:column;gap:10px}
+.photo-widget-frame{flex:1;min-height:60px;border-radius:12px;overflow:hidden;background:var(--surface-soft);border:1px solid var(--line)}
+.photo-widget-frame img{width:100%;height:100%;object-fit:cover;display:block;animation:photo-fade-in .35s ease both}
+@keyframes photo-fade-in{from{opacity:0}to{opacity:1}}
+.photo-widget-controls{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.photo-widget-controls .icon-button{width:32px;height:32px;border-radius:9px;color:var(--muted)}
+.photo-widget-controls .icon-button svg{width:15px;height:15px}
+.photo-widget-controls .icon-button:hover{border-color:var(--accent);color:var(--accent-ink)}
+.photo-widget-controls .icon-button.active{border-color:var(--accent);background:var(--accent-soft);color:var(--accent-ink)}
+.photo-widget-controls .icon-button:disabled{opacity:.4;pointer-events:none}
+.photo-widget-count{font-size:11px;color:var(--muted);font-variant-numeric:tabular-nums;margin:0 auto 0 2px}
+.photo-widget .empty-state{display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;gap:10px;text-align:center}
+.photo-widget-add-empty{align-self:center}
 @media(max-width:900px){
-  .widget-board{grid-template-columns:repeat(2,1fr)}
-  /* Only 2 columns here, so the 4-wide sizes just become "full row" —
-     same idea as "lg" but keeping their own row-height. */
-  .widget-card[data-size="wide"]{grid-column:span 2;grid-row:span 1}
-  .widget-card[data-size="full"]{grid-column:span 2;grid-row:span 2}
+  /* Fewer visual columns, but still the same fine --cs unit underneath —
+     min() just reclamps each card's span to whatever fits this narrower
+     board, so a widget sized near full-width on desktop still reads as
+     "wide" here instead of overflowing or needing its own rule. */
+  .widget-board{grid-template-columns:repeat(8,1fr)}
+  .widget-card{grid-column:span min(var(--cs,6),8)}
 }
-@media(max-width:700px){.widget-board{grid-template-columns:1fr 1fr;grid-auto-rows:140px;gap:10px}.widget-board-head{align-items:flex-start;flex-direction:column;gap:10px}}
+@media(max-width:700px){
+  .widget-board{grid-template-columns:repeat(4,1fr);grid-auto-rows:20px;gap:10px}
+  .widget-card{grid-column:span min(var(--cs,6),4)}
+  .widget-board-head{align-items:flex-start;flex-direction:column;gap:10px}
+}
 @media(max-width:560px){
-  /* Phone: one full-width column, sized to each widget's own size
-     variant instead of a fixed grid row — size now controls height
-     directly (via each card's own max-height below) instead of a
-     column/row span, so resizing still looks different after each tap. */
+  /* Phone: one full-width column. Column span no longer means anything at
+     this width, so every card stacks full-width; --rs (the row span the
+     user actually picked while resizing) instead drives the body's max
+     height directly, so a widget someone made tall/short on desktop still
+     looks different from the others here instead of collapsing to one
+     fixed phone height. */
   .widget-board{grid-template-columns:1fr;grid-auto-rows:auto;gap:12px}
-  .widget-card[data-size]{grid-column:1/-1;grid-row:auto}
-  .widget-card[data-size="sm"] .widget-card-body,
-  .widget-card[data-size="md"] .widget-card-body,
-  .widget-card[data-size="wide"] .widget-card-body{max-height:200px}
-  .widget-card[data-size="tall"] .widget-card-body,
-  .widget-card[data-size="lg"] .widget-card-body{max-height:360px}
-  .widget-card[data-size="xl"] .widget-card-body,
-  .widget-card[data-size="full"] .widget-card-body{max-height:520px}
+  .widget-card{grid-column:1/-1;grid-row:auto}
+  .widget-card .widget-card-body{max-height:clamp(160px,calc(var(--rs,10) * 16px),560px)}
   .widget-remove-badge{width:30px;height:30px;top:-10px;left:-10px}
   .widget-remove-badge svg{width:15px;height:15px}
   .widget-resize-handle{width:34px;height:34px}
@@ -150,7 +164,7 @@ html.wallpaper-live{background-size:250% 250%;animation:wallpaper-drift 24s ease
 .widget-catalog-copy strong{display:block;font-size:12.5px;font-weight:600}
 .widget-catalog-copy span{display:block;font-size:11px;color:var(--muted);margin-top:2px;line-height:1.4}
 @media(max-width:700px){.widget-catalog{grid-template-columns:1fr}}
-@media(max-width:700px){body{padding-bottom:72px}.sidebar{display:none}.main{margin-left:0;padding:92px 16px 30px}.mobile-header{position:fixed;z-index:30;top:0;left:0;right:0;height:68px;background:color-mix(in srgb,var(--bg) 92%,transparent);backdrop-filter:blur(16px);border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:space-between;padding:0 16px}.mobile-header .brand{padding:0}.mobile-header .avatar{width:34px;height:34px;border-radius:9px}.mobile-nav{position:fixed;z-index:30;left:0;right:0;bottom:0;padding:6px max(8px,env(safe-area-inset-right)) calc(6px + env(safe-area-inset-bottom)) max(8px,env(safe-area-inset-left));background:var(--surface);border-top:1px solid var(--line);display:grid;grid-template-columns:repeat(7,1fr)}.mobile-nav button{border:0;background:transparent;color:var(--muted);display:grid;justify-items:center;gap:3px;padding:5px 2px;font-size:9px}.mobile-nav button.active{color:var(--accent-ink)}.mobile-nav svg{width:19px;height:19px}.page-header{align-items:flex-start}.page-header h1{font-size:34px}.today-header .page-subtitle{max-width:230px}.page-header>.button span{display:none}.status-strip>div{padding:14px 10px}.status-value{font-size:16px}.status-label{font-size:9px}.surface{padding:17px}.timeline:before{left:53px}.timeline-row{grid-template-columns:39px 9px 1fr;gap:9px}.form-grid{grid-template-columns:1fr}.modal{padding:20px}.modal-actions .button{flex:1}}
+@media(max-width:700px){body{padding-bottom:72px}.sidebar{display:none}.main{margin-left:0;padding:92px 16px 30px}.mobile-header{position:fixed;z-index:30;top:0;left:0;right:0;height:68px;background:color-mix(in srgb,var(--bg) 92%,transparent);backdrop-filter:blur(16px);border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:space-between;padding:0 16px}.mobile-header .brand{padding:0}.mobile-header .avatar{width:34px;height:34px;border-radius:9px}.mobile-nav{position:fixed;z-index:30;left:0;right:0;bottom:0;padding:6px max(8px,env(safe-area-inset-right)) calc(6px + env(safe-area-inset-bottom)) max(8px,env(safe-area-inset-left));background:var(--surface);border-top:1px solid var(--line);display:grid;grid-template-columns:repeat(7,1fr)}.mobile-nav button{border:0;background:transparent;color:var(--muted);display:grid;justify-items:center;gap:3px;padding:5px 2px;font-size:9px}.mobile-nav button.active{color:var(--accent-ink)}.mobile-nav svg{width:19px;height:19px}.page-header{align-items:flex-start;flex-wrap:wrap}.page-header h1{font-size:34px}.insights-head-actions{width:100%}.today-header .page-subtitle{max-width:230px}.page-header>.button span{display:none}.status-strip>div{padding:14px 10px}.status-value{font-size:16px}.status-label{font-size:9px}.surface{padding:17px}.timeline:before{left:53px}.timeline-row{grid-template-columns:39px 9px 1fr;gap:9px}.form-grid{grid-template-columns:1fr}.modal{padding:20px}.modal-actions .button{flex:1}}
 @media(prefers-reduced-motion:reduce){*{scroll-behavior:auto!important;animation:none!important;transition:none!important}}
 
 /* ===== Hub clock widget (sidebar) ===== */
@@ -240,10 +254,19 @@ html.wallpaper-live{background-size:250% 250%;animation:wallpaper-drift 24s ease
 :root{--ic-bg:var(--surface-soft);--ic-surface:var(--surface);--ic-surface-2:var(--surface-soft);--ic-line:var(--line);--ic-text:var(--text);--ic-muted:var(--muted);--ic-faint:var(--faint);--ic-emerald:var(--success);--ic-emerald-deep:color-mix(in srgb,var(--success) 72%,black);--ic-gold:var(--accent-ink)}
 :root[data-theme="dark"]{--ic-bg:#090d0a;--ic-surface:#0f1511;--ic-surface-2:#141c17;--ic-line:#222c25;--ic-text:#eef3ef;--ic-muted:#8d9a92;--ic-faint:#5f6c64;--ic-emerald:#42e6a4;--ic-emerald-deep:#1cbf7a;--ic-gold:#d8a83e}
 :root[data-theme="midnight"]{--ic-bg:#090c14;--ic-surface:#111627;--ic-surface-2:#171d30;--ic-line:#262d45;--ic-text:#eef0f8;--ic-muted:#9298b3;--ic-faint:#636a87;--ic-emerald:#7fa2ff;--ic-emerald-deep:#4f74e6;--ic-gold:#e0b64e}
-.insights-cinema{background:radial-gradient(circle at 70% 0%,rgba(66,230,164,.08),transparent 38%),var(--ic-bg);color:var(--ic-text);border-radius:22px;padding:22px;margin-top:16px;position:relative;overflow:hidden}
+.insights-cinema{background:radial-gradient(circle at 70% 0%,rgba(66,230,164,.08),transparent 38%),var(--ic-bg);color:var(--ic-text);border-radius:22px;padding:22px 22px 22px 40px;margin-top:16px;position:relative;overflow:hidden}
 .insights-scanline{position:absolute;inset:0;z-index:2;pointer-events:none;opacity:0;background:linear-gradient(180deg,transparent,rgba(66,230,164,.05),transparent);transform:translateY(-100%)}
 .insights-scanline.go{animation:insights-scan 1.4s ease forwards}
 @keyframes insights-scan{0%{opacity:0;transform:translateY(-100%)}20%{opacity:1}100%{opacity:0;transform:translateY(100%)}}
+
+/* The spine — a single line that runs the full height of the cinema
+   section and draws itself in as you scroll (see updateInsightsSpine in
+   app.js, which redraws it on every scroll frame, not on a timer). Every
+   section it passes through reads as one continuous thread rather than a
+   stack of unrelated cards. */
+.insights-spine{position:absolute;top:0;bottom:0;left:12px;width:10px;z-index:1;pointer-events:none}
+.insights-spine svg{width:100%;height:100%;display:block;overflow:visible}
+.insights-spine line{stroke:var(--ic-emerald);stroke-width:2;stroke-linecap:round;filter:drop-shadow(0 0 5px color-mix(in srgb,var(--ic-emerald) 55%,transparent))}
 .insights-cinema .insights-section-head{display:flex;justify-content:space-between;align-items:flex-end;gap:12px;margin:22px 2px 10px}
 .insights-cinema .insights-section-head h2{margin:0;font-size:15px;color:var(--ic-text)}
 .insights-cinema .insights-section-head p{margin:3px 0 0;font-size:10.5px;color:var(--ic-faint)}
@@ -290,9 +313,20 @@ html.wallpaper-live{background-size:250% 250%;animation:wallpaper-drift 24s ease
 @keyframes insights-drift{to{transform:translate(-55px,30px) scale(1.18)}}
 .insights-hero-grid{display:grid;grid-template-columns:230px 1fr;gap:24px;align-items:stretch;position:relative;z-index:1}
 .insights-score-label{font-size:9px;color:#87968c;letter-spacing:.12em;text-transform:uppercase;font-weight:800;margin:0}
-.insights-score{font-size:62px;line-height:.95;letter-spacing:-.05em;font-weight:800;margin:10px 0 10px;font-variant-numeric:tabular-nums;transition:text-shadow .3s ease}
+.insights-score{font-size:62px;line-height:.95;letter-spacing:-.05em;font-weight:800;margin:10px 0 10px;font-variant-numeric:tabular-nums;transition:text-shadow .3s ease;display:flex;align-items:baseline}
 .insights-score.flash{animation:insights-score-flash .8s ease}
 @keyframes insights-score-flash{50%{text-shadow:0 0 32px rgba(66,230,164,.5)}}
+.insights-score .ico-suffix{font-size:.6em;margin-left:2px;opacity:.85}
+/* Odometer — tumbling digit strips used for the score and the streak
+   count (see odometerHTML/playOdometer in app.js). Each .ico-digit is a
+   fixed-height window; the .ico-strip inside holds '0'-'9' stacked and is
+   moved with a CSS transform, so digits physically roll to the new value
+   instead of just swapping text. */
+.ico{display:inline-flex}
+.ico-digit{display:inline-block;height:1em;overflow:hidden;line-height:1}
+.ico-strip{display:flex;flex-direction:column;transition:transform .8s cubic-bezier(.2,.8,.2,1)}
+.ico-strip span{height:1em;line-height:1;display:block;text-align:center}
+.insights-streak-row strong .ico-digit{height:1em}
 .insights-score-message{font-size:12px;color:#aab5ad;line-height:1.55;max-width:230px;margin:0}
 .insights-delta{display:inline-flex;align-items:center;gap:6px;margin-top:14px;padding:6px 10px;border:1px solid #294b3a;background:#173024;color:#69ecb2;border-radius:999px;font-size:10px;font-weight:800}
 .insights-delta.is-down{border-color:#4b2a29;background:#2c1a19;color:#e08f80}
@@ -333,8 +367,14 @@ html.wallpaper-live{background-size:250% 250%;animation:wallpaper-drift 24s ease
 .insights-grid-card .insights-grid-scroll{overflow:auto}
 .insights-grid{min-width:760px;display:grid;grid-template-columns:96px repeat(60,1fr);gap:4px;align-items:center}
 .insights-grid .igrid-label{font-size:9px;font-weight:800;color:var(--ic-muted);white-space:nowrap}
-.igrid-dot{aspect-ratio:1;border:0;border-radius:50%;background:#1b241e;position:relative;min-width:8px;padding:0;transition:transform .15s ease}
-.igrid-dot:hover{transform:scale(1.5);z-index:2}
+.igrid-dot{aspect-ratio:1;border:0;border-radius:50%;background:#1b241e;position:relative;min-width:8px;padding:0;opacity:1;transform:none;transition:transform .5s cubic-bezier(.34,1.56,.64,1),opacity .35s ease}
+.igrid-dot:hover{transform:scale(1.5)!important;z-index:2}
+/* Drop-in with real weight, triggered only once this row's section
+   actually scrolls into view (see setupInsightsRevealObserver in
+   app.js) — each dot starts lifted/shrunk and settles with a slight
+   overshoot, staggered left-to-right via an inline transition-delay. */
+.igrid-dot.pending{opacity:0;transform:translateY(-9px) scale(.35)}
+.insights-grid-legend .igrid-dot.pending{opacity:1;transform:none} /* the static legend dots never animate */
 .igrid-dot.l1{background:#1e4634}
 .igrid-dot.l2{background:#2a8f63}
 .igrid-dot.l3{background:var(--ic-emerald-deep);box-shadow:0 0 8px rgba(28,191,122,.35)}
@@ -358,14 +398,19 @@ html.wallpaper-live{background-size:250% 250%;animation:wallpaper-drift 24s ease
 .insights-constellation-status span{font-size:8px;color:#68766e;text-transform:uppercase;letter-spacing:.08em}
 
 .insights-two-col{display:grid;grid-template-columns:1.3fr .8fr;gap:14px;align-items:start}
-.insights-rings{display:grid;grid-template-columns:repeat(4,1fr);gap:9px}
-.insights-pillar{text-align:center;background:var(--ic-surface-2);border-radius:13px;padding:14px 7px}
-@property --progress{syntax:'<percentage>';inherits:true;initial-value:0%}
-.insights-big-ring{--progress:0%;width:68px;height:68px;border-radius:50%;display:grid;place-items:center;margin:0 auto 8px;position:relative;background:conic-gradient(var(--c) var(--progress),#232e27 0);transition:--progress 1.1s cubic-bezier(.2,.75,.2,1)}
-.insights-big-ring:before{content:"";position:absolute;inset:8px;border-radius:50%;background:var(--ic-surface-2)}
-.insights-big-ring b{position:relative;font-size:13px;color:var(--ic-text)}
-.insights-pillar strong{font-size:10px;color:var(--ic-text)}
-.insights-pillar span{display:block;font-size:8px;color:var(--ic-faint);margin-top:2px}
+/* Growth rings — see insightsGrowthWeeks/renderInsightsRings in app.js.
+   Each <circle> starts at r=0 (set inline via data-r/JS) and only grows
+   to its real radius once this section scrolls into view, staggered
+   oldest-to-newest so it reads like actual growth, not a wipe. */
+.insights-growth-wrap{display:flex;flex-direction:column;align-items:center;gap:10px}
+.insights-growth-svg{width:100%;max-width:300px;aspect-ratio:1;overflow:visible}
+.igrow-ring{fill:none;stroke:var(--ic-emerald);stroke-width:var(--sw);opacity:var(--op);transition:r 1s cubic-bezier(.22,1,.36,1),opacity .5s ease,stroke-width .3s ease;cursor:default}
+.igrow-ring:hover{opacity:1;stroke-width:calc(var(--sw) + 2.5px)}
+.igrow-ring.is-current{stroke:var(--ic-gold)}
+.igrow-ring.is-current:hover{filter:drop-shadow(0 0 7px color-mix(in srgb,var(--ic-gold) 55%,transparent))}
+.igrow-center-num{fill:var(--ic-text);font-size:44px;font-weight:800;letter-spacing:-.03em;font-family:Inter,system-ui,sans-serif}
+.igrow-center-sub{fill:var(--ic-faint);font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;font-family:Inter,system-ui,sans-serif}
+.insights-growth-caption{margin:0;font-size:10.5px;color:var(--ic-faint);text-align:center;max-width:280px;line-height:1.5}
 .insights-rank-list{display:grid;gap:9px}
 .insights-rank{display:grid;grid-template-columns:22px 1fr auto;gap:9px;align-items:center}
 .insights-rank-num{width:22px;height:22px;border-radius:7px;background:var(--ic-surface-2);display:grid;place-items:center;color:var(--ic-faint);font-size:9px;font-weight:800}
@@ -428,10 +473,10 @@ html.wallpaper-live{background-size:250% 250%;animation:wallpaper-drift 24s ease
   .insights-command{grid-template-columns:1fr}
   .insights-two-col,.insights-story-grid{grid-template-columns:1fr}
   .insights-stats{grid-template-columns:repeat(2,1fr)}
-  .insights-rings{grid-template-columns:repeat(2,1fr)}
 }
 @media(max-width:700px){
-  .insights-cinema{padding:16px}
+  .insights-cinema{padding:16px 16px 16px 30px}
+  .insights-spine{left:8px;width:8px}
   .insights-hero{padding:18px}
   .insights-score{font-size:48px}
   .insights-hero-foot{grid-template-columns:1fr 1fr;gap:12px}
@@ -544,10 +589,12 @@ html.wallpaper-live{background-size:250% 250%;animation:wallpaper-drift 24s ease
 .tm-preview .tm-line{flex:1;height:7px;border-radius:99px;align-self:center}
 .theme-mode-swatch strong{font-size:12.5px;font-weight:600}
 .theme-mode-swatch small{font-size:10.5px;color:var(--muted)}
-.theme-mode-swatch.is-locked{opacity:.55;cursor:default}
-.theme-mode-swatch.is-locked:hover{border-color:var(--line);transform:none;box-shadow:none}
-.theme-mode-swatch.is-locked .tm-lock{position:absolute;top:9px;right:9px;width:20px;height:20px;border-radius:50%;background:var(--surface-soft);border:1px solid var(--line);display:grid;place-items:center;color:var(--faint)}
-.theme-mode-swatch.is-locked .tm-lock svg{width:10px;height:10px}
+/* The "browse more themes" tile — a themed preview once a gallery palette
+   is active, otherwise a plain invite icon. */
+.tm-preview-more{display:grid;place-items:center;color:var(--accent-ink);background:var(--accent-soft)}
+.tm-preview-more svg{width:20px;height:20px}
+.modal-wide{width:min(720px,100%)}
+.theme-gallery-grid{max-height:min(60vh,520px);overflow:auto;padding-right:4px}
 
 /* Wallpaper: same gallery as before, plus an "upload your own photo" tile
    that sits first and either invites a file or previews the current one. */
@@ -581,6 +628,26 @@ html.wallpaper-live{background-size:250% 250%;animation:wallpaper-drift 24s ease
 .wallpaper-swatch.active{border-color:var(--accent);box-shadow:0 0 0 2px var(--accent-soft)}
 .wallpaper-swatch .ws-preview{width:100%;height:56px;border-radius:9px;border:1px solid var(--line)}
 .wallpaper-swatch small{font-size:11px;color:var(--muted);font-weight:600}
+/* App icons — each tile reuses the same .app-icon "themed circle" look as
+   the real hub tiles, so the preview here matches exactly what changing
+   it will look like. */
+.app-icon-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(108px,1fr));gap:10px;margin-top:14px}
+.app-icon-swatch{display:flex;flex-direction:column;align-items:center;gap:8px;border:1px solid var(--line);background:var(--surface);border-radius:14px;padding:14px 10px;transition:.15s;text-align:center}
+.app-icon-swatch:hover{border-color:var(--accent);transform:translateY(-1px);box-shadow:0 8px 20px rgba(32,33,30,.06)}
+.app-icon-swatch .app-icon{width:44px;height:44px;border-radius:12px;background:var(--accent-soft);color:var(--accent-ink);display:grid;place-items:center;overflow:hidden}
+.app-icon-swatch .app-icon img{width:100%;height:100%;object-fit:cover}
+.app-icon-swatch strong{font-size:12px;font-weight:600}
+.app-icon-swatch small{font-size:10.5px;color:var(--muted)}
+.icon-picker-upload-tile{width:100%;flex-direction:row;align-items:center;justify-content:flex-start;gap:12px;padding:12px 14px;margin:14px 0 0}
+.icon-picker-upload-tile .ws-preview{width:44px;height:44px;flex:none;border-radius:12px}
+.icon-picker-upload-tile .ws-preview img{width:100%;height:100%;object-fit:cover;border-radius:12px}
+.icon-picker-upload-tile small{font-size:12.5px;color:var(--text);font-weight:500}
+.icon-picker-remove-row{margin:12px 0 0}
+.icon-picker-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(44px,1fr));gap:8px;margin-top:16px;max-height:min(46vh,360px);overflow:auto;padding-right:4px}
+.icon-picker-item{aspect-ratio:1;display:flex;align-items:center;justify-content:center;border:1.5px solid var(--line);background:var(--surface-soft);border-radius:10px;color:var(--muted);transition:.15s}
+.icon-picker-item:hover{border-color:var(--accent);color:var(--accent-ink)}
+.icon-picker-item.active{border-color:var(--accent);background:var(--accent-soft);color:var(--accent-ink);box-shadow:0 0 0 2px var(--accent-soft)}
+.icon-picker-item svg{width:18px;height:18px}
 #settings-reset{margin-top:4px}
 @media(max-width:900px){.settings-preset-gallery{grid-template-columns:repeat(2,1fr)}.settings-picker-row{grid-template-columns:44px 1fr;row-gap:8px}.settings-picker-row input[type=color],.settings-hex{grid-column:2}}
 @media(max-width:700px){.settings-picker-row{grid-template-columns:1fr}.settings-picker-row input[type=color],.settings-hex,.settings-picker-copy{grid-column:1}}

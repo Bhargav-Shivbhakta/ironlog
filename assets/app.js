@@ -3,7 +3,7 @@ firebase.initializeApp(FIREBASE_CONFIG);
 const auth=firebase.auth(),db=firebase.firestore();
 try{db.enablePersistence({synchronizeTabs:true}).catch(()=>{});}catch(e){}
 
-const state={user:null,profile:null,templates:{},events:[],personalTasks:[],sharedTasks:[],chores:[],choreHistory:[],dailyLog:null,apps:[],categories:{},order:[],hidden:[],insights:null,theme:null,widgets:[]};
+const state={user:null,profile:null,templates:{},events:[],personalTasks:[],sharedTasks:[],chores:[],choreHistory:[],dailyLog:null,apps:[],categories:{},order:[],hidden:[],insights:null,theme:null,widgets:[],appIcons:{},photos:[]};
 const PROFILE_KEY='hub-active-profile',DAYS=['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
 const $=id=>document.getElementById(id);
 const today=()=>{const d=new Date();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')};
@@ -41,9 +41,88 @@ const THEME_MODES=[
   {id:'light',name:'Light',desc:'The original look',rail:'#171714',body:'#f4f4f0',chip:'#ad7b20',line:'#e3e3dc'},
   {id:'dark',name:'Dark',desc:'Easy on the eyes',rail:'#0a0a09',body:'#1b1b1a',chip:'#42e6a4',line:'#323230'},
   {id:'midnight',name:'Midnight',desc:'Deep blue-black',rail:'#060811',body:'#131829',chip:'#7fa2ff',line:'#262e4a'},
-  {id:'sepia',name:'Sepia',desc:'Warm paper tone',rail:'#2c2413',body:'#fbf5e8',chip:'#a8672e',line:'#e1cfa8'},
-  {id:'__locked',name:'More soon',desc:'Added here over time',locked:true}
+  {id:'sepia',name:'Sepia',desc:'Warm paper tone',rail:'#2c2413',body:'#fbf5e8',chip:'#a8672e',line:'#e1cfa8'}
 ];
+// A big gallery of extra themes, generated from a curated list of hues
+// rather than hand-written one by one — each hue gets a light and a dark
+// variant, built from the same contrast-safe formula, so the whole
+// gallery can grow just by adding a name to THEME_HUES instead of
+// authoring a new :root[data-theme=...] CSS block every time. Applied at
+// runtime as inline custom properties (see applyTheme) rather than CSS,
+// which is what lets there be dozens of these without bloating app.css.
+const THEME_HUES=[
+  {h:0,name:'Crimson'},{h:15,name:'Coral'},{h:30,name:'Amber'},{h:45,name:'Gold'},
+  {h:60,name:'Olive'},{h:75,name:'Lime'},{h:90,name:'Sage'},{h:105,name:'Fern'},
+  {h:120,name:'Emerald'},{h:135,name:'Jade'},{h:150,name:'Mint'},{h:165,name:'Teal'},
+  {h:180,name:'Cyan'},{h:195,name:'Sky'},{h:210,name:'Azure'},{h:225,name:'Cobalt'},
+  {h:240,name:'Indigo'},{h:255,name:'Violet'},{h:270,name:'Purple'},{h:285,name:'Orchid'},
+  {h:300,name:'Magenta'},{h:315,name:'Rose'},{h:330,name:'Blush'},{h:345,name:'Ruby'},
+  {h:0,name:'Mono',mono:true}
+];
+function hslCss(h,s,l){return'hsl('+Math.round(h)+' '+Math.max(0,Math.round(s))+'% '+Math.max(0,Math.round(l))+'%)'}
+function buildThemePalette(hue,mono,mode,name,id){
+  const s=mono?0:1;
+  const vars=mode==='dark'?{
+    bg:hslCss(hue,18*s,8),surface:hslCss(hue,16*s,12),surfaceSoft:hslCss(hue,15*s,16),
+    line:hslCss(hue,15*s,22),text:hslCss(hue,14*s,94),muted:hslCss(hue,10*s,66),
+    faint:hslCss(hue,8*s,46),ink:hslCss(hue,24*s,6),shadow:'0 18px 50px rgba(0,0,0,.4)'
+  }:{
+    bg:hslCss(hue,26*s,95),surface:hslCss(hue,32*s,99),surfaceSoft:hslCss(hue,24*s,96),
+    line:hslCss(hue,18*s,88),text:hslCss(hue,20*s,15),muted:hslCss(hue,10*s,43),
+    faint:hslCss(hue,8*s,60),ink:hslCss(hue,24*s,9),shadow:'0 18px 50px hsla('+Math.round(hue)+',30%,25%,.12)'
+  };
+  return{id,name,mode,vars};
+}
+const THEME_PALETTES=[];
+THEME_HUES.forEach(hs=>{
+  ['light','dark'].forEach(mode=>{
+    const label=mode==='light'?hs.name:hs.name+' Night';
+    const id='palette-'+hs.name.toLowerCase()+'-'+mode;
+    THEME_PALETTES.push(buildThemePalette(hs.h,!!hs.mono,mode,label,id));
+  });
+});
+/* =====================================================================
+   APP ICONS — every app tile used to be a fixed PNG (tile-icons/*.png),
+   baked with its own colors, so it never matched any theme. The default
+   is now a Lucide glyph drawn with currentColor inside the tile's own
+   themed circle (.app-icon already paints that circle with --accent-soft/
+   --accent-ink, so switching the PNG for an <i data-lucide> icon is all
+   it takes for the icon to follow the active theme automatically). A
+   person can still override any app's icon — either pick a different
+   glyph from the curated library below, or upload their own image (which,
+   being a raster image, keeps its own fixed colors, same tradeoff as the
+   wallpaper photo). Saved at users/{uid}/apps/hub/data/icons as
+   {[file]: {type:'icon',icon:'dumbbell'} | {type:'image',src:'data:...'}}.
+===================================================================== */
+const DEFAULT_APP_ICON={
+  'grocery.html':'shopping-cart','schedule.html':'calendar-clock','todo.html':'list-checks',
+  'skin.html':'sparkles','chores.html':'spray-can','diet.html':'utensils',
+  'calendar.html':'calendar-days','gym.html':'dumbbell'
+};
+const ICON_LIBRARY=[
+  'house','shopping-cart','shopping-bag','utensils','coffee','pizza','apple','carrot','salad','cake','soup',
+  'calendar','calendar-days','calendar-clock','calendar-check','clock','alarm-clock','watch','timer',
+  'list-checks','list-todo','circle-check','square-check','clipboard-list','clipboard-check',
+  'dumbbell','heart-pulse','activity','bike','footprints','flame','trophy','medal','target',
+  'sparkles','star','droplet','droplets','sun','moon','cloud-sun','umbrella',
+  'spray-can','brush','paintbrush','wrench','hammer','scissors','shirt',
+  'book','book-open','graduation-cap','pencil','briefcase','laptop','monitor',
+  'music','headphones','camera','film','gamepad-2','palette','gift','party-popper',
+  'plane','car','map','map-pin','compass','globe',
+  'leaf','tree-pine','flower-2','paw-print','dog','cat','fish','bird',
+  'piggy-bank','wallet','credit-card','receipt',
+  'lightbulb','key','lock','shield','bell','mail','phone','message-circle',
+  'baby','users','user','smile','thermometer','pill','stethoscope',
+  'layout-grid','folder','bookmark','tag','package','box'
+];
+function appIconInfo(file){
+  return state.appIcons[file]||{type:'icon',icon:DEFAULT_APP_ICON[file]||'layout-grid'};
+}
+function appIconHtml(file){
+  const info=appIconInfo(file);
+  return info.type==='image'&&info.src?'<img src="'+info.src+'" alt="">':'<i data-lucide="'+esc(info.icon||'layout-grid')+'"></i>';
+}
+async function saveHubIcons(){try{await profileRef('hub-profiles','icons').set({json:JSON.stringify(state.appIcons)})}catch(e){}}
 function hexToRgb(hex){hex=(hex||'').replace('#','');if(hex.length===3)hex=hex.split('').map(c=>c+c).join('');const n=parseInt(hex,16)||0;return[n>>16&255,n>>8&255,n&255]}
 function rgbToHsl(r,g,b){r/=255;g/=255;b/=255;const mx=Math.max(r,g,b),mn=Math.min(r,g,b);let h,s,l=(mx+mn)/2;if(mx===mn){h=s=0}else{const d=mx-mn;s=l>0.5?d/(2-mx-mn):d/(mx+mn);if(mx===r)h=(g-b)/d+(g<b?6:0);else if(mx===g)h=(b-r)/d+2;else h=(r-g)/d+4;h/=6}return[h*360,s*100,l*100]}
 function hslToHex(h,s,l){h=((h%360)+360)%360/360;s=Math.max(0,Math.min(100,s))/100;l=Math.max(0,Math.min(100,l))/100;let r,g,b;if(s===0){r=g=b=l}else{const q=l<0.5?l*(1+s):l+s-l*s,p=2*l-q;const hue2rgb=(p,q,t)=>{if(t<0)t+=1;if(t>1)t-=1;if(t<1/6)return p+(q-p)*6*t;if(t<1/2)return q;if(t<2/3)return p+(q-p)*(2/3-t)*6;return p};r=hue2rgb(p,q,h+1/3);g=hue2rgb(p,q,h);b=hue2rgb(p,q,h-1/3)}const toHex=x=>Math.round(x*255).toString(16).padStart(2,'0');return'#'+toHex(r)+toHex(g)+toHex(b)}
@@ -87,14 +166,45 @@ function applyTheme(){
   // shared chore attributed to either person.
   document.documentElement.style.setProperty('--accent-bhargav',(t.accents&&t.accents.Bhargav)||DEFAULT_THEME.accents.Bhargav);
   document.documentElement.style.setProperty('--accent-anusha',(t.accents&&t.accents.Anusha)||DEFAULT_THEME.accents.Anusha);
+  // Mode: either one of the 4 classic modes (their colors live entirely in
+  // :root[data-theme="..."] blocks in app.css) or one of the generated
+  // gallery palettes above, whose colors are set here instead — so
+  // data-theme is set to whichever of "light"/"dark" the palette's own
+  // mode is (to inherit the right structural rules, e.g. color-scheme and
+  // the Insights dark palette), and its actual hues are layered on top as
+  // inline custom properties, which win over the CSS block by specificity.
+  const pal=(t.mode&&t.mode.indexOf('palette-')===0)?THEME_PALETTES.find(p=>p.id===t.mode):null;
+  const SURFACE_PROPS=['--bg','--surface','--surface-soft','--line','--text','--muted','--faint','--ink','--shadow'];
+  if(pal){
+    document.documentElement.dataset.theme=pal.mode==='dark'?'dark':'light';
+    document.documentElement.style.setProperty('--bg',pal.vars.bg);
+    document.documentElement.style.setProperty('--surface',pal.vars.surface);
+    document.documentElement.style.setProperty('--surface-soft',pal.vars.surfaceSoft);
+    document.documentElement.style.setProperty('--line',pal.vars.line);
+    document.documentElement.style.setProperty('--text',pal.vars.text);
+    document.documentElement.style.setProperty('--muted',pal.vars.muted);
+    document.documentElement.style.setProperty('--faint',pal.vars.faint);
+    document.documentElement.style.setProperty('--ink',pal.vars.ink);
+    document.documentElement.style.setProperty('--shadow',pal.vars.shadow);
+  }else{
+    document.documentElement.dataset.theme=(t.mode&&THEME_MODES.some(m=>m.id===t.mode))?t.mode:'light';
+    SURFACE_PROPS.forEach(p=>document.documentElement.style.removeProperty(p));
+  }
+  // Wallpaper always wins over whatever --bg the mode/palette set, same
+  // priority as before.
   const wpCss=t.wallpaper&&t.wallpaper.css;
   if(wpCss)document.documentElement.style.setProperty('--bg',wpCss);
-  else document.documentElement.style.removeProperty('--bg');
   const wpPreset=WALLPAPER_PRESETS.find(w=>w.id===((t.wallpaper&&t.wallpaper.id)||'none'));
   document.documentElement.classList.toggle('wallpaper-live',!!(wpPreset&&wpPreset.live));
-  document.documentElement.dataset.theme=(t.mode&&THEME_MODES.some(m=>m.id===t.mode))?t.mode:'light';
 }
-async function saveHubTheme(){try{await hubRef('theme').set({json:JSON.stringify(state.theme)})}catch(e){}}
+// Accent colors stay shared (Bhargav's gold / Anusha's pink need to be
+// recognizable to both of you no matter who's active — e.g. a shared
+// chore attributed to either person). Everything about *how the Hub
+// looks* beyond that — mode, wallpaper, app icons, the photo widget's own
+// photos — is personal, saved per profile so switching to the other
+// person's session shows their own picks, not a shared, overwritten one.
+async function saveHubAccents(){try{await hubRef('theme-accents').set({json:JSON.stringify({accents:state.theme.accents})})}catch(e){}}
+async function saveProfileAppearance(){try{await profileRef('hub-profiles','appearance').set({json:JSON.stringify({mode:state.theme.mode,wallpaper:state.theme.wallpaper})})}catch(e){}}
 
 function setGate(name){['loading','auth','profile'].forEach(x=>$(x+'-gate').hidden=x!==name);$('app-shell').hidden=!!name}
 function setProfile(name){state.profile=name;localStorage.setItem(PROFILE_KEY,name);document.body.dataset.profile=name;$('sidebar-profile').textContent=name;$('sidebar-avatar').textContent=name[0];$('sidebar-avatar').className='avatar '+name.toLowerCase();$('mobile-profile').textContent=name[0];$('mobile-profile').className='avatar '+name.toLowerCase();updateAppFrameProfile();updateProfileLinks();startHubAlarmWatch();applyTheme()}
@@ -156,14 +266,29 @@ async function discoverApps(){
 }
 
 async function loadHubMeta(){
-  const [categories,order,hidden,theme,widgets] = await Promise.all([
+  const [categories,order,hidden,widgets,
+    legacyTheme,accentsDoc,appearanceDoc,
+    legacyIcons,profileIcons,
+    legacyPhotos,profilePhotos] = await Promise.all([
     readJson(hubRef('categories'), {}), readJson(hubRef('order'), []), readJson(hubRef('hidden'), []),
-    readJson(hubRef('theme'), null), readJson(hubRef('widgets'), null)
+    readJson(hubRef('widgets'), null),
+    // theme: accents stay shared (hubRef); mode/wallpaper are personal
+    // (profileRef). The plain hubRef('theme') read is only a one-time
+    // migration fallback, for whichever of you opens the Hub first after
+    // this change — it seeds your own starting look from what the shared
+    // look used to be, instead of resetting you to the defaults.
+    readJson(hubRef('theme'), null), readJson(hubRef('theme-accents'), null), readJson(profileRef('hub-profiles','appearance'), null),
+    readJson(hubRef('icons'), {}), readJson(profileRef('hub-profiles','icons'), null),
+    readJson(hubRef('photos'), []), readJson(profileRef('hub-profiles','photos'), null)
   ]);
   state.categories = categories; state.order = order; state.hidden = hidden;
-  state.theme = (theme && theme.accents) ? theme : JSON.parse(JSON.stringify(DEFAULT_THEME));
-  if(!state.theme.mode)state.theme.mode='light'; // older saved themes predate the mode switcher
+  const accents=(accentsDoc&&accentsDoc.accents)?accentsDoc.accents:(legacyTheme&&legacyTheme.accents)?legacyTheme.accents:JSON.parse(JSON.stringify(DEFAULT_THEME.accents));
+  const appearance=appearanceDoc||(legacyTheme?{mode:legacyTheme.mode,wallpaper:legacyTheme.wallpaper}:null)||{mode:DEFAULT_THEME.mode,wallpaper:JSON.parse(JSON.stringify(DEFAULT_THEME.wallpaper))};
+  state.theme={accents,mode:appearance.mode||'light',wallpaper:appearance.wallpaper||DEFAULT_THEME.wallpaper};
   state.widgets = (widgets && widgets[state.profile] && widgets[state.profile].length) ? widgets[state.profile].filter(w=>WIDGET_TYPES[w.type]) : widgetDefaultLayout();
+  state.appIcons = profileIcons || legacyIcons || {};
+  state.photos = Array.isArray(profilePhotos) ? profilePhotos : (Array.isArray(legacyPhotos) ? legacyPhotos : []);
+  photoWidgetOrder=[]; // this profile's photos just (re)loaded — force a fresh shuffle/sequence order
   applyTheme();
 }
 async function saveHubCategories(){ try{ await hubRef('categories').set({json: JSON.stringify(state.categories)}); }catch(e){} }
@@ -220,8 +345,7 @@ function renderCategoryGrid(cat){
     // popping in at once — capped so a big grid doesn't feel sluggish.
     card.style.animationDelay = Math.min(cardIdx * 35, 350) + 'ms';
     cardIdx++;
-    const iconHtml = a.icon ? '<img src="'+a.icon+'" alt="">' : '<i data-lucide="layout-grid"></i>';
-    card.innerHTML = '<span class="app-icon">'+iconHtml+'</span><strong>'+esc(a.title)+'</strong>'+
+    card.innerHTML = '<span class="app-icon">'+appIconHtml(a.file)+'</span><strong>'+esc(a.title)+'</strong>'+
       (editMode[cat] ? '<button type="button" class="app-hide-btn" data-hidetoggle="'+esc(a.file)+'" title="'+(isHidden?'Show':'Hide')+'">'+(isHidden?'+':'−')+'</button>' : '');
     if(editMode[cat]){
       card.addEventListener('click', e => e.preventDefault());
@@ -424,19 +548,35 @@ function renderChoresListInto(el,chores){
    apps/hub/data/widgets under a key named after the profile, same
    storage pattern as theme/categories/order above.
 ===================================================================== */
-// 7 sizes now (was 4) — sm/md/tall/lg plus wide/xl/full, so resizing has
-// real range instead of jumping between a couple of cramped options. The
-// default layout below reproduces the original, pre-widget Today page
-// almost exactly (big side-by-side schedule+priorities, full-width
-// chores, a short full-width link row) — widgets are an option to
-// rearrange from here, not a smaller starting point.
-const WIDGET_SIZES=['sm','md','tall','lg','wide','xl','full'];
+// Free-form sizing on a fine 12-column grid (22px row unit) instead of a
+// handful of named buckets — drag the corner handle and the card follows
+// your pointer continuously (rounded to the nearest column/row unit, not
+// a preset), so "resize to any size" is actually true rather than
+// snapping between ~7 shapes. Other widgets reflow around it automatically
+// via CSS Grid's dense auto-placement (see .widget-board in app.css) —
+// no manual collision/rearrange logic needed on this end.
+// SIZE_TO_SPAN is only a starting-point lookup now (used for a widget's
+// first-ever placement, or to read an old saved {size:'xl'} layout from
+// before this system existed) — once a widget is resized it's stored as
+// its own exact {colSpan,rowSpan} and this table is never consulted again
+// for it.
+const WIDGET_ROW_PX=22, WIDGET_GAP_PX=14;
+const WIDGET_MIN_COL=3, WIDGET_MIN_ROW=5, WIDGET_MAX_ROW=42;
+const SIZE_TO_SPAN={sm:[3,6],md:[6,6],tall:[3,12],lg:[6,12],wide:[12,6],xl:[6,20],full:[12,13]};
+function widgetSpanFor(w,def){
+  if(w.colSpan&&w.rowSpan) return [Math.max(WIDGET_MIN_COL,w.colSpan),Math.max(WIDGET_MIN_ROW,w.rowSpan)];
+  return SIZE_TO_SPAN[w.size||(def&&def.defaultSize)]||SIZE_TO_SPAN.md;
+}
+// Reproduces the original, pre-widget Today page almost exactly (big
+// side-by-side schedule+priorities, full-width chores, a short full-width
+// link row) — widgets are an option to rearrange from here, not a smaller
+// starting point.
 function widgetDefaultLayout(){
   return [
-    {id:'w-schedule',type:'schedule',size:'xl'},
-    {id:'w-priorities',type:'priorities',size:'xl'},
-    {id:'w-chores',type:'chores',size:'full'},
-    {id:'w-quicklinks',type:'quicklinks',size:'wide'}
+    {id:'w-schedule',type:'schedule',colSpan:6,rowSpan:20},
+    {id:'w-priorities',type:'priorities',colSpan:6,rowSpan:20},
+    {id:'w-chores',type:'chores',colSpan:12,rowSpan:13},
+    {id:'w-quicklinks',type:'quicklinks',colSpan:12,rowSpan:6}
   ];
 }
 const WIDGET_TYPES={
@@ -496,8 +636,102 @@ const WIDGET_TYPES={
         el.innerHTML='<strong style="display:block;font-size:26px;font-weight:700;letter-spacing:-.02em">'+remaining+'</strong><p style="margin:4px 0 10px;color:var(--muted)">item'+(remaining===1?'':'s')+' still to buy</p><a class="widget-card-link" href="apps/grocery.html" data-profile-link>Open Grocery <i data-lucide="arrow-up-right"></i></a>';
         updateProfileLinks();if(window.lucide)lucide.createIcons();
       }catch(e){el.innerHTML='<div class="empty-state"><strong>Unavailable</strong>Could not load the grocery list.</div>'}
-    }}
+    }},
+  photos:{title:'Photo widget',icon:'image',desc:'Your own little rotating gallery — add a batch of photos, shuffle them, or let it play on its own.',defaultSize:'lg',
+    render(el){renderPhotoWidgetInto(el)}}
 };
+/* ---- Photo widget: a small self-contained gallery, its own upload +
+   shuffle + slideshow logic rather than a generic "widget data" blob,
+   since photos are genuinely different from every other widget (a list of
+   images the person keeps adding to, not a read-only view of another
+   app's data). One shared photo library across however many times this
+   widget shows up (today there's only ever one instance on the board, via
+   the same single-instance-per-type system every other widget uses), kept
+   at users/{uid}/apps/hub/data/photos. ---- */
+const PHOTO_MAX_COUNT=24;
+const PHOTO_MAX_BASE64_TOTAL=900000; // keeps the whole library under Firestore's ~1MiB document cap
+let photoWidgetOrder=[]; // current browsing order — sequential, or shuffled
+let photoWidgetPos=0;
+let photoWidgetShuffle=false;
+let photoWidgetPlaying=false;
+let photoWidgetTimer=null;
+function photoWidgetBuildOrder(){
+  const idx=state.photos.map((_,i)=>i);
+  if(photoWidgetShuffle){
+    for(let i=idx.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[idx[i],idx[j]]=[idx[j],idx[i]];}
+  }
+  photoWidgetOrder=idx;
+  photoWidgetPos=0;
+}
+async function savePhotoWidget(){try{await profileRef('hub-profiles','photos').set({json:JSON.stringify(state.photos)})}catch(e){}}
+function renderPhotoWidgetInto(el){
+  if(!el)return;
+  if(photoWidgetTimer){clearInterval(photoWidgetTimer);photoWidgetTimer=null}
+  if(!state.photos.length){
+    el.innerHTML='<div class="photo-widget"><div class="empty-state"><strong>No photos yet</strong>Add a few to start a little slideshow right here.</div>'+
+      '<button type="button" class="button secondary photo-widget-add-empty" data-photo-add><i data-lucide="plus"></i><span>Add photos</span></button>'+
+      '<input type="file" accept="image/*" multiple hidden data-photo-file></div>';
+    if(window.lucide)lucide.createIcons();
+    el.querySelector('[data-photo-add]').addEventListener('click',()=>el.querySelector('[data-photo-file]').click());
+    el.querySelector('[data-photo-file]').addEventListener('change',e=>{handlePhotoWidgetUpload(e.target.files,el);e.target.value=''});
+    return;
+  }
+  if(photoWidgetOrder.length!==state.photos.length)photoWidgetBuildOrder();
+  photoWidgetPos=((photoWidgetPos%photoWidgetOrder.length)+photoWidgetOrder.length)%photoWidgetOrder.length;
+  const currentIdx=photoWidgetOrder[photoWidgetPos];
+  const photo=state.photos[currentIdx];
+  el.innerHTML='<div class="photo-widget">'+
+    '<div class="photo-widget-frame"><img src="'+photo.src+'" alt=""></div>'+
+    '<div class="photo-widget-controls">'+
+      '<button type="button" class="icon-button" data-photo-prev title="Previous photo"'+(state.photos.length<2?' disabled':'')+'><i data-lucide="chevron-left"></i></button>'+
+      '<button type="button" class="icon-button" data-photo-play title="'+(photoWidgetPlaying?'Pause slideshow':'Play slideshow')+'"'+(state.photos.length<2?' disabled':'')+'><i data-lucide="'+(photoWidgetPlaying?'pause':'play')+'"></i></button>'+
+      '<button type="button" class="icon-button" data-photo-next title="Next photo"'+(state.photos.length<2?' disabled':'')+'><i data-lucide="chevron-right"></i></button>'+
+      '<button type="button" class="icon-button'+(photoWidgetShuffle?' active':'')+'" data-photo-shuffle title="Shuffle"'+(state.photos.length<2?' disabled':'')+'><i data-lucide="shuffle"></i></button>'+
+      '<span class="photo-widget-count">'+(photoWidgetPos+1)+' / '+state.photos.length+'</span>'+
+      '<button type="button" class="icon-button" data-photo-add title="Add photos"><i data-lucide="plus"></i></button>'+
+      '<button type="button" class="icon-button" data-photo-remove title="Remove this photo"><i data-lucide="trash-2"></i></button>'+
+    '</div>'+
+    '<input type="file" accept="image/*" multiple hidden data-photo-file>'+
+  '</div>';
+  if(window.lucide)lucide.createIcons();
+  const advance=dir=>{ photoWidgetPos+=dir; renderPhotoWidgetInto(el); };
+  el.querySelector('[data-photo-prev]').addEventListener('click',()=>advance(-1));
+  el.querySelector('[data-photo-next]').addEventListener('click',()=>advance(1));
+  el.querySelector('[data-photo-shuffle]').addEventListener('click',()=>{ photoWidgetShuffle=!photoWidgetShuffle; photoWidgetBuildOrder(); renderPhotoWidgetInto(el); });
+  el.querySelector('[data-photo-play]').addEventListener('click',()=>{ photoWidgetPlaying=!photoWidgetPlaying; renderPhotoWidgetInto(el); });
+  el.querySelector('[data-photo-add]').addEventListener('click',()=>el.querySelector('[data-photo-file]').click());
+  el.querySelector('[data-photo-file]').addEventListener('change',e=>{handlePhotoWidgetUpload(e.target.files,el);e.target.value=''});
+  el.querySelector('[data-photo-remove]').addEventListener('click',()=>{
+    state.photos.splice(currentIdx,1);
+    photoWidgetOrder=[];
+    savePhotoWidget();
+    renderPhotoWidgetInto(el);
+  });
+  if(photoWidgetPlaying&&state.photos.length>1){
+    photoWidgetTimer=setInterval(()=>advance(1),4500);
+  }
+}
+async function handlePhotoWidgetUpload(fileList,el){
+  const files=Array.from(fileList||[]).filter(f=>/^image\//.test(f.type));
+  if(!files.length)return;
+  if(state.photos.length>=PHOTO_MAX_COUNT){toast('Your photo widget is full — remove a few first');return}
+  let added=0,skippedForSize=false;
+  for(const file of files){
+    if(state.photos.length>=PHOTO_MAX_COUNT)break;
+    try{
+      const img=await fileToImage(file);
+      const dataUrl=compressImageToDataUrl(img,900,160000);
+      if(!dataUrl)continue;
+      const totalLen=state.photos.reduce((s,p)=>s+p.src.length,0)+dataUrl.length;
+      if(totalLen>PHOTO_MAX_BASE64_TOTAL){skippedForSize=true;break}
+      state.photos.push({id:'ph-'+Date.now()+'-'+Math.random().toString(36).slice(2,7),src:dataUrl});
+      added++;
+    }catch(e){console.warn(e)}
+  }
+  if(added){ photoWidgetOrder=[]; await savePhotoWidget(); }
+  if(skippedForSize)toast(added?added+' photo'+(added===1?'':'s')+' added — your library is getting full, so the rest were skipped':'Your photo library is full — remove a few or try smaller photos');
+  renderPhotoWidgetInto(el);
+}
 let saveWidgetsTimer=null;
 function saveWidgetLayout(){
   clearTimeout(saveWidgetsTimer);
@@ -518,7 +752,6 @@ let widgetEditMode=false;
 // board itself, which would otherwise be mistaken for an intentional tap
 // on empty space to exit edit mode.
 let widgetGestureActive=false;
-const WIDGET_SIZE_SPANS={sm:[1,1],md:[2,1],tall:[1,2],lg:[2,2],wide:[4,1],xl:[2,3],full:[4,2]};
 // "Jiggle mode" — nothing on a widget (drag handle, remove badge, resize
 // handle) is visible or interactive until you press and hold, same as
 // rearranging icons on an iPhone home screen. Exited via the Done button
@@ -533,7 +766,8 @@ function renderWidgetBoard(){
   if(!state.widgets.length){board.innerHTML='<div class="widget-board-empty">No widgets yet — use <strong>+ Add widget</strong> above to put something here.</div>';return}
   board.innerHTML=state.widgets.map(w=>{
     const def=WIDGET_TYPES[w.type];if(!def)return'';
-    return '<div class="widget-card" data-widget-id="'+esc(w.id)+'" data-widget-type="'+esc(w.type)+'" data-size="'+esc(w.size||def.defaultSize)+'">'+
+    const [cs,rs]=widgetSpanFor(w,def);
+    return '<div class="widget-card" data-widget-id="'+esc(w.id)+'" data-widget-type="'+esc(w.type)+'" style="--cs:'+cs+';--rs:'+rs+'">'+
       '<button type="button" class="widget-remove-badge" data-widget-remove title="Remove widget" tabindex="-1"><i data-lucide="minus"></i></button>'+
       '<div class="widget-card-head">'+
         '<div class="widget-card-title"><span class="widget-drag-handle" data-widget-drag title="Drag to move"><i data-lucide="grip-vertical"></i></span><strong>'+esc(def.title)+'</strong></div>'+
@@ -590,40 +824,33 @@ function startWidgetDrag(card,pointerId,startClientX,startClientY){
   document.addEventListener('pointerup',onUp);
   document.addEventListener('pointercancel',onUp);
 }
-// Drag the corner handle to resize live (snaps to the nearest of the 4
-// size buckets as you move); a tap with no real movement falls back to
-// cycling to the next size, so it's still usable without precise drag.
+// Drag the corner handle to resize to literally any size, not a preset —
+// the card's width/height follow your pointer continuously (rounded only
+// to the nearest column/row unit, ~1/12th of the board's width and 22px
+// tall, fine enough to feel free-form). Every other widget reflows around
+// it live as you drag, for free, because they're just ordinary CSS Grid
+// siblings with "dense" auto-placement — nothing here has to compute or
+// animate their new positions itself.
 function startWidgetResize(card,pointerId,startClientX,startClientY){
   const w=state.widgets.find(x=>x.id===card.dataset.widgetId);if(!w)return;
   const def=WIDGET_TYPES[w.type];
-  const startSize=w.size||def.defaultSize;
-  const [startCol,startRow]=WIDGET_SIZE_SPANS[startSize]||WIDGET_SIZE_SPANS.sm;
-  const STEP=70;
-  // How many columns the board is actually showing right now (4 on
-  // desktop, fewer on tablet/phone) — bounds which of the 7 sizes are
-  // worth offering as a live drag target here; the rest stay reachable
-  // via the tap-to-cycle fallback regardless of width.
+  const [startCol,startRow]=widgetSpanFor(w,def);
   const board=$('widget-board');
-  const boardCols=board?getComputedStyle(board).gridTemplateColumns.split(' ').filter(Boolean).length:4;
-  const maxCol=Math.max(1,Math.min(4,boardCols));
-  let moved=false;
+  const boardCols=board?getComputedStyle(board).gridTemplateColumns.split(' ').filter(Boolean).length:12;
+  const boardRect=board.getBoundingClientRect();
+  const colUnitPx=Math.max(20,(boardRect.width-(boardCols-1)*WIDGET_GAP_PX)/boardCols);
+  let moved=false,curCol=startCol,curRow=startRow;
   widgetGestureActive=true;
   card.classList.add('resizing');
   const onMove=ev=>{
     if(ev.pointerId!==pointerId)return;
     ev.preventDefault();
     const dx=ev.clientX-startClientX,dy=ev.clientY-startClientY;
-    if(Math.hypot(dx,dy)>8)moved=true;
-    const rawCol=Math.max(1,Math.min(maxCol,startCol+dx/STEP));
-    const rawRow=Math.max(1,Math.min(3,startRow+dy/STEP));
-    let best=null,bestDist=Infinity;
-    Object.keys(WIDGET_SIZE_SPANS).forEach(k=>{
-      const [c,r]=WIDGET_SIZE_SPANS[k];
-      if(c>maxCol)return;
-      const dist=Math.hypot(c-rawCol,r-rawRow);
-      if(dist<bestDist){bestDist=dist;best=k;}
-    });
-    if(best && card.dataset.size!==best)card.dataset.size=best;
+    if(Math.hypot(dx,dy)>6)moved=true;
+    curCol=Math.max(WIDGET_MIN_COL,Math.min(boardCols,Math.round(startCol+dx/colUnitPx)));
+    curRow=Math.max(WIDGET_MIN_ROW,Math.min(WIDGET_MAX_ROW,Math.round(startRow+dy/WIDGET_ROW_PX)));
+    card.style.setProperty('--cs',curCol);
+    card.style.setProperty('--rs',curRow);
   };
   const onUp=ev=>{
     if(ev.pointerId!==pointerId)return;
@@ -631,13 +858,10 @@ function startWidgetResize(card,pointerId,startClientX,startClientY){
     document.removeEventListener('pointerup',onUp);
     document.removeEventListener('pointercancel',onUp);
     card.classList.remove('resizing');
-    if(!moved){
-      const cur=w.size||def.defaultSize,next=WIDGET_SIZES[(WIDGET_SIZES.indexOf(cur)+1)%WIDGET_SIZES.length];
-      w.size=next;card.dataset.size=next;
-    }else{
-      w.size=card.dataset.size||startSize;
+    if(moved){
+      w.colSpan=curCol;w.rowSpan=curRow;delete w.size;
+      saveWidgetLayout();
     }
-    saveWidgetLayout();
     setTimeout(()=>{widgetGestureActive=false;},60);
   };
   document.addEventListener('pointermove',onMove);
@@ -975,6 +1199,30 @@ function renderInsightsChart(m){
   $('insights-chart-start').textContent=insightsDateLabel(dates[0]);
   $('insights-chart-end').textContent='Today';
 }
+/* Odometer — a tumbling digit strip (streak counter, consistency score)
+   instead of text just changing instantly. Each digit is its own
+   overflow:hidden column holding '0'-'9' stacked; showing digit N is a
+   translateY(-N*10%), and CSS transitions that move, so digits visibly
+   roll into place with real weight rather than popping. */
+function odometerHTML(value,minDigits){
+  const str=String(Math.max(0,Math.round(value))).padStart(minDigits||1,'0');
+  return '<span class="ico">'+str.split('').map(()=>'<span class="ico-digit"><span class="ico-strip">'+'0123456789'.split('').map(d=>'<span>'+d+'</span>').join('')+'</span></span>').join('')+'</span>';
+}
+function playOdometer(containerEl,value,minDigits){
+  if(!containerEl)return;
+  const str=String(Math.max(0,Math.round(value))).padStart(minDigits||1,'0');
+  let digits=containerEl.querySelectorAll('.ico-digit');
+  if(digits.length!==str.length){
+    containerEl.innerHTML=odometerHTML(value,minDigits);
+    digits=containerEl.querySelectorAll('.ico-digit');
+  }
+  requestAnimationFrame(()=>{
+    digits.forEach((el,i)=>{
+      const strip=el.querySelector('.ico-strip');
+      if(strip)strip.style.transform='translateY(-'+(Number(str[i])*10)+'%)';
+    });
+  });
+}
 function renderInsightsHeroFoot(m){
   const totals=insightsRangeTotals(m);
   const sum=k=>totals.reduce((s,t)=>s+t[k],0);
@@ -989,7 +1237,10 @@ function renderInsightsHeroFoot(m){
 function renderInsightsHero(m){
   const score=insightsScoreFor(m);
   const scoreEl=$('insights-score');
-  scoreEl.textContent=score+'%';
+  // Fixed at 3 digits (000-100) so the digit count never changes and the
+  // '%' suffix never has to be torn down and rebuilt mid-transition.
+  if(!scoreEl.querySelector('.ico')) scoreEl.innerHTML=odometerHTML(score,3)+'<span class="ico-suffix">%</span>';
+  playOdometer(scoreEl,score,3);
   scoreEl.classList.remove('flash'); void scoreEl.offsetWidth; scoreEl.classList.add('flash');
   $('insights-score-message').textContent=insightsScoreMessage(m);
   const delta=insightsDeltaFor(m);
@@ -1008,7 +1259,9 @@ function renderInsightsCommand(m){
   const msg=heroMessage(m);
   $('insights-headline').textContent=msg.headline;
   $('insights-subtext').textContent=msg.sub;
-  $('insights-streak-num').textContent=m.currentStreak;
+  const streakEl=$('insights-streak-num');
+  if(!streakEl.querySelector('.ico')) streakEl.innerHTML=odometerHTML(m.currentStreak,2);
+  playOdometer(streakEl,m.currentStreak,2);
   $('insights-streak-row').classList.toggle('active',m.currentStreak>0);
   const s=pickSurprise(m);
   $('insights-surprise-title').textContent=s.icon+' '+s.title;
@@ -1034,7 +1287,7 @@ function renderInsightsGrid(m){
     html+='<span class="igrid-label">'+esc(r.label)+'</span>';
     for(let i=0;i<days;i++){
       const lvl=igridLevel(totals[i][r.key],r.kind);
-      html+='<button type="button" class="igrid-dot l'+lvl+(i===todayIdxLocal?' is-today':'')+'" data-day-idx="'+i+'" aria-label="'+esc(r.label)+' — '+insightsDateLabel(m.last60Dates[i])+'"></button>';
+      html+='<button type="button" class="igrid-dot pending l'+lvl+(i===todayIdxLocal?' is-today':'')+'" style="transition-delay:'+(i*4)+'ms" data-day-idx="'+i+'" aria-label="'+esc(r.label)+' — '+insightsDateLabel(m.last60Dates[i])+'"></button>';
     }
   });
   $('insights-grid').innerHTML=html;
@@ -1108,17 +1361,49 @@ function renderInsightsConstellation(m){
   }
   frame(performance.now());
 }
+// Growth rings — the "tree rings" hero for Life systems. Each ring is one
+// real past week (not a decorative arc): thickness and brightness scale
+// with how many of that week's 7 days had *something* logged, oldest week
+// innermost, this week outermost — the same way an actual tree adds a new
+// ring outward each season. Rings start at r=0 and only grow to their real
+// radius once this section is scrolled into view (see growInsightsRings),
+// so the "growth" is something that happens as you get to it, not a
+// timer-driven intro.
+function insightsGrowthWeeks(m){
+  const totals=m.totals, n=totals.length;
+  const weeks=[];
+  const start=n%7; // drop the oldest partial week so every ring is a real full week
+  for(let i=start;i<n;i+=7){
+    const chunk=totals.slice(i,i+7);
+    const active=chunk.filter(t=>t.total>0).length;
+    weeks.push({active,size:chunk.length,endDate:m.last60Dates[Math.min(i+chunk.length-1,n-1)]});
+  }
+  return weeks;
+}
 function renderInsightsRings(m){
-  const pillars=[
-    {label:'Training',value:m.thisWeekGymDays,best:7,color:'#c9622e',suffix:'/7 days'},
-    {label:'Care',value:m.thisWeekSkinDays,best:7,color:'#a3568a',suffix:'/7 nights'},
-    {label:'Tasks',value:m.thisWeekTasks,best:m.bestWeekTasks,color:'#5b7fd6',suffix:' this week'},
-    {label:'Chores',value:m.thisWeekChores,best:m.bestWeekChores,color:'#2f7c5a',suffix:' this week'}
-  ];
-  $('insights-rings').innerHTML=pillars.map(p=>{
-    const pct=Math.max(0,Math.min(100,Math.round(p.value/Math.max(1,p.best)*100)));
-    return '<div class="insights-pillar"><div class="insights-big-ring" style="--progress:'+pct+'%;--c:'+p.color+'"><b>'+pct+'%</b></div><strong>'+esc(p.label)+'</strong><span>'+p.value+esc(p.suffix)+'</span></div>';
+  const weeks=insightsGrowthWeeks(m);
+  const n=Math.max(1,weeks.length);
+  const minR=24,maxR=138,gap=n>1?(maxR-minR)/(n-1):0;
+  const ringsSvg=weeks.map((w,i)=>{
+    const ratio=w.active/Math.max(1,w.size);
+    const r=(minR+i*gap).toFixed(1);
+    const sw=(2+ratio*7.5).toFixed(1);
+    const op=(0.3+ratio*0.7).toFixed(2);
+    const isCurrent=i===weeks.length-1;
+    return '<circle class="igrow-ring'+(isCurrent?' is-current':'')+'" cx="150" cy="150" r="0" data-r="'+r+'" style="--sw:'+sw+';--op:'+op+';transition-delay:'+(i*80)+'ms"><title>Week of '+esc(insightsDateLabel(w.endDate))+' — '+w.active+'/'+w.size+' active days</title></circle>';
   }).join('');
+  const latest=weeks.length?weeks[weeks.length-1]:{active:0,size:7};
+  $('insights-rings').innerHTML='<div class="insights-growth-wrap">'+
+    '<svg viewBox="0 0 300 300" class="insights-growth-svg" aria-label="Weekly consistency growth rings, oldest week at the center">'+ringsSvg+
+    '<text x="150" y="148" text-anchor="middle" class="igrow-center-num">'+latest.active+'</text>'+
+    '<text x="150" y="168" text-anchor="middle" class="igrow-center-sub">this week</text>'+
+    '</svg>'+
+    '<p class="insights-growth-caption">Each ring is one real week — thicker and brighter means more active. The outer ring is this week, still growing.</p>'+
+    '</div>';
+  if(document.querySelector('#insights-systems-row.in')) growInsightsRings();
+}
+function growInsightsRings(){
+  document.querySelectorAll('#insights-rings .igrow-ring').forEach(c=>{ c.setAttribute('r',c.dataset.r||'0'); });
 }
 function renderInsightsRankList(m){
   const items=[
@@ -1191,7 +1476,7 @@ function wireInsightsInteractions(){
   $('insights-grid-jump').addEventListener('click',()=>{
     const sc=document.querySelector('.insights-grid-scroll'); if(sc) sc.scrollLeft=sc.scrollWidth;
   });
-  $('insights-replay').addEventListener('click',()=>{ insightsRevealedOnce=false; playInsightsReveal(); });
+  $('insights-replay').addEventListener('click',()=>{ playInsightsReveal(); });
   $('insights-thread-btn').addEventListener('click',()=>{ $('insights-recovery').hidden=false; });
   $('insights-close-reset').addEventListener('click',()=>{ $('insights-recovery').hidden=true; });
   $('insights-begin-reset').addEventListener('click',()=>{
@@ -1202,16 +1487,64 @@ function wireInsightsInteractions(){
       if(pr) pr.scrollIntoView({behavior:'smooth',block:'center'});
     },80);
   });
-  window.addEventListener('resize',()=>{ if(insightsCurrentM && document.getElementById('page-insights').classList.contains('active')) renderInsightsConstellation(insightsCurrentM); });
+  window.addEventListener('resize',()=>{
+    if(insightsCurrentM && document.getElementById('page-insights').classList.contains('active')) renderInsightsConstellation(insightsCurrentM);
+    updateInsightsSpine();
+  });
+  window.addEventListener('scroll',onInsightsScroll,{passive:true});
+}
+/* ===== Motion that reacts to the person, not a timer =====
+   Every section below fades/settles in only once it's actually scrolled
+   into view (IntersectionObserver), the growth rings only grow once
+   their section is visible, and the activity grid's dots only drop into
+   place the same way — so the page's motion is something that happens
+   *as you look at it*, not an autoplay intro you watch once and then
+   ignore. The spine (the vertical line running down the page) goes a
+   step further and tracks scroll position continuously, redrawing on
+   every scroll frame. Replay (the button) is the one deliberate
+   exception — it resets and re-triggers everything on demand. */
+let insightsIO=null;
+function setupInsightsRevealObserver(){
+  if(insightsIO) insightsIO.disconnect();
+  insightsIO=new IntersectionObserver(entries=>{
+    entries.forEach(entry=>{
+      if(!entry.isIntersecting) return;
+      const el=entry.target;
+      el.classList.add('in');
+      if(el.id==='insights-grid-card') document.querySelectorAll('#insights-grid .igrid-dot.pending').forEach(d=>d.classList.remove('pending'));
+      if(el.id==='insights-systems-row') growInsightsRings();
+      insightsIO.unobserve(el);
+    });
+  },{threshold:0.2,rootMargin:'0px 0px -6% 0px'});
+  document.querySelectorAll('#insights-cinema .reveal').forEach(el=>insightsIO.observe(el));
+}
+let insightsSpineRAF=null;
+function updateInsightsSpine(){
+  const cinema=$('insights-cinema'), line=$('insights-spine-line');
+  if(!cinema||!line||!document.getElementById('page-insights').classList.contains('active'))return;
+  const rect=cinema.getBoundingClientRect();
+  const total=rect.height; if(total<=0)return;
+  const triggerY=window.innerHeight*0.78;
+  const scrolled=Math.max(0,Math.min(total,triggerY-rect.top));
+  const progress=scrolled/total;
+  line.setAttribute('stroke-dasharray',String(total));
+  line.setAttribute('stroke-dashoffset',String(total*(1-progress)));
+}
+function onInsightsScroll(){
+  if(insightsSpineRAF)return;
+  insightsSpineRAF=requestAnimationFrame(()=>{ insightsSpineRAF=null; updateInsightsSpine(); });
 }
 function playInsightsReveal(){
   const cinema=$('insights-cinema');
   const scan=$('insights-scanline');
   scan.classList.remove('go'); void scan.offsetWidth; scan.classList.add('go');
-  const cards=cinema.querySelectorAll('.reveal');
-  cards.forEach(c=>c.classList.remove('in'));
-  cards.forEach((c,i)=>setTimeout(()=>c.classList.add('in'), 90*i));
-  if(insightsCurrentM) setTimeout(()=>renderInsightsConstellation(insightsCurrentM), 90*cards.length+120);
+  cinema.querySelectorAll('.reveal').forEach(c=>c.classList.remove('in'));
+  document.querySelectorAll('#insights-rings .igrow-ring').forEach(c=>c.setAttribute('r','0'));
+  document.querySelectorAll('#insights-grid .igrid-dot').forEach(d=>d.classList.add('pending'));
+  cinema.scrollIntoView({behavior:'smooth',block:'start'});
+  setupInsightsRevealObserver();
+  updateInsightsSpine();
+  if(insightsCurrentM) renderInsightsConstellation(insightsCurrentM);
 }
 async function renderInsightsPage(){
   await ensureInsightsLoaded();
@@ -1227,10 +1560,8 @@ async function renderInsightsPage(){
   renderInsightsMilestones();
   renderInsightsStory(m);
   if(window.lucide)lucide.createIcons();
-  if(!insightsRevealedOnce){ insightsRevealedOnce=true; requestAnimationFrame(()=>playInsightsReveal()); }
-  else{
-    $('insights-cinema').querySelectorAll('.reveal').forEach(c=>c.classList.add('in'));
-  }
+  setupInsightsRevealObserver();
+  requestAnimationFrame(updateInsightsSpine);
   const nowUnlocked=insightsBadges(m).filter(b=>b.unlocked).map(b=>b.id);
   if(insightsPrevUnlocked && nowUnlocked.some(id=>!insightsPrevUnlocked.includes(id))) insightsFireCelebration();
   insightsPrevUnlocked=nowUnlocked;
@@ -1248,10 +1579,15 @@ async function renderInsightsPage(){
 function renderSettingsPage(){
   const t=state.theme||DEFAULT_THEME;
   const activeMode=t.mode||'light';
+  const activePalette=(t.mode&&t.mode.indexOf('palette-')===0)?THEME_PALETTES.find(p=>p.id===t.mode):null;
   $('settings-theme-modes').innerHTML=THEME_MODES.map(m=>{
-    if(m.locked)return '<div class="theme-mode-swatch is-locked" title="More themes will land here later"><span class="tm-lock"><i data-lucide="lock"></i></span><div class="tm-preview" style="background:var(--surface-soft)"></div><strong>'+esc(m.name)+'</strong><small>'+esc(m.desc)+'</small></div>';
     return '<button type="button" class="theme-mode-swatch'+(activeMode===m.id?' active':'')+'" data-theme-mode="'+m.id+'" title="'+esc(m.name)+'"><div class="tm-preview" style="background:'+m.body+'"><span class="tm-rail" style="background:'+m.rail+'"></span><span class="tm-body"><span class="tm-chip" style="background:'+m.chip+'"></span><span class="tm-line" style="background:'+m.line+'"></span></span></div><strong>'+esc(m.name)+'</strong><small>'+esc(m.desc)+'</small></button>';
-  }).join('');
+  }).join('')+
+  '<button type="button" class="theme-mode-swatch theme-mode-more'+(activePalette?' active':'')+'" id="settings-theme-browse" title="Browse the full theme gallery">'+
+    (activePalette
+      ?'<div class="tm-preview" style="background:'+activePalette.vars.bg+'"><span class="tm-rail" style="background:'+activePalette.vars.ink+'"></span><span class="tm-body"><span class="tm-chip" style="background:var(--accent)"></span><span class="tm-line" style="background:'+activePalette.vars.line+'"></span></span></div>'
+      :'<div class="tm-preview tm-preview-more"><i data-lucide="palette"></i></div>')+
+    '<strong>'+(activePalette?esc(activePalette.name):'More themes')+'</strong><small>Browse '+THEME_PALETTES.length+' more</small></button>';
   $('settings-profile-pickers').innerHTML=['Bhargav','Anusha'].map(name=>{
     const hex=(t.accents&&t.accents[name])||DEFAULT_THEME.accents[name];
     return '<div class="settings-picker-row" data-profile="'+name+'"><span class="avatar settings-avatar-swatch '+name.toLowerCase()+'" style="background:'+hex+'">'+name[0]+'</span><div class="settings-picker-copy"><strong>'+name+'’s color</strong><small>Used across every app when '+name+' is active</small></div><input type="color" value="'+hex+'" data-profile-color="'+name+'" aria-label="'+name+'’s color"><input type="text" class="input settings-hex" value="'+hex+'" data-profile-hex="'+name+'" maxlength="7" spellcheck="false" aria-label="'+name+'’s color, as hex"></div>';
@@ -1267,14 +1603,111 @@ function renderSettingsPage(){
     ?'<div class="wallpaper-swatch wallpaper-upload-tile has-photo active" id="settings-wallpaper-upload-tile"><span class="ws-preview" style="background:'+t.wallpaper.css.replace(/"/g,'&quot;')+'"></span><small>Your photo</small><span class="wallpaper-photo-actions"><button type="button" id="settings-photo-change">Change</button><button type="button" id="settings-photo-remove">Remove</button></span></div>'
     :'<button type="button" class="wallpaper-swatch wallpaper-upload-tile" id="settings-wallpaper-upload-tile" title="Upload your own photo"><span class="ws-preview"><i data-lucide="upload"></i></span><small>Upload photo</small></button>';
   $('settings-wallpaper-presets').innerHTML=uploadTile+WALLPAPER_PRESETS.map(w=>'<button type="button" class="wallpaper-swatch'+(activeWallpaper===w.id?' active':'')+(w.live?' is-live':'')+'" data-wallpaper="'+w.id+'" title="'+esc(w.name)+(w.live?' (live, animated)':'')+'"><span class="ws-preview" style="background:'+(w.css||'var(--surface-soft)')+'">'+(w.live?'<span class="ws-live-badge"><i data-lucide="sparkles"></i>Live</span>':'')+'</span><small>'+esc(w.name)+'</small></button>').join('');
+  if($('settings-app-icons')){
+    const apps=(state.apps&&state.apps.length)?state.apps:Object.keys(DEFAULT_APP_ICON).map(file=>({file,title:titleFromFilename(file)}));
+    $('settings-app-icons').innerHTML=apps.map(a=>{
+      return '<button type="button" class="app-icon-swatch" data-icon-edit="'+esc(a.file)+'" title="Change '+esc(a.title)+'’s icon">'+
+        '<span class="app-icon">'+appIconHtml(a.file)+'</span><strong>'+esc(a.title)+'</strong><small>Change</small></button>';
+    }).join('');
+  }
   if(window.lucide)lucide.createIcons();
   wireSettingsEvents();
 }
 function setThemeMode(id){
-  if(!THEME_MODES.some(m=>m.id===id))return;
+  if(!THEME_MODES.some(m=>m.id===id)&&!THEME_PALETTES.some(p=>p.id===id))return;
   state.theme=state.theme||JSON.parse(JSON.stringify(DEFAULT_THEME));
   state.theme.mode=id;
-  applyTheme();saveHubTheme();renderSettingsPage();
+  applyTheme();saveProfileAppearance();renderSettingsPage();
+}
+/* ---- Theme gallery modal: the other ~50 palettes, browsed separately
+   from the 4 classic tiles so the main Settings page doesn't turn into a
+   wall of swatches. ---- */
+function renderThemeGallery(){
+  const t=state.theme||DEFAULT_THEME;
+  $('theme-gallery-grid').innerHTML=THEME_PALETTES.map(p=>{
+    const active=t.mode===p.id;
+    return '<button type="button" class="theme-mode-swatch'+(active?' active':'')+'" data-theme-mode="'+p.id+'" title="'+esc(p.name)+'">'+
+      '<div class="tm-preview" style="background:'+p.vars.bg+'"><span class="tm-rail" style="background:'+p.vars.ink+'"></span><span class="tm-body"><span class="tm-chip" style="background:var(--accent)"></span><span class="tm-line" style="background:'+p.vars.line+'"></span></span></div>'+
+      '<strong>'+esc(p.name)+'</strong></button>';
+  }).join('');
+  if(window.lucide)lucide.createIcons();
+}
+let themeGalleryWired=false;
+function wireThemeGalleryModal(){
+  if(themeGalleryWired)return;themeGalleryWired=true;
+  $('theme-gallery-close').addEventListener('click',()=>$('theme-gallery-modal').hidden=true);
+  $('theme-gallery-modal').addEventListener('click',e=>{
+    if(e.target.id==='theme-gallery-modal'){$('theme-gallery-modal').hidden=true;return}
+    const btn=e.target.closest('[data-theme-mode]');
+    if(btn){setThemeMode(btn.dataset.themeMode);$('theme-gallery-modal').hidden=true;}
+  });
+}
+/* ---- App icon picker: pick from the curated Lucide library or upload a
+   custom image, scoped to whichever app tile was clicked. ---- */
+let iconPickerFile=null;
+function renderIconPicker(){
+  if(!iconPickerFile)return;
+  const info=appIconInfo(iconPickerFile);
+  const app=(state.apps||[]).find(a=>a.file===iconPickerFile);
+  $('icon-picker-title').textContent=(app?app.title:titleFromFilename(iconPickerFile))+'’s icon';
+  const isCustomImage=info.type==='image';
+  $('icon-picker-upload-tile').innerHTML=isCustomImage
+    ?'<span class="ws-preview"><img src="'+info.src+'" alt=""></span><small>Your image</small>'
+    :'<span class="ws-preview"><i data-lucide="upload"></i></span><small>Upload image</small>';
+  $('icon-picker-upload-tile').classList.toggle('has-photo',isCustomImage);
+  $('icon-picker-remove-row').hidden=!state.appIcons[iconPickerFile];
+  $('icon-picker-grid').innerHTML=ICON_LIBRARY.map(name=>{
+    const active=info.type==='icon'&&info.icon===name;
+    return '<button type="button" class="icon-picker-item'+(active?' active':'')+'" data-icon-pick="'+name+'" title="'+name+'"><i data-lucide="'+name+'"></i></button>';
+  }).join('');
+  if(window.lucide)lucide.createIcons();
+}
+function openIconPicker(file){
+  iconPickerFile=file;
+  renderIconPicker();
+  $('icon-picker-modal').hidden=false;
+}
+function setAppIconChoice(icon){
+  if(!iconPickerFile)return;
+  state.appIcons[iconPickerFile]={type:'icon',icon};
+  saveHubIcons();renderAllCategoryPages();renderSettingsPage();renderIconPicker();
+}
+function resetAppIcon(){
+  if(!iconPickerFile)return;
+  delete state.appIcons[iconPickerFile];
+  saveHubIcons();renderAllCategoryPages();renderSettingsPage();renderIconPicker();
+}
+async function handleAppIconUpload(file){
+  if(!file||!/^image\//.test(file.type)||!iconPickerFile)return;
+  const progress=$('icon-picker-progress');
+  progress.hidden=false;progress.textContent='Preparing your image…';
+  try{
+    const img=await fileToImage(file);
+    const dataUrl=compressIconPhoto(img);
+    if(!dataUrl){progress.textContent="That image is too large even after compressing — try a smaller one.";setTimeout(()=>{progress.hidden=true},3500);return}
+    state.appIcons[iconPickerFile]={type:'image',src:dataUrl};
+    progress.hidden=true;
+    await saveHubIcons();
+    renderAllCategoryPages();renderSettingsPage();renderIconPicker();
+  }catch(e){
+    console.warn(e);progress.textContent="Couldn't read that image — try another one.";setTimeout(()=>{progress.hidden=true},3500);
+  }
+}
+let iconPickerWired=false;
+function wireIconPickerModal(){
+  if(iconPickerWired)return;iconPickerWired=true;
+  $('icon-picker-close').addEventListener('click',()=>$('icon-picker-modal').hidden=true);
+  $('icon-picker-modal').addEventListener('click',e=>{
+    if(e.target.id==='icon-picker-modal'){$('icon-picker-modal').hidden=true;return}
+    const pick=e.target.closest('[data-icon-pick]'); if(pick){setAppIconChoice(pick.dataset.iconPick);return}
+    if(e.target.closest('#icon-picker-remove')){resetAppIcon();return}
+    const uploadTile=e.target.closest('#icon-picker-upload-tile'); if(uploadTile){$('icon-picker-file').click();return}
+  });
+  $('icon-picker-file').addEventListener('change',e=>{
+    const file=e.target.files&&e.target.files[0];
+    handleAppIconUpload(file);
+    e.target.value='';
+  });
 }
 // Firestore documents cap out around 1MiB; a raw photo can blow past that
 // easily, so every upload is redrawn onto a canvas, shrunk to a sane max
@@ -1290,8 +1723,8 @@ function fileToImage(file){
     reader.readAsDataURL(file);
   });
 }
-function compressWallpaperPhoto(img){
-  let maxDim=1600;
+function compressImageToDataUrl(img,startMaxDim,maxBytes){
+  let maxDim=startMaxDim;
   for(let attempt=0;attempt<6;attempt++){
     const scale=Math.min(1,maxDim/Math.max(img.width,img.height));
     const w=Math.round(img.width*scale),h=Math.round(img.height*scale);
@@ -1299,12 +1732,19 @@ function compressWallpaperPhoto(img){
     const ctx=canvas.getContext('2d');ctx.drawImage(img,0,0,w,h);
     for(let q=0.78;q>=0.35;q-=0.1){
       const dataUrl=canvas.toDataURL('image/jpeg',q);
-      if(dataUrl.length<=WALLPAPER_MAX_BASE64)return dataUrl;
+      if(dataUrl.length<=maxBytes)return dataUrl;
     }
     maxDim=Math.round(maxDim*0.75); // still too big even at low quality — shrink further and retry
   }
   return null; // couldn't get under the limit even at the smallest size tried
 }
+function compressWallpaperPhoto(img){ return compressImageToDataUrl(img,1600,WALLPAPER_MAX_BASE64) }
+// Icons are tiny on screen (a 44px circle), but several of them share one
+// Firestore document (users/{uid}/apps/hub/data/icons), so each one gets a
+// much smaller budget than the single full-bleed wallpaper photo does —
+// 200px/45KB is already generous for how small these render.
+const ICON_MAX_BASE64=45000;
+function compressIconPhoto(img){ return compressImageToDataUrl(img,200,ICON_MAX_BASE64) }
 async function handleWallpaperUpload(file){
   if(!file||!/^image\//.test(file.type))return;
   const progress=$('settings-upload-progress');
@@ -1316,7 +1756,7 @@ async function handleWallpaperUpload(file){
     state.theme=state.theme||JSON.parse(JSON.stringify(DEFAULT_THEME));
     state.theme.wallpaper={id:'custom',css:'url("'+dataUrl+'") center/cover no-repeat'};
     applyTheme();progress.hidden=true;
-    await saveHubTheme();
+    await saveProfileAppearance();
     renderSettingsPage();
   }catch(e){
     console.warn(e);progress.textContent="Couldn't read that photo — try another one.";setTimeout(()=>{progress.hidden=true},3500);
@@ -1337,23 +1777,26 @@ function applyProfileColorLive(name,hex){
 function commitProfileColor(name,hex){
   if(!/^#[0-9a-fA-F]{6}$/i.test(hex)){renderSettingsPage();return} // bad/incomplete hex typed by hand — just redraw with the last good value
   applyProfileColorLive(name,hex);
-  saveHubTheme();
+  saveHubAccents();
 }
 function applyPalettePreset(name){
   const p=PALETTE_PRESETS.find(x=>x.name===name);if(!p)return;
   state.theme=state.theme||JSON.parse(JSON.stringify(DEFAULT_THEME));
   state.theme.accents={Bhargav:p.Bhargav,Anusha:p.Anusha};
-  applyTheme();saveHubTheme();renderSettingsPage();
+  applyTheme();saveHubAccents();renderSettingsPage();
 }
 function setWallpaper(id){
   const w=WALLPAPER_PRESETS.find(x=>x.id===id);if(!w)return;
   state.theme=state.theme||JSON.parse(JSON.stringify(DEFAULT_THEME));
   state.theme.wallpaper={id:w.id,css:w.css};
-  applyTheme();saveHubTheme();renderSettingsPage();
+  applyTheme();saveProfileAppearance();renderSettingsPage();
 }
 function resetTheme(){
+  // Resets everything this Settings page controls — both the shared
+  // accent colors and this profile's own mode/wallpaper — so both saves
+  // fire together.
   state.theme=JSON.parse(JSON.stringify(DEFAULT_THEME));
-  applyTheme();saveHubTheme();renderSettingsPage();
+  applyTheme();saveHubAccents();saveProfileAppearance();renderSettingsPage();
 }
 let settingsWired=false;
 function wireSettingsEvents(){
@@ -1377,8 +1820,12 @@ function wireSettingsEvents(){
     const uploadTile=e.target.closest('#settings-wallpaper-upload-tile');
     if(uploadTile){ if(!uploadTile.classList.contains('has-photo'))$('settings-wallpaper-file').click(); return }
     const wp=e.target.closest('[data-wallpaper]'); if(wp){setWallpaper(wp.dataset.wallpaper);return}
+    if(e.target.closest('#settings-theme-browse')){renderThemeGallery();$('theme-gallery-modal').hidden=false;return}
+    const iconEdit=e.target.closest('[data-icon-edit]'); if(iconEdit){openIconPicker(iconEdit.dataset.iconEdit);return}
     if(e.target.closest('#settings-reset'))resetTheme();
   });
+  wireThemeGalleryModal();
+  wireIconPickerModal();
 }
 
 /* =====================================================================

@@ -180,6 +180,7 @@
 
         <div class="insights-cinema" id="insights-cinema">
           <div class="insights-scanline" id="insights-scanline"></div>
+          <div class="insights-spine" id="insights-spine" aria-hidden="true"><svg preserveAspectRatio="none"><line id="insights-spine-line" x1="1" y1="0" x2="1" y2="100%"/></svg></div>
 
           <section class="insights-hero reveal" id="insights-hero">
             <div class="insights-hero-grid">
@@ -238,7 +239,7 @@
             <div class="insights-constellation-status" id="insights-constellation-status"><strong>0 / 6</strong><span>badges earned</span></div>
           </section>
 
-          <div class="insights-section-head"><div><h2>Life systems</h2><p>This week vs. your own best week for each system — no invented targets</p></div></div>
+          <div class="insights-section-head"><div><h2>Growth rings</h2><p>Every real week you've had, ring by ring — this week is the outer edge, still growing</p></div></div>
           <section class="insights-two-col reveal" id="insights-systems-row">
             <div class="insights-card"><div class="insights-rings" id="insights-rings"></div></div>
             <div class="insights-card">
@@ -269,6 +270,12 @@
           <div class="section-head with-icon"><span class="section-head-icon"><i data-lucide="sparkles"></i></span><div><p class="section-kicker">Appearance</p><h2>Theme</h2></div></div>
           <p class="settings-hint">Changes the look of the whole Hub — not just this page. Pick one now; more will show up here over time.</p>
           <div class="theme-mode-grid" id="settings-theme-modes"></div>
+        </section>
+
+        <section class="surface settings-card">
+          <div class="section-head with-icon"><span class="section-head-icon"><i data-lucide="layout-grid"></i></span><div><p class="section-kicker">Appearance</p><h2>App icons</h2></div></div>
+          <p class="settings-hint">Each app's icon now follows the active theme automatically. Tap any app below to pick a different icon, or upload your own image.</p>
+          <div class="app-icon-grid" id="settings-app-icons"></div>
         </section>
 
         <section class="surface settings-card">
@@ -335,6 +342,25 @@
     <div class="modal" role="dialog" aria-modal="true" aria-labelledby="widget-add-title">
       <div class="modal-head"><div><p class="eyebrow">Today page</p><h2 id="widget-add-title">Add a widget</h2></div><button class="icon-button" id="widget-add-close" type="button" aria-label="Close"><i data-lucide="x"></i></button></div>
       <div class="widget-catalog" id="widget-catalog"></div>
+    </div>
+  </div>
+
+  <div class="modal-backdrop" id="theme-gallery-modal" hidden>
+    <div class="modal modal-wide" role="dialog" aria-modal="true" aria-labelledby="theme-gallery-title">
+      <div class="modal-head"><div><p class="eyebrow">Appearance</p><h2 id="theme-gallery-title">Theme gallery</h2></div><button class="icon-button" id="theme-gallery-close" type="button" aria-label="Close"><i data-lucide="x"></i></button></div>
+      <p class="settings-hint">A palette for every mood — each with a light and a night version.</p>
+      <div class="theme-mode-grid theme-gallery-grid" id="theme-gallery-grid"></div>
+    </div>
+  </div>
+
+  <div class="modal-backdrop" id="icon-picker-modal" hidden>
+    <div class="modal modal-wide" role="dialog" aria-modal="true" aria-labelledby="icon-picker-title">
+      <div class="modal-head"><div><p class="eyebrow">App icons</p><h2 id="icon-picker-title">Choose an icon</h2></div><button class="icon-button" id="icon-picker-close" type="button" aria-label="Close"><i data-lucide="x"></i></button></div>
+      <button type="button" class="wallpaper-swatch wallpaper-upload-tile icon-picker-upload-tile" id="icon-picker-upload-tile" title="Upload your own image"></button>
+      <input type="file" id="icon-picker-file" accept="image/*" hidden>
+      <p class="settings-upload-progress" id="icon-picker-progress" hidden></p>
+      <p class="icon-picker-remove-row" id="icon-picker-remove-row" hidden><button type="button" class="button secondary" id="icon-picker-remove"><i data-lucide="rotate-ccw"></i><span>Use the default icon</span></button></p>
+      <div class="icon-picker-grid" id="icon-picker-grid"></div>
     </div>
   </div>
 
