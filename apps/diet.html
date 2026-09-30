@@ -760,6 +760,16 @@ function openNewFoodFromUniversal(){closeUniversalLog();openFoodModal()}
       }
       inv.onHand=Math.max(0,(inv.onHand||0)-consumed);
       inv.status=pantryStatus(inv.onHand,pantryFull(inv.onHand,p.purchaseQty||1));
+      // Feed the same usage log Grocery's own Pantry tab uses to predict
+      // when something will run out before the next trip — every real
+      // bite eaten counts toward that 5-day usage rate, not just manual
+      // corrections made inside Grocery itself.
+      if(consumed>0){
+        gstate.stockLog = gstate.stockLog || [];
+        gstate.stockLog.push({pid, date:new Date().toISOString().slice(0,10), delta:Math.round(consumed*1000)/1000});
+        const cutoff=addDaysISO(new Date().toISOString().slice(0,10),-60);
+        gstate.stockLog = gstate.stockLog.filter(function(e){ return e.date>=cutoff; });
+      }
       if(inv.status==='low' || inv.status==='finished'){
         const week = gstate.weeks && gstate.weeks[gstate.activeWeek];
         const alreadyOnList = week && week.items.some(function(i){ return i.productId===pid && (i.purchasedQty||0) < (i.plannedQty||0); });
