@@ -9,6 +9,7 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script src="../assets/theme.js"></script>
 <style>
   :root{
     --bg:#F4F4F0; --surface:#FFFFFF; --surface-alt:#EFEDE4;
@@ -280,6 +281,20 @@
   .heatmap-cell[data-lvl="4"]{background:var(--accent-deep);}
   .heatmap-legend{display:flex;align-items:center;gap:4px;font-size:9.5px;color:var(--text-faint);margin-top:6px;}
   .heatmap-legend .heatmap-cell{cursor:default;}
+
+  /* Motion & life pass — tasteful, low-risk micro-interactions layered on
+     top of this file's existing styles. Buttons everywhere get a quick
+     tactile press-down; anything card-like gets a soft hover lift and a
+     gentle fade/rise on render, so the page feels responsive rather than
+     static. Broad attribute-selector matches ([class*="-card"] etc.) are
+     deliberate — they cover every current and future card/button without
+     hand-listing each one. */
+  button,.btn,[class*="-btn"],[class*="btn-"]{transition:transform .12s cubic-bezier(.34,1.56,.64,1),box-shadow .15s ease,background-color .15s ease,border-color .15s ease}
+  button:active,.btn:active,[class*="-btn"]:active,[class*="btn-"]:active{transform:scale(.96)}
+  .card,[class*="-card"]{transition:transform .18s cubic-bezier(.16,1,.3,1),box-shadow .18s ease,border-color .18s ease;animation:life-fade-in .38s cubic-bezier(.16,1,.3,1) both}
+  .card:hover,[class*="-card"]:hover{transform:translateY(-2px);box-shadow:0 10px 28px rgba(20,20,17,.09)}
+  .card:active,[class*="-card"]:active{transform:translateY(0) scale(.985)}
+  @keyframes life-fade-in{from{opacity:0;transform:translateY(8px)}}
 </style>
 </head>
 <body>
@@ -439,6 +454,7 @@ function setWhoAmI(name){
   whoAmI = name;
   try{ localStorage.setItem(WHO_KEY, whoAmI); }catch(e){}
   document.body.dataset.profile = whoAmI;
+  if(window.HubTheme) HubTheme.applyHubTheme(whoAmI, {base:'--accent',deep:'--accent-deep',soft:'--accent-soft'}).catch(()=>{});
   document.querySelectorAll('[data-whoami]').forEach(function(b){ b.classList.toggle('active', b.dataset.whoami===whoAmI); });
   showTab(activeTab);
 }
@@ -1677,6 +1693,12 @@ async function init(){
   } else {
     try{ whoAmI = localStorage.getItem('hub-active-profile') || localStorage.getItem(WHO_KEY) || 'Bhargav'; }catch(e){}
   }
+  // Apply the accent/theme immediately on load too, not just when someone
+  // clicks a profile button (setWhoAmI already does both, but also
+  // re-renders the active tab, which isn't safe to do this early —
+  // before chore data has loaded — so just the cosmetic parts run here).
+  document.body.dataset.profile = whoAmI;
+  if(window.HubTheme) HubTheme.applyHubTheme(whoAmI, {base:'--accent',deep:'--accent-deep',soft:'--accent-soft'}).catch(()=>{});
   document.querySelectorAll('[data-whoami]').forEach(function(btn){
     btn.classList.toggle('active', btn.dataset.whoami===whoAmI);
     btn.onclick = function(){ setWhoAmI(btn.dataset.whoami); };

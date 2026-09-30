@@ -9,6 +9,7 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script src="../assets/theme.js"></script>
 <style>
   /* These match the Hub shell's own tokens exactly (assets/app.css's
      :root), same as the Todo restyle — Calendar was previously running an
@@ -119,7 +120,6 @@
   .month-cell.other-month{opacity:0.35;}
   .month-cell.is-today{border:2px solid var(--today-ring);}
   .month-cell .cell-date{font-size:12px;font-weight:700;}
-  .month-cell.is-tithi-mark .cell-date{display:inline-flex;}
   .tithi-badge{display:inline-block;width:6px;height:6px;border-radius:50%;margin-left:3px;vertical-align:middle;}
   .sun-badge{display:inline-block;font-size:8px;margin-left:2px;vertical-align:middle;}
   .tithi-badge.amavasya{background:var(--amavasya);}
@@ -149,7 +149,6 @@
   .panchang-sun-label{font-size:14.5px;font-weight:800;color:#8A5D00;}
   .panchang-tithi{font-size:15px;font-weight:800;color:var(--text);font-family:'Manrope',sans-serif;}
   .panchang-anchor{font-size:12px;color:var(--text-soft);margin-top:2px;}
-  .panchang-festival{font-size:13.5px;font-weight:700;color:#B8860B;margin-top:6px;}
   .panchang-fest-list{margin:8px 0 0;padding-left:20px;list-style:disc;}
   .panchang-fest-list li{font-size:13.5px;font-weight:600;color:#7A5A00;line-height:1.65;margin-bottom:3px;}
   .panchang-box b{color:var(--text);}
@@ -261,7 +260,7 @@
   .filter-swatch{width:9px;height:9px;border-radius:3px;flex:none;}
   .grid-manage-link{background:none;border:none;color:var(--text-faint);font-size:11.5px;text-decoration:underline;cursor:pointer;text-align:left;padding:0 2px;}
   @media(max-width:860px){
-    .grid-shell{flex-direction:column;}
+    .grid-shell{flex-direction:column;align-items:stretch;}
     .grid-sidebar{width:100%;}
   }
 
@@ -378,6 +377,7 @@ function detectActiveProfile(){
   // per-profile) — Calendar itself still shows both profiles' events
   // together, this only tints the page's own buttons/today-ring.
   document.body.dataset.profile = activeCalendarProfile.toLowerCase();
+  if(window.HubTheme) HubTheme.applyHubTheme(activeCalendarProfile, {base:'--accent',deep:'--accent-deep',soft:'--accent-soft'}).catch(()=>{});
 }
 
 function pad2(n){ return String(n).padStart(2,'0'); }
@@ -1708,6 +1708,7 @@ auth.onAuthStateChanged(async function(user){
     try{ localStorage.setItem('hub-active-profile', activeCalendarProfile); }catch(e){}
     setWhoBadge();
     document.body.dataset.profile = activeCalendarProfile.toLowerCase();
+  if(window.HubTheme) HubTheme.applyHubTheme(activeCalendarProfile, {base:'--accent',deep:'--accent-deep',soft:'--accent-soft'}).catch(()=>{});
     render();
   };
   applyModeUI();
@@ -1775,10 +1776,6 @@ function festivalList(dateStr){
   const f = FESTIVALS[dateStr];
   if(!f) return [];
   return Array.isArray(f) ? f : [f];
-}
-function festivalLabel(dateStr){
-  const list = festivalList(dateStr);
-  return list.length ? list[0] : null;
 }
 // Reminders — birthdays, anniversaries, or anything else recurring
 // yearly, grouped into categories you can create or remove yourself.

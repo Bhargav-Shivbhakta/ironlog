@@ -3,7 +3,7 @@ firebase.initializeApp(FIREBASE_CONFIG);
 const auth=firebase.auth(),db=firebase.firestore();
 try{db.enablePersistence({synchronizeTabs:true}).catch(()=>{});}catch(e){}
 
-const state={user:null,profile:null,templates:{},events:[],personalTasks:[],sharedTasks:[],chores:[],choreHistory:[],dailyLog:null,apps:[],categories:{},order:[],hidden:[],insights:null};
+const state={user:null,profile:null,templates:{},events:[],personalTasks:[],sharedTasks:[],chores:[],choreHistory:[],dailyLog:null,apps:[],categories:{},order:[],hidden:[],insights:null,theme:null};
 const PROFILE_KEY='hub-active-profile',DAYS=['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
 const $=id=>document.getElementById(id);
 const today=()=>{const d=new Date();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')};
@@ -22,8 +22,62 @@ function skinDataRef(profile,key){return db.collection('users').doc(state.user.u
 function gymDailyLogsCol(profile){return db.collection('users').doc(state.user.uid).collection('profiles').doc(profile.toLowerCase()).collection('dailyLogs')}
 async function readJson(ref,fallback=[]){try{const snap=await ref.get();return snap.exists?safeJson(snap.data().json,fallback):fallback}catch(e){console.warn(e);return fallback}}
 
+/* =====================================================================
+   THEME — two editable "base colors" (one per profile), each expanded
+   into a deep/soft pair via HSL math so every app that already uses the
+   accent/accent-deep/accent-soft (or green/green2, etc.) variable
+   convention can be recolored from a single hex pick. Shared with every
+   other app file in this suite (each reads the same hub/theme doc and
+   runs the same derivation — see the "hub theme" block near the top of
+   each app's own script) so choosing a color here reskins the whole
+   suite, not just this page. Stored at apps/hub/data/theme so it's one
+   shared setting, same as categories/order/hidden above.
+===================================================================== */
+const DEFAULT_THEME={accents:{Bhargav:'#ad7b20',Anusha:'#b25c78'},wallpaper:{id:'none',css:''}};
+function hexToRgb(hex){hex=(hex||'').replace('#','');if(hex.length===3)hex=hex.split('').map(c=>c+c).join('');const n=parseInt(hex,16)||0;return[n>>16&255,n>>8&255,n&255]}
+function rgbToHsl(r,g,b){r/=255;g/=255;b/=255;const mx=Math.max(r,g,b),mn=Math.min(r,g,b);let h,s,l=(mx+mn)/2;if(mx===mn){h=s=0}else{const d=mx-mn;s=l>0.5?d/(2-mx-mn):d/(mx+mn);if(mx===r)h=(g-b)/d+(g<b?6:0);else if(mx===g)h=(b-r)/d+2;else h=(r-g)/d+4;h/=6}return[h*360,s*100,l*100]}
+function hslToHex(h,s,l){h=((h%360)+360)%360/360;s=Math.max(0,Math.min(100,s))/100;l=Math.max(0,Math.min(100,l))/100;let r,g,b;if(s===0){r=g=b=l}else{const q=l<0.5?l*(1+s):l+s-l*s,p=2*l-q;const hue2rgb=(p,q,t)=>{if(t<0)t+=1;if(t>1)t-=1;if(t<1/6)return p+(q-p)*6*t;if(t<1/2)return q;if(t<2/3)return p+(q-p)*(2/3-t)*6;return p};r=hue2rgb(p,q,h+1/3);g=hue2rgb(p,q,h);b=hue2rgb(p,q,h-1/3)}const toHex=x=>Math.round(x*255).toString(16).padStart(2,'0');return'#'+toHex(r)+toHex(g)+toHex(b)}
+function deriveShades(base){const[h,s,l]=rgbToHsl(...hexToRgb(base));const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));return{accent:base,deep:hslToHex(h,clamp(s*1.08,40,96),clamp(l*0.6,16,42)),soft:hslToHex(h,clamp(s*0.5,18,55),92)}}
+const PALETTE_PRESETS=[
+  {name:'Original',Bhargav:'#ad7b20',Anusha:'#b25c78'},
+  {name:'Ocean & Coral',Bhargav:'#2a78d6',Anusha:'#eb6834'},
+  {name:'Forest & Berry',Bhargav:'#2f7c5a',Anusha:'#a8517a'},
+  {name:'Slate & Gold',Bhargav:'#3a3d52',Anusha:'#e8b84b'},
+  {name:'Teal & Rose',Bhargav:'#16a37a',Anusha:'#b25c78'},
+  {name:'Plum & Amber',Bhargav:'#7a2c49',Anusha:'#c9922e'},
+  {name:'Indigo & Coral',Bhargav:'#4a5ed6',Anusha:'#eb6834'},
+  {name:'Clay & Sage',Bhargav:'#b8563a',Anusha:'#5c8a6e'}
+];
+const WALLPAPER_PRESETS=[
+  {id:'none',name:'Plain',css:''},
+  {id:'sunrise',name:'Sunrise',css:'linear-gradient(135deg,#fdf6e3 0%,#fbead1 45%,#f7dcc4 100%)'},
+  {id:'dawn',name:'Dawn Rose',css:'linear-gradient(135deg,#fbeff3 0%,#f6e1e8 50%,#f0d9e6 100%)'},
+  {id:'meadow',name:'Meadow',css:'linear-gradient(135deg,#eef6ee 0%,#e3f1e6 50%,#dceee0 100%)'},
+  {id:'sky',name:'Sky',css:'linear-gradient(135deg,#eaf2fb 0%,#e2eefa 50%,#dce9f7 100%)'},
+  {id:'dusk',name:'Dusk',css:'linear-gradient(135deg,#f3eef7 0%,#ece4f2 50%,#e5dcec 100%)'},
+  {id:'sand',name:'Sand',css:'linear-gradient(135deg,#f7f3ea 0%,#f1e9d8 50%,#ebdfc4 100%)'}
+];
+function applyTheme(){
+  const t=state.theme||DEFAULT_THEME;
+  const hex=(t.accents&&t.accents[state.profile])||DEFAULT_THEME.accents[state.profile];
+  const sh=deriveShades(hex);
+  document.documentElement.style.setProperty('--accent',sh.accent);
+  document.documentElement.style.setProperty('--accent-soft',sh.soft);
+  document.documentElement.style.setProperty('--accent-ink',sh.deep);
+  // Always-on per-person colors (not just "whoever's active right now") —
+  // used anywhere someone's avatar/initials need to stay recognizably
+  // *theirs* regardless of whose session is currently active, e.g. a
+  // shared chore attributed to either person.
+  document.documentElement.style.setProperty('--accent-bhargav',(t.accents&&t.accents.Bhargav)||DEFAULT_THEME.accents.Bhargav);
+  document.documentElement.style.setProperty('--accent-anusha',(t.accents&&t.accents.Anusha)||DEFAULT_THEME.accents.Anusha);
+  const wpCss=t.wallpaper&&t.wallpaper.css;
+  if(wpCss)document.documentElement.style.setProperty('--bg',wpCss);
+  else document.documentElement.style.removeProperty('--bg');
+}
+async function saveHubTheme(){try{await hubRef('theme').set({json:JSON.stringify(state.theme)})}catch(e){}}
+
 function setGate(name){['loading','auth','profile'].forEach(x=>$(x+'-gate').hidden=x!==name);$('app-shell').hidden=!!name}
-function setProfile(name){state.profile=name;localStorage.setItem(PROFILE_KEY,name);document.body.dataset.profile=name;$('sidebar-profile').textContent=name;$('sidebar-avatar').textContent=name[0];$('sidebar-avatar').className='avatar '+name.toLowerCase();$('mobile-profile').textContent=name[0];$('mobile-profile').className='avatar '+name.toLowerCase();updateAppFrameProfile();updateProfileLinks();startHubAlarmWatch()}
+function setProfile(name){state.profile=name;localStorage.setItem(PROFILE_KEY,name);document.body.dataset.profile=name;$('sidebar-profile').textContent=name;$('sidebar-avatar').textContent=name[0];$('sidebar-avatar').className='avatar '+name.toLowerCase();$('mobile-profile').textContent=name[0];$('mobile-profile').className='avatar '+name.toLowerCase();updateAppFrameProfile();updateProfileLinks();startHubAlarmWatch();applyTheme()}
 // Keeps the profile capsule in the app viewer's own top bar in sync with
 // the hub-wide active profile — it's shown there instead of repeated
 // inside every embedded app (see openAppFrame / app-frame-profile below).
@@ -48,14 +102,13 @@ const FALLBACK_APPS = [
   { file: 'todo.html', title: 'To-Do' },
   { file: 'skin.html', title: 'Skin Plan' },
   { file: 'chores.html', title: 'Household Chores' },
-  { file: 'jobs.html', title: 'Job Tracker' },
   { file: 'diet.html', title: 'Diet Tracker' },
   { file: 'calendar.html', title: 'Calendar' }
 ];
 const ICONS = {
   'grocery.html': 'tile-icons/grocery.png', 'schedule.html': 'tile-icons/schedule.png',
   'todo.html': 'tile-icons/todo.png', 'skin.html': 'tile-icons/skin.png',
-  'chores.html': 'tile-icons/chores.png', 'jobs.html': 'tile-icons/jobs.png',
+  'chores.html': 'tile-icons/chores.png',
   'diet.html': 'tile-icons/diet.png', 'calendar.html': 'tile-icons/calendar.png'
 };
 // Sensible defaults for the apps that already exist — anything genuinely
@@ -63,7 +116,7 @@ const ICONS = {
 // until a category is picked for it.
 const DEFAULT_CATEGORY = {
   'gym.html':'health',
-  'schedule.html':'planner', 'todo.html':'planner', 'calendar.html':'planner', 'clock.html':'planner', 'jobs.html':'planner',
+  'schedule.html':'planner', 'todo.html':'planner', 'calendar.html':'planner', 'clock.html':'planner',
   'diet.html':'health', 'skin.html':'health',
   'grocery.html':'home', 'chores.html':'home'
 };
@@ -83,10 +136,13 @@ async function discoverApps(){
 }
 
 async function loadHubMeta(){
-  const [categories,order,hidden] = await Promise.all([
-    readJson(hubRef('categories'), {}), readJson(hubRef('order'), []), readJson(hubRef('hidden'), [])
+  const [categories,order,hidden,theme] = await Promise.all([
+    readJson(hubRef('categories'), {}), readJson(hubRef('order'), []), readJson(hubRef('hidden'), []),
+    readJson(hubRef('theme'), null)
   ]);
   state.categories = categories; state.order = order; state.hidden = hidden;
+  state.theme = (theme && theme.accents) ? theme : JSON.parse(JSON.stringify(DEFAULT_THEME));
+  applyTheme();
 }
 async function saveHubCategories(){ try{ await hubRef('categories').set({json: JSON.stringify(state.categories)}); }catch(e){} }
 async function saveHubOrder(){ try{ await hubRef('order').set({json: JSON.stringify(state.order)}); }catch(e){} }
@@ -128,6 +184,7 @@ function renderCategoryGrid(cat){
   const apps = appsInCategory(cat);
   grid.classList.toggle('edit-mode', editMode[cat]);
   grid.innerHTML = '';
+  let cardIdx = 0;
   apps.forEach(a => {
     const isHidden = state.hidden.includes(a.file);
     if(isHidden && !editMode[cat]) return;
@@ -136,6 +193,11 @@ function renderCategoryGrid(cat){
     card.href = a.path + (state.profile ? '?profile='+encodeURIComponent(state.profile) : '');
     card.draggable = editMode[cat];
     card.dataset.file = a.file;
+    // Stagger the entrance animation (assets/app.css's card-in keyframe)
+    // so tiles cascade in left-to-right/top-to-bottom instead of all
+    // popping in at once — capped so a big grid doesn't feel sluggish.
+    card.style.animationDelay = Math.min(cardIdx * 35, 350) + 'ms';
+    cardIdx++;
     const iconHtml = a.icon ? '<img src="'+a.icon+'" alt="">' : '<i data-lucide="layout-grid"></i>';
     card.innerHTML = '<span class="app-icon">'+iconHtml+'</span><strong>'+esc(a.title)+'</strong>'+
       (editMode[cat] ? '<button type="button" class="app-hide-btn" data-hidetoggle="'+esc(a.file)+'" title="'+(isHidden?'Show':'Hide')+'">'+(isHidden?'+':'−')+'</button>' : '');
@@ -589,6 +651,76 @@ async function renderInsightsPage(){
 }
 
 /* =====================================================================
+   SETTINGS — the palette + wallpaper editor. Dragging a color swatch
+   updates the live page instantly (and, if it's the color for whichever
+   profile is currently active, the whole Hub's accent) without touching
+   Firestore on every drag tick; the write only happens once you let go
+   (a 'change' event) or type+blur a hex value, same debounce-by-event-type
+   trick used nowhere else in this file but worth it here specifically
+   because a native color input fires 'input' dozens of times a second.
+===================================================================== */
+function renderSettingsPage(){
+  const t=state.theme||DEFAULT_THEME;
+  $('settings-profile-pickers').innerHTML=['Bhargav','Anusha'].map(name=>{
+    const hex=(t.accents&&t.accents[name])||DEFAULT_THEME.accents[name];
+    return '<div class="settings-picker-row" data-profile="'+name+'"><span class="avatar settings-avatar-swatch '+name.toLowerCase()+'" style="background:'+hex+'">'+name[0]+'</span><div class="settings-picker-copy"><strong>'+name+'’s color</strong><small>Used across every app when '+name+' is active</small></div><input type="color" value="'+hex+'" data-profile-color="'+name+'" aria-label="'+name+'’s color"><input type="text" class="input settings-hex" value="'+hex+'" data-profile-hex="'+name+'" maxlength="7" spellcheck="false" aria-label="'+name+'’s color, as hex"></div>';
+  }).join('');
+  $('settings-palette-presets').innerHTML=PALETTE_PRESETS.map(p=>'<button type="button" class="palette-swatch" data-preset="'+esc(p.name)+'" title="'+esc(p.name)+'"><span class="ps-dot" style="background:'+p.Bhargav+'"></span><span class="ps-dot" style="background:'+p.Anusha+'"></span><small>'+esc(p.name)+'</small></button>').join('');
+  const activeWallpaper=(t.wallpaper&&t.wallpaper.id)||'none';
+  $('settings-wallpaper-presets').innerHTML=WALLPAPER_PRESETS.map(w=>'<button type="button" class="wallpaper-swatch'+(activeWallpaper===w.id?' active':'')+'" data-wallpaper="'+w.id+'" title="'+esc(w.name)+'"><span class="ws-preview" style="background:'+(w.css||'var(--surface-soft)')+'"></span><small>'+esc(w.name)+'</small></button>').join('');
+  if(window.lucide)lucide.createIcons();
+  wireSettingsEvents();
+}
+function applyProfileColorLive(name,hex){
+  if(!/^#[0-9a-fA-F]{6}$/i.test(hex))return;
+  const row=document.querySelector('.settings-picker-row[data-profile="'+name+'"]');
+  if(row){const sw=row.querySelector('.settings-avatar-swatch');if(sw)sw.style.background=hex;const hx=row.querySelector('[data-profile-hex]');if(hx)hx.value=hex;}
+  state.theme=state.theme||JSON.parse(JSON.stringify(DEFAULT_THEME));
+  state.theme.accents=Object.assign({},DEFAULT_THEME.accents,state.theme.accents,{[name]:hex});
+  // applyTheme() always refreshes both --accent-bhargav/--accent-anusha
+  // (person-specific, independent of who's active) and, when it matches
+  // the currently active profile, the main --accent/--accent-soft/
+  // --accent-ink triplet the rest of the UI actually paints with.
+  applyTheme();
+}
+function commitProfileColor(name,hex){
+  if(!/^#[0-9a-fA-F]{6}$/i.test(hex)){renderSettingsPage();return} // bad/incomplete hex typed by hand — just redraw with the last good value
+  applyProfileColorLive(name,hex);
+  saveHubTheme();
+}
+function applyPalettePreset(name){
+  const p=PALETTE_PRESETS.find(x=>x.name===name);if(!p)return;
+  state.theme=state.theme||JSON.parse(JSON.stringify(DEFAULT_THEME));
+  state.theme.accents={Bhargav:p.Bhargav,Anusha:p.Anusha};
+  applyTheme();saveHubTheme();renderSettingsPage();
+}
+function setWallpaper(id){
+  const w=WALLPAPER_PRESETS.find(x=>x.id===id);if(!w)return;
+  state.theme=state.theme||JSON.parse(JSON.stringify(DEFAULT_THEME));
+  state.theme.wallpaper={id:w.id,css:w.css};
+  applyTheme();saveHubTheme();renderSettingsPage();
+}
+function resetTheme(){
+  state.theme=JSON.parse(JSON.stringify(DEFAULT_THEME));
+  applyTheme();saveHubTheme();renderSettingsPage();
+}
+let settingsWired=false;
+function wireSettingsEvents(){
+  if(settingsWired)return;settingsWired=true;
+  const page=$('page-settings');
+  page.addEventListener('input',e=>{ if(e.target.dataset.profileColor)applyProfileColorLive(e.target.dataset.profileColor,e.target.value); });
+  page.addEventListener('change',e=>{
+    if(e.target.dataset.profileColor)commitProfileColor(e.target.dataset.profileColor,e.target.value);
+    else if(e.target.dataset.profileHex)commitProfileColor(e.target.dataset.profileHex,e.target.value.trim());
+  });
+  page.addEventListener('click',e=>{
+    const preset=e.target.closest('[data-preset]'); if(preset){applyPalettePreset(preset.dataset.preset);return}
+    const wp=e.target.closest('[data-wallpaper]'); if(wp){setWallpaper(wp.dataset.wallpaper);return}
+    if(e.target.closest('#settings-reset'))resetTheme();
+  });
+}
+
+/* =====================================================================
    CLOCK WIDGET
 ===================================================================== */
 let clockTimer = null;
@@ -616,7 +748,7 @@ function startHubClock(){
 /* =====================================================================
    ROUTING
 ===================================================================== */
-function showRoute(route){if(!['today','planner','health','home','insights'].includes(route))route='today';document.querySelectorAll('[data-page]').forEach(p=>p.classList.toggle('active',p.dataset.page===route));document.querySelectorAll('[data-route]').forEach(b=>b.classList.toggle('active',b.dataset.route===route));if(location.hash!=='#'+route)history.replaceState(null,'','#'+route);window.scrollTo({top:0,behavior:'smooth'});if(route==='insights'&&state.user&&state.profile)renderInsightsPage().catch(e=>console.warn(e))}
+function showRoute(route){if(!['today','planner','health','home','insights','settings'].includes(route))route='today';document.querySelectorAll('[data-page]').forEach(p=>p.classList.toggle('active',p.dataset.page===route));document.querySelectorAll('[data-route]').forEach(b=>b.classList.toggle('active',b.dataset.route===route));if(location.hash!=='#'+route)history.replaceState(null,'','#'+route);window.scrollTo({top:0,behavior:'smooth'});if(route==='insights'&&state.user&&state.profile)renderInsightsPage().catch(e=>console.warn(e));if(route==='settings'&&state.user&&state.profile)renderSettingsPage()}
 // Clicking Today/Planner/Health/Home/Insights while an app is open in the
 // viewer used to just switch the (hidden) page behind the overlay — the
 // screen still showed whatever app was open, so the click looked like it

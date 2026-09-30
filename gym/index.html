@@ -20,6 +20,7 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script src="../assets/theme.js"></script>
 <style>
   /* Hub design tokens — identical to assets/app.css / schedule.html's
      :root, so Gym reads as part of the same suite. Anusha's profile gets
@@ -237,24 +238,7 @@
   .empty-note{color:var(--text-faint);font-size:13px;padding:14px;text-align:center;border:1px dashed var(--border);border-radius:var(--radius-sm);margin-bottom:10px;}
 
   /* ---------- program panel ---------- */
-  .program-row{display:flex;align-items:center;gap:14px;}
-  .prog-ring{position:relative;width:74px;height:74px;flex:none;}
-  .prog-ring svg{width:100%;height:100%;transform:rotate(-90deg);}
-  .prog-ring .pr-center{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;}
-  .prog-ring .pr-num{font-family:'Manrope',sans-serif;font-weight:800;font-size:19px;line-height:1;}
-  .prog-ring .pr-lbl{font-size:9.5px;color:var(--text-faint);margin-top:2px;}
-  .program-text .p-eyebrow{font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.07em;color:var(--accent);}
-  .program-text .p-title{font-family:'Manrope',sans-serif;font-weight:800;font-size:15px;margin-top:2px;}
   .program-text p{font-size:12.5px;color:var(--text-soft);line-height:1.5;margin:4px 0 0;}
-  .link-btn{background:none;border:none;color:var(--text-faint);font-size:11.5px;text-decoration:underline;padding:0;margin-top:8px;}
-  .phase-track{display:flex;gap:4px;margin-top:12px;}
-  .phase-seg{flex:1;height:7px;border-radius:4px;background:var(--surface-alt);position:relative;overflow:hidden;}
-  .phase-seg .fill{position:absolute;inset:0;background:var(--accent);border-radius:4px;}
-  .phase-seg.done .fill{background:var(--accent-deep);width:100% !important;}
-  .phase-labels{display:flex;justify-content:space-between;font-size:10px;color:var(--text-faint);margin-top:5px;font-weight:700;}
-  .wj-bar{height:9px;border-radius:6px;background:var(--surface-alt);position:relative;overflow:hidden;margin-top:12px;}
-  .wj-fill{position:absolute;inset:0;background:linear-gradient(90deg,var(--accent),var(--accent-deep));border-radius:6px;width:0%;transition:width .4s ease;}
-  .wj-labels{display:flex;justify-content:space-between;font-size:11px;color:var(--text-faint);margin-top:5px;font-weight:600;}
 
   /* week list */
   .week-row{display:grid;grid-template-columns:86px minmax(0,1fr) auto;gap:10px;align-items:center;padding:8px 6px;border-bottom:1px solid var(--border-soft);cursor:pointer;border-radius:var(--radius-sm);}
@@ -264,16 +248,6 @@
   .week-row .wr-day{font-family:'Manrope',sans-serif;font-weight:800;font-size:13px;}
   .week-row .wr-main{font-size:13.5px;font-weight:600;}
   .week-row .wr-sub{font-size:11.5px;color:var(--text-faint);margin-top:1px;}
-
-  /* couple streak */
-  .couple-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
-  .couple-card{border:1px solid var(--border-soft);border-radius:var(--radius-md);padding:12px;background:var(--surface-alt);}
-  .couple-card.me{background:var(--accent-soft);border-color:transparent;}
-  .couple-who{display:flex;align-items:center;gap:7px;font-weight:700;font-size:13px;}
-  .couple-num{font-family:'Manrope',sans-serif;font-weight:800;font-size:28px;line-height:1;margin-top:8px;font-variant-numeric:tabular-nums;}
-  .couple-num small{font-size:12px;color:var(--text-soft);font-weight:600;margin-left:3px;font-family:'Inter',sans-serif;}
-  .couple-sub{font-size:11.5px;color:var(--text-soft);margin-top:4px;}
-  .couple-status{margin-top:8px;}
 
   /* ---------- train ---------- */
   .mode-picker{display:flex;gap:2px;margin:0 auto 12px;background:var(--surface-alt);border-radius:999px;padding:3px;width:fit-content;max-width:100%;}
@@ -439,12 +413,6 @@
   .diet-plan-details .dpd-title{font-weight:800;font-size:14.5px;}
   .diet-plan-details .dpd-sub{color:var(--text-faint);font-size:12px;}
   .diet-plan-details .dpd-body{padding:0 16px 16px;}
-  .targets-box{background:var(--surface);border:1px solid var(--border-soft);border-radius:var(--radius-lg);padding:16px;margin-top:14px;box-shadow:var(--shadow);}
-  .targets-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-top:10px;}
-  @media(max-width:600px){.targets-grid{grid-template-columns:1fr 1fr;}}
-  .targets-grid .t-item{background:var(--surface-alt);border-radius:var(--radius-sm);padding:9px 11px;}
-  .targets-grid .t-item .t-label{color:var(--text-faint);text-transform:uppercase;font-size:10px;letter-spacing:.05em;display:block;margin-bottom:2px;font-weight:800;}
-  .targets-grid .t-item .t-val{color:var(--text);font-weight:800;font-size:13.5px;font-family:'Manrope',sans-serif;}
   #caution-wrap .caution-box{margin-top:14px;background:var(--danger-soft);}
   .rules-box{background:var(--surface);border:1px solid var(--border-soft);border-radius:var(--radius-md);padding:13px 15px;margin-bottom:10px;}
   .rules-box .r-title{font-family:'Manrope',sans-serif;font-size:13px;color:var(--accent-deep);margin-bottom:4px;font-weight:800;}
@@ -1615,6 +1583,7 @@ function enterProfile(profileId){
   if(typeof closeFloorMode === 'function' && floorOpen) closeFloorMode(true);
   activeProfile = PROFILES[profileId];
   document.body.dataset.profile = profileId;
+  if(window.HubTheme) HubTheme.applyHubTheme(profileId, {base:'--accent',deep:'--accent-deep',soft:'--accent-soft'}).catch(()=>{});
   try{ localStorage.setItem(HUB_PROFILE_KEY, hubNameFor(profileId)); }catch(e){}
   document.getElementById('loading-gate').style.display = 'none';
   document.getElementById('profile-overlay').style.display = 'none';
@@ -2042,11 +2011,6 @@ function workoutStreakFor(prof, trained, today){
     cursor.setDate(cursor.getDate()-1);
   }
   return streak;
-}
-function loggingStreakFor(logged, today){
-  let n = 0; const c = new Date(today+'T00:00:00');
-  while(logged.has(fmtDate(c))){ n++; c.setDate(c.getDate()-1); }
-  return n;
 }
 let coupleSeq = 0;
 async function renderCoupleStreak(){
@@ -3535,7 +3499,6 @@ function histCardioRows(){
   });
   return rows.sort(histCmp);
 }
-function histRowsFor(table){ return table==='daily' ? histDailyRows() : table==='lift' ? histLiftRows() : histCardioRows(); }
 
 /* ---------- load + render ---------- */
 async function renderHistory(){
@@ -4830,7 +4793,6 @@ document.getElementById('backup-open').addEventListener('click', openBackup);
    PROGRESS EXTRAS — trophy case, muscle-group recovery, session length.
    All computed on the fly from existing logs; nothing new is stored.
 ===================================================================== */
-function ordinal(n){ const s=['th','st','nd','rd'], v=n%100; return n+(s[(v-20)%10]||s[v]||s[0]); }
 
 /* ---------------- Medal case — Bronze/Silver/Gold/Platinum per category ----------------
    Why tiers instead of one trophy per absolute threshold (the old design):

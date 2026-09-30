@@ -9,6 +9,7 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script src="../assets/theme.js"></script>
 <style>
   /* These match the Hub shell's own tokens exactly (assets/app.css's
      :root) rather than an app-specific palette, so Todo reads as the same
@@ -69,7 +70,7 @@
   .profile-name{font-size:14.5px;font-weight:600;color:var(--text-soft);}
 
   .topbar{margin:0 auto 14px;display:flex;align-items:center;justify-content:space-between;gap:8px;}
-  .topbar a.back,.topbar button.switch{font-size:12.5px;color:var(--text-faint);text-decoration:none;background:none;border:none;cursor:pointer;padding:0;}
+  .topbar a.back{font-size:12.5px;color:var(--text-faint);text-decoration:none;background:none;border:none;cursor:pointer;padding:0;}
   /* Hidden when embedded in the Hub's app viewer — see calendar.html/
      schedule.html for why: prevents the nested-Home-Hub bug. */
   body.embedded .topbar a.back{display:none}
@@ -175,7 +176,6 @@
   .notes-modal-head{display:flex;align-items:center;gap:8px;margin-bottom:10px;}
   .notes-modal-head h3{margin:0;font-size:16px;flex:1;}
   .notes-modal-close{border:0;background:var(--surface-2);border-radius:8px;width:28px;height:28px;color:var(--text-soft);cursor:pointer;}
-  .notes-panel-head{display:flex;justify-content:space-between;align-items:center;gap:8px;}
   .notes-panel-list{margin-top:6px;padding-right:2px;}
   .note-add-btn.inline{width:auto;padding:5px 10px;font-size:11px;margin:0;border-style:solid;border-color:var(--border);background:var(--surface-2);}
   .command-lane.notes .command-note-preview{display:flex;align-items:flex-start;gap:6px;padding:6px 0;font-size:11.5px;color:var(--text);border-bottom:1px solid var(--border-soft);}
@@ -245,7 +245,7 @@
 
   .quick-add{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:6px;box-shadow:var(--shadow);}
   .quick-add-row{display:flex;gap:6px;}
-  .quick-add input[type=text]{flex:1;border:none;background:transparent;color:var(--text);font-size:15.5px;padding:11px 12px;outline:none;}
+  .quick-add input[type=text]{flex:1;min-width:0;border:none;background:transparent;color:var(--text);font-size:15.5px;padding:11px 12px;outline:none;}
   .quick-add input[type=text]::placeholder{color:var(--text-faint);}
   .quick-add button.add-submit{background:var(--accent);color:#fff;border:none;border-radius:var(--radius-sm);padding:0 18px;font-size:14.5px;font-weight:700;cursor:pointer;}
   .parse-preview{display:flex;gap:6px;flex-wrap:wrap;padding:0 10px 8px;min-height:20px;}
@@ -341,10 +341,6 @@
   .template-row button{font-size:11.5px;font-weight:700;border:none;border-radius:7px;padding:6px 10px;cursor:pointer;background:var(--accent);color:#fff;}
   .template-row button.ghost{background:var(--surface);color:var(--text-soft);border:1px solid var(--border);}
 
-  .import-preview-row{display:flex;gap:6px;align-items:center;padding:6px 0;border-bottom:1px solid var(--border-soft);}
-  .import-preview-row input[type=text]{flex:2;}
-  .import-preview-row input[type=date]{flex:1;font-size:12px;padding:6px;border-radius:6px;border:1px solid var(--border);background:var(--surface-2);color:var(--text);}
-  .import-preview-row button{background:none;border:none;color:var(--danger);cursor:pointer;font-size:14px;}
 
   .bulk-bar{position:sticky;top:8px;z-index:20;display:flex;align-items:center;gap:8px;background:var(--surface-2);border:1px solid var(--border);border-radius:var(--radius-md);padding:9px 12px;margin-bottom:10px;box-shadow:var(--shadow);flex-wrap:wrap;}
   .bulk-bar span{font-size:12.5px;color:var(--text-soft);font-weight:600;}
@@ -363,7 +359,6 @@
   .task-row.p3{border-left-color:var(--p3);}
   .task-row.overdue-row{background:var(--overdue-grey-soft);border-left-color:var(--overdue-grey);}
   .task-row.overdue-row .task-text{color:var(--overdue-grey);}
-  .task-row.overdue-row .task-name-row, .task-row.overdue-row .item-name{color:var(--overdue-grey);}
   .task-row.done{opacity:0.55;}
   .task-row.dragging{opacity:0.3;}
   .task-text{transition:color .3s ease;}
@@ -933,6 +928,7 @@ auth.onAuthStateChanged(function(user){
 async function enterProfile(profileId){
   activeProfile = profileId;
   document.body.dataset.profile = profileId.toLowerCase();
+  if(window.HubTheme) HubTheme.applyHubTheme(profileId, {base:'--accent',deep:'--accent-deep',soft:'--accent-soft'}).catch(()=>{});
   try{ localStorage.setItem(LAST_PROFILE_KEY, profileId); }catch(e){}
   document.getElementById('loading-gate').style.display = 'none';
   document.getElementById('profile-overlay').style.display = 'none';

@@ -9,6 +9,7 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script src="../assets/theme.js"></script>
 <style>
   /* These match the Hub shell's own tokens exactly (assets/app.css's
      :root), same as the Calendar/Todo restyle — Schedule was previously
@@ -35,15 +36,7 @@
   button,input,select{font-family:inherit;}
   a{color:var(--accent);}
 
-  .auth-overlay,.profile-overlay{position:fixed;inset:0;z-index:200;background:var(--bg);display:flex;align-items:center;justify-content:center;padding:20px;}
-  .auth-box{width:100%;max-width:340px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:26px 24px;text-align:center;box-shadow:var(--shadow);}
-  .auth-box h2{font-size:21px;margin:0 0 4px;}
-  .auth-box p{color:var(--text-soft);font-size:15px;margin:0 0 16px;}
-  .auth-box input{width:100%;font-size:15.5px;padding:8px 10px;border-radius:var(--radius-sm);border:1px solid var(--border);margin-bottom:8px;}
-  .auth-box button{width:100%;background:var(--accent);color:#fff;border:none;border-radius:var(--radius-sm);padding:9px;font-size:15.5px;font-weight:700;cursor:pointer;}
-  .auth-toggle{margin-top:10px;font-size:14px;color:var(--text-soft);}
-  .auth-toggle button{background:none;color:var(--gold);text-decoration:underline;font-weight:600;width:auto;padding:0 0 0 4px;}
-  .auth-error{color:var(--danger);font-size:14px;min-height:14px;margin-bottom:6px;}
+  .profile-overlay{position:fixed;inset:0;z-index:200;background:var(--bg);display:flex;align-items:center;justify-content:center;padding:20px;}
 
   .profile-inner{text-align:center;}
   .profile-inner h1{font-size:24px;margin:0 0 30px;}
@@ -336,7 +329,7 @@
   @media(max-width:900px){
     .today-layout{grid-template-columns:1fr;}
   }
-  .panel{background:var(--surface);border:1px solid var(--border-soft);border-radius:var(--radius-lg);padding:16px;box-shadow:var(--shadow);}
+  .panel{background:var(--surface);border:1px solid var(--border-soft);border-radius:var(--radius-lg);padding:16px;box-shadow:var(--shadow);min-width:0;}
   .panel + .panel{margin-top:12px;}
   .panel-head{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:12px;}
   .panel-head-actions{display:flex;align-items:center;gap:6px;}
@@ -468,20 +461,6 @@
   </div>
 </div>
 
-<div id="auth-overlay" class="auth-overlay" style="display:none;">
-  <div class="auth-box">
-    <h2>Schedule</h2>
-    <p>Sign in to sync across devices.</p>
-    <form id="auth-form">
-      <input type="email" id="auth-email" placeholder="Email" required>
-      <input type="password" id="auth-password" placeholder="Password" required minlength="6">
-      <div class="auth-error" id="auth-error"></div>
-      <button type="submit" id="auth-submit">Sign in</button>
-    </form>
-    <div class="auth-toggle"><span id="auth-toggle-text">New here?</span><button type="button" id="auth-toggle-btn">Create an account</button></div>
-  </div>
-</div>
-
 <div id="profile-overlay" class="profile-overlay" style="display:none;">
   <div class="profile-inner">
     <h1>Who's checking their schedule?</h1>
@@ -534,13 +513,10 @@ window.addEventListener('error', function(e){
   showFirebaseLoadError();
 });
 function showFirebaseLoadError(){
-  const box = document.querySelector('.auth-box');
-  if(!box || document.getElementById('fb-load-error')) return;
-  const msg = document.createElement('div');
-  msg.id = 'fb-load-error';
-  msg.style.cssText = 'background:#FAECEA;color:#B8493F;border-radius:10px;padding:11px 13px;font-size:12.5px;font-weight:600;margin-bottom:14px;';
-  msg.textContent = "Couldn't load — check your internet connection and refresh the page.";
-  box.insertBefore(msg, box.firstChild.nextSibling);
+  const txt = document.getElementById('conn-loading-text');
+  if(!txt) return;
+  txt.textContent = "Couldn't load — check your internet connection and refresh the page.";
+  txt.style.color = '#B8493F';
 }
 if(typeof firebase === 'undefined'){
   showFirebaseLoadError();
@@ -1080,31 +1056,10 @@ function dietDiaryForMeal(dateStr, mealId){
   return dietStateCache.diary.filter(function(e){ return e.date===dateStr && e.profileId===dietProfileId() && e.mealId===mealId; });
 }
 
-/* =====================================================================
-   AUTH
-===================================================================== */
-let authMode = 'signin';
-document.getElementById('auth-toggle-btn').addEventListener('click', ()=>{
-  authMode = authMode==='signin' ? 'signup' : 'signin';
-  document.getElementById('auth-submit').textContent = authMode==='signin' ? 'Sign in' : 'Create account';
-  document.getElementById('auth-toggle-text').textContent = authMode==='signin' ? 'New here?' : 'Already have an account?';
-  document.getElementById('auth-toggle-btn').textContent = authMode==='signin' ? 'Create an account' : 'Sign in';
-});
-document.getElementById('auth-form').addEventListener('submit', async e=>{
-  e.preventDefault();
-  const email = document.getElementById('auth-email').value.trim();
-  const password = document.getElementById('auth-password').value;
-  const errEl = document.getElementById('auth-error');
-  errEl.textContent = '';
-  try{
-    await auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL);
-    if(authMode==='signin') await auth.signInWithEmailAndPassword(email, password);
-    else await auth.createUserWithEmailAndPassword(email, password);
-  }catch(err){ errEl.textContent = err.message.replace('Firebase: ',''); }
-});
-
+// Sign-in itself lives on the Hub (index.html) — this page only ever
+// checks whether you're already signed in, same pattern as every other
+// app in the suite.
 function showProfilePicker(){
-  document.getElementById('auth-overlay').style.display = 'none';
   document.getElementById('app-wrap').style.display = 'none';
   document.getElementById('profile-overlay').style.display = 'flex';
   const row = document.getElementById('profile-row');
@@ -1116,11 +1071,6 @@ function showProfilePicker(){
     card.addEventListener('click', ()=> enterProfile(p.id));
     row.appendChild(card);
   });
-}
-function showAuth(){
-  document.getElementById('auth-overlay').style.display = 'flex';
-  document.getElementById('profile-overlay').style.display = 'none';
-  document.getElementById('app-wrap').style.display = 'none';
 }
 auth.onAuthStateChanged(user=>{
   hideConnLoading();
@@ -1138,6 +1088,7 @@ auth.onAuthStateChanged(user=>{
 async function enterProfile(profileId){
   activeProfile = profileId;
   document.body.dataset.profile = profileId.toLowerCase();
+  if(window.HubTheme) HubTheme.applyHubTheme(profileId, {base:'--accent',deep:'--accent-deep',soft:'--accent-soft'}).catch(()=>{});
   try{ localStorage.setItem('hub-active-profile', profileId); }catch(e){}
   document.getElementById('profile-overlay').style.display = 'none';
   document.getElementById('app-wrap').style.display = 'block';

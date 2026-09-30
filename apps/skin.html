@@ -9,6 +9,7 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script src="../assets/theme.js"></script>
 <style>
   :root{
     --bg:#F5F2EA; --surface:#FFFFFF; --surface-alt:#F4F0E6;
@@ -284,6 +285,20 @@
 
   .timer{font-size:32px;font-weight:900;text-align:center;letter-spacing:-.03em;padding:16px;background:var(--text);color:#fff;border-radius:12px;margin:12px 0;font-family:'Manrope',sans-serif;}
   .timer-open{font-size:11px;font-weight:700;background:var(--surface-alt);color:var(--accent-deep);border:1px solid var(--accent);border-radius:8px;padding:6px 10px;cursor:pointer;margin-top:6px;}
+
+  /* Motion & life pass — tasteful, low-risk micro-interactions layered on
+     top of this file's existing styles. Buttons everywhere get a quick
+     tactile press-down; anything card-like gets a soft hover lift and a
+     gentle fade/rise on render, so the page feels responsive rather than
+     static. Broad attribute-selector matches ([class*="-card"] etc.) are
+     deliberate — they cover every current and future card/button without
+     hand-listing each one. */
+  button,.btn,[class*="-btn"],[class*="btn-"]{transition:transform .12s cubic-bezier(.34,1.56,.64,1),box-shadow .15s ease,background-color .15s ease,border-color .15s ease}
+  button:active,.btn:active,[class*="-btn"]:active,[class*="btn-"]:active{transform:scale(.96)}
+  .card,[class*="-card"]{transition:transform .18s cubic-bezier(.16,1,.3,1),box-shadow .18s ease,border-color .18s ease;animation:life-fade-in .38s cubic-bezier(.16,1,.3,1) both}
+  .card:hover,[class*="-card"]:hover{transform:translateY(-2px);box-shadow:0 10px 28px rgba(20,20,17,.09)}
+  .card:active,[class*="-card"]:active{transform:translateY(0) scale(.985)}
+  @keyframes life-fade-in{from{opacity:0;transform:translateY(8px)}}
 </style>
 </head>
 <body>
@@ -587,6 +602,7 @@ async function enterProfile(profileId){
   activeProfile = profileId;
   try{ localStorage.setItem(LAST_PROFILE_KEY, profileId); localStorage.setItem('hub-active-profile', profileId); }catch(e){}
   document.body.dataset.profile = profileId.toLowerCase();
+  if(window.HubTheme) HubTheme.applyHubTheme(profileId, {base:'--accent',deep:'--accent-deep',soft:'--accent-soft'}).catch(()=>{});
   selectedDay = todayStr();
   shoppingMonthView = null;
   document.getElementById('loading-gate').style.display = 'none';

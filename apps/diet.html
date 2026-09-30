@@ -7,6 +7,7 @@
   <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script src="../assets/theme.js"></script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
   <style>
@@ -64,7 +65,21 @@
     /* Universal log modal */
     .universal-modal{width:min(920px,100%);padding:0;overflow:hidden}.ulog-head{padding:21px 22px 0}.ulog-tabs{display:flex;gap:5px;overflow:auto;padding:14px 22px 0;border-bottom:1px solid var(--line)}.ulog-tab{border:0;background:transparent;color:var(--muted);font-weight:750;padding:10px 11px;border-bottom:3px solid transparent;white-space:nowrap}.ulog-tab.active{color:var(--green);border-color:var(--green)}.ulog-body{padding:20px 22px;max-height:68vh;overflow:auto}.ulog-panel{display:none}.ulog-panel.active{display:block}.ulog-context{display:grid;grid-template-columns:1fr 1fr;gap:10px;background:var(--green2);border-radius:14px;padding:12px;margin-bottom:15px}.ulog-results{display:grid;gap:8px;margin-top:12px}.food-result{display:grid;grid-template-columns:1fr 110px 86px auto;gap:9px;align-items:center;border:1px solid var(--line);border-radius:13px;padding:10px 11px}.food-result-name{font-weight:800}.food-result-meta{font-size:11.5px;color:var(--muted);margin-top:2px}.food-result input,.food-result select{padding:7px 8px}.plate-add{display:grid;grid-template-columns:1.5fr .55fr .6fr auto;gap:9px;align-items:end}.plate-row{display:grid;grid-template-columns:1fr auto auto;gap:12px;align-items:center;padding:11px 0;border-bottom:1px solid var(--line)}.plate-total{background:#2E1F06;color:#fff;border-radius:15px;padding:15px;margin-top:14px;display:flex;justify-content:space-between;align-items:center}.plate-total span{color:#D9C9A8;font-size:12px}.quick-grid{display:grid;grid-template-columns:2fr repeat(4,1fr);gap:9px}.ulog-empty{padding:28px;text-align:center;color:var(--muted)}
     @media(max-width:900px){.ulog-body{max-height:70vh}.food-result{grid-template-columns:1fr 88px 78px}.food-result .btn{grid-column:2/-1}.quick-grid{grid-template-columns:1fr 1fr}.quick-grid .field:first-child{grid-column:1/-1}.plate-add{grid-template-columns:1fr 1fr}.plate-add .field:first-child{grid-column:1/-1}}
-  </style>
+  
+  /* Motion & life pass — tasteful, low-risk micro-interactions layered on
+     top of this file's existing styles. Buttons everywhere get a quick
+     tactile press-down; anything card-like gets a soft hover lift and a
+     gentle fade/rise on render, so the page feels responsive rather than
+     static. Broad attribute-selector matches ([class*="-card"] etc.) are
+     deliberate — they cover every current and future card/button without
+     hand-listing each one. */
+  button,.btn,[class*="-btn"],[class*="btn-"]{transition:transform .12s cubic-bezier(.34,1.56,.64,1),box-shadow .15s ease,background-color .15s ease,border-color .15s ease}
+  button:active,.btn:active,[class*="-btn"]:active,[class*="btn-"]:active{transform:scale(.96)}
+  .card,[class*="-card"]{transition:transform .18s cubic-bezier(.16,1,.3,1),box-shadow .18s ease,border-color .18s ease;animation:life-fade-in .38s cubic-bezier(.16,1,.3,1) both}
+  .card:hover,[class*="-card"]:hover{transform:translateY(-2px);box-shadow:0 10px 28px rgba(20,20,17,.09)}
+  .card:active,[class*="-card"]:active{transform:translateY(0) scale(.985)}
+  @keyframes life-fade-in{from{opacity:0;transform:translateY(8px)}}
+</style>
 </head>
 <body>
 <script>try{ if(window.self !== window.top) document.body.classList.add('embedded'); }catch(e){ document.body.classList.add('embedded'); }</script>
@@ -323,7 +338,7 @@ function scaled(n,f){return Object.fromEntries(Object.entries(n).map(([k,v])=>[k
 function addNutrition(list){return list.reduce((a,n)=>{Object.keys(a).forEach(k=>a[k]+=(n[k]||0));return a},zero())}
 function recipeServingN(r){return scaled(recipeNutrients(r),1/(r.servings||1))}
 function mealNutrition(m){return addNutrition(defaultRecipesForMeal(m).map(recipeServingN))}
-setProfile=function(id){state.activeProfile=id;draft={id:null,profileId:id,name:'',servings:1,method:'',items:[]};persist();document.body.dataset.profile=id;$('profileBhargav').classList.toggle('active',id==='bhargav');$('profileAnusha').classList.toggle('active',id==='anusha');$('profileLabel').textContent=`Viewing ${active().name}’s separate plan and diary`;loadGoalInputs();renderAll()}
+setProfile=function(id){state.activeProfile=id;draft={id:null,profileId:id,name:'',servings:1,method:'',items:[]};persist();document.body.dataset.profile=id;if(window.HubTheme)HubTheme.applyHubTheme(id,{base:'--green',soft:'--green2'}).catch(()=>{});$('profileBhargav').classList.toggle('active',id==='bhargav');$('profileAnusha').classList.toggle('active',id==='anusha');$('profileLabel').textContent=`Viewing ${active().name}’s separate plan and diary`;loadGoalInputs();renderAll()}
 clearRecipe=function(){draft={id:null,profileId:state.activeProfile,name:'',servings:1,method:'',items:[]};$('method').value='';renderBuilder();syncRecipeFormSummary()}
 saveRecipe=function(){draft.name=$('recipeName').value.trim();draft.method=$('method').value.trim();draft.profileId=state.activeProfile;if(!draft.name||!draft.items.length){toast('Add a name and at least one ingredient');return false}let copy=clone(draft);if(copy.id&&state.recipes.some(r=>r.id===copy.id))state.recipes=state.recipes.map(r=>r.id===copy.id?copy:r);else{copy.id='r-'+Date.now();draft.id=copy.id;state.recipes.push(copy)}persist();renderRecipes();renderMealPlan();toast('Recipe saved');return true}
 deleteRecipe=function(id){if(state.meals.some(m=>m.recipeIds.includes(id)))return toast('Remove this recipe from its meal before deleting it');if(!confirm('Delete this recipe?'))return;state.recipes=state.recipes.filter(r=>r.id!==id);persist();renderRecipes()}
@@ -470,8 +485,6 @@ function populateYieldRecipes(){$('yieldRecipe').innerHTML=state.recipes.filter(
 function loadYield(){let r=state.recipes.find(x=>x.id===$('yieldRecipe').value),y=r?.yield;if(y){$('yieldRaw').value=y.raw;$('yieldCooked').value=y.cooked;$('yieldPortion').value=y.portion}calculateYield()}
 function calculateYield(){let raw=+$('yieldRaw').value||0,cooked=+$('yieldCooked').value||0,portion=+$('yieldPortion').value||0;$('yieldPortions').value=cooked&&portion?round(cooked/portion,2):0;$('yieldResult').textContent=cooked?`${round(raw*portion/cooked,1)} g`:'0 g'}
 function saveYield(){let r=state.recipes.find(x=>x.id===$('yieldRecipe').value);if(!r)return toast('Choose a recipe');r.yield={raw:+$('yieldRaw').value,cooked:+$('yieldCooked').value,portion:+$('yieldPortion').value};persist();toast('Cooking yield saved')}
-function saveProgress(){let x={id:'p-'+Date.now(),date:$('prDate').value||state.selectedDate,weight:num('prWeight')||null,waist:num('prWaist')||null,steps:num('prSteps')||null,sleep:num('prSleep')||null,water:num('prWater')||null,workout:$('prWorkout').value,notes:$('prNotes').value.trim()};state.progress[state.activeProfile].push(x);persist();['prWeight','prWaist','prSteps','prSleep','prWater','prNotes'].forEach(id=>$(id).value='');renderProgress();toast('Progress entry saved')}
-function deleteProgress(id){state.progress[state.activeProfile]=state.progress[state.activeProfile].filter(x=>x.id!==id);persist();renderProgress()}
 function renderNutrition(){if(!$('microStrip'))return;let n=diaryNutrients(),g=active().microGoals,defs=[['Sodium','sodium','mg'],['Calcium','calcium','mg'],['Iron','iron','mg'],['Potassium','potassium','mg'],['Vit D','vitaminD','mcg']],row=(label,k,u)=>`<div class="pair-row"><span>${label}</span><b>${round(n[k],1)}<small>/${g[k]}${u}</small></b><div class="bar"><i style="width:${Math.min(100,n[k]/g[k]*100)}%"></i></div></div>`,pairs=[[defs[0],defs[1]],[defs[2],defs[3]],[defs[4]]];$('microStrip').innerHTML=pairs.map(p=>`<div class="stat pair-stat">${p.map(([label,k,u])=>row(label,k,u)).join('')}</div>`).join('')}
 function lastDays(n){return Array.from({length:n},(_,i)=>addDaysISO(new Date().toISOString().slice(0,10),i-(n-1)))}
 function renderInsights(){let days=lastDays(7),entries=state.diary.filter(x=>x.profileId===state.activeProfile&&days.includes(x.date)),eaten=entries.filter(x=>(x.status||'eaten')==='eaten'),skipped=entries.filter(x=>x.status==='skipped'),g=active().goals,dayData=days.map(d=>{let es=eaten.filter(x=>x.date===d),n=addNutrition(es.map(x=>scaled(x.nutrition,x.servings/(x.recipeServings||1))));return{d,count:es.length,n}}),activeDays=dayData.filter(x=>x.count),avgCal=activeDays.length?activeDays.reduce((a,x)=>a+x.n.calories,0)/activeDays.length:0,avgPro=activeDays.length?activeDays.reduce((a,x)=>a+x.n.protein,0)/activeDays.length:0,proteinDays=dayData.filter(x=>x.n.protein>=g.protein*.9).length,adherence=Math.min(100,eaten.length/35*100);$('adherenceScores').innerHTML=[['Meal adherence',`${round(adherence,0)}%`],['Meals completed',`${eaten.length}/35`],['Average calories',`${round(avgCal,0)}`],['Protein days',`${proteinDays}/7`]].map(([k,v])=>`<div class="score"><b>${v}</b><span>${k}</span></div>`).join('');$('adherenceDays').innerHTML=dayData.map(x=>`<div class="metric-row"><span>${formatDate(x.d,{weekday:'short',month:'short',day:'numeric'})}</span><div class="bar"><i style="width:${Math.min(100,x.count/5*100)}%"></i></div><b>${x.count}/5</b></div>`).join('');let notes=[];if(avgPro<g.protein*.9)notes.push(['Protein consistency',`Average protein on logged days is ${round(avgPro)} g versus a ${g.protein} g target.`]);else notes.push(['Protein consistency','Protein is averaging close to or above the target on logged days.']);if(skipped.length)notes.push(['Skipped meals',`${skipped.length} meal${skipped.length===1?' was':'s were'} marked skipped this week.`]);let low=state.pantry.filter(p=>{let f=food(p.foodId);return f&&!f.groceryProductId&&p.qty<=p.lowAt});notes.push(['Pantry readiness (locally-tracked only)',low.length?`${low.length} locally-tracked ingredient${low.length===1?' is':'s are'} currently low. Grocery-linked items — most of the plan — are tracked live on the Pantry tab instead.`:'Locally-tracked ingredients are above their low-stock thresholds. Grocery-linked items are tracked live on the Pantry tab.']);$('adherencePatterns').innerHTML=notes.map(([a,b],i)=>`<div class="why"><i>${i+1}</i><div><b>${a}</b><span>${b}</span></div></div>`).join('')}
@@ -597,14 +610,6 @@ function openNewFoodFromUniversal(){closeUniversalLog();openFoodModal()}
       state.purchases.push({id:'pur-'+pid,groceryProductId:pid,name:productName(pid),unit:pack.unit,totalQty:pack.qty,remainingQty:carry!=null?Math.min(carry,pack.qty):pack.qty,lastPurchased:''});
     });
     state.pantry=(state.pantry||[]).filter(p=>{let f=food(p.foodId);return !(f&&f.groceryProductId&&groups[f.groceryProductId])});
-  }
-  restockPurchase=function(id){
-    let p=(state.purchases||[]).find(x=>x.id===id);if(!p)return;
-    let val=prompt(`Set new total stock for ${p.name} (in ${p.unit}):`,round(p.totalQty,1));
-    if(val===null)return;
-    let n=Number(val);
-    if(!(n>0))return toast('Enter a valid amount');
-    p.totalQty=n;p.remainingQty=n;persist();renderPantry();toast(`${p.name} restocked to ${round(n,1)} ${p.unit}`);
   }
   // ===== Grocery product linking + pantry-depletion tracking =====
   // Grocery tracks purchased quantity in *packages*, not grams — there's
@@ -849,8 +854,6 @@ function openNewFoodFromUniversal(){closeUniversalLog();openFoodModal()}
     catch(e){ toast('Could not reach Grocery — try again from the Grocery app'); }
   }
 
-  function unlinkedFoodOptions(){return state.foods.filter(function(f){return !f.groceryProductId;}).map(function(f){return '<option value="'+f.id+'">'+esc(f.name)+'</option>';}).join('')||'<option value="">No unlinked ingredients</option>';}
-  linkFoodToProduct=function(pid,selId){const sel=$(selId);if(!sel||!sel.value)return toast('Choose an ingredient to link');const f=food(sel.value);if(!f)return;f.groceryProductId=pid;persist();toast(esc(f.name)+' linked to Grocery');renderPantry();if(typeof renderFoods==='function')renderFoods();};
   // Reads live from Grocery's own doc rather than a local shadow copy —
   // this is the same onHand/purchaseUnit data Grocery's own Pantry page
   // shows and writes, so the two screens can't drift apart or disagree.

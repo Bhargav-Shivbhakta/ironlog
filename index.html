@@ -53,6 +53,7 @@
         <button type="button" data-route="health"><i data-lucide="heart-pulse"></i><span>Health</span></button>
         <button type="button" data-route="home"><i data-lucide="house"></i><span>Home</span></button>
         <button type="button" data-route="insights"><i data-lucide="chart-no-axes-column-increasing"></i><span>Insights</span></button>
+        <button type="button" data-route="settings"><i data-lucide="palette"></i><span>Settings</span></button>
       </nav>
       <div class="sidebar-foot">
         <button class="profile-control" id="profile-switch" type="button"><span class="avatar" id="sidebar-avatar">B</span><span><strong id="sidebar-profile">Bhargav</strong><small>Switch profile</small></span><i data-lucide="chevrons-up-down"></i></button>
@@ -185,6 +186,26 @@
           <p class="dd-text" id="dd-text">You don't have to feel motivated to keep a streak alive. You just have to do one small thing today — that's the whole job.</p>
         </section>
       </section>
+
+      <section class="page" id="page-settings" data-page="settings">
+        <header class="page-header"><div><p class="eyebrow">Make it yours</p><h1>Settings</h1><p class="page-subtitle">Colors and backgrounds — synced across every app in the Hub, not just this page.</p></div></header>
+
+        <section class="surface settings-card">
+          <div class="section-head"><div><p class="section-kicker">Palette</p><h2>Profile colors</h2></div></div>
+          <p class="settings-hint">Each person gets one base color. Every app in the suite — Diet, Grocery, Chores, Skin, Planner, and here — derives its own accents from it, so it stays consistent everywhere you open.</p>
+          <div class="settings-swatch-pickers" id="settings-profile-pickers"></div>
+          <p class="settings-hint" style="margin-top:18px">Or start from a matched pair:</p>
+          <div class="settings-preset-gallery" id="settings-palette-presets"></div>
+        </section>
+
+        <section class="surface settings-card">
+          <div class="section-head"><div><p class="section-kicker">Background</p><h2>Wallpaper</h2></div></div>
+          <p class="settings-hint">Shows behind every page here in the Hub. Apps you open keep their own look.</p>
+          <div class="settings-wallpaper-gallery" id="settings-wallpaper-presets"></div>
+        </section>
+
+        <button class="button secondary" id="settings-reset" type="button"><i data-lucide="rotate-ccw"></i><span>Reset to defaults</span></button>
+      </section>
     </main>
 
     <nav class="mobile-nav" aria-label="Mobile navigation">
@@ -193,6 +214,7 @@
       <button type="button" data-route="health"><i data-lucide="heart-pulse"></i><span>Health</span></button>
       <button type="button" data-route="home"><i data-lucide="house"></i><span>Home</span></button>
       <button type="button" data-route="insights"><i data-lucide="chart-no-axes-column-increasing"></i><span>Insights</span></button>
+      <button type="button" data-route="settings"><i data-lucide="palette"></i><span>Settings</span></button>
       <button type="button" data-nav-clock><i data-lucide="clock"></i><span>Clock</span></button>
     </nav>
   </div>
