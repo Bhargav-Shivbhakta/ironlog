@@ -75,6 +75,7 @@
             <span class="avatar" id="app-frame-profile-avatar">B</span>
             <span id="app-frame-profile-name">Bhargav</span>
           </button>
+          <button type="button" class="app-frame-refresh" id="app-frame-refresh" title="Refresh this app"><i data-lucide="refresh-cw"></i><span>Refresh</span></button>
           <a class="app-frame-open" id="app-frame-open" target="_blank" rel="noopener"><i data-lucide="external-link"></i><span>Open in new tab</span></a>
         </div>
       </div>
@@ -140,13 +141,49 @@
       </section>
 
       <section class="page" id="page-insights" data-page="insights">
-        <header class="page-header"><div><p class="eyebrow">A useful signal, not noise</p><h1>Insights</h1><p class="page-subtitle">A concise view of follow-through across your system.</p></div></header>
-        <div class="insight-grid">
-          <article class="insight"><span>Tasks completed</span><strong id="insight-completed">0</strong><small>Last seven days</small></article>
-          <article class="insight"><span>Open priorities</span><strong id="insight-open">0</strong><small>Due today or overdue</small></article>
-          <article class="insight"><span>Scheduled blocks</span><strong id="insight-blocks">0</strong><small>Today</small></article>
+        <header class="page-header"><div><p class="eyebrow">Your momentum</p><h1>Insights</h1><p class="page-subtitle">The whole system, in one place — proof of what you've kept showing up for.</p></div></header>
+
+        <section class="momentum-hero" id="momentum-hero">
+          <div class="momentum-hero-main">
+            <p class="momentum-kicker" id="momentum-kicker">This week</p>
+            <h2 id="momentum-headline">Loading your week…</h2>
+            <p id="momentum-subtext"></p>
+          </div>
+          <div class="momentum-hero-streak">
+            <span class="momentum-flame" id="momentum-flame">🔥</span>
+            <strong id="momentum-streak-num">0</strong>
+            <small>day streak</small>
+          </div>
+        </section>
+
+        <div class="momentum-stats" id="momentum-stats"></div>
+
+        <div class="momentum-row">
+          <section class="surface momentum-week-card">
+            <div class="section-head"><div><p class="section-kicker">Last 7 days</p><h2>Daily momentum</h2></div></div>
+            <div class="momentum-bars" id="momentum-bars"></div>
+          </section>
+          <section class="surface momentum-surprise" id="momentum-surprise">
+            <div class="section-head"><div><p class="section-kicker">Just for you</p><h2 id="surprise-title">Something to notice</h2></div></div>
+            <p id="surprise-body"></p>
+          </section>
         </div>
-        <section class="surface insight-note"><div class="section-head"><div><p class="section-kicker">Design principle</p><h2>Only actionable information appears here</h2></div></div><p>Detailed workout, nutrition, shopping, and task analytics remain inside their focused sections. This page summarizes only what helps you make a decision.</p></section>
+
+        <div class="momentum-row" id="milestones-row">
+          <section class="surface momentum-milestones" id="milestones-card">
+            <div class="section-head"><div><p class="section-kicker">Skin plan</p><h2>Milestones</h2></div></div>
+            <div id="milestones-list"></div>
+          </section>
+          <section class="surface momentum-badges">
+            <div class="section-head"><div><p class="section-kicker">Earned the hard way</p><h2>Achievements</h2></div></div>
+            <div class="badge-grid" id="badge-grid"></div>
+          </section>
+        </div>
+
+        <section class="darkest-days" id="darkest-days">
+          <p class="dd-eyebrow">For the days it's hard</p>
+          <p class="dd-text" id="dd-text">You don't have to feel motivated to keep a streak alive. You just have to do one small thing today — that's the whole job.</p>
+        </section>
       </section>
     </main>
 
