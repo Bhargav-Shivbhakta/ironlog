@@ -3,7 +3,7 @@ firebase.initializeApp(FIREBASE_CONFIG);
 const auth=firebase.auth(),db=firebase.firestore();
 try{db.enablePersistence({synchronizeTabs:true}).catch(()=>{});}catch(e){}
 
-const state={user:null,profile:null,templates:{},events:[],personalTasks:[],sharedTasks:[],chores:[],choreHistory:[],dailyLog:null,apps:[],categories:{},order:[],hidden:[]};
+const state={user:null,profile:null,templates:{},events:[],personalTasks:[],sharedTasks:[],chores:[],choreHistory:[],dailyLog:null,apps:[],categories:{},order:[],hidden:[],insights:null};
 const PROFILE_KEY='hub-active-profile',DAYS=['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
 const $=id=>document.getElementById(id);
 const today=()=>{const d=new Date();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')};
@@ -12,11 +12,14 @@ const esc=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;
 const time12=value=>{if(!value)return'Anytime';const [h,m]=value.split(':').map(Number),p=h>=12?'PM':'AM',hh=h%12||12;return hh+(m?':'+String(m).padStart(2,'0'):'')+' '+p};
 const minutes=value=>{if(!value)return 9999;const [h,m]=value.split(':').map(Number);return h*60+m};
 const addDays=(date,n)=>{const d=new Date(date+'T00:00:00');d.setDate(d.getDate()+n);return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')};
+const daysBetween=(fromStr,toStr)=>Math.round((new Date(toStr+'T00:00:00')-new Date(fromStr+'T00:00:00'))/86400000);
 
 function profileRef(group,key){return db.collection('users').doc(state.user.uid).collection(group).doc(state.profile).collection('data').doc(key)}
 function appRef(app,key){return db.collection('users').doc(state.user.uid).collection('apps').doc(app).collection('data').doc(key)}
 function sharedTodoRef(){return db.collection('users').doc(state.user.uid).collection('todo-shared').doc('tasks')}
 function hubRef(key){return db.collection('users').doc(state.user.uid).collection('apps').doc('hub').collection('data').doc(key)}
+function skinDataRef(profile,key){return db.collection('users').doc(state.user.uid).collection('skin-profiles').doc(profile).collection('data').doc(key)}
+function gymDailyLogsCol(profile){return db.collection('users').doc(state.user.uid).collection('profiles').doc(profile.toLowerCase()).collection('dailyLogs')}
 async function readJson(ref,fallback=[]){try{const snap=await ref.get();return snap.exists?safeJson(snap.data().json,fallback):fallback}catch(e){console.warn(e);return fallback}}
 
 function setGate(name){['loading','auth','profile'].forEach(x=>$(x+'-gate').hidden=x!==name);$('app-shell').hidden=!!name}
@@ -199,7 +202,14 @@ async function loadDashboard(){
   // same way the original hub always special-cased it.
   const appsWithGym = [{ file:'gym.html', path:'gym/index.html', title:'Gym', icon:'tile-icons/gym.png' }].concat(apps.map(a => ({...a, path:'apps/'+a.file})));
   Object.assign(state,{templates,events,personalTasks:personal,sharedTasks:shared,chores,choreHistory,dailyLog,apps:appsWithGym});
-  renderDashboard();renderAllCategoryPages();startHubClock();startTimelineAutoAdvance();setGate(null);showRoute(location.hash.replace('#','')||'today');
+  renderDashboard();renderAllCategoryPages();startHubClock();startTimelineAutoAdvance();setGate(null);
+  // A reload used to always drop you back at the Hub even if you had an
+  // app open in the viewer, because nothing recorded "which app" anywhere
+  // durable — the iframe's contents live only in memory. openAppFrame now
+  // stamps the open app into the URL hash (#app=<url>), so a refresh (or
+  // reopening a bookmarked/shared link) can restore it here instead of
+  // just falling back to a bare route.
+  if(!restoreAppFromHash()) showRoute(location.hash.replace('#','')||'today');
 }
 
 function todaysTimeline(){
@@ -267,9 +277,6 @@ function renderDashboard(){
   $('today-summary').textContent=tasks.length?tasks.length+' task'+(tasks.length===1?'':'s')+' need your attention today.':'Your priority list is clear.';
   const nowM=new Date().getHours()*60+new Date().getMinutes(),next=timeline.find(x=>minutes(x.time)>=nowM);
   $('stat-next').textContent=next?(next.time?time12(next.time):'Anytime'):'Clear';$('stat-tasks').textContent=tasks.length;$('stat-focus').textContent=plannedHours(timeline);
-  $('insight-open').textContent=tasks.length;$('insight-blocks').textContent=timeline.length;
-  const sevenDaysAgo=new Date();sevenDaysAgo.setDate(sevenDaysAgo.getDate()-6);const from=sevenDaysAgo.getFullYear()+'-'+String(sevenDaysAgo.getMonth()+1).padStart(2,'0')+'-'+String(sevenDaysAgo.getDate()).padStart(2,'0');
-  $('insight-completed').textContent=state.personalTasks.concat(state.sharedTasks).filter(t=>t.done&&t.completedOn&&t.completedOn>=from).length;
   $('chores-status').textContent=chores.length?chores.length+' chore'+(chores.length===1?'':'s')+' due today':'No chores due';
   renderTimeline(timeline);renderTasks(tasks.slice(0,5));renderChoresList(chores);renderTraining();
 }
@@ -339,6 +346,249 @@ async function completeTask(id){
 function renderTraining(){$('training-status').textContent=state.dailyLog?"Today's check-in is started":"Open today's workout"}
 
 /* =====================================================================
+   INSIGHTS — "momentum" tab. Pulls a thin, read-only slice from every
+   app's own Firestore data (tasks/chores already in state; gym and skin
+   fetched here specifically) and turns it into one motivational picture:
+   a weekly recap, streaks, Skin's phase milestones, a handful of earned
+   badges, and a rotating "surprise" highlight. Nothing here is written
+   back anywhere — it only reads.
+
+   Skin's milestone *dates* are recomputed here from the same small
+   offset-shift rule skin.html itself uses (SKIN_TEMPLATE_START + however
+   many days the person has moved programStart by), rather than importing
+   skin.html's logic wholesale — see skin.html's own rebuildProgramCalendar
+   for the source of truth if that ever changes.
+===================================================================== */
+const SKIN_TEMPLATE_START='2026-10-01';
+const SKIN_REVIEW_DATES_TEMPLATE=['2026-10-31','2026-11-30','2026-12-31','2027-01-31','2027-02-28'];
+let insightsLoadedForProfile=null;
+
+async function ensureInsightsLoaded(){
+  if(insightsLoadedForProfile===state.profile && state.insights) return;
+  const [gymSnap,stepRes,trackRes,milestoneRes,startRes]=await Promise.all([
+    gymDailyLogsCol(state.profile).get().catch(()=>null),
+    skinDataRef(state.profile,'stepLog').get().catch(()=>null),
+    skinDataRef(state.profile,'trackingLog').get().catch(()=>null),
+    skinDataRef(state.profile,'milestoneLog').get().catch(()=>null),
+    skinDataRef(state.profile,'programStart').get().catch(()=>null)
+  ]);
+  const gymDates=new Set();
+  if(gymSnap) gymSnap.forEach(d=>{const v=d.data(); if(v&&v.date) gymDates.add(v.date);});
+  const stepLog=safeJson(stepRes&&stepRes.exists?stepRes.data().json:null,{});
+  const trackingLog=safeJson(trackRes&&trackRes.exists?trackRes.data().json:null,{});
+  const milestoneLog=safeJson(milestoneRes&&milestoneRes.exists?milestoneRes.data().json:null,{});
+  const programStartDate=(startRes&&startRes.exists&&startRes.data().startDate)?startRes.data().startDate:SKIN_TEMPLATE_START;
+  const skinTouchedDates=new Set();
+  Object.keys(stepLog).forEach(k=>{ if(stepLog[k]){ const d=k.split(':')[0]; if(d) skinTouchedDates.add(d); } });
+  const skinCheckedDates=new Set();
+  Object.keys(trackingLog).forEach(d=>{ if(trackingLog[d]&&trackingLog[d].savedAt) skinCheckedDates.add(d); });
+  state.insights={gymDates,skinTouchedDates,skinCheckedDates,milestoneLog,programStartDate};
+  insightsLoadedForProfile=state.profile;
+}
+
+function insightsMilestoneDates(){
+  const offset=daysBetween(SKIN_TEMPLATE_START, state.insights.programStartDate||SKIN_TEMPLATE_START);
+  return SKIN_REVIEW_DATES_TEMPLATE.map(d=>addDays(d,offset));
+}
+function milestoneHitOn(dateStr){
+  const prefix=dateStr+':';
+  return Object.keys(state.insights.milestoneLog).some(k=>k.indexOf(prefix)===0 && state.insights.milestoneLog[k]);
+}
+
+function computeInsights(){
+  const d=today();
+  const tasksAll=state.personalTasks.concat(state.sharedTasks);
+  const tasksByDate={}; tasksAll.forEach(t=>{ if(t.done&&t.completedOn){ tasksByDate[t.completedOn]=(tasksByDate[t.completedOn]||0)+1; } });
+  const choresMineByDate={}, choresAllByDate={}, choresTogetherByDate={};
+  (state.choreHistory||[]).forEach(h=>{
+    choresAllByDate[h.date]=(choresAllByDate[h.date]||0)+1;
+    if((h.by||'').indexOf(state.profile)!==-1) choresMineByDate[h.date]=(choresMineByDate[h.date]||0)+1;
+    if((h.by||'').indexOf('&')!==-1) choresTogetherByDate[h.date]=(choresTogetherByDate[h.date]||0)+1;
+  });
+  const ins=state.insights;
+  function dayTotal(dateStr){
+    const tasks=tasksByDate[dateStr]||0, chores=choresMineByDate[dateStr]||0;
+    const gym=ins.gymDates.has(dateStr)?1:0, skin=(ins.skinTouchedDates.has(dateStr)||ins.skinCheckedDates.has(dateStr))?1:0;
+    return {tasks,chores,gym,skin,total:tasks+chores+gym+skin};
+  }
+  // 60-day scan window for streaks / best-week comparisons.
+  const window=[]; for(let i=59;i>=0;i--) window.push(addDays(d,-i));
+  const totals=window.map(dayTotal);
+  const todayIdx=totals.length-1;
+  let streakThroughYesterday=0;
+  for(let i=todayIdx-1;i>=0;i--){ if(totals[i].total>0) streakThroughYesterday++; else break; }
+  const todayActive=totals[todayIdx].total>0;
+  const currentStreak=todayActive?streakThroughYesterday+1:streakThroughYesterday;
+  let longestStreak=0,run=0;
+  totals.forEach(t=>{ if(t.total>0){ run++; longestStreak=Math.max(longestStreak,run); } else run=0; });
+  const last7=totals.slice(-7), prev7=totals.slice(-14,-7);
+  const thisWeekTotal=last7.reduce((s,t)=>s+t.total,0), prevWeekTotal=prev7.reduce((s,t)=>s+t.total,0);
+  let bestWeekTotal=0;
+  for(let i=0;i<=totals.length-14;i++){ const sum=totals.slice(i,i+7).reduce((s,t)=>s+t.total,0); bestWeekTotal=Math.max(bestWeekTotal,sum); }
+  const thisWeekTasks=last7.reduce((s,t)=>s+t.tasks,0), thisWeekChores=last7.reduce((s,t)=>s+t.chores,0);
+  const thisWeekGymDays=last7.reduce((s,t)=>s+t.gym,0), thisWeekSkinDays=last7.reduce((s,t)=>s+t.skin,0);
+  const thisWeekTogether=window.slice(-7).reduce((s,dt)=>s+(choresTogetherByDate[dt]||0),0);
+  const tasksAllTime=tasksAll.filter(t=>t.done).length;
+  return {
+    d, tasksByDate, choresMineByDate, choresTogetherByDate,
+    last7Dates:window.slice(-7), totals, todayActive, currentStreak, longestStreak,
+    thisWeekTotal, prevWeekTotal, bestWeekTotal,
+    thisWeekTasks, thisWeekChores, thisWeekGymDays, thisWeekSkinDays, thisWeekTogether,
+    tasksAllTime, gymDaysAllTime:ins.gymDates.size, skinNightsAllTime:ins.skinCheckedDates.size
+  };
+}
+
+function insightsBadges(m){
+  const badges=[
+    {id:'streak3',icon:'🔥',label:'Streak Starter',need:3,have:m.currentStreak,copy:h=>h>=3?'3+ days running':'Reach a 3-day streak'},
+    {id:'streak7',icon:'⚡',label:'Full Week',need:7,have:m.currentStreak,copy:h=>h>=7?'A full week straight':'Reach a 7-day streak'},
+    {id:'streak14',icon:'🏔️',label:'Two Weeks Strong',need:14,have:m.currentStreak,copy:h=>h>=14?'14 days and counting':'Reach a 14-day streak'},
+    {id:'record',icon:'🏆',label:'New Best Week',need:1,have:(m.thisWeekTotal>m.bestWeekTotal&&m.bestWeekTotal>=3)?1:0,copy:h=>h?'This week beat every week before it':'Beat your best week yet'},
+    {id:'teamwork',icon:'🤝',label:'Team Effort',need:3,have:m.thisWeekTogether,copy:h=>h>=3?'Tackled it together this week':'Do 3 chores together in a week'},
+    {id:'century',icon:'💯',label:'Century',need:100,have:m.tasksAllTime,copy:h=>h>=100?'100 tasks completed all-time':m.tasksAllTime+'/100 tasks completed'}
+  ];
+  return badges.map(b=>({...b,unlocked:b.have>=b.need,sub:b.copy(b.have)}));
+}
+
+// Deterministic-by-day so it doesn't reshuffle on every render, but still
+// feels different day to day.
+const MOMENTUM_QUOTES=[
+  'Motivation gets you started. A streak is what keeps you going when motivation doesn’t show up.',
+  'You don’t need a perfect week. You need today.',
+  'Consistency beats intensity — the small thing done daily always wins.',
+  'Nobody sees the days you almost didn’t. Those are the ones that count most.',
+  'Progress isn’t a straight line. Showing back up after a gap is still progress.'
+];
+function dayOfYear(dateStr){ const dt=new Date(dateStr+'T00:00:00'); const start=new Date(dt.getFullYear(),0,0); return Math.floor((dt-start)/86400000); }
+
+function pickSurprise(m){
+  if(m.thisWeekTotal>m.bestWeekTotal && m.bestWeekTotal>=3){
+    return {icon:'🏆',title:'New personal best',body:'This is your best week yet — '+m.thisWeekTotal+' things done, past your previous best week of '+m.bestWeekTotal+'.'};
+  }
+  if([3,7,14,21,30,60].includes(m.currentStreak)){
+    return {icon:'🔥',title:m.currentStreak+'-day streak',body:'You’ve shown up '+m.currentStreak+' days in a row across tasks, chores, training and skin care. That’s not luck — that’s a habit now.'};
+  }
+  if(m.thisWeekTogether>=2){
+    return {icon:'🤝',title:'Team effort',body:'You and your partner knocked out '+m.thisWeekTogether+' chores together this week. The shared list is lighter because of both of you.'};
+  }
+  if(m.longestStreak>=5 && m.currentStreak===0){
+    return {icon:'💪',title:'You’ve done this before',body:'Your longest run in the last two months was '+m.longestStreak+' days. Whatever streak you build next, you’ve already proven you can do it again.'};
+  }
+  const facts=[
+    {icon:'✅',title:'Lifetime tally',body:'You’ve completed '+m.tasksAllTime+' tasks and shown up for training or care on '+(m.gymDaysAllTime+m.skinNightsAllTime)+' logged days. That adds up to more than it feels like day to day.'},
+    {icon:'✨',title:'A thought for today',body:MOMENTUM_QUOTES[dayOfYear(m.d)%MOMENTUM_QUOTES.length]}
+  ];
+  return facts[dayOfYear(m.d)%facts.length];
+}
+
+function heroMessage(m){
+  if(m.thisWeekTotal===0 && m.prevWeekTotal===0){
+    return {kicker:'No pressure',headline:'A quiet stretch — that’s alright',
+      sub:'Nothing logged the last two weeks. That doesn’t erase what came before it. Pick one thing today — one task, one chore, one workout — and let that be enough.'};
+  }
+  if(m.thisWeekTotal>=m.bestWeekTotal && m.bestWeekTotal>0){
+    return {kicker:'This week',headline:'Your best week yet',
+      sub:m.thisWeekTotal+' things done across tasks, chores, training and care — more than any 7-day stretch in the last two months.'};
+  }
+  if(m.thisWeekTotal<m.prevWeekTotal*0.6 && m.prevWeekTotal>=3){
+    return {kicker:'This week',headline:'A quieter week — still counts',
+      sub:'You did '+m.thisWeekTotal+' things this week versus '+m.prevWeekTotal+' last week. Slower weeks happen. What matters is you’re still here, checking this tab.'};
+  }
+  if(m.currentStreak===0 && m.thisWeekTotal>0){
+    return {kicker:'This week',headline:'Back at it',
+      sub:'The streak reset, but you’ve already logged '+m.thisWeekTotal+' things this week. A new streak starts the moment you stop waiting for the old one back.'};
+  }
+  if(m.thisWeekTotal>m.prevWeekTotal && m.prevWeekTotal>0){
+    return {kicker:'This week',headline:'Building real momentum',
+      sub:'Up from '+m.prevWeekTotal+' last week to '+m.thisWeekTotal+' this week, on a '+m.currentStreak+'-day streak. Keep stacking days.'};
+  }
+  return {kicker:'This week',headline:'Steady and showing up',
+    sub:m.thisWeekTotal+' things done this week, on a '+m.currentStreak+'-day streak. Consistency like this is what actually moves the needle.'};
+}
+
+function renderMomentumHero(m){
+  const msg=heroMessage(m);
+  $('momentum-kicker').textContent=msg.kicker;
+  $('momentum-headline').textContent=msg.headline;
+  $('momentum-subtext').textContent=msg.sub;
+  $('momentum-streak-num').textContent=m.currentStreak;
+  const streakEl=document.querySelector('.momentum-hero-streak');
+  streakEl.classList.toggle('active', m.currentStreak>0);
+}
+function renderMomentumStats(m){
+  const tiles=[
+    {cls:'c-tasks',icon:'✓',label:'Tasks',value:m.thisWeekTasks,sub:'completed this week'},
+    {cls:'c-chores',icon:'🏠',label:'Chores',value:m.thisWeekChores,sub:'done by you this week'},
+    {cls:'c-gym',icon:'💪',label:'Training',value:m.thisWeekGymDays,sub:'days logged this week'},
+    {cls:'c-skin',icon:'🌙',label:'Care routine',value:m.thisWeekSkinDays,sub:'nights logged this week'}
+  ];
+  $('momentum-stats').innerHTML=tiles.map(t=>'<article class="momentum-stat '+t.cls+'"><span>'+esc(t.label)+'</span><strong>'+t.value+'</strong><small>'+esc(t.sub)+'</small></article>').join('');
+}
+function renderMomentumBars(m){
+  const max=Math.max(1,...m.totals.slice(-7).map(t=>t.total));
+  const labels=m.last7Dates.map(dt=>new Date(dt+'T00:00:00').toLocaleDateString(undefined,{weekday:'short'})[0]);
+  const todayD=today();
+  $('momentum-bars').innerHTML=m.totals.slice(-7).map((t,i)=>{
+    const pct=Math.max(6,Math.round(t.total/max*100));
+    const isToday=m.last7Dates[i]===todayD;
+    return '<div class="mbar-col'+(isToday?' is-today':'')+'"><div class="mbar-track"><div class="mbar-fill" style="height:'+pct+'%"></div></div><span>'+labels[i]+'</span></div>';
+  }).join('');
+}
+function renderMomentumSurprise(m){
+  const s=pickSurprise(m);
+  $('surprise-title').textContent=s.icon+' '+s.title;
+  $('surprise-body').textContent=s.body;
+}
+function renderMomentumMilestones(){
+  const card=$('milestones-row');
+  if(state.profile!=='Bhargav'){
+    $('milestones-card').style.display='none';
+    $('milestones-row').style.gridTemplateColumns='1fr';
+    return;
+  }
+  $('milestones-card').style.display='';
+  $('milestones-row').style.gridTemplateColumns='';
+  const dates=insightsMilestoneDates();
+  const d=today();
+  const nextIdx=dates.findIndex(dt=>!milestoneHitOn(dt) && dt>=d);
+  const rows=dates.map((dt,i)=>{
+    const hit=milestoneHitOn(dt);
+    const isNext=!hit && i===nextIdx;
+    const isOverdue=!hit && !isNext && dt<d;
+    const label='Month '+(i+1)+' review';
+    const dLabel=new Date(dt+'T00:00:00').toLocaleDateString(undefined,{month:'short',day:'numeric'});
+    const daysAway=daysBetween(d,dt);
+    const tag=hit?'Done':isOverdue?'Overdue':isNext?(daysAway>0?daysAway+'d away':'Today'):dLabel;
+    const cls=hit?'hit':isOverdue?'overdue':isNext?'next':'';
+    return '<div class="milestone-mini'+(cls?' '+cls:'')+'"><span class="mm-dot">'+(hit?'✓':(i+1))+'</span><span class="mm-copy"><strong>'+label+'</strong><small>'+dLabel+'</small></span><span class="mm-tag">'+esc(tag)+'</span></div>';
+  }).join('');
+  $('milestones-list').innerHTML=rows;
+}
+function renderMomentumBadges(m){
+  const badges=insightsBadges(m);
+  $('badge-grid').innerHTML=badges.map(b=>'<div class="badge-tile'+(b.unlocked?' unlocked':'')+'"><span class="bt-icon">'+b.icon+'</span><strong>'+esc(b.label)+'</strong><small>'+esc(b.sub)+'</small></div>').join('');
+}
+function renderDarkestDays(m){
+  const el=$('dd-text');
+  if(m.currentStreak>0){
+    el.textContent='Right now you’re '+m.currentStreak+' day'+(m.currentStreak===1?'':'s')+' deep. On the days it feels pointless, remember: you don’t have to feel motivated to protect a streak — you just have to do one small thing before the day ends.';
+  }else{
+    el.textContent='No streak running right now, and that’s a fact, not a verdict. Every streak on this page started on a day that felt exactly like today. Do one small thing — that’s the whole job.';
+  }
+}
+async function renderInsightsPage(){
+  await ensureInsightsLoaded();
+  const m=computeInsights();
+  renderMomentumHero(m);
+  renderMomentumStats(m);
+  renderMomentumBars(m);
+  renderMomentumSurprise(m);
+  renderMomentumMilestones();
+  renderMomentumBadges(m);
+  renderDarkestDays(m);
+}
+
+/* =====================================================================
    CLOCK WIDGET
 ===================================================================== */
 let clockTimer = null;
@@ -366,7 +616,7 @@ function startHubClock(){
 /* =====================================================================
    ROUTING
 ===================================================================== */
-function showRoute(route){if(!['today','planner','health','home','insights'].includes(route))route='today';document.querySelectorAll('[data-page]').forEach(p=>p.classList.toggle('active',p.dataset.page===route));document.querySelectorAll('[data-route]').forEach(b=>b.classList.toggle('active',b.dataset.route===route));if(location.hash!=='#'+route)history.replaceState(null,'','#'+route);window.scrollTo({top:0,behavior:'smooth'})}
+function showRoute(route){if(!['today','planner','health','home','insights'].includes(route))route='today';document.querySelectorAll('[data-page]').forEach(p=>p.classList.toggle('active',p.dataset.page===route));document.querySelectorAll('[data-route]').forEach(b=>b.classList.toggle('active',b.dataset.route===route));if(location.hash!=='#'+route)history.replaceState(null,'','#'+route);window.scrollTo({top:0,behavior:'smooth'});if(route==='insights'&&state.user&&state.profile)renderInsightsPage().catch(e=>console.warn(e))}
 // Clicking Today/Planner/Health/Home/Insights while an app is open in the
 // viewer used to just switch the (hidden) page behind the overlay — the
 // screen still showed whatever app was open, so the click looked like it
@@ -378,7 +628,12 @@ document.querySelectorAll('[data-route]').forEach(el=>el.addEventListener('click
   if($('app-frame-overlay') && !$('app-frame-overlay').hidden) closeAppFrame();
   showRoute(el.dataset.route);
 }));
-window.addEventListener('hashchange',()=>showRoute(location.hash.replace('#','')));
+window.addEventListener('hashchange',()=>{
+  const h=location.hash;
+  if(h.indexOf('#app=')===0){ restoreAppFromHash(); return; }
+  if($('app-frame-overlay') && !$('app-frame-overlay').hidden) closeAppFrame();
+  showRoute(h.replace('#',''));
+});
 
 /* =====================================================================
    SIDEBAR COLLAPSE — toggled from the Home Hub brand button (top-left).
@@ -443,6 +698,10 @@ function openAppFrame(url,title){
   $('app-frame-title').textContent=title;
   $('app-frame-open').href=url;
   $('app-frame-overlay').hidden=false;
+  // Stamp which app is open into the URL hash so a browser refresh (or a
+  // shared/bookmarked link) lands back inside the app instead of bouncing
+  // to the bare Hub — see restoreAppFromHash, called on load.
+  try{ history.replaceState(null,'','#app='+encodeURIComponent(url)); }catch(e){}
   updateAppFrameProfile();
   // Clock has its own real spot in the nav (below Insights), so opening
   // it highlights that tab instead of leaving whichever page-route tab
@@ -457,17 +716,45 @@ function closeAppFrame(){
   $('app-shell').classList.remove('app-open');
   $('app-frame-overlay').hidden=true;
   $('app-frame-iframe').src='about:blank';
+  const activePage=document.querySelector('[data-page].active');
+  const route=activePage?activePage.dataset.page:'today';
   if(document.querySelector('[data-nav-clock].active')){
     document.querySelectorAll('[data-nav-clock]').forEach(b=>b.classList.remove('active'));
-    const activePage=document.querySelector('[data-page].active');
-    const route=activePage?activePage.dataset.page:'today';
     document.querySelectorAll('[data-route]').forEach(b=>b.classList.toggle('active',b.dataset.route===route));
   }
+  // Leaving the app clears the #app=… hash left by openAppFrame so a
+  // refresh from here lands back on whichever Hub page is showing, not
+  // back inside the app you just closed.
+  try{ history.replaceState(null,'','#'+route); }catch(e){}
   if(sidebarAutoCollapsed){
     $('app-shell').classList.remove('sidebar-collapsed');
     sidebarAutoCollapsed=false;
   }
 }
+// Reads a #app=<url> hash (set by openAppFrame) and reopens that app in
+// the viewer — used on initial load so a refresh restores where you were,
+// instead of always dropping back to the bare Hub. Returns true if it
+// found and restored one.
+function restoreAppFromHash(){
+  const h=location.hash;
+  if(h.indexOf('#app=')!==0) return false;
+  let u;
+  try{ u=new URL(decodeURIComponent(h.slice(5)),location.href); }catch(e){ return false; }
+  openAppFrame(u.href,titleForAppUrl(u));
+  return true;
+}
+// Refresh button in the app viewer's top bar — forces the currently open
+// app to reload from scratch (same about:blank trick openAppFrame uses),
+// without leaving the viewer or losing the Hub state around it.
+function refreshAppFrame(){
+  const url=$('app-frame-open').href;
+  if(!url) return;
+  const btn=$('app-frame-refresh');
+  if(btn){ btn.classList.remove('spinning'); void btn.offsetWidth; btn.classList.add('spinning'); }
+  $('app-frame-iframe').src='about:blank';
+  setTimeout(()=>{ $('app-frame-iframe').src=url; },0);
+}
+if($('app-frame-refresh')) $('app-frame-refresh').addEventListener('click',refreshAppFrame);
 // The sidebar's own digital time display (#hub-clock, a plain <a href>)
 // is the one real entry point into Clock — it's already caught by the
 // generic /apps/ link interceptor below, so it only needs the active-
