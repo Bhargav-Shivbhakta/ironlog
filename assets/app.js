@@ -2330,6 +2330,16 @@ function restoreAppFromHash(){
   if(h.indexOf('#app=')!==0) return false;
   let u;
   try{ u=new URL(decodeURIComponent(h.slice(5)),location.href); }catch(e){ return false; }
+  // The hash is just a bookmark of "which app was open" — it can be stale
+  // from a previous profile. Without this, reloading the Hub (or coming
+  // back later) after switching profiles reopens the saved app with
+  // whatever ?profile= was baked into the hash at the time it was
+  // written, while the Hub's own chrome correctly shows the profile you
+  // actually have active now — the two silently disagree and you land on
+  // the other person's data without any indication anything's wrong.
+  // Always re-stamp the current profile onto the restored URL so the two
+  // can never drift apart.
+  if(state.profile) u.searchParams.set('profile',state.profile);
   openAppFrame(u.href,titleForAppUrl(u));
   return true;
 }

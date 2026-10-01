@@ -3465,14 +3465,27 @@ async function renderDietToday(){
     }
   }
 
-  const [dailyLog, cardioToday, lifts, dailyAll] = await Promise.all([getDaily(today), getCardio(today), listLift(), listDaily()]);
+  const [dailyLog, cardioToday, lifts, dailyAll, stats] = await Promise.all([getDaily(today), getCardio(today), listLift(), listDaily(), getBodyStats()]);
   const water = (dailyLog && dailyLog.water) || 0;
   const cardioActiveKcal = (cardioToday||[]).reduce(function(s,e){ const k = cardioKcalForEntry(e); return s + (k?k.active:0); }, 0);
   const cardioMinutes = (cardioToday||[]).reduce(function(s,e){ return s+(e.duration||0); }, 0);
   const liftsToday = (lifts||[]).filter(function(w){ return w.date===today && (w.exercises||[]).some(function(e){ return (e.sets||[]).length; }); });
   let tonnageToday = 0, setsToday = 0;
   liftsToday.forEach(function(w){ (w.exercises||[]).forEach(function(e){ (e.sets||[]).forEach(function(s){ tonnageToday += setVolumeKg(e.id, s); setsToday++; }); }); });
-  const netCal = todayTotals.calories - cardioActiveKcal;
+  // Lifting calories, same inputs the Today tab's Energy ring uses — this
+  // used to only subtract cardio here, so "Active kcal out"/"Net calories"
+  // on this tab quietly disagreed with "Workout kcal"/"Deficit" on Today
+  // for the exact same day (lifting calories were missing from this tab
+  // only). Folding lift kcal in here too keeps the two tabs in sync.
+  const weightKg = (dailyLog && dailyLog.weight) || (dailyAll && dailyAll[0] && dailyAll[0].weight) || activeProfile.program.startWeight;
+  const liftSecToday = (lifts||[]).filter(function(l){ return l.date===today; }).reduce(function(s,l){ return s+(l.sessionDurationSec||0); }, 0);
+  const liftActiveKcal = estimateLiftKcal(liftSecToday, weightKg);
+  const exerciseActiveKcal = Math.round(cardioActiveKcal + liftActiveKcal);
+  const bmr = bmrFor(stats, weightKg);
+  const hasFullBurn = !!bmr;
+  const neat = hasFullBurn ? Math.round(bmr * (ACTIVITY_MULTIPLIERS[stats.activityLevel] || ACTIVITY_MULTIPLIERS.onfeet)) : 0;
+  const burnedToday = hasFullBurn ? (neat + exerciseActiveKcal) : exerciseActiveKcal;
+  const netCal = todayTotals.calories - burnedToday;
 
   const metricsEl = document.getElementById('diet-today-metrics');
   if(metricsEl) metricsEl.innerHTML = [
@@ -3483,9 +3496,10 @@ async function renderDietToday(){
     ['Fiber', todayTotals.fiber.toFixed(0)+'<small>g</small>'],
     ['Water', water ? water.toFixed(1)+'<small>L</small>' : '—'],
     ['Trained today', (tonnageToday||cardioMinutes) ? (Math.round(tonnageToday).toLocaleString()+'<small>kg lifted</small>') : '—'],
-    ['Active kcal out', Math.round(cardioActiveKcal)+'<small>kcal</small>'],
-    ['Net calories', Math.round(netCal)+'<small>kcal</small>']
-  ].map(function(pair){ return '<div class="metric"><div class="metric-label">'+escHtml(pair[0])+'</div><div class="metric-value">'+pair[1]+'</div></div>'; }).join('');
+    ['Active kcal out', exerciseActiveKcal+'<small>kcal</small>'],
+    [hasFullBurn?'Net calories':'Net vs. workouts', (netCal>0?'+':'')+Math.round(netCal)+'<small>kcal</small>'+(hasFullBurn?'':' *')]
+  ].map(function(pair){ return '<div class="metric"><div class="metric-label">'+escHtml(pair[0])+'</div><div class="metric-value">'+pair[1]+'</div></div>'; }).join('')
+    + (hasFullBurn?'':'<div class="empty-note" style="grid-column:1/-1">* No body stats set yet, so this is only food minus workouts — add height/birthdate/sex/activity on the Progress tab for a true calorie deficit like the Today tab shows.</div>');
 
   const barsEl = document.getElementById('diet-macro-bars');
   if(barsEl){
