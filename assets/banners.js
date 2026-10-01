@@ -69,7 +69,7 @@ const SCENE_BUILDERS = {
   subject: (preset) => {
     const d = SUBJECT_DIRECTIONS[preset.direction] || SUBJECT_DIRECTIONS.left;
     const dur = SUBJECT_MOTIONS[preset.motion] || SUBJECT_MOTIONS.cinematic;
-    const vars = '--entry-x:'+d.x+';--entry-y:'+d.y+';--entry-z:'+d.z+';--entry-ry:'+d.ry+';--entry-rz:'+d.rz+';--entry-scale:'+d.scale+';--duration:'+dur+'s';
+    const vars = '--entry-x:'+d.x+';--entry-y:'+d.y+';--entry-z:'+d.z+';--entry-ry:'+d.ry+';--entry-rz:'+d.rz+';--entry-scale:'+d.scale+';--duration:'+dur+'s;--subj-ratio:'+(preset.ratio||1.5);
     return '<div class="subject-stage" style="'+vars+'"><div class="road-line"></div><div class="motion-trail"></div>'+
       '<i class="speed-particle p1"></i><i class="speed-particle p2"></i><i class="speed-particle p3"></i>'+
       '<div class="subject-rig"><div class="subject-glow"></div><img class="subject" src="'+esc(preset.carImg||preset.image||'')+'" alt="" draggable="false"></div></div>';
@@ -139,37 +139,37 @@ const BANNER_PRESETS = [
      Bhargav until he picks one. ---- */
   {id:'b-sedan', profile:'Bhargav', title:'Vintage Sedan', category:'Signature', glyph:'car-front',
    accent:'#c9a227', accent2:'#eede9a', bg:'radial-gradient(circle at 77% 48%,#ad7b202b,transparent 31%),linear-gradient(120deg,#111210,#15130e)', bg2:'#050504', scene:'subject',
-   carImg:'assets/banners/vintage-sedan.png', direction:'left', motion:'cinematic', mood:'Arrive with intention.'},
+   carImg:'assets/banners/vintage-sedan.png', direction:'left', motion:'cinematic', ratio:2},
   {id:'b-jet', profile:'Bhargav', title:'Private Jet', category:'Empire', glyph:'plane',
    accent:'#8fa8d9', accent2:'#dce8ff', bg:'repeating-linear-gradient(90deg,transparent 0 84px,#d2a84f0b 85px 86px),radial-gradient(circle at 78% 42%,#ad7b2022,transparent 34%),#0b0c0b', bg2:'#04050a', scene:'subject',
-   carImg:'assets/banners/private-jet.png', direction:'right', motion:'cinematic', mood:'Standards take flight.'},
+   carImg:'assets/banners/private-jet.png', direction:'right', motion:'cinematic', ratio:2},
   {id:'b-speedboat', profile:'Bhargav', title:'Night Speedboat', category:'Momentum', glyph:'sailboat',
    accent:'#6fb8d9', accent2:'#dff2fa', bg:'radial-gradient(ellipse at 78% 75%,#23475a38,transparent 38%),linear-gradient(#0c1116,#111210)', bg2:'#070a0d', scene:'subject',
-   carImg:'assets/banners/speedboat.png', direction:'left', motion:'energetic', mood:'Cut through the noise.'},
+   carImg:'assets/banners/speedboat.png', direction:'left', motion:'energetic', ratio:2},
   {id:'b-chess', profile:'Bhargav', title:'Chess King', category:'Mindset', glyph:'crown',
    accent:'#d2a84f', accent2:'#f0e0b0', bg:'radial-gradient(circle at 76% 45%,#ad7b2030,transparent 34%),linear-gradient(120deg,#10110f,#17130d)', bg2:'#070604', scene:'subject',
-   carImg:'assets/banners/chess-king.png', direction:'toward', motion:'cinematic', mood:'Think three moves ahead.'},
+   carImg:'assets/banners/chess-king.png', direction:'toward', motion:'cinematic', ratio:1.5},
   {id:'b-vault', profile:'Bhargav', title:'Gold Vault', category:'Money', glyph:'vault',
    accent:'#e8c468', accent2:'#fff3d2', bg:'radial-gradient(circle at 78% 45%,#d2a84f2c,transparent 34%),linear-gradient(120deg,#0e0f0d,#16130d)', bg2:'#0a0806', scene:'subject',
-   carImg:'assets/banners/gold-vault.png', direction:'toward', motion:'subtle', mood:'Protect what compounds.'},
+   carImg:'assets/banners/gold-vault.png', direction:'toward', motion:'subtle', ratio:1.5},
   {id:'b-gates', profile:'Bhargav', title:'Mansion Gates', category:'Signature', glyph:'landmark',
    accent:'#c9a227', accent2:'#eede9a', bg:'radial-gradient(circle at 77% 46%,#ad7b2027,transparent 33%),linear-gradient(120deg,#0d0e0c,#15130e)', bg2:'#050504', scene:'subject',
-   carImg:'assets/banners/mansion-gates.png', direction:'diagonal-right', motion:'cinematic', mood:'Build an entrance worth reaching.'},
+   carImg:'assets/banners/mansion-gates.png', direction:'diagonal-right', motion:'cinematic', ratio:1.5},
   {id:'b-watch', profile:'Bhargav', title:'Tailored Standard', category:'Flex', glyph:'shirt',
    accent:'#d9b45c', accent2:'#eaf2ff', bg:'linear-gradient(110deg,#10110f,#16130e),repeating-linear-gradient(90deg,transparent 0 72px,#d2a84f0b 73px 74px)', bg2:'#070604', scene:'subject',
-   carImg:'assets/banners/tailored-suit.png', direction:'bottom', motion:'subtle', mood:'Wear the standard.'},
+   carImg:'assets/banners/tailored-suit.png', direction:'bottom', motion:'subtle', ratio:1.5},
   {id:'b-skyline', profile:'Bhargav', title:'Penthouse Office', category:'Empire', glyph:'building-2',
    accent:'#6c93c2', accent2:'#8f9cc2', bg:'radial-gradient(circle at 77% 35%,#2c4b622c,transparent 31%),linear-gradient(120deg,#0b0d0e,#141310)', bg2:'#06070b', scene:'subject',
-   carImg:'assets/banners/penthouse-office.png', direction:'toward', motion:'calm', mood:'Operate from a higher level.'},
+   carImg:'assets/banners/penthouse-office.png', direction:'toward', motion:'calm', ratio:2},
   {id:'b-briefcase', profile:'Bhargav', title:'Prepared Briefcase', category:'Money', glyph:'briefcase',
    accent:'#c9a227', accent2:'#eede9a', bg:'radial-gradient(circle at 78% 50%,#ad7b202a,transparent 35%),linear-gradient(120deg,#111210,#15130e)', bg2:'#080705', scene:'subject',
-   carImg:'assets/banners/leather-briefcase.png', direction:'diagonal-left', motion:'cinematic', mood:'Move prepared.'},
+   carImg:'assets/banners/leather-briefcase.png', direction:'diagonal-left', motion:'cinematic', ratio:1.5},
   {id:'b-yacht', profile:'Bhargav', title:'Luxury Yacht', category:'Momentum', glyph:'sailboat',
    accent:'#8fd4e8', accent2:'#eaf6fa', bg:'radial-gradient(ellipse at 78% 75%,#23475a38,transparent 38%),linear-gradient(#0c1116,#111210)', bg2:'#050a0f', scene:'subject',
-   carImg:'assets/banners/luxury-yacht.png', direction:'right', motion:'cinematic', mood:'Command your direction.'},
+   carImg:'assets/banners/luxury-yacht.png', direction:'right', motion:'cinematic', ratio:2},
   {id:'b-phone', profile:'Bhargav', title:'The Call', category:'Empire', glyph:'phone-call',
    accent:'#d9b45c', accent2:'#fff3d2', bg:'radial-gradient(circle at 79% 48%,#ad7b2026,transparent 32%),linear-gradient(120deg,#0e0f0d,#17140f)', bg2:'#080604', scene:'subject',
-   carImg:'assets/banners/rotary-telephone.png', direction:'left', motion:'subtle', mood:'Make the call that changes the room.'},
+   carImg:'assets/banners/rotary-telephone.png', direction:'left', motion:'subtle', ratio:1.5},
 
   /* ---- Anusha: soft aesthetic (placeholder CSS scenes for now — she
      wants real photos instead, but asked to hold that for a later pass;
@@ -310,27 +310,51 @@ function bannerRandomPreset(list, excludeId){
   const pool = list.filter(p=>p.id!==excludeId);
   return (pool.length ? pool : list)[Math.floor(Math.random()*(pool.length||list.length))];
 }
+// Which banners shuffle/rotation is allowed to pick from — a subset the
+// person chooses in Settings (the checkbox badge on each swatch), not
+// automatically every banner that exists. shufflePool is a list of ids;
+// null/undefined (nothing chosen yet) defaults to "everything", and an
+// empty result (every banner unchecked) also falls back to everything
+// rather than silently never rotating.
+function bannerShufflePool(){
+  const list = bannerPresetsFor(state.profile);
+  const pool = state.bannerTheme && state.bannerTheme.shufflePool;
+  if(!Array.isArray(pool)) return list;
+  const ids = new Set(pool);
+  const filtered = list.filter(p=>ids.has(p.id));
+  return filtered.length ? filtered : list;
+}
+async function toggleBannerShuffleInclusion(id){
+  const list = bannerPresetsFor(state.profile);
+  const current = (state.bannerTheme && Array.isArray(state.bannerTheme.shufflePool))
+    ? state.bannerTheme.shufflePool.slice()
+    : list.map(p=>p.id); // materialize the implicit "everything" into an explicit list the first time something gets excluded
+  const idx = current.indexOf(id);
+  if(idx===-1) current.push(id); else current.splice(idx,1);
+  state.bannerTheme = Object.assign({}, state.bannerTheme, {shufflePool: current});
+  await saveBannerTheme();
+  renderBannerGallery();
+}
 let bannerRotateTimer = null;
 function bannerScheduleTimerRotation(){
   if(bannerRotateTimer){ clearInterval(bannerRotateTimer); bannerRotateTimer=null; }
   if(!state.bannerTheme || state.bannerTheme.rotateMode!=='timer') return;
-  const minutes = Math.max(1, Number(state.bannerTheme.rotateMinutes)||30);
-  bannerRotateTimer = setInterval(()=>{
-    const list = bannerPresetsFor(state.profile);
-    if(list.length>1) shuffleBannerNow();
-  }, minutes*60*1000);
+  const minutes = Math.max(1, Number(state.bannerTheme.rotateMinutes)||5);
+  bannerRotateTimer = setInterval(()=>{ shuffleBannerNow(); }, minutes*60*1000);
 }
 // Applies 'visit'/'daily' rotation right as the Today page loads. Returns
 // the preset that should actually be shown (rotated or not).
-function applyBannerRotationOnLoad(list, preset){
+function applyBannerRotationOnLoad(preset){
   const mode = state.bannerTheme.rotateMode;
-  if(list.length<2 || (mode!=='visit' && mode!=='daily')) return preset;
+  if(mode!=='visit' && mode!=='daily') return preset;
+  const pool = bannerShufflePool();
+  if(pool.length<2) return preset;
   if(mode==='daily'){
     const today = new Date().toDateString();
     const lastDay = state.bannerTheme.lastRotatedAt ? new Date(state.bannerTheme.lastRotatedAt).toDateString() : null;
     if(today===lastDay) return preset; // already rotated once today
   }
-  const next = bannerRandomPreset(list, preset.id);
+  const next = bannerRandomPreset(pool, preset.id);
   if(!next) return preset;
   state.bannerTheme.active = next.id;
   state.bannerTheme.lastRotatedAt = new Date().toISOString();
@@ -348,10 +372,11 @@ async function initTodayBanner(){
   state.bannerTheme = {
     active: preset.id,
     rotateMode: (saved && saved.rotateMode) || 'off',
-    rotateMinutes: (saved && saved.rotateMinutes) || 30,
-    lastRotatedAt: (saved && saved.lastRotatedAt) || null
+    rotateMinutes: (saved && saved.rotateMinutes) || 5,
+    lastRotatedAt: (saved && saved.lastRotatedAt) || null,
+    shufflePool: (saved && Array.isArray(saved.shufflePool)) ? saved.shufflePool : null
   };
-  preset = applyBannerRotationOnLoad(list, preset);
+  preset = applyBannerRotationOnLoad(preset);
   bannerEngine.mount(preset);
   renderBannerGallery(); // in case Settings was opened before custom banners finished loading
   renderBannerRotationControls();
@@ -367,9 +392,9 @@ async function selectBannerPreset(id){
   toast(preset.title+' set as your Today banner');
 }
 async function shuffleBannerNow(){
-  const list = bannerPresetsFor(state.profile);
-  if(list.length<2){ if(list.length===1) toast('Only one banner to choose from right now'); return; }
-  const next = bannerRandomPreset(list, state.bannerTheme && state.bannerTheme.active);
+  const pool = bannerShufflePool();
+  if(pool.length<2){ toast(pool.length===1?'Only one banner is in your shuffle pool — pick a few more in Settings':'No banners to shuffle'); return; }
+  const next = bannerRandomPreset(pool, state.bannerTheme && state.bannerTheme.active);
   if(!next) return;
   state.bannerTheme = Object.assign({}, state.bannerTheme, {active: next.id});
   bannerEngine.mount(next);
@@ -384,7 +409,12 @@ async function setBannerRotateMode(mode){
   bannerScheduleTimerRotation();
 }
 async function setBannerRotateMinutes(minutes){
-  const n = Math.min(1440, Math.max(1, Math.round(Number(minutes))||30));
+  const n = Math.min(1440, Math.max(1, Math.round(Number(minutes))||5));
+  // No-op if this is already the running value — otherwise the debounced
+  // 'input' save (below) and the 'change'-on-blur save both fire for the
+  // same typed value, and the second one would re-anchor the timer's
+  // countdown back to zero right after the first one already started it.
+  if(state.bannerTheme && state.bannerTheme.rotateMinutes===n && bannerRotateTimer) return;
   state.bannerTheme = Object.assign({}, state.bannerTheme, {rotateMinutes: n});
   await saveBannerTheme();
   bannerScheduleTimerRotation();
@@ -400,14 +430,19 @@ function renderBannerGallery(){
   if(!grid) return;
   const list = bannerPresetsFor(state.profile);
   const active = (state.bannerTheme && state.bannerTheme.active) || (bannerDefaultFor(state.profile)||{}).id;
+  const pool = state.bannerTheme && Array.isArray(state.bannerTheme.shufflePool) ? new Set(state.bannerTheme.shufflePool) : null;
   grid.innerHTML = list.map(p=>{
     const thumbImg = p.thumb || p.image || p.carImg;
     const previewStyle = thumbImg
       ? 'background:linear-gradient(135deg,'+p.accent+','+p.bg+');background-image:linear-gradient(0deg,'+p.bg+'cc,transparent 60%),url(\''+thumbImg+'\');background-size:cover;background-position:center'
       : 'background:linear-gradient(135deg,'+p.accent+','+p.bg+')';
-    return '<button type="button" class="banner-swatch'+(p.id===active?' active':'')+(p._custom?' banner-swatch-custom':'')+'" data-banner-select="'+p.id+'" title="'+esc(p.title)+'">'+
-      '<span class="banner-swatch-preview" style="'+previewStyle+'">'+(thumbImg?'':'<i data-lucide="'+p.glyph+'"></i>')+'</span>'+
-      '<strong>'+esc(p.title)+'</strong><small>'+esc(p.category)+'</small></button>';
+    const included = !pool || pool.has(p.id); // no explicit pool yet = everything counts as included
+    return '<div class="banner-swatch'+(p.id===active?' active':'')+(p._custom?' banner-swatch-custom':'')+'" data-banner-id="'+p.id+'">'+
+      '<button type="button" class="banner-swatch-shuffle-toggle'+(included?' included':'')+'" data-banner-shuffle-toggle="'+p.id+'" title="'+(included?'In the shuffle pool — click to leave it out':'Left out of the shuffle pool — click to include it')+'" aria-pressed="'+included+'"><i data-lucide="check"></i></button>'+
+      '<button type="button" class="banner-swatch-select" data-banner-select="'+p.id+'" title="'+esc(p.title)+'">'+
+        '<span class="banner-swatch-preview" style="'+previewStyle+'">'+(thumbImg?'':'<i data-lucide="'+p.glyph+'"></i>')+'</span>'+
+        '<strong>'+esc(p.title)+'</strong><small>'+esc(p.category)+'</small>'+
+      '</button></div>';
   }).join('');
   if(window.lucide) lucide.createIcons();
 }
@@ -418,13 +453,15 @@ function renderBannerRotationControls(){
   if(!modeSel || !state.bannerTheme) return;
   modeSel.value = state.bannerTheme.rotateMode || 'off';
   if(minutesRow) minutesRow.hidden = modeSel.value!=='timer';
-  if(minutesInput) minutesInput.value = state.bannerTheme.rotateMinutes || 30;
+  if(minutesInput) minutesInput.value = state.bannerTheme.rotateMinutes || 5;
 }
 let bannerGalleryWired = false;
 function wireBannerGallery(){
   if(bannerGalleryWired) return; bannerGalleryWired = true;
   const grid = document.getElementById('banner-gallery');
   if(grid) grid.addEventListener('click', e=>{
+    const shuffleBtn = e.target.closest('[data-banner-shuffle-toggle]');
+    if(shuffleBtn){ e.stopPropagation(); toggleBannerShuffleInclusion(shuffleBtn.dataset.bannerShuffleToggle); return; }
     const btn = e.target.closest('[data-banner-select]');
     if(btn) selectBannerPreset(btn.dataset.bannerSelect);
   });
@@ -437,7 +474,19 @@ function wireBannerGallery(){
     setBannerRotateMode(e.target.value);
   });
   const minutesInput = document.getElementById('banner-rotate-minutes');
-  if(minutesInput) minutesInput.addEventListener('change', e=>setBannerRotateMinutes(e.target.value));
+  if(minutesInput){
+    minutesInput.addEventListener('change', e=>setBannerRotateMinutes(e.target.value));
+    // Also save shortly after typing stops, not only on blur/change — on
+    // some mobile keyboards tapping another control can dismiss focus
+    // without firing 'change' first, which would otherwise leave the old
+    // interval running on the un-typed value.
+    let minutesDebounce;
+    minutesInput.addEventListener('input', e=>{
+      clearTimeout(minutesDebounce);
+      const val=e.target.value;
+      minutesDebounce=setTimeout(()=>setBannerRotateMinutes(val),600);
+    });
+  }
   const shuffleBtn = document.getElementById('banner-shuffle-now');
   if(shuffleBtn) shuffleBtn.addEventListener('click', ()=>shuffleBannerNow());
 }

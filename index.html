@@ -72,38 +72,51 @@
           </div>
           <div class="hub-weather-hours" id="hub-weather-hours"></div>
           <button type="button" class="hub-weather-place" id="hub-weather-place-btn" title="Change location"><i data-lucide="map-pin"></i><span id="hub-weather-place">Default location</span></button>
+        </div>
 
-          <!-- Second city — its own mini version of the widget above,
-               independent of the main one. Stays a plain "Add a city"
-               prompt (click opens the location editor directly) until
-               someone sets a location; once set, clicking instead
-               expands/collapses its own hi/lo + hourly panel, same as
-               the main widget, and the expand state is remembered
-               (hub-weather-second-collapsed) same as the main one's. -->
-          <div class="hub-weather-second" id="hub-weather-second">
-            <button type="button" class="hub-weather-second-row" id="hub-weather-second-toggle" aria-expanded="false">
-              <i data-lucide="plus-circle" class="hub-weather-second-icon" id="hub-weather-second-icon"></i>
-              <span class="hub-weather-second-temp" id="hub-weather-second-temp"></span>
-              <span class="hub-weather-second-place" id="hub-weather-second-place">Add a second city</span>
-              <i data-lucide="chevron-down" class="hub-weather-chevron hub-weather-second-chevron" id="hub-weather-second-chevron" hidden></i>
-            </button>
-            <div class="hub-weather-detail hub-weather-second-detail" id="hub-weather-second-detail" hidden>
-              <div class="hub-weather-hilo"><span id="hub-weather-second-hi">H --°</span><span id="hub-weather-second-lo">L --°</span></div>
-              <div class="hub-weather-meta">
-                <span><i data-lucide="droplets"></i><b id="hub-weather-second-humidity">--%</b></span>
-                <span><i data-lucide="wind"></i><b id="hub-weather-second-wind">-- mph</b></span>
-              </div>
-              <div class="hub-weather-hours" id="hub-weather-second-hours"></div>
-              <button type="button" class="hub-weather-place" id="hub-weather-second-place-btn" title="Change location"><i data-lucide="map-pin"></i><span>Change location</span></button>
+        <!-- Second city — its own mini version of the widget above,
+             independent of the main one. A SIBLING of hub-weather-detail
+             above, not nested inside it — it used to be nested, which
+             meant it (and its own expand panel, and its location editor)
+             vanished entirely whenever the main city's panel was
+             collapsed, which is the default state. Stays a plain "Add a
+             city" prompt (click opens the location editor directly) until
+             someone sets a location; once set, clicking instead
+             expands/collapses its own hi/lo + hourly panel, same as the
+             main widget, and the expand state is remembered
+             (hub-weather-second-collapsed) same as the main one's — fully
+             independently of whether the main one is open or closed. -->
+        <div class="hub-weather-second" id="hub-weather-second">
+          <button type="button" class="hub-weather-second-row" id="hub-weather-second-toggle" aria-expanded="false">
+            <i data-lucide="plus-circle" class="hub-weather-second-icon" id="hub-weather-second-icon"></i>
+            <span class="hub-weather-second-temp" id="hub-weather-second-temp"></span>
+            <span class="hub-weather-second-place" id="hub-weather-second-place">Add a second city</span>
+            <i data-lucide="chevron-down" class="hub-weather-chevron hub-weather-second-chevron" id="hub-weather-second-chevron" hidden></i>
+          </button>
+          <!-- Deliberately NOT sharing the "hub-weather-detail" class with
+               the main panel above: that class is targeted by
+               ".hub-weather.is-collapsed .hub-weather-detail{display:none}",
+               which would force this closed whenever the main widget
+               collapses, regardless of this widget's own open/closed
+               state. ".hub-weather-second.is-collapsed
+               .hub-weather-second-detail" below is this widget's own,
+               independent version of that rule. -->
+          <div class="hub-weather-second-detail" id="hub-weather-second-detail" hidden>
+            <div class="hub-weather-hilo"><span id="hub-weather-second-hi">H --°</span><span id="hub-weather-second-lo">L --°</span></div>
+            <div class="hub-weather-meta">
+              <span><i data-lucide="droplets"></i><b id="hub-weather-second-humidity">--%</b></span>
+              <span><i data-lucide="wind"></i><b id="hub-weather-second-wind">-- mph</b></span>
             </div>
+            <div class="hub-weather-hours" id="hub-weather-second-hours"></div>
+            <button type="button" class="hub-weather-place" id="hub-weather-second-place-btn" title="Change location"><i data-lucide="map-pin"></i><span>Change location</span></button>
           </div>
+        </div>
 
-          <div class="hub-weather-location-editor" id="hub-weather-location-editor" hidden>
-            <button type="button" class="hub-weather-use-gps" id="hub-weather-use-gps"><i data-lucide="locate-fixed"></i><span>Use my location</span></button>
-            <input type="text" class="hub-weather-search-input" id="hub-weather-search-input" placeholder="Search a city…" autocomplete="off">
-            <div class="hub-weather-search-results" id="hub-weather-search-results"></div>
-            <button type="button" class="hub-weather-search-close" id="hub-weather-search-close">Cancel</button>
-          </div>
+        <div class="hub-weather-location-editor" id="hub-weather-location-editor" hidden>
+          <button type="button" class="hub-weather-use-gps" id="hub-weather-use-gps"><i data-lucide="locate-fixed"></i><span>Use my location</span></button>
+          <input type="text" class="hub-weather-search-input" id="hub-weather-search-input" placeholder="Search a city…" autocomplete="off">
+          <div class="hub-weather-search-results" id="hub-weather-search-results"></div>
+          <button type="button" class="hub-weather-search-close" id="hub-weather-search-close">Cancel</button>
         </div>
       </div>
 
@@ -165,7 +178,6 @@
             </div>
             <div class="ih-banner-actions">
               <button class="icon-button" id="today-banner-replay" type="button" title="Replay banner animation" aria-label="Replay banner animation"><i data-lucide="rotate-cw"></i></button>
-              <button class="quick-add" id="quick-add-open" type="button"><span>+</span>Quick add</button>
             </div>
             <!-- Small corner flavor line some presets set (preset.mood) — purely
                  decorative, never replaces today-summary's real task data. -->
@@ -196,21 +208,21 @@
       </section>
 
       <section class="page" id="page-planner" data-page="planner" data-category="planner">
-        <header class="page-header"><div><p class="eyebrow">Time and commitments</p><h1>Planner</h1><p class="page-subtitle">Everything that determines what happens next.</p></div><button class="button primary" type="button" data-open-quick-add><i data-lucide="plus"></i><span>Add task</span></button></header>
+        <header class="page-header"><div><p class="eyebrow">Time and commitments</p><h1>Planner</h1><p class="page-subtitle">Your schedule and tasks.</p></div><button class="button primary" type="button" data-open-quick-add><i data-lucide="plus"></i><span>Add task</span></button></header>
         <div class="uncategorized-banner" id="uncat-banner-planner" hidden></div>
         <div class="category-toolbar"><button class="button secondary" type="button" data-edit-toggle="planner"><i data-lucide="pencil"></i><span>Rearrange</span></button></div>
         <div class="app-grid" id="grid-planner"></div>
       </section>
 
       <section class="page" id="page-health" data-page="health" data-category="health">
-        <header class="page-header"><div><p class="eyebrow">Body and consistency</p><h1>Health</h1><p class="page-subtitle">Training, nutrition, and care without competing dashboards.</p></div></header>
+        <header class="page-header"><div><p class="eyebrow">Body and consistency</p><h1>Health</h1><p class="page-subtitle">Training, nutrition, and skin care.</p></div></header>
         <div class="uncategorized-banner" id="uncat-banner-health" hidden></div>
         <div class="category-toolbar"><button class="button secondary" type="button" data-edit-toggle="health"><i data-lucide="pencil"></i><span>Rearrange</span></button></div>
         <div class="app-grid" id="grid-health"></div>
       </section>
 
       <section class="page" id="page-home" data-page="home" data-category="home">
-        <header class="page-header"><div><p class="eyebrow">Shared household</p><h1>Home</h1><p class="page-subtitle">The practical things you manage together.</p></div></header>
+        <header class="page-header"><div><p class="eyebrow">Shared household</p><h1>Home</h1><p class="page-subtitle">Chores and groceries.</p></div></header>
         <div class="uncategorized-banner" id="uncat-banner-home" hidden></div>
         <div class="category-toolbar"><button class="button secondary" type="button" data-edit-toggle="home"><i data-lucide="pencil"></i><span>Rearrange</span></button></div>
         <div class="app-grid" id="grid-home"></div>
@@ -218,7 +230,7 @@
 
       <section class="page" id="page-insights" data-page="insights">
         <header class="page-header">
-          <div><p class="eyebrow">Your momentum</p><h1>Insights</h1><p class="page-subtitle">The whole system, in one place — proof of what you've kept showing up for.</p></div>
+          <div><p class="eyebrow">Your momentum</p><h1>Insights</h1><p class="page-subtitle">Your activity across the Hub.</p></div>
           <div class="insights-head-actions">
             <div class="insights-range" id="insights-range">
               <button type="button" class="active" data-range="week">7 days</button>
@@ -315,7 +327,7 @@
       </section>
 
       <section class="page" id="page-settings" data-page="settings">
-        <header class="page-header"><div><p class="eyebrow">Make it yours</p><h1>Settings</h1><p class="page-subtitle">Appearance, colors, and backgrounds — synced across every app in the Hub, not just this page.</p></div></header>
+        <header class="page-header"><div><p class="eyebrow">Make it yours</p><h1>Settings</h1><p class="page-subtitle">Appearance and preferences for the Hub.</p></div></header>
 
         <section class="surface settings-card">
           <div class="section-head with-icon"><span class="section-head-icon"><i data-lucide="sparkles"></i></span><div><p class="section-kicker">Appearance</p><h2>Theme</h2></div></div>
@@ -325,7 +337,7 @@
 
         <section class="surface settings-card">
           <div class="section-head with-icon"><span class="section-head-icon"><i data-lucide="flame"></i></span><div><p class="section-kicker">Today page</p><h2>Banner</h2></div></div>
-          <p class="settings-hint">Your own animated Today banner — picking one here only changes yours, never the other profile's. Click a banner to activate it and replay its animation.</p>
+          <p class="settings-hint">Your own animated Today banner — picking one here only changes yours, never the other profile's. Click a banner to activate it. The checkbox in the corner of each one controls whether Shuffle/rotation is allowed to pick it — uncheck any you don't want showing up on their own.</p>
           <div class="banner-gallery" id="banner-gallery"></div>
           <div class="banner-rotate" id="banner-rotate">
             <div class="banner-rotate-row">

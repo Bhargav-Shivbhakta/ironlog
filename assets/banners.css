@@ -19,9 +19,9 @@
 .ih-mood{position:absolute;z-index:11;right:26px;bottom:14px;margin:0;color:#696b64;font-size:10px;letter-spacing:.02em}
 @media(max-width:820px){.ih-mood{display:none}}
 .ih-stat-strip{position:relative;z-index:10;display:grid;grid-template-columns:repeat(3,1fr);border-top:1px solid #262723;background:linear-gradient(180deg,rgba(255,255,255,.02),transparent)}
-.ih-stat-strip>div{min-height:78px;padding:16px 22px;display:grid;align-content:center;gap:4px}
+.ih-stat-strip>div{min-height:78px;padding:16px 22px;display:grid;align-content:center;gap:4px;min-width:0}
 .ih-stat-strip>div+div{border-left:1px solid #262723}
-.ih-stat-value{font-size:21px;letter-spacing:-.03em;font-weight:650;color:#f7f7f2}
+.ih-stat-value{font-size:21px;letter-spacing:-.03em;font-weight:650;color:#f7f7f2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:block}
 .ih-stat-label{font-size:10.5px;color:#8f9088;font-weight:700;letter-spacing:.07em;text-transform:uppercase}
 .ih-banner.is-playing .ih-copy{animation:ih-copy-in .55s ease .45s forwards}
 .ih-banner.is-playing .ih-banner-actions{animation:ih-copy-in .45s ease .62s forwards}
@@ -68,7 +68,17 @@
    being hardcoded — so one CSS block covers every direction/motion combo
    instead of one per preset. ---------------- */
 .scene-subject{perspective:1000px}
-.scene-subject .subject-stage{position:absolute;right:-1%;top:4px;width:53%;height:235px}
+/* Fixed HEIGHT, width driven by each image's own aspect-ratio (--subj-ratio,
+   set per preset by the "subject" SCENE_BUILDERS entry) instead of a fixed
+   53% box. The cutouts aren't all the same shape (2:1 for the car/jet/
+   yacht/speedboat/office ones, 3:2 for the vault/chess/suit/briefcase/
+   gates/phone ones) — forcing every one into the same box and then
+   object-fit:contain-ing it left the 3:2 images letterboxed down small
+   with dead space on both sides, looking "disproportionate" next to the
+   2:1 ones that filled their box edge to edge. Sizing the box itself to
+   match removes the letterboxing, so every cutout reads at the same
+   visual scale. */
+.scene-subject .subject-stage{position:absolute;right:-1%;top:4px;height:235px;width:auto;aspect-ratio:var(--subj-ratio,1.5)}
 .scene-subject .road-line{position:absolute;left:4%;right:0;bottom:30px;height:1px;background:linear-gradient(90deg,transparent,color-mix(in srgb,var(--accent) 33%,transparent) 25%,color-mix(in srgb,var(--accent) 75%,transparent) 64%,transparent);box-shadow:0 0 22px color-mix(in srgb,var(--accent) 38%,transparent)}
 .scene-subject .road-line:after{content:"";position:absolute;right:10%;top:-2px;width:40%;height:4px;background:linear-gradient(90deg,transparent,var(--accent2),transparent);filter:blur(4px);animation:ih-roadPulse 2.8s ease-in-out infinite}
 .scene-subject .motion-trail{position:absolute;left:7%;top:43%;width:52%;height:24%;background:linear-gradient(90deg,transparent,color-mix(in srgb,var(--accent) 27%,transparent) 55%,transparent);filter:blur(12px);transform:skewX(-24deg);opacity:0}
@@ -82,7 +92,7 @@
 .is-playing .scene-subject .speed-particle{animation:ih-particle 1.05s ease both}
 .is-playing .scene-subject .p1{animation-delay:.28s}.is-playing .scene-subject .p2{animation-delay:.42s}.is-playing .scene-subject .p3{animation-delay:.58s}
 @keyframes ih-subjectIn{0%{opacity:0;transform:translate3d(var(--entry-x,-105%),var(--entry-y,18px),var(--entry-z,-330px)) rotateY(var(--entry-ry,23deg)) rotateZ(var(--entry-rz,-1.4deg)) scale(var(--entry-scale,.58));filter:blur(8px)}48%{opacity:1;transform:translate3d(-8%,2px,25px) rotateY(-5deg) rotateZ(.4deg) scale(1.035);filter:blur(0)}72%{transform:translate3d(2%,0,0) rotateY(1.5deg) scale(.99)}100%{opacity:1;transform:translate3d(0,0,0) rotateY(0) scale(1);filter:blur(0)}}
-@media(max-width:820px){.scene-subject .subject-stage{top:110px;left:-10%;right:auto;width:120%}}
+@media(max-width:820px){.scene-subject .subject-stage{top:110px;left:auto;right:4%;height:170px;width:auto;aspect-ratio:var(--subj-ratio,1.5)}}
 
 /* ---------------- b-showroom: Desert Showroom (real photo) ---------------- */
 .scene-showroom .showroom-photo{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:center 58%}
@@ -176,15 +186,23 @@
    Settings gallery swatches
 --------------------------------------------------------------------- */
 .banner-gallery{display:grid;grid-template-columns:repeat(auto-fill,minmax(132px,1fr));gap:12px}
-.banner-swatch{border:1px solid var(--line);background:var(--surface-soft);border-radius:14px;padding:10px;display:grid;gap:8px;text-align:left}
+.banner-swatch{position:relative;border:1px solid var(--line);background:var(--surface-soft);border-radius:14px;padding:10px;text-align:left}
 .banner-swatch:hover{border-color:var(--accent)}
 .banner-swatch.active{border-color:var(--accent);box-shadow:0 0 0 2px color-mix(in srgb,var(--accent) 22%,transparent)}
+.banner-swatch-select{all:unset;display:grid;gap:8px;width:100%;box-sizing:border-box;cursor:pointer}
 .banner-swatch-preview{height:64px;border-radius:9px;display:grid;place-items:center;color:#fff}
 .banner-swatch-preview svg{width:22px;height:22px;stroke-width:1.8}
-.banner-swatch strong{font-size:12.5px;font-weight:600}
+.banner-swatch strong{font-size:12.5px;font-weight:600;display:block}
 .banner-swatch small{display:block;color:var(--muted);font-size:10.5px;margin-top:1px}
-.banner-swatch-custom{position:relative}
-.banner-swatch-custom:before{content:"Custom";position:absolute;top:6px;right:6px;background:#00000099;color:#fff;font-size:8.5px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;padding:2px 6px;border-radius:99px;z-index:1}
+.banner-swatch-custom:after{content:"Custom";position:absolute;top:6px;right:6px;background:#00000099;color:#fff;font-size:8.5px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;padding:2px 6px;border-radius:99px;z-index:1;pointer-events:none}
+/* Shuffle-inclusion checkbox badge — top-left corner (the "Custom" badge
+   above sits top-right), lets you pick which banners the shuffle/rotation
+   is actually allowed to choose from, independent of which one is active
+   right now. */
+.banner-swatch-shuffle-toggle{position:absolute;top:6px;left:6px;width:20px;height:20px;border-radius:6px;border:1.5px solid rgba(255,255,255,.55);background:rgba(0,0,0,.35);color:transparent;display:flex;align-items:center;justify-content:center;z-index:2;padding:0;cursor:pointer}
+.banner-swatch-shuffle-toggle svg{width:12px;height:12px;stroke-width:3}
+.banner-swatch-shuffle-toggle.included{background:var(--accent);border-color:var(--accent);color:#1b1b18}
+.banner-swatch-shuffle-toggle:not(.included) svg{visibility:hidden}
 .banner-rotate{margin-top:16px;padding-top:16px;border-top:1px solid var(--line);display:flex;flex-wrap:wrap;align-items:center;gap:12px 16px}
 .banner-rotate-row{display:flex;align-items:center;gap:8px}
 .banner-rotate-row label{color:var(--muted);font-size:12.5px;white-space:nowrap}

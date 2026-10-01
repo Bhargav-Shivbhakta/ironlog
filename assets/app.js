@@ -434,11 +434,25 @@ async function loadDashboard(){
   if(!restoreAppFromHash()) showRoute(location.hash.replace('#','')||'today');
 }
 
-function todaysTimeline(){
-  const date=today(),weekday=new Date(date+'T00:00:00').getDay(),dayName=DAYS[weekday];
+function timelineForDate(date){
+  const weekday=new Date(date+'T00:00:00').getDay(),dayName=DAYS[weekday];
   const blocks=(state.templates[dayName]||[]).map((x,i)=>({id:'block-'+i,title:x.activity||x.title||'Scheduled block',time:x.start||'',end:x.end||'',kind:'routine'}));
   const events=state.events.filter(e=>e.recurring?e.weekday===weekday&&(!e.startDate||e.startDate<=date):e.date===date).map(e=>({id:e.id,title:e.title,time:e.time||'',notes:e.notes||'',kind:'event'}));
   return blocks.concat(events).sort((a,b)=>minutes(a.time)-minutes(b.time));
+}
+function todaysTimeline(){ return timelineForDate(today()); }
+// The "Next event" stat used to only look at today's own timeline, so once
+// the last thing on today's schedule had already started (a Sleep block
+// that runs past midnight, say), it fell through to "Clear" even though
+// tomorrow's schedule clearly has something next (Wake up, etc). This
+// looks ahead into tomorrow's timeline too, so there's always a real next
+// thing shown as long as something is actually on the calendar.
+function nextUpcoming(timeline){
+  const nowM=new Date().getHours()*60+new Date().getMinutes();
+  const todayMatch=timeline.find(x=>minutes(x.time)>=nowM);
+  if(todayMatch) return todayMatch;
+  const tomorrow=timelineForDate(addDays(today(),1));
+  return tomorrow.length ? Object.assign({},tomorrow[0],{_tomorrow:true}) : null;
 }
 function dueTasks(){
   const date=today();
@@ -497,8 +511,16 @@ function renderDashboard(){
   const timeline=todaysTimeline(),tasks=dueTasks(),chores=choresDueToday();
   $('today-date').textContent=formatDate();$('today-greeting').textContent=greeting()+', '+state.profile;
   $('today-summary').textContent=tasks.length?tasks.length+' task'+(tasks.length===1?'':'s')+' need your attention today.':'Your priority list is clear.';
-  const nowM=new Date().getHours()*60+new Date().getMinutes(),next=timeline.find(x=>minutes(x.time)>=nowM);
-  $('stat-next').textContent=next?(next.time?time12(next.time):'Anytime'):'Clear';$('stat-tasks').textContent=tasks.length;$('stat-focus').textContent=plannedHours(timeline);
+  const next=nextUpcoming(timeline);
+  const nextEl=$('stat-next');
+  if(next){
+    nextEl.textContent=(next.title||'Scheduled')+(next._tomorrow?' · Tmrw':'');
+    nextEl.title=(next.title||'Scheduled')+(next.time?' at '+time12(next.time):'')+(next._tomorrow?' (tomorrow)':' (today)');
+  }else{
+    nextEl.textContent='Clear';
+    nextEl.removeAttribute('title');
+  }
+  $('stat-tasks').textContent=tasks.length;$('stat-focus').textContent=plannedHours(timeline);
   renderWidgetBoard();
 }
 // The item "now" falls into: the last one whose start time has already
@@ -633,6 +655,7 @@ const WIDGET_TYPES={
   schedule:{title:"Today's schedule",icon:'calendar-clock',desc:"Your planned blocks for today, same list as the Planner.",defaultSize:'lg',
     render(el){renderTimelineInto(el,todaysTimeline())}},
   priorities:{title:'Priorities',icon:'list-checks',desc:'Tasks due today — check them off right from the board.',defaultSize:'lg',
+    headerAction:true, // shows the "+" quick-add button in this widget's own title bar — see renderWidgetBoard()
     render(el){renderTasksInto(el,dueTasks().slice(0,8))}},
   chores:{title:'Chores due today',icon:'sparkles',desc:'Household chores due or overdue today.',defaultSize:'md',
     render(el){renderChoresListInto(el,choresDueToday())}},
@@ -841,7 +864,9 @@ function renderWidgetBoard(){
       '<button type="button" class="widget-remove-badge" data-widget-remove title="Remove widget" tabindex="-1"><i data-lucide="minus"></i></button>'+
       (bare
         ?'<span class="widget-drag-handle widget-drag-handle-bare" data-widget-drag title="Drag to move"><i data-lucide="grip-vertical"></i></span>'
-        :'<div class="widget-card-head"><div class="widget-card-title"><span class="widget-drag-handle" data-widget-drag title="Drag to move"><i data-lucide="grip-vertical"></i></span><strong>'+esc(def.title)+'</strong></div></div>')+
+        :'<div class="widget-card-head"><div class="widget-card-title"><span class="widget-drag-handle" data-widget-drag title="Drag to move"><i data-lucide="grip-vertical"></i></span><strong>'+esc(def.title)+'</strong></div>'
+          +(def.headerAction?'<button type="button" class="widget-card-quick-add" data-widget-quick-add title="Add task" aria-label="Add task"><i data-lucide="plus"></i></button>':'')
+          +'</div>')+
       '<div class="widget-card-body"></div>'+
       '<span class="widget-resize-handle" data-widget-resize title="Drag to resize" tabindex="-1"><i data-lucide="move-diagonal-2"></i></span>'+
     '</div>';
@@ -852,6 +877,8 @@ function renderWidgetBoard(){
     const w=state.widgets.find(x=>x.id===card.dataset.widgetId);
     if(def)def.render(card.querySelector('.widget-card-body'),w);
     wireWidgetCard(card);
+    const qaBtn=card.querySelector('[data-widget-quick-add]');
+    if(qaBtn) qaBtn.addEventListener('click',e=>{e.stopPropagation();openQuickAdd()});
   });
 }
 // Pointer Events (not HTML5 dragstart/dragover) so reordering actually
@@ -2015,6 +2042,7 @@ function renderWeatherSecond(data,label){
   }).join('');
   $('hub-weather-second-toggle').setAttribute('aria-expanded', $('hub-weather-second').classList.contains('is-collapsed')?'false':'true');
   $('hub-weather-second-chevron').hidden=false;
+  $('hub-weather-second-detail').hidden=false; // mirrors renderWeather()'s own hub-weather-detail.hidden=false — without this the panel's HTML "hidden" attribute never clears, so toggling the .is-collapsed class alone can never actually show it
   if(window.lucide)lucide.createIcons();
 }
 function weatherError(){
@@ -2368,7 +2396,7 @@ document.addEventListener('click',e=>{
 ===================================================================== */
 function openQuickAdd(){$('qa-date').value=today();$('quick-add-modal').hidden=false;setTimeout(()=>$('qa-title').focus(),0)}
 function closeQuickAdd(){$('quick-add-modal').hidden=true;$('quick-add-form').reset()}
-$('quick-add-open').addEventListener('click',openQuickAdd);document.querySelectorAll('[data-open-quick-add]').forEach(x=>x.addEventListener('click',openQuickAdd));$('quick-add-close').addEventListener('click',closeQuickAdd);$('quick-add-cancel').addEventListener('click',closeQuickAdd);$('quick-add-modal').addEventListener('click',e=>{if(e.target===$('quick-add-modal'))closeQuickAdd()});
+document.querySelectorAll('[data-open-quick-add]').forEach(x=>x.addEventListener('click',openQuickAdd));$('quick-add-close').addEventListener('click',closeQuickAdd);$('quick-add-cancel').addEventListener('click',closeQuickAdd);$('quick-add-modal').addEventListener('click',e=>{if(e.target===$('quick-add-modal'))closeQuickAdd()});
 $('quick-add-form').addEventListener('submit',async e=>{e.preventDefault();const shared=$('qa-shared').value==='shared',task={id:'task-'+Date.now()+'-'+Math.floor(Math.random()*1000),title:$('qa-title').value.trim(),done:false,priority:Number($('qa-priority').value)||0,startDate:today(),due:$('qa-date').value||null,dueTime:$('qa-time').value||null,repeat:'none',notes:'',link:'',tags:[],subtasks:[],listId:shared?'shared':'personal',createdBy:state.profile,order:Date.now(),createdAt:new Date().toISOString()};if(!task.title)return;const list=shared?state.sharedTasks:state.personalTasks,ref=shared?sharedTodoRef():profileRef('todo-profiles','tasks');list.push(task);$('qa-save').disabled=true;try{await ref.set({json:JSON.stringify(list),updatedAt:firebase.firestore.FieldValue.serverTimestamp()},{merge:true});closeQuickAdd();renderDashboard();toast('Task added')}catch(err){list.pop();toast('Could not save. Try again.')}finally{$('qa-save').disabled=false}});
 
 function toast(message){const el=$('toast');el.textContent=message;el.classList.add('show');clearTimeout(toast.timer);toast.timer=setTimeout(()=>el.classList.remove('show'),2200)}

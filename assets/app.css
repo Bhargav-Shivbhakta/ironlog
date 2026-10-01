@@ -96,6 +96,9 @@ html.wallpaper-live{background-size:250% 250%;animation:wallpaper-drift 24s ease
 .widget-drag-handle:active{cursor:grabbing}
 .widget-drag-handle svg{width:15px;height:15px}
 .widget-card-title strong{font-size:13.5px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.widget-card-quick-add{flex:none;width:26px;height:26px;border-radius:8px;border:1px solid var(--line);background:var(--surface-soft);color:var(--text);display:flex;align-items:center;justify-content:center;padding:0}
+.widget-card-quick-add:hover{border-color:var(--accent);color:var(--accent-ink)}
+.widget-card-quick-add svg{width:14px;height:14px}
 .widget-remove-badge{display:none;position:absolute;top:-9px;left:-9px;width:26px;height:26px;border-radius:50%;background:#e5484d;color:#fff;border:2px solid var(--bg);align-items:center;justify-content:center;z-index:6;box-shadow:0 2px 7px rgba(0,0,0,.25);padding:0}
 .widget-remove-badge svg{width:14px;height:14px}
 .widget-resize-handle{display:none;position:absolute;right:8px;bottom:8px;width:28px;height:28px;border-radius:8px;background:var(--surface-soft);border:1px solid var(--line);color:var(--muted);align-items:center;justify-content:center;cursor:nwse-resize;touch-action:none;z-index:4}
