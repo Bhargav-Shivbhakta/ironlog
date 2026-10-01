@@ -13,7 +13,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="assets/app.css">
-  <link rel="stylesheet" href="assets/banners.css">
+  <link rel="stylesheet" href="assets/banners.css?v=20261001a">
   <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
@@ -339,8 +339,7 @@
           <div class="section-head with-icon"><span class="section-head-icon"><i data-lucide="flame"></i></span><div><p class="section-kicker">Today page</p><h2>Banner</h2></div></div>
           <p class="settings-hint">Your own animated Today banner — picking one here only changes yours, never the other profile's. Click a banner to activate it. The checkbox in the corner of each one controls whether Shuffle/rotation is allowed to pick it — uncheck any you don't want showing up on their own.</p>
           <div class="banner-pool-actions">
-            <button type="button" class="button secondary small" id="banner-select-all">Select all</button>
-            <button type="button" class="button secondary small" id="banner-unselect-all">Unselect all</button>
+            <button type="button" class="button secondary small" id="banner-pool-toggle">Select all</button>
             <span class="settings-hint" id="banner-pool-count" style="margin:0 0 0 auto;"></span>
           </div>
           <div class="banner-gallery" id="banner-gallery"></div>
@@ -469,7 +468,7 @@
     </div>
   </div>
 
-  <script src="assets/banners.js"></script>
+  <script src="assets/banners.js?v=20261001a"></script>
   <script src="assets/app.js"></script>
 </body>
 </html>
