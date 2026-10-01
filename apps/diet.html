@@ -4,6 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>Nourish Duo — Integrated Diet & Recipe Planner</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
@@ -102,6 +103,7 @@
         <button data-page="mealplan">▦ Meals</button>
         <button data-page="pantry">▣ Pantry</button>
         <button data-page="progress">↗ Progress</button>
+        <button data-page="progression">⚡ Progression</button>
         <button data-page="history">🕘 History</button>
         <button data-page="settings">⚙ Goals & settings</button>
       </nav>
@@ -149,6 +151,39 @@
     <section class="page" id="progress"><div hidden><input id="prDate"><input id="prWeight"><input id="prWaist"><input id="prSteps"><input id="prSleep"><input id="prWater"><select id="prWorkout"><option value="yes">yes</option></select><input id="prNotes"></div><div class="integration-banner"><div><b>Live Gym connection</b><span>Measurements and completed workouts come directly from the active profile in Gym.</span></div><a class="btn secondary" href="../gym/index.html">Log in Gym</a></div><div class="feature-grid"><div class="card"><div class="section-head"><div><h2>Latest measurements</h2><div class="subtle" id="progressProfile"></div></div><button class="btn ghost small" onclick="renderProgress()">Refresh</button></div><div id="latestProgress"></div></div><div class="card"><h2>Weight trend</h2><div class="trend" id="weightTrend"></div></div></div><div class="card" style="margin-top:17px"><div class="table-wrap"><table class="history-table"><thead><tr><th>Date</th><th>Weight</th><th>Waist</th><th>Steps</th><th>Sleep</th><th>Water</th><th>Workout</th><th>Notes</th></tr></thead><tbody id="progressRows"></tbody></table></div></div>
       <div class="section-head" style="margin-top:24px"><div><h2>Adherence & insights</h2><div class="subtle">Seven-day consistency, pulled from your food diary</div></div></div>
       <div class="adherence-grid" id="adherenceScores"></div><div class="feature-grid"><div class="card"><h2>Last 7 days</h2><div id="adherenceDays"></div></div><div class="card"><h2>Useful patterns</h2><div id="adherencePatterns" class="why-list" style="margin-top:15px"></div></div></div>
+    </section>
+
+    <section class="page" id="progression">
+      <div class="integration-banner"><div><b>Height, birthdate, sex & activity level</b><span>Set once on Gym's Progress tab — used here to estimate TDEE, and shared with Today's Energy ring in Gym.</span></div><a class="btn secondary" href="../gym/index.html?page=progress">Edit in Gym →</a></div>
+      <div class="section-head"><div><h2 id="progressionHeadline">Progression</h2><div class="subtle" id="progressionProfile"></div></div><button class="btn ghost small" onclick="renderProgression()">Refresh</button></div>
+      <div id="progressionPace" class="integration-banner" style="margin-top:0"></div>
+
+      <div class="goal-grid" id="progressionSummary" style="margin-top:14px"></div>
+
+      <div class="feature-grid" style="margin-top:17px">
+        <div class="card">
+          <h2>Today's energy balance</h2>
+          <div id="progressionBalance"><div class="empty">Loading…</div></div>
+        </div>
+        <div class="card">
+          <h2>Weight trend & projection</h2>
+          <div id="progressionTrend"><div class="empty">Loading…</div></div>
+        </div>
+      </div>
+
+      <div class="grid-2" style="display:grid;grid-template-columns:1fr 1fr;gap:17px;margin-top:17px">
+        <div class="card"><h2>Weight — logged vs. trend vs. goal</h2><canvas id="chart-progression-weight" height="230"></canvas><div class="empty" id="progression-weight-empty" style="display:none">Log a few more weigh-ins in Gym to see this.</div></div>
+        <div class="card"><h2>Daily calorie balance — last 14 days</h2><canvas id="chart-progression-net" height="230"></canvas><div class="empty" id="progression-net-empty" style="display:none">Nothing logged in the last 14 days yet.</div></div>
+      </div>
+
+      <div class="card" style="margin-top:17px">
+        <h2>How this is calculated</h2>
+        <div class="why-list">
+          <div class="why"><i>1</i><div><b>TDEE</b><span>Resting burn (Mifflin-St Jeor, from your height/birthdate/sex/weight) × your daily-activity level, plus that day's logged Gym lifting and cardio calories on top.</span></div></div>
+          <div class="why"><i>2</i><div><b>Daily balance</b><span>What you ate that day (this Diet diary) minus that day's estimated burn — a deficit/surplus, in calories. The chart forward-fills your weight from your last weigh-in on days you didn't step on the scale.</span></div></div>
+          <div class="why"><i>3</i><div><b>Trend & required pace</b><span>The trend line is a least-squares fit through your actual logged weigh-ins in Gym — not a calorie-math guess. "Required pace" is the kg/week you'd need to average from today to hit your goal by the plan's end date; comparing it to your actual recent pace is what the banner above is telling you.</span></div></div>
+        </div>
+      </div>
     </section>
 
     <section class="page" id="history">
@@ -406,7 +441,7 @@ function ensurePantry(){
  (state.pantry||[]).forEach(p=>{if(p.total==null||p.total<=0)p.total=Math.max(p.qty,p.lowAt?p.lowAt*5:1)});
 }
 function migrateFeatures(){
- state.featureVersion=1;state.selectedDate=state.selectedDate||new Date().toISOString().slice(0,10);state.weekAnchor=state.weekAnchor||state.selectedDate;state.progress=state.progress||{bhargav:[],anusha:[]};
+ state.featureVersion=1;state.selectedDate=state.selectedDate||localToday();state.weekAnchor=state.weekAnchor||state.selectedDate;state.progress=state.progress||{bhargav:[],anusha:[]};
  state.foods.forEach(f=>{let vals=microSeed[f.id]||[];microKeys.forEach((k,i)=>{if(f[k]==null)f[k]=vals[i]||0})});
  Object.values(state.profiles).forEach(p=>p.microGoals=p.microGoals||{satFat:20,sugar:50,sodium:2300,calcium:1000,iron:18,potassium:3400,vitaminD:20});
  ensurePantry();
@@ -449,6 +484,12 @@ if(state.featureVersion2!==1)migrateFeatures2();
 zero=function(){return{calories:0,protein:0,carbs:0,fat:0,fiber:0,satFat:0,sugar:0,sodium:0,calcium:0,iron:0,potassium:0,vitaminD:0}}
 nutrients=function(it){let f=food(it.foodId);if(!f)return zero();let factor=toBasisQty(f,it.qty,it.unit)/f.basis,n=zero();Object.keys(n).forEach(k=>n[k]=(f[k]||0)*factor);return n}
 todayKey=function(){return state.selectedDate}
+// Local calendar date as YYYY-MM-DD. new Date().toISOString() gives the UTC
+// date, which is a different calendar day than "today" for anyone west of
+// UTC for part of the day (e.g. any time after ~5pm Pacific) — meals logged
+// then were silently saved under tomorrow's date, which is why Gym's "Today's
+// Targets" could show 0 even right after logging a meal.
+function localToday(){let d=new Date();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')}
 function addDaysISO(iso,d){let x=new Date(iso+'T12:00:00');x.setDate(x.getDate()+d);return x.toISOString().slice(0,10)}
 function mondayOf(iso){let d=new Date(iso+'T12:00:00'),n=(d.getDay()+6)%7;return addDaysISO(iso,-n)}
 function formatDate(iso,opt={month:'short',day:'numeric'}){return new Date(iso+'T12:00:00').toLocaleDateString(undefined,opt)}
@@ -497,7 +538,7 @@ openFoodModal=function(id){editingFood=id||null;let f=id?food(id):{name:'',basis
 saveFood=function(){let name=$('fName').value.trim(),basis=+$('fBasis').value;if(!name||basis<=0)return toast('Name and basis amount are required');let f={id:editingFood||'custom-'+Date.now(),name,basis,unit:$('fUnit').value,groceryProductId:$('fGroceryProduct').value||null};['Calories','Protein','Carbs','Fat','Fiber','SatFat','Sugar','Sodium','Calcium','Iron','Potassium','VitaminD','PieceG','Density'].forEach(k=>f[k[0].toLowerCase()+k.slice(1)]=num('f'+k)||undefined);microKeys.forEach(k=>f[k]=f[k]||0);['calories','protein','carbs','fat','fiber'].forEach(k=>f[k]=f[k]||0);if(editingFood)state.foods=state.foods.map(x=>x.id===editingFood?f:x);else{state.foods.push(f);state.pantry.push({foodId:f.id,qty:0,lowAt:1,expiry:'',store:'Pantry'})}persist();closeFoodModal();fillFoodSelect();renderAll();toast('Ingredient saved')}
 importData=function(e){let file=e.target.files[0];if(!file)return;let reader=new FileReader();reader.onload=()=>{try{let x=JSON.parse(reader.result);if(!x.foods||!x.recipes||!x.profiles)throw 0;state=x;if(state.featureVersion!==1)migrateFeatures();ensurePantry();if(typeof ensurePurchases==='function')ensurePurchases();linkBuiltInGroceryProducts();persist();fillFoodSelect();setProfile(state.activeProfile||'bhargav');toast('Data imported')}catch{toast('That file is not valid Nourish Duo data')}};reader.readAsText(file)}
 const previousSetProfile=setProfile;setProfile=function(id){previousSetProfile(id);populateYieldRecipes();renderCalendar();renderPantry();renderProgress();renderNutrition();renderInsights()}
-go=function(id){document.querySelectorAll('.page').forEach(p=>p.classList.toggle('active',p.id===id));document.querySelectorAll('[data-page]').forEach(b=>b.classList.toggle('active',b.dataset.page===id));let titles={dashboard:['Daily nutrition','Today'],mealplan:['Meal structure','Daily meal plan'],pantry:['Inventory and expiry','Pantry'],progress:['Body, habits & adherence','Progress'],history:['Full diary record','History'],recipes:['Create, edit & browse','Recipes'],foods:['Nutrition database','Ingredients'],settings:['Personalize','Goals & settings']},t=titles[id];$('eyebrow').textContent=t[0];$('pageTitle').textContent=t[1];updateHeaderDate();if(id==='dashboard'){renderDashboard();renderCalendar();renderNutrition();renderDietCommand();renderProteinRescue()}if(id==='mealplan')renderMealPlan();if(id==='pantry')renderPantry();if(id==='progress'){renderProgress();renderInsights()}if(id==='history')renderHistory();if(id==='recipes'){renderRecipes();populateYieldRecipes()}if(id==='foods')renderFoods();if(id==='settings')loadGoalInputs();scrollTo(0,0)}
+go=function(id){document.querySelectorAll('.page').forEach(p=>p.classList.toggle('active',p.id===id));document.querySelectorAll('[data-page]').forEach(b=>b.classList.toggle('active',b.dataset.page===id));let titles={dashboard:['Daily nutrition','Today'],mealplan:['Meal structure','Daily meal plan'],pantry:['Inventory and expiry','Pantry'],progress:['Body, habits & adherence','Progress'],progression:['TDEE, balance & projection','Progression'],history:['Full diary record','History'],recipes:['Create, edit & browse','Recipes'],foods:['Nutrition database','Ingredients'],settings:['Personalize','Goals & settings']},t=titles[id];$('eyebrow').textContent=t[0];$('pageTitle').textContent=t[1];updateHeaderDate();if(id==='dashboard'){renderDashboard();renderCalendar();renderNutrition();renderDietCommand();renderProteinRescue()}if(id==='mealplan')renderMealPlan();if(id==='pantry')renderPantry();if(id==='progress'){renderProgress();renderInsights()}if(id==='progression')renderProgression();if(id==='history')renderHistory();if(id==='recipes'){renderRecipes();populateYieldRecipes()}if(id==='foods')renderFoods();if(id==='settings')loadGoalInputs();scrollTo(0,0)}
 renderAll=function(){renderDashboard();renderBuilder();renderRecipes();renderFoods();renderMealPlan();loadGoalInputs();renderCalendar();renderPantry();renderProgress();renderNutrition();renderInsights();renderHistory();renderDietCommand();renderProteinRescue();renderMealListOG()}
 resetData=function(){if(!confirm('Restore both original diet plans? This removes custom data, inventory changes, and history.'))return;state=makeFinalState();migrateFeatures();draft=clone(state.recipes[0]);fillFoodSelect();setProfile('bhargav');toast('Original plans restored')}
 updateHeaderDate();populateYieldRecipes();
@@ -932,6 +973,253 @@ function openNewFoodFromUniversal(){closeUniversalLog();openFoodModal()}
       $('progressRows').innerHTML=rows.slice(0,30).map(function(x){return '<tr><td>'+esc(x.date||'')+'</td><td>'+(x.weight??'—')+'</td><td>'+(x.waist??'—')+'</td><td>'+(x.steps??'—')+'</td><td>'+(x.sleep??'—')+'</td><td>'+(x.water??'—')+'</td><td>'+(workouts.has(x.date)?'✓':'—')+'</td><td>'+esc(x.notes||'')+'</td></tr>';}).join('');
     }catch(e){$('latestProgress').innerHTML='<div class="empty">Gym history is unavailable right now. Open Gym or try Refresh.</div>';$('weightTrend').innerHTML='';$('progressRows').innerHTML='';}
   };
+  // Long-term plan goals (start/target weight) — same numbers as Gym's own
+  // PROFILES.program, duplicated here on purpose: both apps already keep
+  // their own copy of "the plan" (Diet has its own calorie/protein goals,
+  // Gym has the workout program) rather than one file reaching into the
+  // other's source, so this follows the same pattern.
+  const WEIGHT_GOALS={bhargav:{start:98.3,target:77,startDate:'2026-09-02',endDate:'2027-05-21'},anusha:{start:66,target:53,startDate:'2026-09-02',endDate:'2026-12-22'}};
+  const ACTIVITY_MULTIPLIERS={desk:1.2,onfeet:1.35,active:1.5};
+  const ACTIVITY_LABELS={desk:'Mostly desk / sitting',onfeet:'On your feet sometimes',active:'On your feet most of the day'};
+  // Age from a stored birthdate (not a typed-in number) so it never goes
+  // stale — recomputed fresh every time instead of saved once and quietly
+  // drifting wrong a year later. Same helper as Gym's.
+  function ageFromBirthdate(iso){
+    if(!iso)return null;
+    const b=new Date(iso+'T00:00:00'), now=new Date();
+    let age=now.getFullYear()-b.getFullYear();
+    const m=now.getMonth()-b.getMonth();
+    if(m<0||(m===0&&now.getDate()<b.getDate()))age--;
+    return age>0?age:null;
+  }
+  // Same Mifflin-St Jeor formula as Gym's Today Energy ring — kept in sync
+  // by hand since there's no shared JS module between the two static apps.
+  function bmrFor(stats,weightKg){
+    const age=ageFromBirthdate(stats&&stats.birthdate);
+    if(!stats||!stats.heightCm||!age||!stats.sex||!weightKg)return null;
+    const base=10*weightKg+6.25*stats.heightCm-5*age;
+    return Math.round(stats.sex==='female'?base-161:base+5);
+  }
+  function estimateLiftKcal(durationSec,weightKg){ if(!durationSec||!weightKg)return 0; return Math.round(4*weightKg*(durationSec/3600)); }
+  function estimateCardioActiveKcal(entries,weightKg){
+    // Lightweight mirror of Gym's per-machine METs table, net of resting
+    // metabolism — good enough for today's estimate without importing
+    // Gym's whole cardio module into Diet.
+    const METS={run:10,cycle:7,elliptical:5,stairmaster:8,rowing:7,'jump rope':11,swimming:7,sports:6,treadmill:6};
+    let total=0;
+    (entries||[]).forEach(function(e){
+      const segs=Array.isArray(e.segments)&&e.segments.length?e.segments:[{machine:e.machine,duration:e.duration}];
+      segs.forEach(function(s){
+        if(e.activeCal){ total+=e.activeCal/segs.length; return; }
+        const m=(s.machine||'').toLowerCase();
+        let mets=5; Object.keys(METS).forEach(function(k){ if(m.includes(k)) mets=METS[k]; });
+        total += (mets-1)*weightKg*((s.duration||0)/60);
+      });
+    });
+    return Math.round(total);
+  }
+  // Least-squares slope of weight (kg) per day, from real logged weigh-ins
+  // — used instead of calorie math to predict goal date, because actual
+  // observed trend beats a theoretical deficit estimate (adherence gaps,
+  // water weight, metabolic adaptation all show up in the real numbers).
+  function weightTrendSlope(points){
+    const n=points.length; if(n<2)return null;
+    const mx=points.reduce(function(s,p){return s+p.x;},0)/n, my=points.reduce(function(s,p){return s+p.y;},0)/n;
+    let num=0,den=0;
+    points.forEach(function(p){ num+=(p.x-mx)*(p.y-my); den+=(p.x-mx)*(p.x-mx); });
+    return den?num/den:0;
+  }
+  // Last n ISO dates ending today, oldest first.
+  function lastNDates(n){ const out=[],t0=new Date(localToday()+'T12:00:00'); for(let i=n-1;i>=0;i--){ const d=new Date(t0); d.setDate(d.getDate()-i); out.push(d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')); } return out; }
+  function daysBetweenISO(a,b){ return Math.round((new Date(b+'T12:00:00')-new Date(a+'T12:00:00'))/86400000); }
+  let progressionCharts={};
+  renderProgression=async function(){
+    const pid=state.activeProfile, goal=WEIGHT_GOALS[pid];
+    $('progressionProfile').textContent='For '+active().name;
+    $('progressionHeadline').textContent=active().name+'’s Progression';
+    $('progressionBalance').innerHTML='<div class="empty">Loading…</div>';
+    $('progressionTrend').innerHTML='<div class="empty">Loading…</div>';
+    $('progressionSummary').innerHTML='';
+    $('progressionPace').innerHTML='';
+    if(!appUser)return;
+    try{
+      const today=localToday();
+      const base=db.collection('users').doc(appUser.uid).collection('profiles').doc(pid);
+      const [statsDoc,dailySnap,cardioSnap,liftSnap]=await Promise.all([base.get(),base.collection('dailyLogs').get(),base.collection('cardioLogs').get(),base.collection('workoutLogs').get()]);
+      const stats=statsDoc.exists?statsDoc.data():{};
+      const rows=[]; dailySnap.forEach(function(d){rows.push(Object.assign({date:d.id},d.data()));});
+      const weighed=rows.filter(function(r){return r.weight!=null&&r.weight!=='';}).map(function(r){return {date:r.date,weight:+r.weight};}).sort(function(a,b){return a.date<b.date?-1:1;});
+      const latestWeight=weighed.length?weighed[weighed.length-1].weight:goal.start;
+      const todayLog=rows.find(function(r){return r.date===today;});
+
+      // Per-date exercise kcal, indexed once from the full cardioLogs/
+      // workoutLogs collections instead of one read per date.
+      const cardioByDate={}; cardioSnap.forEach(function(d){ const x=d.data(); cardioByDate[d.id]=Array.isArray(x.entries)?x.entries:[]; });
+      const liftSecByDate={}; liftSnap.forEach(function(d){ const x=d.data(); if(x.date) liftSecByDate[x.date]=(liftSecByDate[x.date]||0)+(x.sessionDurationSec||0); });
+
+      const hasStats=!!bmrFor(stats,latestWeight);
+      if(!hasStats){
+        $('progressionBalance').innerHTML='<div class="empty">Add your height, birthdate, sex and activity level on Gym\'s Progress tab to see this.</div>';
+      }
+
+      // ---- Today's balance ----
+      let burnedToday=0, intakeToday=0, netToday=0;
+      if(hasStats){
+        const bmr=bmrFor(stats,latestWeight);
+        const neat=Math.round(bmr*(ACTIVITY_MULTIPLIERS[stats.activityLevel]||ACTIVITY_MULTIPLIERS.onfeet));
+        const exerciseActive=estimateCardioActiveKcal(cardioByDate[today]||[],latestWeight)+estimateLiftKcal(liftSecByDate[today]||0,latestWeight);
+        burnedToday=neat+exerciseActive;
+        const todayEntries=state.diary.filter(function(x){return x.date===today&&x.profileId===pid&&(x.status||'eaten')==='eaten';});
+        intakeToday=Math.round(addNutrition(todayEntries.map(function(x){return scaled(x.nutrition,x.servings/(x.recipeServings||1));})).calories);
+        netToday=intakeToday-burnedToday;
+        $('progressionBalance').innerHTML='<div class="goal-grid">'
+          +'<div class="score"><b>'+burnedToday+'</b><span>Burned (TDEE)</span></div>'
+          +'<div class="score"><b>'+intakeToday+'</b><span>Eaten</span></div>'
+          +'<div class="score"><b>'+(netToday>0?'+':'')+netToday+'</b><span>'+(netToday>0?'Surplus':'Deficit')+'</span></div>'
+          +'<div class="score"><b>'+(todayLog&&todayLog.steps!=null?todayLog.steps:'—')+'</b><span>Steps</span></div>'
+          +'</div><div class="subtle" style="margin-top:12px">'+neat+' kcal baseline ('+(ACTIVITY_LABELS[stats.activityLevel]||'')+', at '+latestWeight+' kg) + '+exerciseActive+' kcal logged in Gym today.</div>';
+      }
+
+      // ---- Trend, pace vs required, projection ----
+      let weekly=null, daysToGoal=null;
+      if(weighed.length<3){
+        $('progressionTrend').innerHTML='<div class="empty">Log weight a few more times in Gym (at least 3, spread over a couple of weeks) to see a real trend and a projected goal date.</div>';
+        $('progressionPace').innerHTML='<div><b>Not enough weigh-ins yet</b><span>Log weight at least 3 times in Gym, spread over a couple of weeks, to unlock pace tracking and a projected goal date.</span></div>';
+      }else{
+        // Trend uses the last 30 days of weigh-ins (recent pace matters more
+        // than months-old data); falls back to all of them if fewer.
+        const recent=weighed.filter(function(w){ return daysBetweenISO(w.date,weighed[weighed.length-1].date)<=30; });
+        const usePts=recent.length>=3?recent:weighed;
+        const first=new Date(usePts[0].date+'T12:00:00');
+        const pts=usePts.map(function(w){ return {x:(new Date(w.date+'T12:00:00')-first)/86400000, y:w.weight}; });
+        const slope=weightTrendSlope(pts); // kg/day
+        weekly=slope*7;
+        const towardGoal=(goal.target<goal.start)?slope<0:slope>0;
+        let projection;
+        if(Math.abs(slope)<0.005){
+          projection='Weight has been essentially flat recently — not enough movement yet to project a date.';
+        }else if(!towardGoal){
+          projection='The recent trend is moving away from your '+goal.target+' kg goal, not toward it — worth a look at adherence before projecting a date.';
+        }else{
+          daysToGoal=Math.ceil((goal.target-latestWeight)/slope);
+          const etaDate=new Date(Date.now()+daysToGoal*86400000);
+          projection='At '+Math.abs(weekly).toFixed(2)+' kg/week (last '+usePts.length+' weigh-ins), projected to reach '+goal.target+' kg around <b>'+etaDate.toLocaleDateString(undefined,{month:'long',day:'numeric',year:'numeric'})+'</b> (~'+daysToGoal+' days from today).';
+        }
+        $('progressionTrend').innerHTML='<div class="goal-grid">'
+          +'<div class="score"><b>'+latestWeight+'</b><span>Latest (kg)</span></div>'
+          +'<div class="score"><b>'+goal.target+'</b><span>Goal (kg)</span></div>'
+          +'<div class="score"><b>'+(weekly>0?'+':'')+weekly.toFixed(2)+'</b><span>kg/week trend</span></div>'
+          +'<div class="score"><b>'+usePts.length+'</b><span>Weigh-ins used</span></div>'
+          +'</div><div class="subtle" style="margin-top:12px">'+projection+'</div>';
+
+        // Pace vs. what's actually required to land on the plan's own end date.
+        const weeksLeftOnPlan=daysBetweenISO(today,goal.endDate)/7;
+        if(weeksLeftOnPlan<=0){
+          $('progressionPace').innerHTML='<div><b>Plan end date has passed</b><span>The plan\'s target date ('+goal.endDate+') is behind us — worth setting a new one rather than comparing pace to it.</span></div>';
+        }else{
+          const requiredWeekly=(goal.target-latestWeight)/weeksLeftOnPlan;
+          const requiredMag=Math.abs(requiredWeekly), actualMag=Math.abs(weekly);
+          const sameDirection=(requiredWeekly<0)===(weekly<0);
+          let verdict, good;
+          if(!sameDirection||actualMag<0.01){
+            verdict='Not currently moving toward goal — need to average '+requiredMag.toFixed(2)+' kg/week from here to land on '+fmtGoalDate(goal.endDate)+'.'; good=false;
+          }else if(actualMag>=requiredMag*0.97){
+            verdict='On pace ✓ — averaging '+actualMag.toFixed(2)+' kg/week vs. '+requiredMag.toFixed(2)+' kg/week required to hit '+goal.target+' kg by '+fmtGoalDate(goal.endDate)+'.'; good=true;
+          }else{
+            const pctOfNeeded=Math.round(100*actualMag/requiredMag);
+            verdict='Behind pace — averaging '+actualMag.toFixed(2)+' kg/week ('+pctOfNeeded+'% of the '+requiredMag.toFixed(2)+' kg/week needed) to hit '+goal.target+' kg by '+fmtGoalDate(goal.endDate)+'.'; good=false;
+          }
+          $('progressionPace').innerHTML='<div><b>'+(good?'✓ On pace for the plan':'⚠ Pace check')+'</b><span>'+verdict+'</span></div>';
+        }
+      }
+
+      // ---- Summary row ----
+      const daysElapsed=Math.max(0,daysBetweenISO(goal.startDate,today));
+      const daysLeft=Math.max(0,daysBetweenISO(today,goal.endDate));
+      const totalChange=+(latestWeight-goal.start).toFixed(1);
+      const last7=lastNDates(7);
+      const last7Intake=last7.map(function(d){ const es=state.diary.filter(function(x){return x.date===d&&x.profileId===pid&&(x.status||'eaten')==='eaten';}); return addNutrition(es.map(function(x){return scaled(x.nutrition,x.servings/(x.recipeServings||1));})).calories; });
+      const avgIntake7=Math.round(last7Intake.reduce(function(s,v){return s+v;},0)/7);
+      let streak=0; for(let i=0;i<60;i++){ const d=lastNDates(i+1)[0]; if(state.diary.some(function(x){return x.date===d&&x.profileId===pid&&(x.status||'eaten')==='eaten';})) streak++; else break; }
+      $('progressionSummary').innerHTML=
+        '<div class="score"><b>'+(totalChange>0?'+':'')+totalChange+'</b><span>kg since start</span></div>'
+        +'<div class="score"><b>'+daysElapsed+'</b><span>Days into plan</span></div>'
+        +'<div class="score"><b>'+daysLeft+'</b><span>Days left on plan</span></div>'
+        +'<div class="score"><b>'+avgIntake7+'</b><span>Avg kcal/day (7d)</span></div>'
+        +'<div class="score"><b>'+streak+'</b><span>Day logging streak</span></div>';
+
+      // ---- Charts ----
+      drawProgressionCharts(pid, goal, weighed, stats, cardioByDate, liftSecByDate);
+    }catch(e){
+      console.error(e);
+      $('progressionBalance').innerHTML='<div class="empty">Gym data is unavailable right now. Open Gym or try Refresh.</div>';
+      $('progressionTrend').innerHTML='';
+    }
+  };
+  function fmtGoalDate(iso){ return new Date(iso+'T12:00:00').toLocaleDateString(undefined,{month:'short',day:'numeric',year:'numeric'}); }
+  function drawProgressionCharts(pid, goal, weighed, stats, cardioByDate, liftSecByDate){
+    if(typeof Chart==='undefined')return;
+    const gridColor='#ECECE6', textColor='#74766F';
+    Chart.defaults.color=textColor; Chart.defaults.font.family="'Manrope','Inter',system-ui,sans-serif"; Chart.defaults.font.size=11;
+    Object.keys(progressionCharts).forEach(function(k){ if(progressionCharts[k])progressionCharts[k].destroy(); });
+
+    // Weight: logged points + a trend line fit through them, extended to
+    // the projected goal date, plus a flat reference line at the goal.
+    const wEmpty=document.getElementById('progression-weight-empty');
+    if(weighed.length<2){
+      wEmpty.style.display='block';
+    }else{
+      wEmpty.style.display='none';
+      const first=new Date(weighed[0].date+'T12:00:00');
+      const pts=weighed.map(function(w){return {x:(new Date(w.date+'T12:00:00')-first)/86400000,y:w.weight};});
+      const slope=weightTrendSlope(pts);
+      const intercept=pts[pts.length-1].y-slope*pts[pts.length-1].x;
+      const lastX=pts[pts.length-1].x;
+      const towardGoal=(goal.target<goal.start)?slope<0:slope>0;
+      const extendX=towardGoal&&Math.abs(slope)>=0.005?Math.max(lastX+14,(goal.target-intercept)/slope):lastX+14;
+      const trendLine=[{x:pts[0].x,y:intercept+slope*pts[0].x},{x:extendX,y:intercept+slope*extendX}];
+      const toDate=function(x){ const d=new Date(first); d.setDate(d.getDate()+Math.round(x)); return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); };
+      progressionCharts.weight=new Chart(document.getElementById('chart-progression-weight'),{
+        type:'line',
+        data:{datasets:[
+          {label:'Logged weight',data:weighed.map(function(w){return {x:w.date,y:w.weight};}),borderColor:'#AD7B20',backgroundColor:'#AD7B2022',fill:false,tension:0.25,pointRadius:3,showLine:true},
+          {label:'Trend',data:trendLine.map(function(p){return {x:toDate(p.x),y:+p.y.toFixed(2)};}),borderColor:'#2A78D6',borderDash:[6,4],pointRadius:0,fill:false},
+          {label:'Goal',data:[{x:weighed[0].date,y:goal.target},{x:toDate(extendX),y:goal.target}],borderColor:'#B8493F',borderDash:[2,3],pointRadius:0,fill:false}
+        ]},
+        options:{responsive:true,scales:{x:{type:'category',grid:{color:gridColor}},y:{grid:{color:gridColor},title:{display:true,text:'kg'}}},plugins:{legend:{display:true,position:'bottom'}}}
+      });
+    }
+
+    // Daily calorie balance, last 14 days — intake from this Diet diary,
+    // burn estimated per day (weight forward-filled from the last weigh-in
+    // on or before that day, so days without a weigh-in still get a
+    // reasonable estimate instead of falling back to the program's start
+    // weight every time).
+    const nEmpty=document.getElementById('progression-net-empty');
+    const dates=lastNDates(14);
+    const hasStats=!!bmrFor(stats,weighed.length?weighed[weighed.length-1].weight:goal.start);
+    let weightCursor=weighed.length?weighed[0].weight:goal.start, wi=0;
+    const netByDate=dates.map(function(d){
+      while(wi<weighed.length&&weighed[wi].date<=d){ weightCursor=weighed[wi].weight; wi++; }
+      const es=state.diary.filter(function(x){return x.date===d&&x.profileId===pid&&(x.status||'eaten')==='eaten';});
+      const intake=addNutrition(es.map(function(x){return scaled(x.nutrition,x.servings/(x.recipeServings||1));})).calories;
+      if(!hasStats||!intake) return null;
+      const bmr=bmrFor(stats,weightCursor);
+      const neat=bmr*(ACTIVITY_MULTIPLIERS[stats.activityLevel]||ACTIVITY_MULTIPLIERS.onfeet);
+      const exerciseActive=estimateCardioActiveKcal(cardioByDate[d]||[],weightCursor)+estimateLiftKcal(liftSecByDate[d]||0,weightCursor);
+      return Math.round(intake-(neat+exerciseActive));
+    });
+    if(netByDate.every(function(v){return v==null;})){
+      nEmpty.style.display='block';
+    }else{
+      nEmpty.style.display='none';
+      progressionCharts.net=new Chart(document.getElementById('chart-progression-net'),{
+        type:'bar',
+        data:{labels:dates.map(function(d){return formatDate(d,{month:'numeric',day:'numeric'});}),datasets:[{label:'Net kcal',data:netByDate,backgroundColor:netByDate.map(function(v){return v==null?'#ECECE6':(v<=0?'#AD7B20':'#B8493F');}),borderRadius:3}]},
+        options:{responsive:true,scales:{y:{grid:{color:gridColor},title:{display:true,text:'kcal (below 0 = deficit)'}},x:{grid:{display:false}}},plugins:{legend:{display:false}}}
+      });
+    }
+  }
 
   auth.onAuthStateChanged(async function(user){
     if(!user){if(window.self!==window.top)return;window.location.href='../index.html';return;}
@@ -951,7 +1239,13 @@ function openNewFoodFromUniversal(){closeUniversalLog();openFoodModal()}
       linkBuiltInGroceryProducts();
       const requested=(new URLSearchParams(location.search).get('profile')||'').toLowerCase();
       if(requested==='bhargav'||requested==='anusha')state.activeProfile=requested;
-      state.selectedDate=state.selectedDate||new Date().toISOString().slice(0,10);state.weekAnchor=state.weekAnchor||state.selectedDate;
+      // Always open on today's real local date, not whatever date was last
+      // viewed (selectedDate otherwise sticks forever once set — e.g. still
+      // on yesterday if you last browsed history yesterday — so meals typed
+      // in "today" were quietly logged under the wrong date). Picking a
+      // different day from the calendar still works for the rest of that
+      // session; it just resets back to today on the next fresh page load.
+      state.selectedDate=localToday();state.weekAnchor=state.selectedDate;
       cloudReady=true;
       await stateDoc().set({json:JSON.stringify(state),updatedAt:firebase.firestore.FieldValue.serverTimestamp()},{merge:true});
       draft=clone(state.recipes.find(function(r){return r.profileId===state.activeProfile;})||{id:null,profileId:state.activeProfile,name:'',servings:1,method:'',items:[]});
