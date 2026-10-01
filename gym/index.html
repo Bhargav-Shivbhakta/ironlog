@@ -124,6 +124,10 @@
   .readiness-ring .rr-num{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-family:'Manrope',sans-serif;font-weight:800;font-size:22px;}
   .readiness-label{font-family:'Manrope',sans-serif;font-size:17px;font-weight:800;}
   .readiness-copy{font-size:12.5px;color:rgba(255,255,255,.78);line-height:1.45;margin-top:6px;}
+  .energy-stats{display:flex;gap:14px;flex-wrap:wrap;margin-top:10px;}
+  .energy-stat{min-width:62px;}
+  .energy-stat b{display:block;font-family:'Manrope',sans-serif;font-size:15px;font-weight:800;}
+  .energy-stat span{font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:rgba(255,255,255,.6);font-weight:700;}
   @media(max-width:760px){
     .today-hero{grid-template-columns:1fr;padding:18px;gap:14px;}
     .hero-next{border-left:0;border-top:1px solid rgba(255,255,255,.18);padding:12px 0 0;}
@@ -606,6 +610,7 @@
         <div class="hero-title" id="hero-title">—</div>
         <div class="hero-time" id="hero-time"></div>
         <div class="hero-chips" id="hero-chips"></div>
+        <div class="readiness-copy" id="readiness-copy" style="margin-top:8px;max-width:420px;"></div>
         <div class="hero-actions">
           <button type="button" class="hero-btn primary" id="command-primary">Start workout</button>
           <button type="button" class="hero-btn ghost" id="command-checkin">Check in</button>
@@ -613,18 +618,19 @@
         </div>
       </div>
       <div class="hero-next">
-        <div class="hero-next-label">Readiness</div>
+        <div class="hero-next-label">Today's Energy</div>
         <div class="readiness-row">
           <div class="readiness-ring">
-            <svg viewBox="0 0 80 80"><circle cx="40" cy="40" r="33" fill="none" stroke="rgba(255,255,255,.18)" stroke-width="8"/><circle id="readiness-arc" cx="40" cy="40" r="33" fill="none" stroke="#fff" stroke-width="8" stroke-linecap="round" stroke-dasharray="207.3" stroke-dashoffset="207.3"/></svg>
-            <div class="rr-num" id="readiness-num">—</div>
+            <svg viewBox="0 0 80 80"><circle cx="40" cy="40" r="33" fill="none" stroke="rgba(255,255,255,.18)" stroke-width="8"/><circle id="energy-arc" cx="40" cy="40" r="33" fill="none" stroke="#fff" stroke-width="8" stroke-linecap="round" stroke-dasharray="207.3" stroke-dashoffset="207.3"/></svg>
+            <div class="rr-num" id="energy-num">—</div>
           </div>
           <div>
-            <div class="readiness-label" id="readiness-label">Check in first</div>
-            <div class="hero-next-label" id="readiness-progress" style="margin-top:3px;"></div>
+            <div class="readiness-label" id="energy-label">Burned today</div>
+            <div class="hero-next-label" id="energy-weight" style="margin-top:3px;"></div>
           </div>
         </div>
-        <div class="readiness-copy" id="readiness-copy"></div>
+        <div class="energy-stats" id="energy-stats"></div>
+        <div class="readiness-copy" id="energy-copy"></div>
       </div>
     </div>
 
@@ -991,6 +997,20 @@
     <div class="page-lead">
       <h2>Progress</h2>
       <p>Everything you've logged, visualized.</p>
+    </div>
+
+    <div class="panel">
+      <div class="panel-head"><div><div class="panel-title">Body stats</div><div class="panel-subtitle">Used to estimate your calorie burn on Today's Energy ring, and shared with the Diet app's Progression tab — set once, used everywhere.</div></div></div>
+      <div class="num-row" style="grid-template-columns:repeat(4,1fr);">
+        <div class="field"><label class="field-label">Height (cm)</label><input type="number" id="bs-height" placeholder="e.g. 175"></div>
+        <div class="field"><label class="field-label">Birthdate</label><input type="date" id="bs-birthdate"></div>
+        <div class="field"><label class="field-label">Sex</label><select id="bs-sex"><option value="male">Male</option><option value="female">Female</option></select></div>
+        <div class="field"><label class="field-label">Daily activity</label><select id="bs-activity"><option value="desk">Mostly desk / sitting</option><option value="onfeet">On your feet sometimes</option><option value="active">On your feet most of the day</option></select></div>
+      </div>
+      <div class="save-bar" style="margin-top:10px;">
+        <button class="btn primary" id="bs-save">Save body stats</button>
+        <span class="save-msg" id="bs-save-msg"></span>
+      </div>
     </div>
 
     <div class="panel">
@@ -1634,6 +1654,73 @@ function enterProfile(profileId){
 function userCol(name){
   return db.collection('users').doc(currentUser.uid).collection('profiles').doc(activeProfile.id).collection(name);
 }
+// The profile's own root doc (one level up from its dailyLogs/workoutLogs
+// subcollections). Diet's Progress tab already reads this exact path
+// directly (db.collection('users').doc(uid).collection('profiles').doc(id))
+// for weight history, so body stats living here too means both apps share
+// one place to read/write them instead of each keeping its own copy.
+function profileDoc(){
+  return db.collection('users').doc(currentUser.uid).collection('profiles').doc(activeProfile.id);
+}
+async function getBodyStats(){
+  try{
+    const doc = await profileDoc().get();
+    const d = doc.exists ? doc.data() : {};
+    return { heightCm: d.heightCm ?? null, birthdate: d.birthdate ?? null, sex: d.sex ?? null, activityLevel: d.activityLevel || 'onfeet' };
+  }catch(e){ return { heightCm:null, birthdate:null, sex:null, activityLevel:'onfeet' }; }
+}
+async function saveBodyStats(stats){
+  try{ await profileDoc().set(stats, {merge:true}); return true; }catch(e){ console.error(e); return null; }
+}
+// NEAT only (normal daily activity outside of logged workouts) — logged
+// lifting/cardio calories are added on top separately, so picking "Active"
+// here as well as actually logging workouts would double-count.
+const ACTIVITY_MULTIPLIERS = { desk:1.2, onfeet:1.35, active:1.5 };
+const ACTIVITY_LABELS = { desk:'Mostly desk / sitting', onfeet:'On your feet sometimes', active:'On your feet most of the day' };
+// Age from a stored birthdate rather than a typed-in number, so it never
+// goes stale — computed fresh every time it's needed instead of being
+// saved once and quietly drifting wrong a year later.
+function ageFromBirthdate(iso){
+  if(!iso) return null;
+  const b = new Date(iso+'T00:00:00'), now = new Date();
+  let age = now.getFullYear() - b.getFullYear();
+  const m = now.getMonth() - b.getMonth();
+  if(m<0 || (m===0 && now.getDate()<b.getDate())) age--;
+  return age>0 ? age : null;
+}
+function bmrFor(stats, weightKg){
+  const age = ageFromBirthdate(stats && stats.birthdate);
+  if(!stats || !stats.heightCm || !age || !stats.sex || !weightKg) return null;
+  const base = 10*weightKg + 6.25*stats.heightCm - 5*age;
+  return Math.round(stats.sex==='female' ? base-161 : base+5);
+}
+// Resistance training ≈5 METs; net of resting metabolism (mets-1) so it
+// doesn't double-count against the BMR/NEAT baseline already in the ring —
+// same convention as estimateCardioKcal's "active" figure below.
+function estimateLiftKcal(durationSec, weightKg){
+  if(!durationSec || !weightKg) return 0;
+  return Math.round((5-1) * weightKg * (durationSec/3600));
+}
+async function loadBodyStatsForm(){
+  const stats = await getBodyStats();
+  document.getElementById('bs-height').value = stats.heightCm ?? '';
+  document.getElementById('bs-birthdate').value = stats.birthdate ?? '';
+  document.getElementById('bs-sex').value = stats.sex || 'male';
+  document.getElementById('bs-activity').value = stats.activityLevel || 'onfeet';
+}
+document.getElementById('bs-save').addEventListener('click', async ()=>{
+  const stats = {
+    heightCm: parseFloat(document.getElementById('bs-height').value) || null,
+    birthdate: document.getElementById('bs-birthdate').value || null,
+    sex: document.getElementById('bs-sex').value,
+    activityLevel: document.getElementById('bs-activity').value
+  };
+  const msg = document.getElementById('bs-save-msg');
+  await saveBodyStats(stats);
+  msg.textContent = 'Saved ✓';
+  setTimeout(()=>msg.textContent='', 2500);
+  renderDashboard(); // refresh the Energy ring on Today with the new stats
+});
 async function getDaily(date){ try{ const doc = await userCol('dailyLogs').doc(date).get(); return doc.exists ? doc.data() : null; }catch(e){ return null; } }
 async function setDaily(date, obj){ try{ await userCol('dailyLogs').doc(date).set(obj); return true; }catch(e){ console.error(e); return null; } }
 async function listDaily(){
@@ -1764,7 +1851,7 @@ function openView(view){
   document.getElementById('view-'+view).classList.add('active');
   try{ window.scrollTo({top:0}); }catch(e){}
   if(view==='today') renderDashboard();
-  if(view==='progress'){ renderAnalytics(); renderProgressExtras(); }
+  if(view==='progress'){ renderAnalytics(); renderProgressExtras(); loadBodyStatsForm(); }
   if(view==='history') renderHistory();
   if(view==='diet'){ loadLiveDietData().then(renderDiet); }
   renderLiveSessionBar();
@@ -1946,7 +2033,67 @@ async function renderDashboard(){
   document.getElementById('hero-title').textContent = s.main;
   document.getElementById('hero-time').textContent = (s.purpose ? s.purpose+' · ' : '') + s.cardio;
   await renderFitnessCommand(todayLog, s);
+  renderEnergyRing(daily, todayLog, latestWeight).catch(function(e){ console.error('renderEnergyRing failed', e); });
   renderCoupleStreak();
+}
+
+/* ---------------- Today's Energy ring — Apple-Fitness-style calorie burn ----------------
+   Burned = BMR (Mifflin-St Jeor, from height/age/sex on the Progress tab)
+   × a NEAT multiplier for everyday activity, PLUS today's logged lifting +
+   cardio calories on top (both already "net of resting metabolism" so n
+   they don't double-count against the BMR baseline). Eaten comes straight
+   from the Diet app's diary for today. */
+async function renderEnergyRing(daily, todayLog, latestWeight){
+  const today = todayStr();
+  const stats = await getBodyStats();
+  const weightKg = (todayLog && todayLog.weight) || latestWeight || activeProfile.program.startWeight;
+  const bmr = bmrFor(stats, weightKg);
+
+  const arc = document.getElementById('energy-arc');
+  const numEl = document.getElementById('energy-num');
+  const labelEl = document.getElementById('energy-label');
+  const weightEl = document.getElementById('energy-weight');
+  const statsEl = document.getElementById('energy-stats');
+  const copyEl = document.getElementById('energy-copy');
+
+  weightEl.textContent = (todayLog && todayLog.weight!=null) ? todayLog.weight+' kg today' : (latestWeight!=null ? latestWeight+' kg (latest)' : '');
+
+  if(!bmr){
+    numEl.textContent = '—';
+    labelEl.textContent = 'Add body stats';
+    arc.setAttribute('stroke-dashoffset', 207.3);
+    statsEl.innerHTML = '';
+    copyEl.innerHTML = 'Add your height, age, sex and activity level on the <b>Progress</b> tab once and this ring will calculate today\'s calorie burn automatically.';
+    return;
+  }
+
+  const [cardioToday, liftAll] = await Promise.all([ getCardio(today), listLift() ]);
+  const cardioActive = cardioToday.reduce(function(s,e){ return s + (cardioKcalForEntry(e).active||0); }, 0);
+  const liftSec = liftAll.filter(function(l){ return l.date===today; }).reduce(function(s,l){ return s+(l.sessionDurationSec||0); }, 0);
+  const liftActive = estimateLiftKcal(liftSec, weightKg);
+  const exerciseActive = Math.round(cardioActive + liftActive);
+
+  const neat = Math.round(bmr * (ACTIVITY_MULTIPLIERS[stats.activityLevel] || ACTIVITY_MULTIPLIERS.onfeet));
+  const burned = neat + exerciseActive;
+  const fullActiveDay = Math.round(bmr * ACTIVITY_MULTIPLIERS.active + 400); // ring's "100%" reference: a full active day incl. a solid workout
+  const pct = Math.max(2, Math.min(100, Math.round(100*burned/fullActiveDay)));
+
+  await loadLiveDietData();
+  const diaryToday = ((dietStateLive && dietStateLive.diary) || []).filter(function(e){ return e.profileId===activeProfile.id && e.date===today; });
+  const intake = Math.round(dietDayTotals(diaryToday).calories);
+  const net = intake - burned;
+
+  numEl.textContent = burned;
+  labelEl.textContent = 'Burned today';
+  arc.setAttribute('stroke-dashoffset', 207.3*(1-pct/100));
+  arc.setAttribute('stroke', '#F3CF7A');
+
+  statsEl.innerHTML =
+    '<div class="energy-stat"><b>'+intake+'</b><span>Eaten</span></div>'+
+    '<div class="energy-stat"><b>'+(net>0?'+':'')+net+'</b><span>'+(net>0?'Surplus':'Deficit')+'</span></div>'+
+    '<div class="energy-stat"><b>'+((todayLog && todayLog.steps) || 0)+'</b><span>Steps</span></div>'+
+    '<div class="energy-stat"><b>'+exerciseActive+'</b><span>Workout kcal</span></div>';
+  copyEl.textContent = 'Est. '+neat+' kcal baseline ('+(ACTIVITY_LABELS[stats.activityLevel]||'')+') + '+exerciseActive+' kcal from '+((cardioActive||liftActive)?'today\'s logged workouts':'workouts (none logged yet today)')+'.';
 }
 
 // Readiness — a 0–100 read of how ready you are to train today, from the
@@ -1978,13 +2125,13 @@ async function renderFitnessCommand(todayLog, sched){
     else if(total) startLiveSession({date, day, mode:'regular'});
     else openView('train');
   };
-  document.getElementById('readiness-num').textContent = ready.score==null ? '—' : ready.score;
-  document.getElementById('readiness-label').textContent = ready.label;
-  document.getElementById('readiness-copy').textContent = ready.copy;
-  const arc = document.getElementById('readiness-arc');
-  arc.setAttribute('stroke', ready.tone);
-  arc.setAttribute('stroke-dashoffset', 207.3*(1-((ready.score||0)/100)));
-  document.getElementById('readiness-progress').textContent = total ? ('Workout '+completed+'/'+total+' logged') : ('Rest day · '+(sched?.cardio||'Recovery'));
+  // Readiness lost its own ring (that slot is now the Energy ring below),
+  // but the training guidance itself is still useful, so it's now a plain
+  // text line under the hero chips instead: "Ready — ..." / "Recovery
+  // focus — ...".
+  const rc = document.getElementById('readiness-copy');
+  rc.textContent = ready.score==null ? ready.copy : (ready.label+' ('+ready.score+'/100) — '+ready.copy);
+  rc.style.color = ready.tone || 'rgba(255,255,255,.78)';
 
   // Check-in status used to be its own "Check-in pending/done" chip sitting
   // right next to the Check-in button — same information twice. The button
@@ -2161,16 +2308,39 @@ function updateWaterDisplay(){
   document.getElementById('water-fill').style.width = pct+'%';
   document.getElementById('water-value').textContent = (val || 0).toString();
 }
+// Water used to only persist when "Save Day" was clicked, so a +250ml tap
+// made right after drinking was lost if you closed the app before saving
+// the whole check-in. Water now saves itself a moment after every tap —
+// a merge write that only touches the water field, so it never clobbers
+// weight/steps/notes/habits you haven't saved yet in the rest of the form.
+let waterSaveTimer = null, waterSaveMsgTimer = null;
+function autosaveWater(){
+  clearTimeout(waterSaveTimer);
+  const date = document.getElementById('log-date').value || todayStr();
+  const val = parseFloat(document.getElementById('f-water').value) || 0;
+  waterSaveTimer = setTimeout(async ()=>{
+    try{
+      await userCol('dailyLogs').doc(date).set({ date, day: dayNameFor(date), water: val }, { merge: true });
+      const msg = document.getElementById('save-msg-today');
+      if(msg){
+        msg.textContent = 'Water saved ✓';
+        clearTimeout(waterSaveMsgTimer);
+        waterSaveMsgTimer = setTimeout(()=>{ if(msg.textContent==='Water saved ✓') msg.textContent=''; }, 2000);
+      }
+    }catch(e){ console.error(e); }
+  }, 500);
+}
 document.querySelectorAll('.water-add').forEach(btn=>{
   btn.addEventListener('click', ()=>{
     const field = document.getElementById('f-water');
     const current = parseFloat(field.value) || 0;
     field.value = Math.round((current + parseFloat(btn.dataset.add)) * 100) / 100;
     updateWaterDisplay();
+    autosaveWater();
   });
 });
-document.getElementById('water-reset').addEventListener('click', ()=>{ document.getElementById('f-water').value=''; updateWaterDisplay(); });
-document.getElementById('f-water').addEventListener('input', updateWaterDisplay);
+document.getElementById('water-reset').addEventListener('click', ()=>{ document.getElementById('f-water').value=''; updateWaterDisplay(); autosaveWater(); });
+document.getElementById('f-water').addEventListener('input', ()=>{ updateWaterDisplay(); autosaveWater(); });
 
 document.getElementById('save-today').addEventListener('click', async ()=>{
   const date = document.getElementById('log-date').value || todayStr();
