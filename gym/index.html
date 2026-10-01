@@ -302,6 +302,14 @@
   .cardio-table{width:100%;border-collapse:collapse;}
   .cardio-table th{font-size:10px;text-transform:uppercase;letter-spacing:.05em;color:var(--text-faint);text-align:left;padding:0 6px 5px 0;font-weight:800;}
   .cardio-table td{padding:2px 6px 2px 0;}
+  .cardio-seg-row td:last-child{width:22px;}
+  .cardio-seg-remove{all:unset;cursor:pointer;color:var(--text-faint);font-size:15px;line-height:1;padding:2px 4px;}
+  .cardio-seg-remove:hover{color:var(--danger);}
+  .cardio-watch-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:8px 12px;}
+  .cardio-watch-grid label{display:flex;flex-direction:column;gap:3px;font-size:11px;color:var(--text-faint);font-weight:700;}
+  .cardio-watch-grid input{width:100%;box-sizing:border-box;}
+  .cardio-watch-effort{display:flex;flex-direction:column;gap:3px;font-size:11px;color:var(--text-faint);font-weight:700;margin-top:8px;}
+  @media(max-width:480px){.cardio-watch-grid{grid-template-columns:1fr 1fr;}}
   .day-total{background:var(--accent-soft);border-radius:var(--radius-md);padding:12px 16px;display:flex;justify-content:space-between;align-items:center;gap:10px;margin:0 0 14px;flex-wrap:wrap;}
   .day-total .dt-label{font-family:'Manrope',sans-serif;font-size:13.5px;font-weight:800;color:var(--accent-deep);}
   .day-total .dt-vals{font-size:13px;color:var(--accent-deep);font-weight:700;font-variant-numeric:tabular-nums;}
@@ -817,32 +825,53 @@
           </div>
           <div id="cardio-list"></div>
           <table class="cardio-table">
-            <thead><tr><th>Machine</th><th>Min</th><th>Speed</th><th>Incline</th></tr></thead>
-            <tbody>
-              <tr>
+            <thead><tr><th>Machine</th><th>Min</th><th>Speed</th><th>Incline</th><th></th></tr></thead>
+            <tbody id="cardio-segments">
+              <tr class="cardio-seg-row">
                 <td>
-                  <select id="cardio-machine">
+                  <select id="cardio-machine" class="cardio-seg-machine">
                     <option value="Treadmill">Treadmill — walk</option>
                     <option value="Treadmill run">Treadmill — run</option>
+                    <option value="Outdoor walk">Outdoor walk</option>
+                    <option value="Outdoor run">Outdoor run</option>
                     <option value="Cycle">Stationary bike</option>
+                    <option value="Outdoor cycle">Outdoor cycle</option>
                     <option value="Elliptical">Elliptical</option>
                     <option value="Stairmaster">Stairmaster</option>
                     <option value="Rowing">Rowing machine</option>
+                    <option value="HIIT">HIIT / functional</option>
                     <option value="Jump rope">Jump rope</option>
                     <option value="Swimming">Swimming</option>
                     <option value="Sports">Sports / recreational</option>
                     <option value="Other">Other</option>
                   </select>
                 </td>
-                <td><input type="number" id="cardio-duration" placeholder="min"></td>
-                <td><input type="number" step="0.1" id="cardio-speed" placeholder="mph"></td>
-                <td><input type="number" step="0.5" id="cardio-incline" placeholder="%"></td>
+                <td><input type="number" id="cardio-duration" class="cardio-seg-duration" placeholder="min"></td>
+                <td><input type="number" step="0.1" id="cardio-speed" class="cardio-seg-speed" placeholder="mph"></td>
+                <td><input type="number" step="0.5" id="cardio-incline" class="cardio-seg-incline" placeholder="%"></td>
+                <td></td>
               </tr>
             </tbody>
           </table>
+          <button type="button" class="btn small ghost" id="cardio-add-split" style="margin-top:4px;" title="Use this if your speed or incline changed partway through — each split is a separate stretch of the same session">+ Split (speed/incline changed)</button>
           <div class="ex-meta" id="cardio-kcal-estimate" style="margin-top:6px;"></div>
+
+          <button type="button" class="btn small ghost" id="cardio-watch-toggle" style="margin-top:8px;">+ Add details from Apple Watch</button>
+          <div id="cardio-watch-fields" hidden style="margin-top:8px;">
+            <div class="cardio-watch-grid">
+              <label>Distance (mi)<input type="number" step="0.01" id="cardio-distance" placeholder="1.28"></label>
+              <label>Elevation gain (ft)<input type="number" step="1" id="cardio-elevation" placeholder="310"></label>
+              <label>Active cal<input type="number" step="1" id="cardio-active-cal" placeholder="270"></label>
+              <label>Total cal<input type="number" step="1" id="cardio-total-cal" placeholder="335"></label>
+              <label>Avg heart rate (bpm)<input type="number" step="1" id="cardio-avg-hr" placeholder="128"></label>
+              <label>Avg pace / speed<input type="text" id="cardio-avg-pace" placeholder="26'57&quot;/mi"></label>
+            </div>
+            <label class="cardio-watch-effort">Effort <select id="cardio-effort"></select></label>
+            <div class="ex-meta" style="margin-top:4px;">These come straight from the Fitness app's workout summary on your phone — fill in whichever ones it shows for that workout type (swims and indoor rides won't have elevation, for example). Leave the rest blank.</div>
+          </div>
+
           <div class="detail-row" style="margin-top:8px;">
-            <input type="text" id="cardio-notes" placeholder="Notes — distance, calories, how it felt…" style="width:100%;">
+            <input type="text" id="cardio-notes" placeholder="Notes — how it felt, splits, anything else…" style="width:100%;">
           </div>
           <div class="ex-actions">
             <button class="btn small primary" id="save-cardio">+ Add cardio session</button>
@@ -2259,7 +2288,6 @@ async function renderExerciseList(date, dayKey){
     const group = muscleGroupFor(ex);
     const card = document.createElement('div');
     card.className = 'ex-card'; card.dataset.exid = ex.id;
-    card.draggable = true;
     card.dataset.lastSets = JSON.stringify((last && last.ex && last.ex.sets) || []);
     card.dataset.prior = JSON.stringify(collectPriorSets(ex.id, date, allLifts, ex.name));
     card.dataset.baseRest = ex.rest || 60;
@@ -2447,6 +2475,7 @@ function wireExerciseCardHandlers(container, date, dayKey, orderKey){
     });
   });
   wireExerciseDragDrop(container, orderKey);
+  restoreRestTimers(container);
 }
 function wireDeleteSetButton(btn){
   if(!btn) return;
@@ -2475,34 +2504,59 @@ function refreshSetNumbersAndLastTime(card){
     if(cell) cell.textContent = lastTimeCellText(lastSet);
   });
 }
+// Pointer Events (not HTML5 dragstart/dragover/drop) so the drag handle
+// actually works on a phone — native HTML5 drag-and-drop has no touch
+// equivalent in iOS/Android Safari or Chrome, so the old dragstart-based
+// version only ever worked with a mouse. Pointer Events fire for touch,
+// mouse and pen alike (see the widget-board reorder in assets/app.js,
+// which uses the same approach for the same reason).
 function wireExerciseDragDrop(container, orderKey){
-  let draggedId = null;
+  const clearOverClasses = ()=> container.querySelectorAll('.ex-card').forEach(c=>c.classList.remove('drag-over-top','drag-over-bottom'));
   container.querySelectorAll('.ex-card').forEach(card=>{
-    card.addEventListener('dragstart', ()=>{ draggedId = card.dataset.exid; card.classList.add('dragging'); });
-    card.addEventListener('dragend', ()=>{ card.classList.remove('dragging'); container.querySelectorAll('.ex-card').forEach(c=>c.classList.remove('drag-over-top','drag-over-bottom')); });
-    card.addEventListener('dragover', (e)=>{
+    const handle = card.querySelector('.drag-handle');
+    if(!handle) return;
+    handle.addEventListener('pointerdown', (e)=>{
+      if(e.button!==undefined && e.button!==0) return;
       e.preventDefault();
-      if(card.dataset.exid===draggedId) return;
-      const rect = card.getBoundingClientRect();
-      const isTopHalf = (e.clientY-rect.top) < rect.height/2;
-      container.querySelectorAll('.ex-card').forEach(c=>{ if(c!==card) c.classList.remove('drag-over-top','drag-over-bottom'); });
-      card.classList.toggle('drag-over-top', isTopHalf);
-      card.classList.toggle('drag-over-bottom', !isTopHalf);
-    });
-    card.addEventListener('drop', async (e)=>{
-      e.preventDefault();
-      container.querySelectorAll('.ex-card').forEach(c=>c.classList.remove('drag-over-top','drag-over-bottom'));
-      const targetId = card.dataset.exid;
-      if(targetId===draggedId || !draggedId) return;
-      const rect = card.getBoundingClientRect();
-      const isTopHalf = (e.clientY-rect.top) < rect.height/2;
-      const ids = [...container.querySelectorAll('.ex-card')].map(c=>c.dataset.exid);
-      const fromIdx = ids.indexOf(draggedId);
-      ids.splice(fromIdx,1);
-      let toIdx = ids.indexOf(targetId);
-      ids.splice(isTopHalf?toIdx:toIdx+1, 0, draggedId);
-      await saveExerciseOrder(orderKey, ids);
-      renderExerciseList(document.getElementById('lift-date').value || todayStr(), currentLiftDay);
+      const pointerId = e.pointerId;
+      const draggedId = card.dataset.exid;
+      card.classList.add('dragging');
+      const onMove = (ev)=>{
+        if(ev.pointerId!==pointerId) return;
+        ev.preventDefault();
+        const el = document.elementFromPoint(ev.clientX, ev.clientY);
+        const over = el && el.closest('.ex-card');
+        clearOverClasses();
+        if(over && over!==card && over.closest('#exercise-list')===container){
+          const rect = over.getBoundingClientRect();
+          const isTopHalf = (ev.clientY-rect.top) < rect.height/2;
+          over.classList.toggle('drag-over-top', isTopHalf);
+          over.classList.toggle('drag-over-bottom', !isTopHalf);
+        }
+      };
+      const onUp = async (ev)=>{
+        if(ev.pointerId!==pointerId) return;
+        document.removeEventListener('pointermove', onMove);
+        document.removeEventListener('pointerup', onUp);
+        document.removeEventListener('pointercancel', onUp);
+        card.classList.remove('dragging');
+        const overEl = container.querySelector('.ex-card.drag-over-top, .ex-card.drag-over-bottom');
+        const isTopHalf = !!(overEl && overEl.classList.contains('drag-over-top'));
+        clearOverClasses();
+        if(!overEl) return;
+        const targetId = overEl.dataset.exid;
+        if(targetId===draggedId) return;
+        const ids = [...container.querySelectorAll('.ex-card')].map(c=>c.dataset.exid);
+        const fromIdx = ids.indexOf(draggedId);
+        ids.splice(fromIdx,1);
+        let toIdx = ids.indexOf(targetId);
+        ids.splice(isTopHalf?toIdx:toIdx+1, 0, draggedId);
+        await saveExerciseOrder(orderKey, ids);
+        renderExerciseList(document.getElementById('lift-date').value || todayStr(), currentLiftDay);
+      };
+      document.addEventListener('pointermove', onMove);
+      document.addEventListener('pointerup', onUp);
+      document.addEventListener('pointercancel', onUp);
     });
   });
 }
@@ -2576,18 +2630,97 @@ function estimateCardioSteps(machine, duration, speed){
   const feet = (speed||0) * 5280 * (duration/60);
   return Math.round(feet / strideFt);
 }
-function updateCardioKcalEstimate(){
-  const machine = document.getElementById('cardio-machine').value;
-  const duration = parseFloat(document.getElementById('cardio-duration').value) || null;
-  const speed = parseFloat(document.getElementById('cardio-speed').value) || null;
-  const incline = parseFloat(document.getElementById('cardio-incline').value) || null;
-  const kcal = estimateCardioKcal(machine, duration, speed, incline);
-  document.getElementById('cardio-kcal-estimate').textContent = kcal!=null ? '≈'+kcal.gross+' kcal gross (≈'+kcal.active+' active, above resting)' : '';
+// Sums the per-segment estimate across however many splits a session has
+// (one, for a steady-state session; several, when speed/incline changed
+// partway through) rather than treating the whole thing as one METs value
+// at a single speed, which under/over-estimated any session that wasn't
+// flat and constant start to finish.
+function estimateCardioKcalForSegments(segments){
+  if(!segments || !segments.length) return null;
+  let gross = 0, active = 0, any = false;
+  segments.forEach(function(seg){
+    const k = estimateCardioKcal(seg.machine, seg.duration, seg.speed, seg.incline);
+    if(k){ gross += k.gross; active += k.active; any = true; }
+  });
+  return any ? { gross: Math.round(gross), active: Math.round(active) } : null;
 }
-['cardio-machine','cardio-duration','cardio-speed','cardio-incline'].forEach(function(id){
-  document.getElementById(id).addEventListener('input', updateCardioKcalEstimate);
-  document.getElementById(id).addEventListener('change', updateCardioKcalEstimate);
+function estimateCardioStepsForSegments(segments){
+  if(!segments || !segments.length) return 0;
+  return segments.reduce(function(s,seg){ return s + estimateCardioSteps(seg.machine, seg.duration, seg.speed); }, 0);
+}
+// A saved entry (from history) may be the old flat shape (no .segments) or
+// the newer segmented one — this treats either as a one-or-more-segment
+// list so every other function can stay written in terms of segments only.
+function segmentsForEntry(e){
+  if(Array.isArray(e.segments) && e.segments.length) return e.segments;
+  return [{ machine: e.machine, duration: e.duration, speed: e.speed, incline: e.incline }];
+}
+// The one place every other view should go through for "how many calories
+// did this cardio entry burn" — prefers the real number from the Apple
+// Watch summary (e.activeCal/e.totalCal) when the person entered one,
+// and only falls back to the METs estimate (now segment-aware, so a
+// session with a mid-walk incline change isn't computed as if it were
+// flat the whole way) when they didn't.
+function cardioKcalForEntry(e){
+  if(e.activeCal || e.totalCal){
+    const active = e.activeCal || null, gross = e.totalCal || (e.activeCal ? Math.round(e.activeCal*1.05) : null);
+    if(active!=null || gross!=null) return { gross: gross!=null?gross:active, active: active!=null?active:gross };
+  }
+  return estimateCardioKcalForSegments(segmentsForEntry(e));
+}
+function collectCardioSegmentRows(){
+  return [...document.querySelectorAll('#cardio-segments .cardio-seg-row')].map(function(row){
+    return {
+      machine: row.querySelector('.cardio-seg-machine').value,
+      duration: parseFloat(row.querySelector('.cardio-seg-duration').value) || null,
+      speed: parseFloat(row.querySelector('.cardio-seg-speed').value) || null,
+      incline: parseFloat(row.querySelector('.cardio-seg-incline').value) || null
+    };
+  }).filter(function(seg){ return seg.duration; });
+}
+function updateCardioKcalEstimate(){
+  const segments = collectCardioSegmentRows();
+  const kcal = estimateCardioKcalForSegments(segments);
+  document.getElementById('cardio-kcal-estimate').textContent = kcal!=null ? '≈'+kcal.gross+' kcal gross (≈'+kcal.active+' active, above resting) — from your entries, not the Watch fields below' : '';
+}
+function wireCardioSegmentRow(row){
+  row.querySelectorAll('input,select').forEach(function(el){
+    el.addEventListener('input', updateCardioKcalEstimate);
+    el.addEventListener('change', updateCardioKcalEstimate);
+  });
+  const removeBtn = row.querySelector('.cardio-seg-remove');
+  if(removeBtn) removeBtn.addEventListener('click', function(){
+    row.remove();
+    updateCardioKcalEstimate();
+  });
+}
+function addCardioSegmentRow(copyFrom){
+  const tbody = document.getElementById('cardio-segments');
+  const row = document.createElement('tr');
+  row.className = 'cardio-seg-row';
+  const machineOptionsHtml = document.getElementById('cardio-machine').innerHTML;
+  row.innerHTML = '<td><select class="cardio-seg-machine">'+machineOptionsHtml+'</select></td>'+
+    '<td><input type="number" class="cardio-seg-duration" placeholder="min"></td>'+
+    '<td><input type="number" step="0.1" class="cardio-seg-speed" placeholder="mph"></td>'+
+    '<td><input type="number" step="0.5" class="cardio-seg-incline" placeholder="%"></td>'+
+    '<td><button type="button" class="cardio-seg-remove" title="Remove this split">✕</button></td>';
+  tbody.appendChild(row);
+  if(copyFrom) row.querySelector('.cardio-seg-machine').value = copyFrom;
+  wireCardioSegmentRow(row);
+  return row;
+}
+document.getElementById('cardio-add-split').addEventListener('click', function(){
+  const firstMachine = document.getElementById('cardio-machine').value;
+  addCardioSegmentRow(firstMachine);
 });
+wireCardioSegmentRow(document.querySelector('#cardio-segments .cardio-seg-row'));
+document.getElementById('cardio-watch-toggle').addEventListener('click', function(){
+  const fields = document.getElementById('cardio-watch-fields');
+  const open = fields.hidden;
+  fields.hidden = !open;
+  this.textContent = open ? '– Hide Apple Watch details' : '+ Add details from Apple Watch';
+});
+document.getElementById('cardio-effort').innerHTML = effortOptionsHtml('');
 function renderCardio(date, dayKey){
   const schedule = activeProfile.weekSchedule ? activeProfile.weekSchedule[dayKey] : null;
   const targetText = (liftMode==='period')
@@ -2598,11 +2731,17 @@ function renderCardio(date, dayKey){
   getCardio(date).then(entries=>{
     renderCardioList(date, entries);
     document.getElementById('cardio-status').textContent = entries.length ? entries.length+' session'+(entries.length===1?'':'s')+' logged ✓' : 'Not logged';
+    // reset the entry form back to one blank split
     document.getElementById('cardio-machine').value = 'Treadmill';
     document.getElementById('cardio-duration').value = '';
     document.getElementById('cardio-speed').value = '';
     document.getElementById('cardio-incline').value = '';
+    [...document.querySelectorAll('#cardio-segments .cardio-seg-row')].slice(1).forEach(r=>r.remove());
     document.getElementById('cardio-notes').value = '';
+    ['cardio-distance','cardio-elevation','cardio-active-cal','cardio-total-cal','cardio-avg-hr','cardio-avg-pace'].forEach(id=>{ document.getElementById(id).value=''; });
+    document.getElementById('cardio-effort').value = '';
+    document.getElementById('cardio-watch-fields').hidden = true;
+    document.getElementById('cardio-watch-toggle').textContent = '+ Add details from Apple Watch';
     updateCardioKcalEstimate();
     renderStepsBreakdown(date, entries);
   });
@@ -2611,10 +2750,31 @@ function renderCardioList(date, entries){
   const wrap = document.getElementById('cardio-list');
   if(!entries.length){ wrap.innerHTML = ''; return; }
   wrap.innerHTML = entries.map(function(e, i){
-    const kcal = estimateCardioKcal(e.machine, e.duration, e.speed, e.incline);
-    return '<div class="cardio-entry-row"><div><b>'+e.machine+'</b> — '+(e.duration||'—')+' min'+(e.speed?', '+e.speed+' mph':'')+(e.incline?', '+e.incline+'% incline':'')+
+    const segments = segmentsForEntry(e);
+    const totalDuration = segments.reduce((s,seg)=>s+(seg.duration||0),0);
+    // segments.length>1 means speed/incline changed mid-session (a
+    // deliberate split), so each stretch gets its own line instead of one
+    // misleading combined speed/incline.
+    const headline = segments.length>1
+      ? '<b>'+(e.machine||segments[0].machine)+'</b> — '+totalDuration+' min total ('+segments.length+' splits)'
+      : '<b>'+(e.machine||segments[0].machine)+'</b> — '+(totalDuration||'—')+' min'+(segments[0].speed?', '+segments[0].speed+' mph':'')+(segments[0].incline?', '+segments[0].incline+'% incline':'');
+    const splitLines = segments.length>1 ? '<div class="ex-meta">'+segments.map((seg,si)=>'Split '+(si+1)+': '+(seg.duration||'—')+' min'+(seg.speed?' · '+seg.speed+' mph':'')+(seg.incline?' · '+seg.incline+'% incline':'')).join('<br>')+'</div>' : '';
+    // Apple Watch-sourced numbers (distance, elevation, heart rate, pace,
+    // effort) are more accurate than our METs estimate, so show them
+    // alongside it instead of in place of it where present.
+    const watchBits = [];
+    if(e.distance) watchBits.push(e.distance+' mi');
+    if(e.elevation) watchBits.push(e.elevation+' ft gain');
+    if(e.avgHr) watchBits.push(e.avgHr+' bpm avg');
+    if(e.avgPace) watchBits.push(e.avgPace);
+    if(e.effort) watchBits.push('Effort '+effortLabelFor(e.effort));
+    const watchLine = watchBits.length ? '<div class="ex-meta">'+watchBits.join(' · ')+'</div>' : '';
+    const kcalText = (e.totalCal || e.activeCal)
+      ? (e.totalCal ? e.totalCal+' kcal total' : '')+(e.totalCal && e.activeCal ? ' (' : '')+(e.activeCal ? e.activeCal+' active' : '')+(e.totalCal && e.activeCal ? ')' : '')
+      : (function(){ const k = estimateCardioKcalForSegments(segments); return k ? '≈'+k.gross+' kcal' : ''; })();
+    return '<div class="cardio-entry-row"><div>'+headline+splitLines+watchLine+
       (e.notes?'<div class="ex-meta">'+e.notes+'</div>':'')+'</div>'+
-      '<div style="display:flex;align-items:center;gap:8px;"><span class="ex-meta">'+(kcal?'≈'+kcal.gross+' kcal':'')+'</span>'+
+      '<div style="display:flex;align-items:center;gap:8px;"><span class="ex-meta">'+kcalText+'</span>'+
       '<button type="button" class="icon-btn" data-delcardio="'+i+'" title="Remove">✕</button></div></div>';
   }).join('');
   wrap.querySelectorAll('[data-delcardio]').forEach(function(btn){
@@ -2633,8 +2793,8 @@ function renderCardioList(date, entries){
 // duplicating it.
 function renderStepsBreakdown(date, entries){
   const totalStepsInput = document.getElementById('f-steps');
-  const cardioSteps = entries.reduce(function(s,e){ return s + estimateCardioSteps(e.machine, e.duration, e.speed); }, 0);
-  const cardioActiveKcal = entries.reduce(function(s,e){ const k = estimateCardioKcal(e.machine, e.duration, e.speed, e.incline); return s + (k ? k.active : 0); }, 0);
+  const cardioSteps = entries.reduce(function(s,e){ return s + estimateCardioStepsForSegments(segmentsForEntry(e)); }, 0);
+  const cardioActiveKcal = entries.reduce(function(s,e){ if(e.activeCal) return s + e.activeCal; const k = estimateCardioKcalForSegments(segmentsForEntry(e)); return s + (k ? k.active : 0); }, 0);
   function update(){
     const total = parseInt(totalStepsInput.value,10) || 0;
     const remaining = Math.max(0, total - cardioSteps);
@@ -2666,16 +2826,30 @@ function renderStepsBreakdown(date, entries){
 }
 document.getElementById('save-cardio').addEventListener('click', async ()=>{
   const date = document.getElementById('lift-date').value || todayStr();
-  const machine = document.getElementById('cardio-machine').value;
-  const duration = parseFloat(document.getElementById('cardio-duration').value) || null;
-  if(!duration) return;
+  const segments = collectCardioSegmentRows();
+  if(!segments.length) return;
+  const totalDuration = segments.reduce((s,seg)=>s+(seg.duration||0),0);
+  const numOrNull = (id)=>{ const v = parseFloat(document.getElementById(id).value); return isNaN(v) ? null : v; };
   const entry = {
-    machine,
-    duration,
-    speed: parseFloat(document.getElementById('cardio-speed').value) || null,
-    incline: parseFloat(document.getElementById('cardio-incline').value) || null,
+    // top-level machine/duration/speed/incline kept for backward
+    // compatibility with every place that still reads a flat entry
+    // (history list, old saved days); .segments is the source of truth
+    // whenever there's more than one split.
+    machine: segments[0].machine,
+    duration: totalDuration,
+    speed: segments.length===1 ? segments[0].speed : null,
+    incline: segments.length===1 ? segments[0].incline : null,
+    segments: segments.length>1 ? segments : undefined,
+    distance: numOrNull('cardio-distance'),
+    elevation: numOrNull('cardio-elevation'),
+    activeCal: numOrNull('cardio-active-cal'),
+    totalCal: numOrNull('cardio-total-cal'),
+    avgHr: numOrNull('cardio-avg-hr'),
+    avgPace: document.getElementById('cardio-avg-pace').value.trim() || null,
+    effort: document.getElementById('cardio-effort').value || null,
     notes: document.getElementById('cardio-notes').value.trim()
   };
+  Object.keys(entry).forEach(k=>{ if(entry[k]===undefined) delete entry[k]; });
   const existing = await getCardio(date);
   const updated = existing.concat([entry]);
   await saveCardioEntries(date, updated);
@@ -2732,13 +2906,44 @@ function playRestDoneAlert(){
 document.addEventListener('click', function unlockRestAudio(){
   try{ if(!restAudioCtx) restAudioCtx = new (window.AudioContext||window.webkitAudioContext)(); if(restAudioCtx.state==='suspended') restAudioCtx.resume(); }catch(e){}
 }, {once:false});
-function startRestTimer(btn, seconds){
+// Rest timers are anchored to a real wall-clock end time (btn._endAt),
+// not a counter decremented once per tick. A plain "remaining--" counter
+// only keeps up for as long as setInterval actually fires every second —
+// but iOS (and most mobile browsers) throttle or fully suspend timers in
+// a backgrounded tab/PWA, so leaving the app mid-rest left the countdown
+// stuck or wrong by the time you came back. Deriving remaining==endAt-now
+// on every tick means a tick that's late (or skipped entirely) still
+// shows the correct number the instant it does run, and restoreRestTimers
+// below re-syncs it immediately on return rather than waiting for the
+// next 1s tick. The active timer is also persisted to localStorage (keyed
+// by exercise id) so even a full page reload — which iOS can do to a
+// backgrounded tab under memory pressure — picks the countdown back up
+// instead of losing it silently.
+const REST_TIMER_KEY = 'ironlog-gym-rest-v1';
+function readRestTimers(){
+  try{ return JSON.parse(localStorage.getItem(REST_TIMER_KEY) || '{}'); }catch(e){ return {}; }
+}
+function writeRestTimers(map){
+  try{ localStorage.setItem(REST_TIMER_KEY, JSON.stringify(map)); }catch(e){}
+}
+function saveRestTimerState(exId, endAt, total){
+  const map = readRestTimers();
+  if(endAt==null) delete map[exId];
+  else map[exId] = {endAt, total};
+  writeRestTimers(map);
+}
+function startRestTimer(btn, seconds, resumeEndAt){
   if(btn._timer){ clearInterval(btn._timer); btn._timer=null; }
-  let remaining = seconds;
+  const card = btn.closest('.ex-card');
+  const exId = card && card.dataset.exid;
+  const endAt = resumeEndAt || (Date.now() + seconds*1000);
   const display = btn.parentElement.querySelector('.rest-display');
   btn.disabled = true;
   btn._total = seconds;
+  btn._endAt = endAt;
+  if(exId) saveRestTimerState(exId, endAt, seconds);
   const tick = ()=>{
+    const remaining = Math.max(0, Math.round((btn._endAt - Date.now())/1000));
     const m = Math.floor(remaining/60), s = remaining%60;
     display.textContent = `${m}:${s.toString().padStart(2,'0')}`;
     btn._remaining = remaining;
@@ -2746,12 +2951,11 @@ function startRestTimer(btn, seconds){
     if(remaining<=0){
       clearInterval(btn._timer); btn._timer=null;
       display.textContent = 'Rest done ✓'; btn.disabled=false;
+      if(exId) saveRestTimerState(exId, null);
       playRestDoneAlert();
       notifyRestTick(btn, 0, true);
       setTimeout(()=>{ if(display.textContent==='Rest done ✓') display.textContent=''; }, 4000);
-      return;
     }
-    remaining--;
   };
   tick();
   btn._timer = setInterval(tick, 1000);
@@ -2759,11 +2963,47 @@ function startRestTimer(btn, seconds){
 function stopRestTimer(btn){
   if(!btn) return;
   if(btn._timer){ clearInterval(btn._timer); btn._timer=null; }
-  btn.disabled = false; btn._remaining = null;
+  btn.disabled = false; btn._remaining = null; btn._endAt = null;
+  const card = btn.closest('.ex-card');
+  const exId = card && card.dataset.exid;
+  if(exId) saveRestTimerState(exId, null);
   const display = btn.parentElement && btn.parentElement.querySelector('.rest-display');
   if(display) display.textContent = '';
   notifyRestTick(btn, null, false);
 }
+// Called once per exercise-list render: picks up any rest timer that was
+// still running against one of these exercises (from before a backgrounding
+// / reload) and puts its button right back into the counting-down state,
+// using the real end time rather than restarting the clock.
+function restoreRestTimers(container){
+  const map = readRestTimers();
+  const ids = Object.keys(map);
+  if(!ids.length) return;
+  let changed = false;
+  ids.forEach(exId=>{
+    const card = container.querySelector('.ex-card[data-exid="'+CSS.escape(exId)+'"]');
+    const entry = map[exId];
+    if(!card || !entry){ if(entry===undefined) return; delete map[exId]; changed=true; return; }
+    const btn = card.querySelector('.rest-btn');
+    if(!btn) return;
+    if(entry.endAt <= Date.now()){ delete map[exId]; changed = true; return; } // already finished while away — don't replay the alert sound on a stale timer
+    startRestTimer(btn, entry.total, entry.endAt);
+  });
+  if(changed) writeRestTimers(map);
+}
+// The moment the tab/app becomes visible again, resync every live rest
+// timer immediately instead of waiting up to a second for its next tick
+// (which, right after a long background throttle, can itself be delayed).
+document.addEventListener('visibilitychange', ()=>{
+  if(document.visibilityState!=='visible') return;
+  document.querySelectorAll('.rest-btn').forEach(btn=>{
+    if(!btn._endAt || !btn.disabled) return;
+    const display = btn.parentElement && btn.parentElement.querySelector('.rest-display');
+    const remaining = Math.max(0, Math.round((btn._endAt - Date.now())/1000));
+    if(display) display.textContent = remaining>0 ? `${Math.floor(remaining/60)}:${(remaining%60).toString().padStart(2,'0')}` : 'Rest done ✓';
+    if(remaining<=0 && btn._timer){ clearInterval(btn._timer); btn._timer=null; btn.disabled=false; playRestDoneAlert(); notifyRestTick(btn,0,true); const exId=btn.closest('.ex-card')&&btn.closest('.ex-card').dataset.exid; if(exId) saveRestTimerState(exId,null); }
+  });
+});
 
 document.getElementById('exercise-list').addEventListener('keydown', function(e){
   if(e.key==='Enter' && (e.target.classList.contains('inp-weight') || e.target.classList.contains('inp-reps'))){
@@ -3057,7 +3297,7 @@ async function renderDietToday(){
 
   const [dailyLog, cardioToday, lifts, dailyAll] = await Promise.all([getDaily(today), getCardio(today), listLift(), listDaily()]);
   const water = (dailyLog && dailyLog.water) || 0;
-  const cardioActiveKcal = (cardioToday||[]).reduce(function(s,e){ const k = estimateCardioKcal(e.machine,e.duration,e.speed,e.incline); return s + (k?k.active:0); }, 0);
+  const cardioActiveKcal = (cardioToday||[]).reduce(function(s,e){ const k = cardioKcalForEntry(e); return s + (k?k.active:0); }, 0);
   const cardioMinutes = (cardioToday||[]).reduce(function(s,e){ return s+(e.duration||0); }, 0);
   const liftsToday = (lifts||[]).filter(function(w){ return w.date===today && (w.exercises||[]).some(function(e){ return (e.sets||[]).length; }); });
   let tonnageToday = 0, setsToday = 0;
@@ -3297,7 +3537,7 @@ async function renderAnalytics(){
   const allCardioEntries = cardioLog.flatMap(d=>d.entries.map(e=>Object.assign({date:d.date}, e)));
   document.getElementById('an-cardio-sessions').textContent = allCardioEntries.length;
   document.getElementById('an-cardio-minutes').textContent = Math.round(allCardioEntries.reduce((s,e)=>s+(e.duration||0),0));
-  const totalCardioActiveKcal = allCardioEntries.reduce((s,e)=>{ const k = estimateCardioKcal(e.machine,e.duration,e.speed,e.incline); return s+(k?k.active:0); }, 0);
+  const totalCardioActiveKcal = allCardioEntries.reduce((s,e)=>{ const k = cardioKcalForEntry(e); return s+(k?k.active:0); }, 0);
   document.getElementById('an-cardio-kcal').textContent = Math.round(totalCardioActiveKcal);
   const machineCounts = {};
   allCardioEntries.forEach(e=>{ machineCounts[e.machine] = (machineCounts[e.machine]||0)+1; });
@@ -3312,7 +3552,7 @@ async function renderAnalytics(){
     const key = fmtDate(weekStart);
     if(!cardioWeekMap[key]) cardioWeekMap[key] = { minutes:0, kcal:0 };
     cardioWeekMap[key].minutes += (e.duration||0);
-    const k = estimateCardioKcal(e.machine,e.duration,e.speed,e.incline);
+    const k = cardioKcalForEntry(e);
     cardioWeekMap[key].kcal += k ? k.active : 0;
   });
   const cardioWeekKeys = Object.keys(cardioWeekMap).sort();
@@ -3647,9 +3887,9 @@ function renderHistoryCardioTable(){
     const mins = rs=>Math.round(rs.reduce((s,r)=>s+(parseFloat(r.e.duration)||0),0));
     sub.textContent = histPlural(rows.length, 'session')+' · '+mins(rows)+' min shown';
     el.innerHTML = histTableHTML('cardio', ['Date','Machine','Duration','Speed','Incline','Calories'], rows, r=>{
-      const e = r.e, kcal = estimateCardioKcal(e.machine, e.duration, e.speed, e.incline);
+      const e = r.e, kcal = cardioKcalForEntry(e), multi = Array.isArray(e.segments) && e.segments.length>1;
       return `<td>${r.date}</td><td>${escHtml(e.machine||'')}</td><td>${e.duration?e.duration+' min':'—'}</td>
-        <td>${e.speed?e.speed+' mph':'—'}</td><td>${e.incline?e.incline+'%':'—'}</td>
+        <td>${multi?'multiple':(e.speed?e.speed+' mph':'—')}</td><td>${multi?'multiple':(e.incline?e.incline+'%':'—')}</td>
         <td>${kcal ? kcal.gross+' kcal gross ('+kcal.active+' active)' : '—'}</td>`;
     }, g=>histPlural(g.length, 'session')+' · '+mins(g)+' min');
   }
@@ -4037,8 +4277,8 @@ function histExportCsv(table){
       w.exercises.forEach(e=>(e.sets||[]).forEach((s, i)=>rows.push([r.date, w.day, w.mode==='period'?'period':'regular', e.name, i+1, s.weight, histUnit(e.id), s.reps, s.effort, mins])));
     });
   } else {
-    header = ['date','machine','duration_min','speed_mph','incline_pct','kcal_gross','kcal_active','notes'];
-    rows = histCardioRows().map(r=>{ const e = r.e, k = estimateCardioKcal(e.machine, e.duration, e.speed, e.incline); return [r.date, e.machine, e.duration, e.speed, e.incline, k?k.gross:'', k?k.active:'', e.notes||'']; });
+    header = ['date','machine','duration_min','speed_mph','incline_pct','distance_mi','elevation_ft','avg_hr','avg_pace','effort','kcal_gross','kcal_active','notes'];
+    rows = histCardioRows().map(r=>{ const e = r.e, k = cardioKcalForEntry(e); return [r.date, e.machine, e.duration, e.speed, e.incline, e.distance||'', e.elevation||'', e.avgHr||'', e.avgPace||'', e.effort?effortLabelFor(e.effort):'', k?k.gross:'', k?k.active:'', e.notes||'']; });
   }
   if(!rows.length){ showHistToast('Nothing to export with the current filters.'); return; }
   const csv = '﻿' + [header].concat(rows).map(r=>r.map(histCsvCell).join(',')).join('\r\n');
