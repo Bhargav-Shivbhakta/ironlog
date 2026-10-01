@@ -78,7 +78,7 @@
    2:1 ones that filled their box edge to edge. Sizing the box itself to
    match removes the letterboxing, so every cutout reads at the same
    visual scale. */
-.scene-subject .subject-stage{position:absolute;right:-1%;top:4px;height:235px;width:auto;aspect-ratio:var(--subj-ratio,1.5)}
+.scene-subject .subject-stage{position:absolute;right:3%;top:4px;height:var(--subj-h,235px);width:auto;aspect-ratio:var(--subj-ratio,1.5)}
 .scene-subject .road-line{position:absolute;left:4%;right:0;bottom:30px;height:1px;background:linear-gradient(90deg,transparent,color-mix(in srgb,var(--accent) 33%,transparent) 25%,color-mix(in srgb,var(--accent) 75%,transparent) 64%,transparent);box-shadow:0 0 22px color-mix(in srgb,var(--accent) 38%,transparent)}
 .scene-subject .road-line:after{content:"";position:absolute;right:10%;top:-2px;width:40%;height:4px;background:linear-gradient(90deg,transparent,var(--accent2),transparent);filter:blur(4px);animation:ih-roadPulse 2.8s ease-in-out infinite}
 .scene-subject .motion-trail{position:absolute;left:7%;top:43%;width:52%;height:24%;background:linear-gradient(90deg,transparent,color-mix(in srgb,var(--accent) 27%,transparent) 55%,transparent);filter:blur(12px);transform:skewX(-24deg);opacity:0}
@@ -92,7 +92,7 @@
 .is-playing .scene-subject .speed-particle{animation:ih-particle 1.05s ease both}
 .is-playing .scene-subject .p1{animation-delay:.28s}.is-playing .scene-subject .p2{animation-delay:.42s}.is-playing .scene-subject .p3{animation-delay:.58s}
 @keyframes ih-subjectIn{0%{opacity:0;transform:translate3d(var(--entry-x,-105%),var(--entry-y,18px),var(--entry-z,-330px)) rotateY(var(--entry-ry,23deg)) rotateZ(var(--entry-rz,-1.4deg)) scale(var(--entry-scale,.58));filter:blur(8px)}48%{opacity:1;transform:translate3d(-8%,2px,25px) rotateY(-5deg) rotateZ(.4deg) scale(1.035);filter:blur(0)}72%{transform:translate3d(2%,0,0) rotateY(1.5deg) scale(.99)}100%{opacity:1;transform:translate3d(0,0,0) rotateY(0) scale(1);filter:blur(0)}}
-@media(max-width:820px){.scene-subject .subject-stage{top:110px;left:auto;right:4%;height:170px;width:auto;aspect-ratio:var(--subj-ratio,1.5)}}
+@media(max-width:820px){.scene-subject .subject-stage{top:110px;left:auto;right:4%;height:var(--subj-h-mobile,170px);width:auto;aspect-ratio:var(--subj-ratio,1.5)}}
 
 /* ---------------- b-showroom: Desert Showroom (real photo) ---------------- */
 .scene-showroom .showroom-photo{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:center 58%}
@@ -210,4 +210,4 @@
 .banner-rotate-row input[type=number]{width:64px;min-height:36px;padding:7px 10px;font-size:12.5px;text-align:center}
 .banner-rotate-row span{color:var(--muted);font-size:12.5px}
 .banner-shuffle-btn{margin-left:auto}
-@media(max-width:700px){.banner-rotate{flex-direction:column;align-items:flex-start}.banner-shuffle-btn{margin-left:0;width:100%;justify-content:center}}
+@media(max-width:700px){.banner-rotate{flex-direction:column;align-items:flex-start}.banner-shuffle-btn{margin-left:0;width:100%;justify-content:center}.banner-rotate-row{flex-wrap:wrap;width:100%}.banner-rotate-row select{flex:1 1 180px;min-width:0}}

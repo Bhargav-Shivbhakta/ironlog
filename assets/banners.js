@@ -69,7 +69,15 @@ const SCENE_BUILDERS = {
   subject: (preset) => {
     const d = SUBJECT_DIRECTIONS[preset.direction] || SUBJECT_DIRECTIONS.left;
     const dur = SUBJECT_MOTIONS[preset.motion] || SUBJECT_MOTIONS.cinematic;
-    const vars = '--entry-x:'+d.x+';--entry-y:'+d.y+';--entry-z:'+d.z+';--entry-ry:'+d.ry+';--entry-rz:'+d.rz+';--entry-scale:'+d.scale+';--duration:'+dur+'s;--subj-ratio:'+(preset.ratio||1.5);
+    const ratio = preset.ratio || 1.5;
+    // Narrower cutouts (3:2, e.g. chess/vault/suit) get a taller box than
+    // wide ones (2:1, e.g. yacht/jet) so their rendered WIDTH lands closer
+    // to the same ballpark instead of reading small/cramped next to the
+    // wide ones -- a fixed height for every ratio made narrow subjects
+    // visibly smaller even with no internal letterboxing.
+    const stageH = ratio < 1.8 ? 270 : 235;
+    const stageHMobile = ratio < 1.8 ? 195 : 170;
+    const vars = '--entry-x:'+d.x+';--entry-y:'+d.y+';--entry-z:'+d.z+';--entry-ry:'+d.ry+';--entry-rz:'+d.rz+';--entry-scale:'+d.scale+';--duration:'+dur+'s;--subj-ratio:'+ratio+';--subj-h:'+stageH+'px;--subj-h-mobile:'+stageHMobile+'px';
     return '<div class="subject-stage" style="'+vars+'"><div class="road-line"></div><div class="motion-trail"></div>'+
       '<i class="speed-particle p1"></i><i class="speed-particle p2"></i><i class="speed-particle p3"></i>'+
       '<div class="subject-rig"><div class="subject-glow"></div><img class="subject" src="'+esc(preset.carImg||preset.image||'')+'" alt="" draggable="false"></div></div>';

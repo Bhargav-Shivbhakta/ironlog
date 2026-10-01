@@ -578,12 +578,29 @@ html.wallpaper-live{background-size:250% 250%;animation:wallpaper-drift 24s ease
 @media(max-width:700px){
   .app-frame-overlay{left:0}
   .app-shell.sidebar-collapsed .app-frame-overlay{left:0}
-  /* The Hub's own fixed top bar would otherwise sit on top of the app
-     viewer's "Back to Hub" bar (both pinned to the same top strip),
-     hiding the one working way out of the app. The bottom tab bar is
-     left alone so there's still always a quick way to jump elsewhere. */
+  /* On a phone, an open app shows both the app-frame-bar (Back/title/
+     profile/Refresh/Open) up top AND the Hub's own bottom tab bar below
+     it — nothing hidden, both stay reachable, just both made small enough
+     that a narrow phone (iPhone 11 and similar, ~375-414px wide) doesn't
+     feel crowded. The top mobile-header (the Hub's own brand+avatar bar)
+     stays hidden here since it would be a third bar stacked on top of the
+     app-frame-bar for no reason — same job, same spot. */
   .app-shell.app-open .mobile-header{display:none}
-  .app-frame-bar{padding-top:max(14px,env(safe-area-inset-top))}
+  .app-frame-bar{padding:10px 12px;gap:8px}
+  .app-frame-back span{display:none} /* icon-only "Back" arrow — "Back to Hub" doesn't fit next to the app title on a narrow screen */
+  .app-frame-back{padding:6px;gap:0}
+  .app-frame-title{font-size:12.5px;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .app-frame-right{gap:6px}
+  .app-frame-open span,.app-frame-refresh span{display:none} /* icon-only on mobile, same reasoning as Back */
+  .app-frame-profile{padding:4px;gap:0;width:30px;height:30px;justify-content:center;border-radius:50%}
+  .app-frame-profile span{display:none}
+  .app-frame-profile .avatar{width:20px;height:20px;font-size:10px}
+  /* The overlay normally runs flush to the bottom of the screen; now that
+     the Hub's bottom tab bar (fixed, same 72px the page body already
+     reserves for it) stays visible over an open app too, the overlay
+     needs to stop short of it, or the last ~72px of the app would render
+     underneath the tab bar and never be reachable. */
+  .app-shell.app-open .app-frame-overlay{bottom:72px}
 }
 
 /* HUB ALARM — fires from the top-level shell (not from inside an app
