@@ -704,8 +704,8 @@ function renderPhotoWidgetInto(el){
   if(!el)return;
   if(photoWidgetTimer){clearInterval(photoWidgetTimer);photoWidgetTimer=null}
   if(!state.photos.length){
-    el.innerHTML='<div class="photo-widget"><div class="empty-state"><strong>No photos yet</strong>Add a few to start a little slideshow right here.</div>'+
-      '<button type="button" class="button secondary photo-widget-add-empty" data-photo-add><i data-lucide="plus"></i><span>Add photos</span></button>'+
+    el.innerHTML='<div class="photo-widget"><div class="empty-state"><strong>No photos yet</strong>Add a few to start a little slideshow right here.'+
+      '<button type="button" class="button secondary photo-widget-add-empty" data-photo-add><i data-lucide="plus"></i><span>Add photos</span></button></div>'+
       '<input type="file" accept="image/*" multiple hidden data-photo-file></div>';
     if(window.lucide)lucide.createIcons();
     el.querySelector('[data-photo-add]').addEventListener('click',()=>el.querySelector('[data-photo-file]').click());

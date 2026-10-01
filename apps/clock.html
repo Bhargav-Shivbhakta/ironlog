@@ -10,6 +10,7 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
 <script src="https://unpkg.com/lucide@0.468.0/dist/umd/lucide.min.js"></script>
+<script src="../assets/theme.js"></script>
 <link rel="stylesheet" href="../assets/app.css">
 <style>
   /* Clock-specific extensions on top of the shared app.css design system —
@@ -406,6 +407,7 @@ async function enterProfile(profileId){
   document.getElementById('sidebar-avatar').classList.add(profileId.toLowerCase());
   document.getElementById('sidebar-profile').textContent = profileId;
   document.getElementById('profile-switch').onclick = showProfilePicker;
+  if(window.HubTheme) HubTheme.applyHubTheme(profileId, {base:'--accent',deep:'--accent-ink',soft:'--accent-soft'}).catch(()=>{});
   renderGreeting();
   wireHubNavLinks();
   if(typeof lucide !== 'undefined') lucide.createIcons();

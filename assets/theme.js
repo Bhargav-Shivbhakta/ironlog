@@ -71,11 +71,18 @@
     try{
       const user=firebase.auth&&firebase.auth().currentUser;
       if(user){
-        const snap=await firebase.firestore().collection('users').doc(user.uid).collection('apps').doc('hub').collection('data').doc('theme').get();
-        if(snap.exists){
-          const t=JSON.parse(snap.data().json||'{}');
-          hex=t.accents&&t.accents[canon];
-        }
+        // Accents live at apps/hub/data/theme-accents (the Hub split its
+        // shared accent doc from its personal mode/wallpaper doc a while
+        // back — see app.js's saveHubAccents). Falls back to the old
+        // combined "theme" doc for anyone who picked a color before that
+        // split and never touched it since, so this doesn't regress them
+        // to the default gold/pink.
+        const col=firebase.firestore().collection('users').doc(user.uid).collection('apps').doc('hub').collection('data');
+        const [accentsSnap,legacySnap]=await Promise.all([col.doc('theme-accents').get(),col.doc('theme').get()]);
+        let t=null;
+        if(accentsSnap.exists)t=JSON.parse(accentsSnap.data().json||'{}');
+        else if(legacySnap.exists)t=JSON.parse(legacySnap.data().json||'{}');
+        hex=t&&t.accents&&t.accents[canon];
       }
     }catch(e){/* theme is a progressive enhancement — never block the app on it */}
     hex=hex||DEFAULT_ACCENTS[canon]||DEFAULT_ACCENTS.Bhargav;
