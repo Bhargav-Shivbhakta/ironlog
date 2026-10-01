@@ -287,8 +287,22 @@ async function loadHubMeta(){
   state.theme={accents,mode:appearance.mode||'light',wallpaper:appearance.wallpaper||DEFAULT_THEME.wallpaper};
   state.widgets = (widgets && widgets[state.profile] && widgets[state.profile].length) ? widgets[state.profile].filter(w=>WIDGET_TYPES[w.type]) : widgetDefaultLayout();
   state.appIcons = profileIcons || legacyIcons || {};
-  state.photos = Array.isArray(profilePhotos) ? profilePhotos : (Array.isArray(legacyPhotos) ? legacyPhotos : []);
-  photoWidgetOrder=[]; // this profile's photos just (re)loaded — force a fresh shuffle/sequence order
+  // photos: now one library per photo-widget instance ({byWidget:{id:[]}})
+  // since the widget can be added more than once. profilePhotos is either
+  // that new shape, or — for anyone who saved before this change — a flat
+  // array, which gets adopted by the first (now only) photos widget on
+  // the board rather than silently discarded.
+  if(profilePhotos && !Array.isArray(profilePhotos) && profilePhotos.byWidget){
+    state.photosByWidget = profilePhotos.byWidget;
+  }else{
+    const legacyFlat = Array.isArray(profilePhotos) ? profilePhotos : (Array.isArray(legacyPhotos) ? legacyPhotos : []);
+    state.photosByWidget = {};
+    if(legacyFlat.length){
+      const firstPhotoWidget = state.widgets.find(w=>w.type==='photos');
+      if(firstPhotoWidget) state.photosByWidget[firstPhotoWidget.id] = legacyFlat;
+    }
+  }
+  photoWidgetRuntime={}; // this profile's photos just (re)loaded — force fresh shuffle/sequence/play state for every instance
   applyTheme();
 }
 async function saveHubCategories(){ try{ await hubRef('categories').set({json: JSON.stringify(state.categories)}); }catch(e){} }
@@ -673,100 +687,114 @@ const WIDGET_TYPES={
         updateProfileLinks();if(window.lucide)lucide.createIcons();
       }catch(e){el.innerHTML='<div class="empty-state"><strong>Unavailable</strong>Could not load the grocery list.</div>'}
     }},
-  photos:{title:'Photo widget',icon:'image',desc:'Your own little rotating gallery — add a batch of photos, shuffle them, or let it play on its own.',defaultSize:'lg',bare:true,
-    render(el){renderPhotoWidgetInto(el)}}
+  photos:{title:'Photo widget',icon:'image',desc:'Your own little rotating gallery — add a batch of photos, shuffle them, or let it play on its own. Add as many of these as you like.',defaultSize:'lg',bare:true,multiple:true,
+    render(el,w){renderPhotoWidgetInto(el,w.id)}}
 };
 /* ---- Photo widget: a small self-contained gallery, its own upload +
    shuffle + slideshow logic rather than a generic "widget data" blob,
    since photos are genuinely different from every other widget (a list of
    images the person keeps adding to, not a read-only view of another
-   app's data). One shared photo library across however many times this
-   widget shows up (today there's only ever one instance on the board, via
-   the same single-instance-per-type system every other widget uses), kept
-   at users/{uid}/apps/hub/data/photos. ---- */
-const PHOTO_MAX_COUNT=24;
-const PHOTO_MAX_BASE64_TOTAL=900000; // keeps the whole library under Firestore's ~1MiB document cap
-let photoWidgetOrder=[]; // current browsing order — sequential, or shuffled
-let photoWidgetPos=0;
-let photoWidgetShuffle=false;
-let photoWidgetPlaying=false;
-let photoWidgetTimer=null;
-function photoWidgetBuildOrder(){
-  const idx=state.photos.map((_,i)=>i);
-  if(photoWidgetShuffle){
+   app's data). Unlike every other widget type, this one can be added to
+   the board more than once (WIDGET_TYPES.photos.multiple — see
+   renderWidgetCatalog) — each instance keeps its own separate library,
+   order, shuffle and play state, keyed by that widget's own id. All
+   instances' photos still live together in one Firestore doc
+   (users/{uid}/hub-profiles/{profile}/data/photos, as {byWidget:{[id]:
+   photos[]}}) since they're small and share the per-profile scoping, so
+   the size budget below is a combined total across every instance, not
+   per widget. ---- */
+const PHOTO_MAX_COUNT=24; // per widget instance
+const PHOTO_MAX_BASE64_TOTAL=900000; // combined across every photo widget instance — keeps the shared doc under Firestore's ~1MiB cap
+let photoWidgetRuntime={}; // { [widgetId]: {order,pos,shuffle,playing,timer} } — browsing/playback state, not persisted
+function pwRuntime(widgetId){
+  return photoWidgetRuntime[widgetId] || (photoWidgetRuntime[widgetId]={order:[],pos:0,shuffle:false,playing:false,timer:null});
+}
+function photoWidgetPhotos(widgetId){
+  return state.photosByWidget[widgetId] || (state.photosByWidget[widgetId]=[]);
+}
+function photoWidgetBuildOrder(widgetId){
+  const rt=pwRuntime(widgetId);
+  const idx=photoWidgetPhotos(widgetId).map((_,i)=>i);
+  if(rt.shuffle){
     for(let i=idx.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[idx[i],idx[j]]=[idx[j],idx[i]];}
   }
-  photoWidgetOrder=idx;
-  photoWidgetPos=0;
+  rt.order=idx;
+  rt.pos=0;
 }
-async function savePhotoWidget(){try{await profileRef('hub-profiles','photos').set({json:JSON.stringify(state.photos)})}catch(e){}}
-function renderPhotoWidgetInto(el){
+async function savePhotoWidgets(){try{await profileRef('hub-profiles','photos').set({json:JSON.stringify({byWidget:state.photosByWidget})})}catch(e){}}
+function renderPhotoWidgetInto(el,widgetId){
   if(!el)return;
-  if(photoWidgetTimer){clearInterval(photoWidgetTimer);photoWidgetTimer=null}
-  if(!state.photos.length){
+  const rt=pwRuntime(widgetId);
+  if(rt.timer){clearInterval(rt.timer);rt.timer=null}
+  const photos=photoWidgetPhotos(widgetId);
+  if(!photos.length){
     el.innerHTML='<div class="photo-widget"><div class="empty-state"><strong>No photos yet</strong>Add a few to start a little slideshow right here.'+
       '<button type="button" class="button secondary photo-widget-add-empty" data-photo-add><i data-lucide="plus"></i><span>Add photos</span></button></div>'+
       '<input type="file" accept="image/*" multiple hidden data-photo-file></div>';
     if(window.lucide)lucide.createIcons();
     el.querySelector('[data-photo-add]').addEventListener('click',()=>el.querySelector('[data-photo-file]').click());
-    el.querySelector('[data-photo-file]').addEventListener('change',e=>{handlePhotoWidgetUpload(e.target.files,el);e.target.value=''});
+    el.querySelector('[data-photo-file]').addEventListener('change',e=>{handlePhotoWidgetUpload(e.target.files,el,widgetId);e.target.value=''});
     return;
   }
-  if(photoWidgetOrder.length!==state.photos.length)photoWidgetBuildOrder();
-  photoWidgetPos=((photoWidgetPos%photoWidgetOrder.length)+photoWidgetOrder.length)%photoWidgetOrder.length;
-  const currentIdx=photoWidgetOrder[photoWidgetPos];
-  const photo=state.photos[currentIdx];
+  if(rt.order.length!==photos.length)photoWidgetBuildOrder(widgetId);
+  rt.pos=((rt.pos%rt.order.length)+rt.order.length)%rt.order.length;
+  const currentIdx=rt.order[rt.pos];
+  const photo=photos[currentIdx];
   el.innerHTML='<div class="photo-widget">'+
     '<div class="photo-widget-frame"><img src="'+photo.src+'" alt=""></div>'+
     '<div class="photo-widget-controls">'+
-      '<button type="button" class="icon-button" data-photo-prev title="Previous photo"'+(state.photos.length<2?' disabled':'')+'><i data-lucide="chevron-left"></i></button>'+
-      '<button type="button" class="icon-button" data-photo-play title="'+(photoWidgetPlaying?'Pause slideshow':'Play slideshow')+'"'+(state.photos.length<2?' disabled':'')+'><i data-lucide="'+(photoWidgetPlaying?'pause':'play')+'"></i></button>'+
-      '<button type="button" class="icon-button" data-photo-next title="Next photo"'+(state.photos.length<2?' disabled':'')+'><i data-lucide="chevron-right"></i></button>'+
-      '<button type="button" class="icon-button'+(photoWidgetShuffle?' active':'')+'" data-photo-shuffle title="Shuffle"'+(state.photos.length<2?' disabled':'')+'><i data-lucide="shuffle"></i></button>'+
-      '<span class="photo-widget-count">'+(photoWidgetPos+1)+' / '+state.photos.length+'</span>'+
+      '<button type="button" class="icon-button" data-photo-prev title="Previous photo"'+(photos.length<2?' disabled':'')+'><i data-lucide="chevron-left"></i></button>'+
+      '<button type="button" class="icon-button" data-photo-play title="'+(rt.playing?'Pause slideshow':'Play slideshow')+'"'+(photos.length<2?' disabled':'')+'><i data-lucide="'+(rt.playing?'pause':'play')+'"></i></button>'+
+      '<button type="button" class="icon-button" data-photo-next title="Next photo"'+(photos.length<2?' disabled':'')+'><i data-lucide="chevron-right"></i></button>'+
+      '<button type="button" class="icon-button'+(rt.shuffle?' active':'')+'" data-photo-shuffle title="Shuffle"'+(photos.length<2?' disabled':'')+'><i data-lucide="shuffle"></i></button>'+
+      '<span class="photo-widget-count">'+(rt.pos+1)+' / '+photos.length+'</span>'+
       '<button type="button" class="icon-button" data-photo-add title="Add photos"><i data-lucide="plus"></i></button>'+
       '<button type="button" class="icon-button" data-photo-remove title="Remove this photo"><i data-lucide="trash-2"></i></button>'+
     '</div>'+
     '<input type="file" accept="image/*" multiple hidden data-photo-file>'+
   '</div>';
   if(window.lucide)lucide.createIcons();
-  const advance=dir=>{ photoWidgetPos+=dir; renderPhotoWidgetInto(el); };
+  const advance=dir=>{ rt.pos+=dir; renderPhotoWidgetInto(el,widgetId); };
   el.querySelector('[data-photo-prev]').addEventListener('click',()=>advance(-1));
   el.querySelector('[data-photo-next]').addEventListener('click',()=>advance(1));
-  el.querySelector('[data-photo-shuffle]').addEventListener('click',()=>{ photoWidgetShuffle=!photoWidgetShuffle; photoWidgetBuildOrder(); renderPhotoWidgetInto(el); });
-  el.querySelector('[data-photo-play]').addEventListener('click',()=>{ photoWidgetPlaying=!photoWidgetPlaying; renderPhotoWidgetInto(el); });
+  el.querySelector('[data-photo-shuffle]').addEventListener('click',()=>{ rt.shuffle=!rt.shuffle; photoWidgetBuildOrder(widgetId); renderPhotoWidgetInto(el,widgetId); });
+  el.querySelector('[data-photo-play]').addEventListener('click',()=>{ rt.playing=!rt.playing; renderPhotoWidgetInto(el,widgetId); });
   el.querySelector('[data-photo-add]').addEventListener('click',()=>el.querySelector('[data-photo-file]').click());
-  el.querySelector('[data-photo-file]').addEventListener('change',e=>{handlePhotoWidgetUpload(e.target.files,el);e.target.value=''});
+  el.querySelector('[data-photo-file]').addEventListener('change',e=>{handlePhotoWidgetUpload(e.target.files,el,widgetId);e.target.value=''});
   el.querySelector('[data-photo-remove]').addEventListener('click',()=>{
-    state.photos.splice(currentIdx,1);
-    photoWidgetOrder=[];
-    savePhotoWidget();
-    renderPhotoWidgetInto(el);
+    photos.splice(currentIdx,1);
+    rt.order=[];
+    savePhotoWidgets();
+    renderPhotoWidgetInto(el,widgetId);
   });
-  if(photoWidgetPlaying&&state.photos.length>1){
-    photoWidgetTimer=setInterval(()=>advance(1),4500);
+  if(rt.playing&&photos.length>1){
+    rt.timer=setInterval(()=>advance(1),4500);
   }
 }
-async function handlePhotoWidgetUpload(fileList,el){
+function allPhotoWidgetsTotalLength(){
+  return Object.values(state.photosByWidget).reduce((sum,photos)=>sum+photos.reduce((s,p)=>s+p.src.length,0),0);
+}
+async function handlePhotoWidgetUpload(fileList,el,widgetId){
   const files=Array.from(fileList||[]).filter(f=>/^image\//.test(f.type));
   if(!files.length)return;
-  if(state.photos.length>=PHOTO_MAX_COUNT){toast('Your photo widget is full — remove a few first');return}
+  const photos=photoWidgetPhotos(widgetId);
+  if(photos.length>=PHOTO_MAX_COUNT){toast('Your photo widget is full — remove a few first');return}
   let added=0,skippedForSize=false;
   for(const file of files){
-    if(state.photos.length>=PHOTO_MAX_COUNT)break;
+    if(photos.length>=PHOTO_MAX_COUNT)break;
     try{
       const img=await fileToImage(file);
       const dataUrl=compressImageToDataUrl(img,900,160000);
       if(!dataUrl)continue;
-      const totalLen=state.photos.reduce((s,p)=>s+p.src.length,0)+dataUrl.length;
+      const totalLen=allPhotoWidgetsTotalLength()+dataUrl.length;
       if(totalLen>PHOTO_MAX_BASE64_TOTAL){skippedForSize=true;break}
-      state.photos.push({id:'ph-'+Date.now()+'-'+Math.random().toString(36).slice(2,7),src:dataUrl});
+      photos.push({id:'ph-'+Date.now()+'-'+Math.random().toString(36).slice(2,7),src:dataUrl});
       added++;
     }catch(e){console.warn(e)}
   }
-  if(added){ photoWidgetOrder=[]; await savePhotoWidget(); }
+  if(added){ pwRuntime(widgetId).order=[]; await savePhotoWidgets(); }
   if(skippedForSize)toast(added?added+' photo'+(added===1?'':'s')+' added — your library is getting full, so the rest were skipped':'Your photo library is full — remove a few or try smaller photos');
-  renderPhotoWidgetInto(el);
+  renderPhotoWidgetInto(el,widgetId);
 }
 let saveWidgetsTimer=null;
 function saveWidgetLayout(){
@@ -821,7 +849,8 @@ function renderWidgetBoard(){
   if(window.lucide)lucide.createIcons();
   board.querySelectorAll('.widget-card').forEach(card=>{
     const type=card.dataset.widgetType,def=WIDGET_TYPES[type];
-    if(def)def.render(card.querySelector('.widget-card-body'));
+    const w=state.widgets.find(x=>x.id===card.dataset.widgetId);
+    if(def)def.render(card.querySelector('.widget-card-body'),w);
     wireWidgetCard(card);
   });
 }
@@ -963,10 +992,16 @@ function wireWidgetCard(card){
 function renderWidgetCatalog(){
   const addedTypes=new Set(state.widgets.map(w=>w.type));
   $('widget-catalog').innerHTML=Object.keys(WIDGET_TYPES).map(type=>{
-    const def=WIDGET_TYPES[type],added=addedTypes.has(type);
+    const def=WIDGET_TYPES[type];
+    // Every widget type is one-per-board, except ones marked `multiple`
+    // (currently just the photo widget) — those stay addable indefinitely
+    // since each instance is its own separate gallery.
+    const added=!def.multiple&&addedTypes.has(type);
+    const count=def.multiple?state.widgets.filter(w=>w.type===type).length:0;
+    const sub=added?'Already on your board':(count?'On your board ×'+count+' — add another':esc(def.desc));
     return '<button type="button" class="widget-catalog-item'+(added?' added':'')+'" data-widget-type-add="'+type+'">'+
       '<span class="widget-catalog-icon"><i data-lucide="'+def.icon+'"></i></span>'+
-      '<span class="widget-catalog-copy"><strong>'+esc(def.title)+'</strong><span>'+(added?'Already on your board':esc(def.desc))+'</span></span>'+
+      '<span class="widget-catalog-copy"><strong>'+esc(def.title)+'</strong><span>'+sub+'</span></span>'+
     '</button>';
   }).join('');
   if(window.lucide)lucide.createIcons();
@@ -982,7 +1017,7 @@ function wireWidgetModal(){
   $('widget-catalog').addEventListener('click',e=>{
     const btn=e.target.closest('[data-widget-type-add]');if(!btn||btn.classList.contains('added'))return;
     const type=btn.dataset.widgetTypeAdd,def=WIDGET_TYPES[type];
-    state.widgets.push({id:'w-'+type+'-'+Date.now(),type,size:def.defaultSize});
+    state.widgets.push({id:'w-'+type+'-'+Date.now()+'-'+Math.random().toString(36).slice(2,6),type,size:def.defaultSize});
     saveWidgetLayout();renderWidgetBoard();$('widget-add-modal').hidden=true;toast(def.title+' added to your Today page');
   });
 }
@@ -1965,6 +2000,21 @@ function renderWeatherSecond(data,label){
   icon.setAttribute('data-lucide',weatherIconFor(data.current.weather_code));
   $('hub-weather-second-temp').textContent=Math.round(data.current.temperature_2m)+'°';
   $('hub-weather-second-place').textContent=label;
+  // Same hi/lo + humidity/wind + next-hours panel as the main widget,
+  // now that there's actually a second city to show it for.
+  $('hub-weather-second-hi').textContent='H '+Math.round(data.daily.temperature_2m_max[0])+'°';
+  $('hub-weather-second-lo').textContent='L '+Math.round(data.daily.temperature_2m_min[0])+'°';
+  $('hub-weather-second-humidity').textContent=Math.round(data.current.relative_humidity_2m)+'%';
+  $('hub-weather-second-wind').textContent=Math.round(data.current.wind_speed_10m)+' mph';
+  const nowHour=new Date().getHours();
+  const hourly=data.hourly.time.map((t,i)=>({hour:new Date(t).getHours(),temp:data.hourly.temperature_2m[i],code:data.hourly.weather_code[i]}))
+    .filter(h=>h.hour>=nowHour).slice(0,5);
+  $('hub-weather-second-hours').innerHTML=hourly.map(h=>{
+    const label=h.hour===0?'12A':h.hour===12?'12P':h.hour>12?(h.hour-12)+'P':h.hour+'A';
+    return '<div class="hub-weather-hour"><span>'+label+'</span><i data-lucide="'+weatherIconFor(h.code)+'"></i><b>'+Math.round(h.temp)+'°</b></div>';
+  }).join('');
+  $('hub-weather-second-toggle').setAttribute('aria-expanded', $('hub-weather-second').classList.contains('is-collapsed')?'false':'true');
+  $('hub-weather-second-chevron').hidden=false;
   if(window.lucide)lucide.createIcons();
 }
 function weatherError(){
@@ -1975,6 +2025,16 @@ function weatherError(){
 function weatherErrorSecond(){
   const place=$('hub-weather-second-place');if(place)place.textContent='Unavailable';
   const icon=$('hub-weather-second-icon');if(icon){icon.setAttribute('data-lucide','cloud-off');if(window.lucide)lucide.createIcons()}
+}
+// Same idea as hubWeatherSetCollapsed above, just for the second city's own
+// panel — remembered separately since someone might want the main city
+// expanded but the second one tucked away, or vice versa.
+function hubWeatherSecondSetCollapsed(collapsed){
+  const el=$('hub-weather-second'); if(!el) return;
+  el.classList.toggle('is-collapsed',collapsed);
+  const btn=$('hub-weather-second-toggle');
+  if(btn) btn.setAttribute('aria-expanded', collapsed?'false':'true');
+  try{ localStorage.setItem('hub-weather-second-collapsed', collapsed?'1':'0'); }catch(e){}
 }
 async function loadWeatherFor(lat,lon,label,skipCache,slot){
   slot=slot||0;
@@ -2049,6 +2109,14 @@ function wireHubWeatherOnce(){
   if(weatherWired)return;weatherWired=true;
   $('hub-weather-toggle').addEventListener('click',()=>{ hubWeatherSetCollapsed(!$('hub-weather').classList.contains('is-collapsed')); });
   $('hub-weather-place-btn').addEventListener('click',e=>{ e.stopPropagation(); openWeatherLocationEditor(0); });
+  // Second city: no location set yet → clicking the row opens the editor
+  // directly (nothing to expand). Once a city is set, the row instead
+  // toggles its own detail panel, same as the main widget; "Change
+  // location" inside that panel is what opens the editor from then on.
+  $('hub-weather-second-toggle').addEventListener('click',()=>{
+    if(!weatherSlots[1]){ openWeatherLocationEditor(1); return; }
+    hubWeatherSecondSetCollapsed(!$('hub-weather-second').classList.contains('is-collapsed'));
+  });
   $('hub-weather-second-place-btn').addEventListener('click',e=>{ e.stopPropagation(); openWeatherLocationEditor(1); });
   $('hub-weather-use-gps').addEventListener('click',e=>{ e.stopPropagation(); useGpsForSlot(weatherEditingSlot); });
   $('hub-weather-search-close').addEventListener('click',e=>{ e.stopPropagation(); closeWeatherLocationEditor(); });
@@ -2086,10 +2154,17 @@ async function initHubWeather(){
     );
   }
   if(weatherSlots[1]){
+    const savedSecondCollapsed=(function(){ try{ const v=localStorage.getItem('hub-weather-second-collapsed'); return v===null?true:v==='1'; }catch(e){ return true; } })();
+    hubWeatherSecondSetCollapsed(savedSecondCollapsed);
     loadWeatherFor(weatherSlots[1].lat,weatherSlots[1].lon,weatherSlots[1].label,false,1);
   }else{
     $('hub-weather-second-place').textContent='Add a second city';
     $('hub-weather-second-temp').textContent='';
+    $('hub-weather-second-icon').setAttribute('data-lucide','plus-circle');
+    $('hub-weather-second-chevron').hidden=true;
+    $('hub-weather-second-detail').hidden=true;
+    hubWeatherSecondSetCollapsed(true);
+    if(window.lucide)lucide.createIcons();
   }
   if(!weatherIntervalStarted){
     weatherIntervalStarted=true;

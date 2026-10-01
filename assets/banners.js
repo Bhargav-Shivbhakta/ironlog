@@ -2,9 +2,9 @@
    IRONLOG LIVE BANNER SYSTEM
    ---------------------------------------------------------------------
    Replaces the old static Today-page header with a data-driven, fully
-   animated banner. One real preset ("Golden Arrival", the gold Porsche)
-   plus 7 hand-built CSS/SVG motion scenes per profile — 8 for Bhargav
-   (mafia / luxury / money / badass), 8 for Anusha (soft aesthetic).
+   animated banner. Bhargav: the real gold-Porsche photo preset plus a
+   9-scene "mafia pack" (CSS/Lucide-glyph motion scenes). Anusha: 8 soft
+   CSS motion scenes (placeholders, pending a real-photo pass later).
 
    To add a new banner later: append one object to BANNER_PRESETS and,
    if it needs a new visual motif, one entry in SCENE_BUILDERS + its CSS
@@ -36,6 +36,20 @@ function bannerScatter(count, cls, seed, opts){
   return html;
 }
 
+// Entry-direction / motion-speed presets for the "subject" scene below —
+// ported as-is from the real-photo banner pack (each cutout already came
+// with a direction+motion assignment chosen per image). Add a new named
+// direction/motion here if a future photo needs one that isn't covered.
+const SUBJECT_DIRECTIONS = {
+  left:            {x:'-105%', y:'18px', z:'-330px', ry:'23deg',  rz:'-1.4deg', scale:.58},
+  right:           {x:'105%',  y:'18px', z:'-330px', ry:'-23deg', rz:'1.4deg',  scale:.58},
+  toward:          {x:'0%',    y:'0',    z:'-760px', ry:'0deg',   rz:'0deg',    scale:.24},
+  bottom:          {x:'0%',    y:'105%', z:'-180px', ry:'0deg',   rz:'0deg',    scale:.68},
+  'diagonal-right':{x:'105%',  y:'-52%', z:'-330px', ry:'-23deg', rz:'1.4deg',  scale:.58},
+  'diagonal-left': {x:'-105%', y:'-52%', z:'-330px', ry:'23deg',  rz:'-1.4deg', scale:.58}
+};
+const SUBJECT_MOTIONS = {cinematic:2.15, energetic:1.35, subtle:2.8, calm:3.35};
+
 const SCENE_BUILDERS = {
   // "porsche" is generic — every drive-in car preset uses this builder,
   // just pointing carImg at a different cutout. Add a new car preset by
@@ -44,6 +58,22 @@ const SCENE_BUILDERS = {
   porsche: (preset) => '<div class="road-line"></div><div class="motion-trail"></div>'+
     '<i class="speed-particle p1"></i><i class="speed-particle p2"></i><i class="speed-particle p3"></i>'+
     '<div class="car-rig"><div class="car-glow"></div><img class="car" src="'+(preset.carImg||'assets/banners/porsche-gold.webp')+'" alt="" draggable="false"></div>',
+
+  // "subject" — the general-purpose real-photo scene for the mafia pack.
+  // Same drive-in rig as "porsche" but the entry path (direction) and
+  // speed (motion) are data-driven per preset instead of hardcoded, so
+  // one builder covers a car arriving from the left, a jet banking in
+  // from the right, a vault door growing "toward" camera, a suit sliding
+  // up from the bottom, etc. Needs preset.carImg (the cutout), and
+  // optionally preset.direction/preset.motion (default left/cinematic).
+  subject: (preset) => {
+    const d = SUBJECT_DIRECTIONS[preset.direction] || SUBJECT_DIRECTIONS.left;
+    const dur = SUBJECT_MOTIONS[preset.motion] || SUBJECT_MOTIONS.cinematic;
+    const vars = '--entry-x:'+d.x+';--entry-y:'+d.y+';--entry-z:'+d.z+';--entry-ry:'+d.ry+';--entry-rz:'+d.rz+';--entry-scale:'+d.scale+';--duration:'+dur+'s';
+    return '<div class="subject-stage" style="'+vars+'"><div class="road-line"></div><div class="motion-trail"></div>'+
+      '<i class="speed-particle p1"></i><i class="speed-particle p2"></i><i class="speed-particle p3"></i>'+
+      '<div class="subject-rig"><div class="subject-glow"></div><img class="subject" src="'+esc(preset.carImg||preset.image||'')+'" alt="" draggable="false"></div></div>';
+  },
 
   showroom: () => '<img class="showroom-photo" src="assets/banners/porsche-showroom.jpg" alt="" draggable="false">'+
     '<div class="showroom-overlay"></div><div class="showroom-sweep"></div>',
@@ -63,16 +93,16 @@ const SCENE_BUILDERS = {
       Array.from({length:8}).map(()=>'<span class="chain-link"></span>').join('')+
     '</div><div class="chain-shine"></div>',
 
-  skyline: () => '<div class="skyline-moon"></div><div class="skyline"><div class="skyline-row">'+
-      [34,52,40,66,28,58,46,72,36,50].map(h=>'<span class="building" style="height:'+h+'%"></span>').join('')+
-    '</div></div>' + bannerScatter(14,'sky-window',303,{minDur:2,maxDur:3.6,yMin:18,yMax:62,xMin:4,xMax:70}),
-
   card: () => '<div class="black-card"><span class="card-chip"></span><span class="card-sweep"></span><span class="card-line"></span></div>',
 
-  watch: () => '<div class="watch-dial"><span class="watch-hand"></span><span class="watch-center"></span></div>' +
-    bannerScatter(6,'diamond-glint',404,{minDur:2,maxDur:3.4,xMin:4,xMax:96,yMin:6,yMax:90}),
-
   thunder: () => '<div class="storm-sky"></div><div class="bolt bolt1"></div><div class="bolt bolt2"></div><div class="storm-flash"></div>',
+
+  // (An earlier pass prototyped sedan/jet/yacht/chess/vault/briefcase/
+  // phone/watch/skyline as oversized-Lucide-glyph CSS scenes, shown to
+  // Bhargav for a thumbs up on the technique before committing. He then
+  // supplied real transparent-cutout photos for all of them instead, so
+  // those CSS versions were removed in favor of "subject" below — real
+  // photos read far better than icon abstractions at this size.)
 
   goldenhour: () => '<div class="sun-glow"></div><div class="haze-sweep"></div>',
 
@@ -99,6 +129,48 @@ const BANNER_PRESETS = [
   {id:'b-porsche', profile:'Bhargav', title:'Golden Arrival', category:'Signature', glyph:'car-front',
    accent:'#ad7b20', accent2:'#d2a84f', bg:'#111210', bg2:'#090a09', scene:'porsche'},
 
+  /* ---- "Mafia pack" — 11 real-photo banners (transparent cutouts Bhargav
+     supplied, Oct 1), using the generic "subject" scene (drive/fly/grow-in
+     rig, direction+motion data-driven — see SUBJECT_DIRECTIONS/MOTIONS and
+     the "subject" SCENE_BUILDERS entry). mood is the small, optional
+     corner flavor line (#today-banner-mood) — purely decorative, never
+     replaces the real task-driven summary line next to it. Golden Arrival
+     stays above as-is; these sit alongside it, so nothing changes for
+     Bhargav until he picks one. ---- */
+  {id:'b-sedan', profile:'Bhargav', title:'Vintage Sedan', category:'Signature', glyph:'car-front',
+   accent:'#c9a227', accent2:'#eede9a', bg:'radial-gradient(circle at 77% 48%,#ad7b202b,transparent 31%),linear-gradient(120deg,#111210,#15130e)', bg2:'#050504', scene:'subject',
+   carImg:'assets/banners/vintage-sedan.png', direction:'left', motion:'cinematic', mood:'Arrive with intention.'},
+  {id:'b-jet', profile:'Bhargav', title:'Private Jet', category:'Empire', glyph:'plane',
+   accent:'#8fa8d9', accent2:'#dce8ff', bg:'repeating-linear-gradient(90deg,transparent 0 84px,#d2a84f0b 85px 86px),radial-gradient(circle at 78% 42%,#ad7b2022,transparent 34%),#0b0c0b', bg2:'#04050a', scene:'subject',
+   carImg:'assets/banners/private-jet.png', direction:'right', motion:'cinematic', mood:'Standards take flight.'},
+  {id:'b-speedboat', profile:'Bhargav', title:'Night Speedboat', category:'Momentum', glyph:'sailboat',
+   accent:'#6fb8d9', accent2:'#dff2fa', bg:'radial-gradient(ellipse at 78% 75%,#23475a38,transparent 38%),linear-gradient(#0c1116,#111210)', bg2:'#070a0d', scene:'subject',
+   carImg:'assets/banners/speedboat.png', direction:'left', motion:'energetic', mood:'Cut through the noise.'},
+  {id:'b-chess', profile:'Bhargav', title:'Chess King', category:'Mindset', glyph:'crown',
+   accent:'#d2a84f', accent2:'#f0e0b0', bg:'radial-gradient(circle at 76% 45%,#ad7b2030,transparent 34%),linear-gradient(120deg,#10110f,#17130d)', bg2:'#070604', scene:'subject',
+   carImg:'assets/banners/chess-king.png', direction:'toward', motion:'cinematic', mood:'Think three moves ahead.'},
+  {id:'b-vault', profile:'Bhargav', title:'Gold Vault', category:'Money', glyph:'vault',
+   accent:'#e8c468', accent2:'#fff3d2', bg:'radial-gradient(circle at 78% 45%,#d2a84f2c,transparent 34%),linear-gradient(120deg,#0e0f0d,#16130d)', bg2:'#0a0806', scene:'subject',
+   carImg:'assets/banners/gold-vault.png', direction:'toward', motion:'subtle', mood:'Protect what compounds.'},
+  {id:'b-gates', profile:'Bhargav', title:'Mansion Gates', category:'Signature', glyph:'landmark',
+   accent:'#c9a227', accent2:'#eede9a', bg:'radial-gradient(circle at 77% 46%,#ad7b2027,transparent 33%),linear-gradient(120deg,#0d0e0c,#15130e)', bg2:'#050504', scene:'subject',
+   carImg:'assets/banners/mansion-gates.png', direction:'diagonal-right', motion:'cinematic', mood:'Build an entrance worth reaching.'},
+  {id:'b-watch', profile:'Bhargav', title:'Tailored Standard', category:'Flex', glyph:'shirt',
+   accent:'#d9b45c', accent2:'#eaf2ff', bg:'linear-gradient(110deg,#10110f,#16130e),repeating-linear-gradient(90deg,transparent 0 72px,#d2a84f0b 73px 74px)', bg2:'#070604', scene:'subject',
+   carImg:'assets/banners/tailored-suit.png', direction:'bottom', motion:'subtle', mood:'Wear the standard.'},
+  {id:'b-skyline', profile:'Bhargav', title:'Penthouse Office', category:'Empire', glyph:'building-2',
+   accent:'#6c93c2', accent2:'#8f9cc2', bg:'radial-gradient(circle at 77% 35%,#2c4b622c,transparent 31%),linear-gradient(120deg,#0b0d0e,#141310)', bg2:'#06070b', scene:'subject',
+   carImg:'assets/banners/penthouse-office.png', direction:'toward', motion:'calm', mood:'Operate from a higher level.'},
+  {id:'b-briefcase', profile:'Bhargav', title:'Prepared Briefcase', category:'Money', glyph:'briefcase',
+   accent:'#c9a227', accent2:'#eede9a', bg:'radial-gradient(circle at 78% 50%,#ad7b202a,transparent 35%),linear-gradient(120deg,#111210,#15130e)', bg2:'#080705', scene:'subject',
+   carImg:'assets/banners/leather-briefcase.png', direction:'diagonal-left', motion:'cinematic', mood:'Move prepared.'},
+  {id:'b-yacht', profile:'Bhargav', title:'Luxury Yacht', category:'Momentum', glyph:'sailboat',
+   accent:'#8fd4e8', accent2:'#eaf6fa', bg:'radial-gradient(ellipse at 78% 75%,#23475a38,transparent 38%),linear-gradient(#0c1116,#111210)', bg2:'#050a0f', scene:'subject',
+   carImg:'assets/banners/luxury-yacht.png', direction:'right', motion:'cinematic', mood:'Command your direction.'},
+  {id:'b-phone', profile:'Bhargav', title:'The Call', category:'Empire', glyph:'phone-call',
+   accent:'#d9b45c', accent2:'#fff3d2', bg:'radial-gradient(circle at 79% 48%,#ad7b2026,transparent 32%),linear-gradient(120deg,#0e0f0d,#17140f)', bg2:'#080604', scene:'subject',
+   carImg:'assets/banners/rotary-telephone.png', direction:'left', motion:'subtle', mood:'Make the call that changes the room.'},
+
   /* ---- Anusha: soft aesthetic (placeholder CSS scenes for now — she
      wants real photos instead, but asked to hold that for a later pass;
      left in place as the stand-in until then). ---- */
@@ -121,8 +193,10 @@ const BANNER_PRESETS = [
 ];
 
 /* Archived — not in BANNER_PRESETS, so they don't show in the gallery.
-   The 4 real-car cutouts + 7 CSS scenes Bhargav tried and didn't want.
-   To bring one back, move its object into BANNER_PRESETS above. */
+   The 4 real-car cutouts + 5 CSS scenes Bhargav tried and didn't want
+   from the first round (watch/skyline were brought back above, renamed,
+   for the mafia pack). To bring one back, move its object into
+   BANNER_PRESETS above. */
 const BANNER_PRESETS_ARCHIVED = [
   {id:'b-showroom', profile:'Bhargav', title:'Desert Showroom', category:'Signature', glyph:'car-front',
    accent:'#c9a227', accent2:'#eede9a', bg:'#0c0d0a', bg2:'#050504', scene:'showroom', thumb:'assets/banners/porsche-showroom.jpg'},
@@ -138,12 +212,8 @@ const BANNER_PRESETS_ARCHIVED = [
    accent:'#b2733a', accent2:'#f0dfae', bg:'#15100c', bg2:'#0a0806', scene:'cigar'},
   {id:'b-chain', profile:'Bhargav', title:'Gold Chain Drip', category:'Flex', glyph:'link-2',
    accent:'#d9b45c', accent2:'#fff3d2', bg:'#121008', bg2:'#080703', scene:'chain'},
-  {id:'b-skyline', profile:'Bhargav', title:'Penthouse Skyline', category:'Empire', glyph:'building-2',
-   accent:'#d2a84f', accent2:'#8f9cc2', bg:'#0c0e15', bg2:'#06070b', scene:'skyline'},
   {id:'b-card', profile:'Bhargav', title:'Black Card', category:'Flex', glyph:'credit-card',
    accent:'#c9a227', accent2:'#f2f2ec', bg:'#0c0c0b', bg2:'#050504', scene:'card'},
-  {id:'b-watch', profile:'Bhargav', title:'Diamond Grip', category:'Flex', glyph:'watch',
-   accent:'#d9b45c', accent2:'#eaf2ff', bg:'#0e0d0a', bg2:'#070604', scene:'watch'},
   {id:'b-thunder', profile:'Bhargav', title:'Thunder Power', category:'Badass', glyph:'zap',
    accent:'#8fb4ff', accent2:'#e7efff', bg:'#0b0d13', bg2:'#05060a', scene:'thunder'}
 ];
@@ -207,6 +277,11 @@ const bannerEngine = {
     scene.className = 'ih-banner-scene scene-'+preset.scene;
     const build = SCENE_BUILDERS[preset.scene];
     scene.innerHTML = build ? build(preset) : '';
+    const moodEl = document.getElementById('today-banner-mood');
+    if(moodEl){
+      if(preset.mood){ moodEl.textContent = preset.mood; moodEl.hidden = false; }
+      else { moodEl.hidden = true; moodEl.textContent=''; }
+    }
     root.classList.remove('is-playing');
     // force reflow so re-adding the class restarts the entrance animation
     void root.offsetWidth;
@@ -219,6 +294,49 @@ const bannerEngine = {
   }
 };
 
+/* ---------------------------------------------------------------------
+   Rotation — the saved doc now carries rotateMode ('off'|'visit'|'daily'
+   |'timer') and rotateMinutes alongside active, so a pick persists
+   across tabs/reloads the same as before, but the active banner can also
+   change itself: once per visit, once per day, or on a repeating timer
+   while the Hub stays open. lastRotatedAt (ISO string) is how 'daily'
+   tells today's visit apart from an earlier one.
+--------------------------------------------------------------------- */
+async function saveBannerTheme(){
+  try{ await profileRef('hub-profiles','bannerTheme').set({json: JSON.stringify(state.bannerTheme)}); }catch(e){}
+}
+function bannerRandomPreset(list, excludeId){
+  if(!list.length) return null;
+  const pool = list.filter(p=>p.id!==excludeId);
+  return (pool.length ? pool : list)[Math.floor(Math.random()*(pool.length||list.length))];
+}
+let bannerRotateTimer = null;
+function bannerScheduleTimerRotation(){
+  if(bannerRotateTimer){ clearInterval(bannerRotateTimer); bannerRotateTimer=null; }
+  if(!state.bannerTheme || state.bannerTheme.rotateMode!=='timer') return;
+  const minutes = Math.max(1, Number(state.bannerTheme.rotateMinutes)||30);
+  bannerRotateTimer = setInterval(()=>{
+    const list = bannerPresetsFor(state.profile);
+    if(list.length>1) shuffleBannerNow();
+  }, minutes*60*1000);
+}
+// Applies 'visit'/'daily' rotation right as the Today page loads. Returns
+// the preset that should actually be shown (rotated or not).
+function applyBannerRotationOnLoad(list, preset){
+  const mode = state.bannerTheme.rotateMode;
+  if(list.length<2 || (mode!=='visit' && mode!=='daily')) return preset;
+  if(mode==='daily'){
+    const today = new Date().toDateString();
+    const lastDay = state.bannerTheme.lastRotatedAt ? new Date(state.bannerTheme.lastRotatedAt).toDateString() : null;
+    if(today===lastDay) return preset; // already rotated once today
+  }
+  const next = bannerRandomPreset(list, preset.id);
+  if(!next) return preset;
+  state.bannerTheme.active = next.id;
+  state.bannerTheme.lastRotatedAt = new Date().toISOString();
+  saveBannerTheme();
+  return next;
+}
 async function initTodayBanner(){
   if(!document.getElementById('today-banner')) return;
   await discoverCustomBanners();
@@ -227,18 +345,49 @@ async function initTodayBanner(){
   let preset = (saved && saved.active && bannerFind(saved.active) && bannerFind(saved.active).profile===state.profile)
     ? bannerFind(saved.active) : bannerDefaultFor(state.profile);
   if(!preset) preset = list[0];
-  state.bannerTheme = {active: preset.id};
+  state.bannerTheme = {
+    active: preset.id,
+    rotateMode: (saved && saved.rotateMode) || 'off',
+    rotateMinutes: (saved && saved.rotateMinutes) || 30,
+    lastRotatedAt: (saved && saved.lastRotatedAt) || null
+  };
+  preset = applyBannerRotationOnLoad(list, preset);
   bannerEngine.mount(preset);
   renderBannerGallery(); // in case Settings was opened before custom banners finished loading
+  renderBannerRotationControls();
+  bannerScheduleTimerRotation();
 }
 async function selectBannerPreset(id){
   const preset = bannerFind(id);
   if(!preset || preset.profile!==state.profile) return;
-  state.bannerTheme = {active: id};
+  state.bannerTheme = Object.assign({}, state.bannerTheme, {active: id});
   bannerEngine.mount(preset);
-  try{ await profileRef('hub-profiles','bannerTheme').set({json: JSON.stringify({active:id})}); }catch(e){}
+  await saveBannerTheme();
   renderBannerGallery();
   toast(preset.title+' set as your Today banner');
+}
+async function shuffleBannerNow(){
+  const list = bannerPresetsFor(state.profile);
+  if(list.length<2){ if(list.length===1) toast('Only one banner to choose from right now'); return; }
+  const next = bannerRandomPreset(list, state.bannerTheme && state.bannerTheme.active);
+  if(!next) return;
+  state.bannerTheme = Object.assign({}, state.bannerTheme, {active: next.id});
+  bannerEngine.mount(next);
+  await saveBannerTheme();
+  renderBannerGallery();
+  toast('Shuffled to '+next.title);
+}
+async function setBannerRotateMode(mode){
+  state.bannerTheme = Object.assign({}, state.bannerTheme, {rotateMode: mode});
+  await saveBannerTheme();
+  renderBannerRotationControls();
+  bannerScheduleTimerRotation();
+}
+async function setBannerRotateMinutes(minutes){
+  const n = Math.min(1440, Math.max(1, Math.round(Number(minutes))||30));
+  state.bannerTheme = Object.assign({}, state.bannerTheme, {rotateMinutes: n});
+  await saveBannerTheme();
+  bannerScheduleTimerRotation();
 }
 
 /* ---------------------------------------------------------------------
@@ -252,7 +401,7 @@ function renderBannerGallery(){
   const list = bannerPresetsFor(state.profile);
   const active = (state.bannerTheme && state.bannerTheme.active) || (bannerDefaultFor(state.profile)||{}).id;
   grid.innerHTML = list.map(p=>{
-    const thumbImg = p.thumb || p.image;
+    const thumbImg = p.thumb || p.image || p.carImg;
     const previewStyle = thumbImg
       ? 'background:linear-gradient(135deg,'+p.accent+','+p.bg+');background-image:linear-gradient(0deg,'+p.bg+'cc,transparent 60%),url(\''+thumbImg+'\');background-size:cover;background-position:center'
       : 'background:linear-gradient(135deg,'+p.accent+','+p.bg+')';
@@ -261,6 +410,15 @@ function renderBannerGallery(){
       '<strong>'+esc(p.title)+'</strong><small>'+esc(p.category)+'</small></button>';
   }).join('');
   if(window.lucide) lucide.createIcons();
+}
+function renderBannerRotationControls(){
+  const modeSel = document.getElementById('banner-rotate-mode');
+  const minutesRow = document.getElementById('banner-rotate-minutes-row');
+  const minutesInput = document.getElementById('banner-rotate-minutes');
+  if(!modeSel || !state.bannerTheme) return;
+  modeSel.value = state.bannerTheme.rotateMode || 'off';
+  if(minutesRow) minutesRow.hidden = modeSel.value!=='timer';
+  if(minutesInput) minutesInput.value = state.bannerTheme.rotateMinutes || 30;
 }
 let bannerGalleryWired = false;
 function wireBannerGallery(){
@@ -272,4 +430,14 @@ function wireBannerGallery(){
   });
   const replayBtn = document.getElementById('today-banner-replay');
   if(replayBtn) replayBtn.addEventListener('click', ()=>bannerEngine.replay());
+  const modeSel = document.getElementById('banner-rotate-mode');
+  if(modeSel) modeSel.addEventListener('change', e=>{
+    const minutesRow = document.getElementById('banner-rotate-minutes-row');
+    if(minutesRow) minutesRow.hidden = e.target.value!=='timer';
+    setBannerRotateMode(e.target.value);
+  });
+  const minutesInput = document.getElementById('banner-rotate-minutes');
+  if(minutesInput) minutesInput.addEventListener('change', e=>setBannerRotateMinutes(e.target.value));
+  const shuffleBtn = document.getElementById('banner-shuffle-now');
+  if(shuffleBtn) shuffleBtn.addEventListener('click', ()=>shuffleBannerNow());
 }
