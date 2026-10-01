@@ -348,7 +348,12 @@ const bannerEngine = {
     root.style.setProperty('--accent2', preset.accent2);
     root.style.setProperty('--ihbg', preset.bg);
     root.style.setProperty('--ihbg2', preset.bg2);
-    scene.className = 'ih-banner-scene scene-'+preset.scene;
+    // Anusha's custom photo banners should stay perfectly still (no entrance
+    // pop, no sweep shine) — only her original CSS motion scenes (goldenhour,
+    // florals, etc.) keep their motion. Bhargav's custom photo banners keep
+    // the smooth fade/settle entrance added alongside this.
+    const staticPhoto = preset.scene==='photo' && preset.profile==='Anusha';
+    scene.className = 'ih-banner-scene scene-'+preset.scene+(staticPhoto?' photo-static':'');
     const build = SCENE_BUILDERS[preset.scene];
     scene.innerHTML = build ? build(preset) : '';
     const moodEl = document.getElementById('today-banner-mood');
