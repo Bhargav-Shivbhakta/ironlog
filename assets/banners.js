@@ -90,7 +90,8 @@ const SCENE_BUILDERS = {
   // banners use (see discoverCustomBanners below): any preset with
   // scene:'photo' and an "image" field renders through here with no
   // code changes needed.
-  photo: (preset) => '<img class="photo-hero" src="'+esc(preset.image||'')+'" alt="" draggable="false" style="object-position:'+esc(preset.objectPosition||'center 55%')+'">'+
+  photo: (preset) => '<img class="photo-backdrop" src="'+esc(preset.image||'')+'" alt="" draggable="false">'+
+    '<img class="photo-hero" src="'+esc(preset.image||'')+'" alt="" draggable="false" style="object-position:'+esc(preset.objectPosition||'center')+'">'+
     '<div class="photo-overlay"></div><div class="photo-sweep"></div>',
 
   money: () => '<div class="money-glow"></div>' + bannerScatter(12,'money-bill',101,{minDur:3.6,maxDur:5.6,yMin:10,yMax:88}),

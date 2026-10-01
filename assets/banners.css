@@ -100,8 +100,15 @@
 .scene-showroom .showroom-sweep{position:absolute;inset:0;background:linear-gradient(100deg,transparent 40%,#ffffff14 50%,transparent 60%);transform:translateX(-120%);animation:ih-sweep 5s ease-in-out infinite}
 @media(max-width:820px){.scene-showroom .showroom-photo{object-position:62% 56%}.scene-showroom .showroom-overlay{background:linear-gradient(0deg,#000000e6 0%,#00000099 40%,#00000055 65%,#00000022 100%)}}
 
-/* ---------------- generic "photo" scene — used by custom/uploaded banners ---------------- */
-.scene-photo .photo-hero{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+/* ---------------- generic "photo" scene — used by custom/uploaded banners ----------------
+   The banner box is a wide, short letterbox (often 7-10:1), while uploaded photos are
+   typically ~2:1 and frame a subject that fills nearly the full height (e.g. a bull with
+   horns at the very top and hooves at the very bottom). A plain object-fit:cover with one
+   fixed crop position cropped off whatever didn't fit for most images. Instead: a blurred,
+   cover-fit backdrop fills the box edge-to-edge for color/mood, and the real photo sits on
+   top at object-fit:contain so the ENTIRE image is always visible, never cropped. */
+.scene-photo .photo-backdrop{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;filter:blur(22px) brightness(.5) saturate(1.15);transform:scale(1.2);opacity:.9}
+.scene-photo .photo-hero{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;object-position:center}
 .scene-photo .photo-overlay{position:absolute;inset:0;background:linear-gradient(100deg,#000000d9 0%,#00000099 32%,#00000022 58%,transparent 72%),linear-gradient(0deg,#000000c0 0%,transparent 42%)}
 .scene-photo .photo-sweep{position:absolute;inset:0;background:linear-gradient(100deg,transparent 40%,#ffffff14 50%,transparent 60%);transform:translateX(-120%);animation:ih-sweep 5s ease-in-out infinite}
 @media(max-width:820px){.scene-photo .photo-overlay{background:linear-gradient(0deg,#000000e6 0%,#00000099 40%,#00000055 65%,#00000022 100%)}}
