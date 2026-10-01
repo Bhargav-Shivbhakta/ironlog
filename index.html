@@ -13,6 +13,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="assets/app.css">
+  <link rel="stylesheet" href="assets/banners.css">
   <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
@@ -70,7 +71,23 @@
             <span><i data-lucide="wind"></i><b id="hub-weather-wind">-- mph</b></span>
           </div>
           <div class="hub-weather-hours" id="hub-weather-hours"></div>
-          <button type="button" class="hub-weather-place" id="hub-weather-place-btn" title="Use my location"><i data-lucide="map-pin"></i><span id="hub-weather-place">Default location</span></button>
+          <button type="button" class="hub-weather-place" id="hub-weather-place-btn" title="Change location"><i data-lucide="map-pin"></i><span id="hub-weather-place">Default location</span></button>
+
+          <!-- Second city — its own compact row, independent of the main
+               one above. Stays a plain "Add a city" prompt until someone
+               sets a location for it. -->
+          <div class="hub-weather-second-row" id="hub-weather-second-row">
+            <i data-lucide="plus-circle" class="hub-weather-second-icon" id="hub-weather-second-icon"></i>
+            <span class="hub-weather-second-temp" id="hub-weather-second-temp"></span>
+            <button type="button" class="hub-weather-second-place" id="hub-weather-second-place-btn"><span id="hub-weather-second-place">Add a second city</span></button>
+          </div>
+
+          <div class="hub-weather-location-editor" id="hub-weather-location-editor" hidden>
+            <button type="button" class="hub-weather-use-gps" id="hub-weather-use-gps"><i data-lucide="locate-fixed"></i><span>Use my location</span></button>
+            <input type="text" class="hub-weather-search-input" id="hub-weather-search-input" placeholder="Search a city…" autocomplete="off">
+            <div class="hub-weather-search-results" id="hub-weather-search-results"></div>
+            <button type="button" class="hub-weather-search-close" id="hub-weather-search-close">Cancel</button>
+          </div>
         </div>
       </div>
 
@@ -117,15 +134,30 @@
 
     <main class="main">
       <section class="page active" id="page-today" data-page="today">
-        <header class="page-header today-header">
-          <div><p class="eyebrow" id="today-date">Today</p><h1 id="today-greeting">Good morning</h1><p class="page-subtitle" id="today-summary">Loading your day…</p></div>
-          <button class="button primary" id="quick-add-open" type="button"><i data-lucide="plus"></i><span>Quick add</span></button>
-        </header>
-        <div class="status-strip" aria-label="Today's progress">
-          <div><span class="status-value" id="stat-next">—</span><span class="status-label">Next event</span></div>
-          <div><span class="status-value" id="stat-tasks">0</span><span class="status-label">Tasks remaining</span></div>
-          <div><span class="status-value" id="stat-focus">0h</span><span class="status-label">Planned time</span></div>
-        </div>
+        <!-- Live Today banner — see assets/banners.js (BANNER_PRESETS,
+             bannerEngine) for the preset data and renderer. The eyebrow/
+             title/summary/stats ids below are unchanged from the old
+             plain header, so renderDashboard() in app.js needs no
+             changes to keep them updated. -->
+        <section class="ih-banner" id="today-banner" aria-label="Today banner">
+          <div class="ih-banner-scene" id="today-banner-scene" aria-hidden="true"></div>
+          <div class="ih-banner-top">
+            <div class="ih-copy">
+              <p class="eyebrow" id="today-date">Today</p>
+              <h1 id="today-greeting">Good morning</h1>
+              <p class="ih-summary"><span id="today-summary">Loading your day…</span><span class="ih-live-dot" aria-hidden="true"></span></p>
+            </div>
+            <div class="ih-banner-actions">
+              <button class="icon-button" id="today-banner-replay" type="button" title="Replay banner animation" aria-label="Replay banner animation"><i data-lucide="rotate-cw"></i></button>
+              <button class="quick-add" id="quick-add-open" type="button"><span>+</span>Quick add</button>
+            </div>
+          </div>
+          <div class="ih-stat-strip" aria-label="Today's progress">
+            <div><span class="ih-stat-value" id="stat-next">—</span><span class="ih-stat-label">Next event</span></div>
+            <div><span class="ih-stat-value" id="stat-tasks">0</span><span class="ih-stat-label">Tasks remaining</span></div>
+            <div><span class="ih-stat-value" id="stat-focus">0h</span><span class="ih-stat-label">Planned time</span></div>
+          </div>
+        </section>
 
         <!-- Widget board — everything below the status strip is now a
              movable/resizable widget, not a fixed layout. Drag a widget's
@@ -273,6 +305,12 @@
         </section>
 
         <section class="surface settings-card">
+          <div class="section-head with-icon"><span class="section-head-icon"><i data-lucide="flame"></i></span><div><p class="section-kicker">Today page</p><h2>Banner</h2></div></div>
+          <p class="settings-hint">Your own animated Today banner — picking one here only changes yours, never the other profile's. Click a banner to activate it and replay its animation.</p>
+          <div class="banner-gallery" id="banner-gallery"></div>
+        </section>
+
+        <section class="surface settings-card">
           <div class="section-head with-icon"><span class="section-head-icon"><i data-lucide="layout-grid"></i></span><div><p class="section-kicker">Appearance</p><h2>App icons</h2></div></div>
           <p class="settings-hint">Each app's icon now follows the active theme automatically. Tap any app below to pick a different icon, or upload your own image.</p>
           <div class="app-icon-grid" id="settings-app-icons"></div>
@@ -378,6 +416,7 @@
     </div>
   </div>
 
+  <script src="assets/banners.js"></script>
   <script src="assets/app.js"></script>
 </body>
 </html>

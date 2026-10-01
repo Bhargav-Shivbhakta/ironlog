@@ -109,21 +109,25 @@ html.wallpaper-live{background-size:250% 250%;animation:wallpaper-drift 24s ease
 .widget-card-link:hover{color:var(--text)}
 .widget-card-link svg{width:12px;height:12px}
 .widget-board-empty{grid-column:1/-1;padding:44px 20px;text-align:center;color:var(--muted);border:1.5px dashed var(--line);border-radius:var(--radius)}
-/* Photo widget — a little self-contained gallery: a framed image plus a
-   row of controls, sized to fill whatever height/width the widget card
-   has been freely resized to (see the free-form widget board above). */
-.photo-widget{height:100%;display:flex;flex-direction:column;gap:10px}
-.photo-widget-frame{flex:1;min-height:60px;border-radius:12px;overflow:hidden;background:var(--surface-soft);border:1px solid var(--line)}
+/* Photo widget — "bare" (see .widget-card-bare below): no card border, no
+   title bar, no padding, so the photo itself fills the whole tile edge to
+   edge instead of sitting in a bordered box. Controls float as a small
+   translucent bar over the bottom of the image itself, like a real photo
+   viewer, rather than living below it in the app's own surface color. */
+.widget-card-bare{background:transparent;border:0;padding:0;box-shadow:none;animation:card-in .4s cubic-bezier(.16,1,.3,1) both}
+.widget-drag-handle-bare{position:absolute;top:8px;left:8px;z-index:6;background:rgba(0,0,0,.45);color:#fff;border-radius:8px;padding:6px;backdrop-filter:blur(4px)}
+.photo-widget{position:relative;height:100%;border-radius:var(--radius);overflow:hidden;background:var(--surface-soft)}
+.photo-widget-frame{position:absolute;inset:0}
 .photo-widget-frame img{width:100%;height:100%;object-fit:cover;display:block;animation:photo-fade-in .35s ease both}
 @keyframes photo-fade-in{from{opacity:0}to{opacity:1}}
-.photo-widget-controls{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
-.photo-widget-controls .icon-button{width:32px;height:32px;border-radius:9px;color:var(--muted)}
-.photo-widget-controls .icon-button svg{width:15px;height:15px}
-.photo-widget-controls .icon-button:hover{border-color:var(--accent);color:var(--accent-ink)}
-.photo-widget-controls .icon-button.active{border-color:var(--accent);background:var(--accent-soft);color:var(--accent-ink)}
+.photo-widget-controls{position:absolute;left:0;right:0;bottom:0;display:flex;align-items:center;gap:4px;flex-wrap:wrap;padding:8px;background:linear-gradient(to top,rgba(0,0,0,.55),rgba(0,0,0,0))}
+.photo-widget-controls .icon-button{width:28px;height:28px;border-radius:8px;border:0;background:rgba(255,255,255,.14);color:#fff;backdrop-filter:blur(3px)}
+.photo-widget-controls .icon-button svg{width:14px;height:14px}
+.photo-widget-controls .icon-button:hover{background:rgba(255,255,255,.28)}
+.photo-widget-controls .icon-button.active{background:#fff;color:#111}
 .photo-widget-controls .icon-button:disabled{opacity:.4;pointer-events:none}
-.photo-widget-count{font-size:11px;color:var(--muted);font-variant-numeric:tabular-nums;margin:0 auto 0 2px}
-.photo-widget .empty-state{display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;gap:10px;text-align:center}
+.photo-widget-count{font-size:10.5px;color:#fff;font-variant-numeric:tabular-nums;margin:0 auto 0 2px;text-shadow:0 1px 3px rgba(0,0,0,.4)}
+.photo-widget .empty-state{display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;gap:10px;text-align:center;border:1.5px dashed var(--line);border-radius:var(--radius)}
 .photo-widget-add-empty{align-self:center}
 @media(max-width:900px){
   /* Fewer visual columns, but still the same fine --cs unit underneath —
@@ -199,6 +203,30 @@ html.wallpaper-live{background-size:250% 250%;animation:wallpaper-drift 24s ease
 .hub-weather-place{margin-top:11px;width:100%;display:flex;align-items:center;justify-content:center;gap:6px;border:1px solid #2c2c27;background:transparent;border-radius:8px;padding:6px 8px;color:#8a8a82;font-size:9.5px;font-weight:600}
 .hub-weather-place:hover{border-color:#42423a;color:#c4c4bc}
 .hub-weather-place svg{width:12px;height:12px}
+/* Second city — a compact row of its own, same dark sidebar palette as
+   everything else in this widget. Just a place button until a location
+   is set for it. */
+.hub-weather-second-row{margin-top:8px;padding-top:8px;border-top:1px solid #2c2c27;display:flex;align-items:center;gap:8px}
+.hub-weather-second-icon{width:18px;height:18px;color:var(--accent);flex:none}
+.hub-weather-second-temp{font-size:13px;font-weight:700;color:#f7f7f2;font-variant-numeric:tabular-nums;flex:none;min-width:22px}
+.hub-weather-second-place{flex:1;min-width:0;border:0;background:transparent;padding:0;color:#9a9a92;font-size:10.5px;font-weight:600;text-align:left;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.hub-weather-second-place:hover{color:#c4c4bc}
+/* Location editor — a small popover-like panel, used by both the primary
+   and second-city "place" buttons (whichever was clicked sets
+   weatherEditingSlot). */
+.hub-weather-location-editor{margin-top:10px;padding-top:10px;border-top:1px solid #2c2c27;display:flex;flex-direction:column;gap:7px}
+.hub-weather-use-gps{display:flex;align-items:center;gap:7px;border:1px solid #2c2c27;background:transparent;border-radius:8px;padding:7px 9px;color:#c4c4bc;font-size:11px;font-weight:600;width:100%}
+.hub-weather-use-gps:hover{border-color:#42423a}
+.hub-weather-use-gps svg{width:13px;height:13px;color:var(--accent)}
+.hub-weather-search-input{width:100%;border:1px solid #2c2c27;background:#131311;border-radius:8px;padding:7px 9px;color:#f2f2ee;font-size:11.5px}
+.hub-weather-search-input::placeholder{color:#6f6f66}
+.hub-weather-search-input:focus{outline:0;border-color:var(--accent)}
+.hub-weather-search-results{display:flex;flex-direction:column;gap:2px;max-height:140px;overflow-y:auto}
+.hub-weather-search-result{display:block;width:100%;text-align:left;border:0;background:transparent;border-radius:6px;padding:6px 7px;color:#c4c4bc;font-size:11px}
+.hub-weather-search-result:hover{background:#242420}
+.hub-weather-search-empty{margin:2px 0;color:#6f6f66;font-size:10.5px}
+.hub-weather-search-close{border:0;background:transparent;color:#6f6f66;font-size:10.5px;font-weight:600;padding:2px 0;text-align:left}
+.hub-weather-search-close:hover{color:#9a9a92}
 .app-shell.sidebar-collapsed .hub-weather{display:none}
 
 /* ===== Category app-grid (dynamically discovered apps) ===== */
@@ -226,9 +254,11 @@ html.wallpaper-live{background-size:250% 250%;animation:wallpaper-drift 24s ease
 
 /* ===== Chores widget on Today ===== */
 .chores-mini-list{display:grid;gap:2px}
-.chores-mini-row{display:flex;justify-content:space-between;align-items:center;padding:9px 0;border-bottom:1px solid var(--line);font-size:12.5px}
+.chores-mini-row{display:grid;grid-template-columns:22px 1fr;gap:10px;align-items:start;padding:9px 0;border-bottom:1px solid var(--line);font-size:12.5px}
 .chores-mini-row:last-child{border-bottom:0}
-.chores-mini-row.overdue{color:var(--danger)}
+.chores-mini-row.overdue .chores-mini-copy small{color:var(--danger)}
+.chores-mini-copy strong{display:block;font-size:12.5px;font-weight:500;line-height:1.35}
+.chores-mini-copy small{display:block;color:var(--muted);font-size:11px;margin-top:2px}
 
 /* ===== Insights — "mission control" redesign =====
    Scoped to .insights-cinema so the rest of the Hub stays in its usual

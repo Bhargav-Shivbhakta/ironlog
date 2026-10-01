@@ -410,7 +410,7 @@ async function loadDashboard(){
   // same way the original hub always special-cased it.
   const appsWithGym = [{ file:'gym.html', path:'gym/index.html', title:'Gym', icon:'tile-icons/gym.png' }].concat(apps.map(a => ({...a, path:'apps/'+a.file})));
   Object.assign(state,{templates,events,personalTasks:personal,sharedTasks:shared,chores,choreHistory,dailyLog,apps:appsWithGym});
-  renderDashboard();renderAllCategoryPages();startHubClock();initHubWeather();startTimelineAutoAdvance();wireWidgetModal();setGate(null);
+  renderDashboard();renderAllCategoryPages();startHubClock();initHubWeather();startTimelineAutoAdvance();wireWidgetModal();initTodayBanner();wireBannerGallery();setGate(null);
   // A reload used to always drop you back at the Hub even if you had an
   // app open in the viewer, because nothing recorded "which app" anywhere
   // durable — the iframe's contents live only in memory. openAppFrame now
@@ -507,6 +507,11 @@ function renderTimelineInto(el,items){
   const pastCount=curIdx>=0?curIdx:0;
   const toggleHtml=pastCount>0?('<div class="timeline-toggle-row" id="timeline-toggle-row"><span class="timeline-time"></span><span></span><span class="timeline-content"><button type="button" class="timeline-toggle-link" id="timeline-toggle-btn">'+(timelineShowPast?'Hide earlier':pastCount+' earlier today · Show')+'</button></span></div>'):'';
   el.innerHTML=toggleHtml+items.map((x,i)=>'<div class="timeline-row '+(x.kind==='event'?'':'muted')+(i===curIdx?' current':i<curIdx?' past':'')+'" data-tl-row="'+i+'"><span class="timeline-time">'+esc(time12(x.time))+'</span><span class="timeline-dot"></span><span class="timeline-content"><strong>'+esc(x.title)+'</strong><small>'+(x.end?esc(time12(x.time)+' – '+time12(x.end)):(x.notes?esc(x.notes):x.kind==='event'?'Event':'Routine'))+'</small></span></div>').join('');
+  // .timeline is the base class the row/toggle CSS above is actually
+  // written against (the connecting line, the .show-past reveal rule) —
+  // el is just the widget card's generic body div, so without this the
+  // "Show" toggle had nothing to hook into and silently did nothing.
+  el.classList.add('timeline');
   el.classList.toggle('show-past', timelineShowPast);
   const toggleBtn=$('timeline-toggle-btn');
   if(toggleBtn) toggleBtn.addEventListener('click', ()=>{ timelineShowPast=!timelineShowPast; renderTimelineInto(el,items); });
@@ -531,14 +536,45 @@ function startTimelineAutoAdvance(){
 }
 function renderTasksInto(el,items){
   if(!el)return;
-  if(!items.length){el.innerHTML='<div class="empty-state"><strong>You are caught up</strong>No open tasks are due today.</div>';return}
-  el.innerHTML=items.map(t=>'<div class="task-row" data-task-id="'+esc(t.id)+'"><button class="task-check" type="button" aria-label="Complete '+esc(t.title)+'"><i data-lucide="check"></i></button><span class="task-copy"><strong>'+esc(t.title)+'</strong><small>'+(t._shared?'Shared':esc(t.listId||'Personal'))+(t.dueTime?' · '+esc(time12(t.dueTime)):'')+'</small></span>'+(t.priority?'<span class="priority-mark">'+(t.priority>1?'Urgent':'Important')+'</span>':'')+'</div>').join('');
-  lucide.createIcons();el.querySelectorAll('.task-check').forEach(btn=>btn.addEventListener('click',()=>completeTask(btn.closest('.task-row').dataset.taskId)));
+  const openLink='<a class="widget-card-link" href="apps/todo.html" data-profile-link>Open Priorities <i data-lucide="arrow-up-right"></i></a>';
+  if(!items.length){el.innerHTML='<div class="empty-state"><strong>You are caught up</strong>No open tasks are due today.</div>'+openLink;updateProfileLinks();if(window.lucide)lucide.createIcons();return}
+  el.innerHTML=items.map(t=>'<div class="task-row" data-task-id="'+esc(t.id)+'"><button class="task-check" type="button" aria-label="Complete '+esc(t.title)+'"><i data-lucide="check"></i></button><span class="task-copy"><strong>'+esc(t.title)+'</strong><small>'+(t._shared?'Shared':esc(t.listId||'Personal'))+(t.dueTime?' · '+esc(time12(t.dueTime)):'')+'</small></span>'+(t.priority?'<span class="priority-mark">'+(t.priority>1?'Urgent':'Important')+'</span>':'')+'</div>').join('')+openLink;
+  updateProfileLinks();lucide.createIcons();el.querySelectorAll('.task-check').forEach(btn=>btn.addEventListener('click',()=>completeTask(btn.closest('.task-row').dataset.taskId)));
+}
+async function completeChoreFromWidget(choreId,el){
+  const chore=state.chores.find(c=>c.id===choreId);
+  if(!chore)return;
+  const date=today();
+  // A lighter version of what apps/chores.html's own completeChore() does
+  // — marks it done and logs it to the exact same history doc the Chores
+  // app reads, so it shows up there too. What it deliberately skips:
+  // rotation-member cycling and writing the completion back into the
+  // Schedule for chores linked to a routine block — both edge-case
+  // features that need the full Chores app to do correctly, so a chore
+  // that uses either is still best finished from there.
+  chore.lastCompleted=date;
+  chore.snoozedUntil=null;
+  state.choreHistory.unshift({id:'log-'+Date.now(),date,task:chore.name,by:state.profile,rating:null,notes:null,recordedBy:state.profile});
+  try{
+    await appRef('chores','chores').set({json:JSON.stringify(state.chores)});
+    await appRef('chores','history').set({json:JSON.stringify(state.choreHistory)});
+  }catch(e){console.warn(e)}
+  toast('Marked "'+chore.name+'" done');
+  renderChoresListInto(el,choresDueToday());
 }
 function renderChoresListInto(el,chores){
   if(!el)return;
-  if(!chores.length){ el.innerHTML='<div class="empty-state"><strong>Nothing due</strong>No chores need attention today.</div>'; return; }
-  el.innerHTML = chores.map(c => '<div class="chores-mini-row'+(c.overdue?' overdue':'')+'"><span>'+esc(c.name)+'</span><span>'+(c.overdue?'Overdue':'Due today')+'</span></div>').join('');
+  const openLink='<a class="widget-card-link" href="apps/chores.html" data-profile-link>Open Chores <i data-lucide="arrow-up-right"></i></a>';
+  if(!chores.length){ el.innerHTML='<div class="empty-state"><strong>Nothing due</strong>No chores need attention today.</div>'+openLink; updateProfileLinks(); if(window.lucide)lucide.createIcons(); return; }
+  el.innerHTML = '<div class="chores-mini-list">'+chores.map(c =>
+    '<div class="chores-mini-row'+(c.overdue?' overdue':'')+'" data-chore-id="'+esc(c.id)+'">'+
+      '<button type="button" class="task-check chores-mini-check" aria-label="Mark '+esc(c.name)+' done" title="Mark done"><i data-lucide="check"></i></button>'+
+      '<span class="chores-mini-copy"><strong>'+esc(c.name)+'</strong><small>'+(c.overdue?'Overdue':'Due today')+'</small></span>'+
+    '</div>'
+  ).join('')+'</div>'+openLink;
+  updateProfileLinks();
+  if(window.lucide)lucide.createIcons();
+  el.querySelectorAll('.chores-mini-check').forEach(btn=>btn.addEventListener('click',()=>completeChoreFromWidget(btn.closest('[data-chore-id]').dataset.choreId,el)));
 }
 
 /* =====================================================================
@@ -637,7 +673,7 @@ const WIDGET_TYPES={
         updateProfileLinks();if(window.lucide)lucide.createIcons();
       }catch(e){el.innerHTML='<div class="empty-state"><strong>Unavailable</strong>Could not load the grocery list.</div>'}
     }},
-  photos:{title:'Photo widget',icon:'image',desc:'Your own little rotating gallery — add a batch of photos, shuffle them, or let it play on its own.',defaultSize:'lg',
+  photos:{title:'Photo widget',icon:'image',desc:'Your own little rotating gallery — add a batch of photos, shuffle them, or let it play on its own.',defaultSize:'lg',bare:true,
     render(el){renderPhotoWidgetInto(el)}}
 };
 /* ---- Photo widget: a small self-contained gallery, its own upload +
@@ -767,11 +803,17 @@ function renderWidgetBoard(){
   board.innerHTML=state.widgets.map(w=>{
     const def=WIDGET_TYPES[w.type];if(!def)return'';
     const [cs,rs]=widgetSpanFor(w,def);
-    return '<div class="widget-card" data-widget-id="'+esc(w.id)+'" data-widget-type="'+esc(w.type)+'" style="--cs:'+cs+';--rs:'+rs+'">'+
+    // "Bare" widgets (currently just the photo widget) skip the usual
+    // card chrome — no title bar, no border/background/padding — so the
+    // content can fill the whole tile edge to edge. The drag handle still
+    // has to exist somewhere (wireWidgetCard binds to it unconditionally),
+    // so it becomes a small floating pill instead of living in a title bar.
+    const bare=!!def.bare;
+    return '<div class="widget-card'+(bare?' widget-card-bare':'')+'" data-widget-id="'+esc(w.id)+'" data-widget-type="'+esc(w.type)+'" style="--cs:'+cs+';--rs:'+rs+'">'+
       '<button type="button" class="widget-remove-badge" data-widget-remove title="Remove widget" tabindex="-1"><i data-lucide="minus"></i></button>'+
-      '<div class="widget-card-head">'+
-        '<div class="widget-card-title"><span class="widget-drag-handle" data-widget-drag title="Drag to move"><i data-lucide="grip-vertical"></i></span><strong>'+esc(def.title)+'</strong></div>'+
-      '</div>'+
+      (bare
+        ?'<span class="widget-drag-handle widget-drag-handle-bare" data-widget-drag title="Drag to move"><i data-lucide="grip-vertical"></i></span>'
+        :'<div class="widget-card-head"><div class="widget-card-title"><span class="widget-drag-handle" data-widget-drag title="Drag to move"><i data-lucide="grip-vertical"></i></span><strong>'+esc(def.title)+'</strong></div></div>')+
       '<div class="widget-card-body"></div>'+
       '<span class="widget-resize-handle" data-widget-resize title="Drag to resize" tabindex="-1"><i data-lucide="move-diagonal-2"></i></span>'+
     '</div>';
@@ -1610,6 +1652,7 @@ function renderSettingsPage(){
         '<span class="app-icon">'+appIconHtml(a.file)+'</span><strong>'+esc(a.title)+'</strong><small>Change</small></button>';
     }).join('');
   }
+  renderBannerGallery();
   if(window.lucide)lucide.createIcons();
   wireSettingsEvents();
 }
@@ -1863,6 +1906,15 @@ function startHubClock(){
 const WEATHER_CACHE_KEY='hub-weather-cache-v1';
 const WEATHER_TTL_MS=20*60*1000;
 const WEATHER_FALLBACK={lat:32.7157,lon:-117.1611,label:'San Diego, CA'}; // used only if geolocation is denied/unavailable
+const WEATHER_GEOCODE_URL='https://geocoding-api.open-meteo.com/v1/search';
+// Two independent "slots" — slot 0 is the main widget (defaults to
+// wherever you are, same as before), slot 1 is an optional second city.
+// null means "auto" for slot 0 (GPS, falling back to WEATHER_FALLBACK);
+// for slot 1 it just means nothing's been added yet. Saved per profile so
+// each of you can pin your own pair of cities.
+let weatherSlots=[null,null];
+let weatherEditingSlot=0;
+function weatherCacheKey(slot){ return WEATHER_CACHE_KEY+(slot?'-2':''); }
 const WEATHER_CODES={
   0:['sun','Clear sky'],1:['sun','Mostly clear'],2:['cloud-sun','Partly cloudy'],3:['cloud','Overcast'],
   45:['cloud-fog','Foggy'],48:['cloud-fog','Freezing fog'],
@@ -1908,30 +1960,80 @@ function renderWeather(data,label){
   $('hub-weather-detail').hidden=false;
   if(window.lucide)lucide.createIcons();
 }
+function renderWeatherSecond(data,label){
+  const icon=$('hub-weather-second-icon');if(!icon)return;
+  icon.setAttribute('data-lucide',weatherIconFor(data.current.weather_code));
+  $('hub-weather-second-temp').textContent=Math.round(data.current.temperature_2m)+'°';
+  $('hub-weather-second-place').textContent=label;
+  if(window.lucide)lucide.createIcons();
+}
 function weatherError(){
   const icon=$('hub-weather-icon');
   if(icon){icon.classList.remove('spin');icon.setAttribute('data-lucide','cloud-off');if(window.lucide)lucide.createIcons()}
   const cond=$('hub-weather-cond');if(cond)cond.textContent='Weather unavailable';
 }
-async function loadWeatherFor(lat,lon,label,skipCache){
+function weatherErrorSecond(){
+  const place=$('hub-weather-second-place');if(place)place.textContent='Unavailable';
+  const icon=$('hub-weather-second-icon');if(icon){icon.setAttribute('data-lucide','cloud-off');if(window.lucide)lucide.createIcons()}
+}
+async function loadWeatherFor(lat,lon,label,skipCache,slot){
+  slot=slot||0;
   try{
+    const key=weatherCacheKey(slot);
     if(!skipCache){
-      const cached=safeJson(localStorage.getItem(WEATHER_CACHE_KEY),null);
-      if(cached && cached.lat===lat && cached.lon===lon && (Date.now()-cached.at)<WEATHER_TTL_MS){renderWeather(cached.data,label);return}
+      const cached=safeJson(localStorage.getItem(key),null);
+      if(cached && cached.lat===lat && cached.lon===lon && (Date.now()-cached.at)<WEATHER_TTL_MS){(slot?renderWeatherSecond:renderWeather)(cached.data,label);return}
     }
     const data=await fetchWeather(lat,lon);
-    localStorage.setItem(WEATHER_CACHE_KEY,JSON.stringify({lat,lon,at:Date.now(),data}));
-    renderWeather(data,label);
-  }catch(e){console.warn('weather',e);weatherError()}
+    localStorage.setItem(key,JSON.stringify({lat,lon,at:Date.now(),data}));
+    (slot?renderWeatherSecond:renderWeather)(data,label);
+  }catch(e){console.warn('weather',e);(slot?weatherErrorSecond:weatherError)()}
 }
-function requestPreciseWeather(){
-  const icon=$('hub-weather-icon');if(icon){icon.setAttribute('data-lucide','loader-circle');icon.classList.add('spin');if(window.lucide)lucide.createIcons()}
-  if(!navigator.geolocation){loadWeatherFor(WEATHER_FALLBACK.lat,WEATHER_FALLBACK.lon,WEATHER_FALLBACK.label,true);return}
+async function saveWeatherSlots(){ try{ await profileRef('hub-profiles','weather').set({json:JSON.stringify({slots:weatherSlots})}); }catch(e){} }
+function openWeatherLocationEditor(slot){
+  weatherEditingSlot=slot;
+  $('hub-weather-location-editor').hidden=false;
+  $('hub-weather-search-input').value='';
+  $('hub-weather-search-results').innerHTML='';
+  $('hub-weather-search-input').focus();
+}
+function closeWeatherLocationEditor(){ $('hub-weather-location-editor').hidden=true; }
+function useGpsForSlot(slot){
+  if(!navigator.geolocation){closeWeatherLocationEditor();return}
+  if(slot===0){const icon=$('hub-weather-icon');icon.setAttribute('data-lucide','loader-circle');icon.classList.add('spin');if(window.lucide)lucide.createIcons();}
   navigator.geolocation.getCurrentPosition(
-    pos=>loadWeatherFor(Number(pos.coords.latitude.toFixed(3)),Number(pos.coords.longitude.toFixed(3)),'Your location',true),
-    ()=>loadWeatherFor(WEATHER_FALLBACK.lat,WEATHER_FALLBACK.lon,WEATHER_FALLBACK.label,true),
-    {timeout:8000,maximumAge:600000}
+    pos=>{
+      weatherSlots[slot]=null; // null = auto/GPS going forward, same as the original default behavior
+      saveWeatherSlots();
+      loadWeatherFor(Number(pos.coords.latitude.toFixed(3)),Number(pos.coords.longitude.toFixed(3)),'Your location',true,slot);
+      closeWeatherLocationEditor();
+    },
+    ()=>{ loadWeatherFor(WEATHER_FALLBACK.lat,WEATHER_FALLBACK.lon,WEATHER_FALLBACK.label,true,slot); closeWeatherLocationEditor(); },
+    {timeout:8000,maximumAge:0}
   );
+}
+let weatherSearchTimer=null;
+async function geocodeCitySearch(q){
+  const resultsEl=$('hub-weather-search-results');if(!resultsEl)return;
+  if(!q||q.trim().length<2){resultsEl.innerHTML='';return}
+  resultsEl.innerHTML='<p class="hub-weather-search-empty">Searching…</p>';
+  try{
+    const res=await fetch(WEATHER_GEOCODE_URL+'?name='+encodeURIComponent(q.trim())+'&count=6&language=en&format=json');
+    if(!res.ok)throw new Error('geocode failed');
+    const data=await res.json();
+    const results=data.results||[];
+    if(!results.length){resultsEl.innerHTML='<p class="hub-weather-search-empty">No matches</p>';return}
+    resultsEl.innerHTML=results.map(r=>{
+      const label=[r.name,r.admin1,r.country].filter(Boolean).join(', ');
+      return '<button type="button" class="hub-weather-search-result" data-lat="'+r.latitude+'" data-lon="'+r.longitude+'" data-label="'+esc(label)+'">'+esc(label)+'</button>';
+    }).join('');
+  }catch(e){ resultsEl.innerHTML='<p class="hub-weather-search-empty">Search unavailable right now</p>'; }
+}
+function setWeatherSlotLocation(slot,lat,lon,label){
+  weatherSlots[slot]={lat,lon,label};
+  saveWeatherSlots();
+  loadWeatherFor(lat,lon,label,true,slot);
+  closeWeatherLocationEditor();
 }
 // Collapsed by default (it was overwhelming the sidebar above the nav) —
 // remembers the person's choice across visits via localStorage.
@@ -1942,19 +2044,60 @@ function hubWeatherSetCollapsed(collapsed){
   if(btn) btn.setAttribute('aria-expanded', collapsed?'false':'true');
   try{ localStorage.setItem('hub-weather-collapsed', collapsed?'1':'0'); }catch(e){}
 }
-function initHubWeather(){
+let weatherWired=false,weatherIntervalStarted=false;
+function wireHubWeatherOnce(){
+  if(weatherWired)return;weatherWired=true;
+  $('hub-weather-toggle').addEventListener('click',()=>{ hubWeatherSetCollapsed(!$('hub-weather').classList.contains('is-collapsed')); });
+  $('hub-weather-place-btn').addEventListener('click',e=>{ e.stopPropagation(); openWeatherLocationEditor(0); });
+  $('hub-weather-second-place-btn').addEventListener('click',e=>{ e.stopPropagation(); openWeatherLocationEditor(1); });
+  $('hub-weather-use-gps').addEventListener('click',e=>{ e.stopPropagation(); useGpsForSlot(weatherEditingSlot); });
+  $('hub-weather-search-close').addEventListener('click',e=>{ e.stopPropagation(); closeWeatherLocationEditor(); });
+  $('hub-weather-search-input').addEventListener('click',e=>e.stopPropagation());
+  $('hub-weather-search-input').addEventListener('input',e=>{
+    clearTimeout(weatherSearchTimer);
+    const q=e.target.value;
+    weatherSearchTimer=setTimeout(()=>geocodeCitySearch(q),350);
+  });
+  $('hub-weather-search-results').addEventListener('click',e=>{
+    e.stopPropagation();
+    const btn=e.target.closest('[data-lat]');if(!btn)return;
+    setWeatherSlotLocation(weatherEditingSlot,Number(btn.dataset.lat),Number(btn.dataset.lon),btn.dataset.label);
+  });
+}
+async function initHubWeather(){
   if(!$('hub-weather'))return;
   const savedCollapsed=(function(){ try{ const v=localStorage.getItem('hub-weather-collapsed'); return v===null?true:v==='1'; }catch(e){ return true; } })();
   hubWeatherSetCollapsed(savedCollapsed);
-  $('hub-weather-toggle').addEventListener('click',()=>{ hubWeatherSetCollapsed(!$('hub-weather').classList.contains('is-collapsed')); });
-  $('hub-weather-place-btn').addEventListener('click',e=>{ e.stopPropagation(); requestPreciseWeather(); });
-  if(!navigator.geolocation){loadWeatherFor(WEATHER_FALLBACK.lat,WEATHER_FALLBACK.lon,WEATHER_FALLBACK.label);return}
-  navigator.geolocation.getCurrentPosition(
-    pos=>loadWeatherFor(Number(pos.coords.latitude.toFixed(3)),Number(pos.coords.longitude.toFixed(3)),'Your location'),
-    ()=>loadWeatherFor(WEATHER_FALLBACK.lat,WEATHER_FALLBACK.lon,WEATHER_FALLBACK.label),
-    {timeout:8000,maximumAge:600000}
-  );
-  setInterval(()=>{const cached=safeJson(localStorage.getItem(WEATHER_CACHE_KEY),null);if(cached)loadWeatherFor(cached.lat,cached.lon,$('hub-weather-place').textContent,true)},WEATHER_TTL_MS);
+  wireHubWeatherOnce();
+  // Per-profile: each of you can pin your own pair of cities, same as the
+  // theme/icons/photos personalization above.
+  const saved=await readJson(profileRef('hub-profiles','weather'), null);
+  weatherSlots=(saved&&Array.isArray(saved.slots))?[saved.slots[0]||null,saved.slots[1]||null]:[null,null];
+
+  if(weatherSlots[0]){
+    loadWeatherFor(weatherSlots[0].lat,weatherSlots[0].lon,weatherSlots[0].label,false,0);
+  }else if(!navigator.geolocation){
+    loadWeatherFor(WEATHER_FALLBACK.lat,WEATHER_FALLBACK.lon,WEATHER_FALLBACK.label,false,0);
+  }else{
+    navigator.geolocation.getCurrentPosition(
+      pos=>loadWeatherFor(Number(pos.coords.latitude.toFixed(3)),Number(pos.coords.longitude.toFixed(3)),'Your location',false,0),
+      ()=>loadWeatherFor(WEATHER_FALLBACK.lat,WEATHER_FALLBACK.lon,WEATHER_FALLBACK.label,false,0),
+      {timeout:8000,maximumAge:600000}
+    );
+  }
+  if(weatherSlots[1]){
+    loadWeatherFor(weatherSlots[1].lat,weatherSlots[1].lon,weatherSlots[1].label,false,1);
+  }else{
+    $('hub-weather-second-place').textContent='Add a second city';
+    $('hub-weather-second-temp').textContent='';
+  }
+  if(!weatherIntervalStarted){
+    weatherIntervalStarted=true;
+    setInterval(()=>{
+      const c0=safeJson(localStorage.getItem(weatherCacheKey(0)),null);if(c0)loadWeatherFor(c0.lat,c0.lon,$('hub-weather-place').textContent,true,0);
+      const c1=safeJson(localStorage.getItem(weatherCacheKey(1)),null);if(c1)loadWeatherFor(c1.lat,c1.lon,$('hub-weather-second-place').textContent,true,1);
+    },WEATHER_TTL_MS);
+  }
 }
 
 /* =====================================================================
