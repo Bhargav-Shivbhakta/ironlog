@@ -86,13 +86,6 @@ const SCENE_BUILDERS = {
   showroom: () => '<img class="showroom-photo" src="assets/banners/porsche-showroom.jpg" alt="" draggable="false">'+
     '<div class="showroom-overlay"></div><div class="showroom-sweep"></div>',
 
-  // Generic full-bleed photo scene — this is what custom/uploaded JSON
-  // banners use (see discoverCustomBanners below): any preset with
-  // scene:'photo' and an "image" field renders through here with no
-  // code changes needed.
-  photo: (preset) => '<img class="photo-hero" src="'+esc(preset.image||'')+'" alt="" draggable="false" style="object-position:'+esc(preset.objectPosition||'center')+'">'+
-    '<div class="photo-overlay"></div><div class="photo-sweep"></div>',
-
   money: () => '<div class="money-glow"></div>' + bannerScatter(12,'money-bill',101,{minDur:3.6,maxDur:5.6,yMin:10,yMax:88}),
 
   cigar: () => '<div class="cigar-glass"></div><div class="cigar-glint"></div>' + bannerScatter(6,'smoke-curl',202,{minDur:4.5,maxDur:7,xMin:30,xMax:85,yMin:5,yMax:70}),
@@ -226,107 +219,7 @@ const BANNER_PRESETS_ARCHIVED = [
    accent:'#8fb4ff', accent2:'#e7efff', bg:'#0b0d13', bg2:'#05060a', scene:'thunder'}
 ];
 
-/* ---------------------------------------------------------------------
-   Custom banners — merged directly into the code (Oct 1) instead of
-   being fetched live from the GitHub contents API on every load. They
-   used to live only as banners/custom/*.json and get discovered at
-   runtime; that meant every single banner depended on a live GitHub API
-   round-trip succeeding (and on the browser not serving a stale cached
-   copy of this very file) before any of them would show up. Baking the
-   50 known ones in here means they render instantly and always, offline
-   or not, cache or no cache — exactly the kind of "why isn't this
-   working" gap that caused this file's whole back-and-forth earlier
-   today. Generated from the current banners/custom/*.json files —
-   regenerate the same way (merge in each JSON's fields over the same
-   defaults discoverCustomBanners() used) if new ones are added later.
---------------------------------------------------------------------- */
-const CUSTOM_BANNER_PRESETS = [
-  {id:'a-ballet-after-hours', profile:'Anusha', title:'Ballet After Hours', image:'banners/custom/anusha-ballet-studio.webp', category:'Custom', glyph:'image', scene:'photo', accent:'#9d8eaa', accent2:'#d9cce0', bg:'#141118', bg2:'#080609', _custom:true},
-  {id:'a-butterfly-conservatory', profile:'Anusha', title:'Butterfly Conservatory', image:'banners/custom/anusha-butterfly-conservatory.webp', category:'Custom', glyph:'image', scene:'photo', accent:'#9b8f72', accent2:'#e0c79d', bg:'#131512', bg2:'#080908', _custom:true},
-  {id:'a-cherry-path', profile:'Anusha', title:'Cherry Blossom Path', image:'banners/custom/anusha-cherry-blossom.webp', category:'Custom', glyph:'image', scene:'photo', accent:'#bd7891', accent2:'#efbdcb', bg:'#181116', bg2:'#090809', _custom:true},
-  {id:'a-constellation', profile:'Anusha', title:'Her Constellation', image:'banners/custom/anusha-constellation.webp', category:'Custom', glyph:'image', scene:'photo', accent:'#9084ba', accent2:'#cfc3f1', bg:'#10101b', bg2:'#06060c', _custom:true},
-  {id:'a-fashion-atelier', profile:'Anusha', title:'Fashion Atelier', image:'banners/custom/anusha-fashion-atelier.webp', category:'Custom', glyph:'image', scene:'photo', accent:'#af7f8d', accent2:'#e4b8c3', bg:'#171114', bg2:'#090708', _custom:true},
-  {id:'a-lake-como', profile:'Anusha', title:'Lake Como Morning', image:'banners/custom/anusha-lake-como.webp', category:'Custom', glyph:'image', scene:'photo', accent:'#7c9a9a', accent2:'#c5d5ce', bg:'#101617', bg2:'#070a0b', _custom:true},
-  {id:'a-lavender-sunset', profile:'Anusha', title:'Lavender Fields at Sunset', image:'banners/custom/anusha-lavender-sunset.webp', category:'Custom', glyph:'image', scene:'photo', accent:'#b98aa7', accent2:'#e2b7c9', bg:'#171116', bg2:'#090809', _custom:true},
-  {id:'a-mirror-progress', profile:'Anusha', title:'Mirror of Progress', image:'banners/custom/anusha-mirror-progress.webp', category:'Custom', glyph:'image', scene:'photo', accent:'#ae7a72', accent2:'#e0b2aa', bg:'#171110', bg2:'#080706', _custom:true},
-  {id:'a-monaco-night', profile:'Anusha', title:'Monaco Riviera at Night', image:'banners/custom/anusha-monaco.webp', category:'Custom', glyph:'image', scene:'photo', accent:'#b08a4e', accent2:'#e2bf75', bg:'#101319', bg2:'#06080b', _custom:true},
-  {id:'a-moonlit-garden', profile:'Anusha', title:'Moonlit White Garden', image:'banners/custom/anusha-moonlit-garden.webp', category:'Custom', glyph:'image', scene:'photo', accent:'#aaa6c8', accent2:'#e2d9f1', bg:'#11111a', bg2:'#07070c', _custom:true},
-  {id:'a-painters-studio', profile:'Anusha', title:'Painter’s Studio', image:'banners/custom/anusha-painters-studio.webp', category:'Custom', glyph:'image', scene:'photo', accent:'#ae815f', accent2:'#e0bd96', bg:'#18130f', bg2:'#090705', _custom:true},
-  {id:'a-paris-morning', profile:'Anusha', title:'Paris Balcony Morning', image:'banners/custom/anusha-paris-balcony.webp', category:'Custom', glyph:'image', scene:'photo', accent:'#bd8f79', accent2:'#efd0bc', bg:'#181310', bg2:'#090807', _custom:true},
-  {id:'a-piano-moonlight', profile:'Anusha', title:'Grand Piano at Moonlight', image:'banners/custom/anusha-piano-moonlight.webp', category:'Custom', glyph:'image', scene:'photo', accent:'#8f91aa', accent2:'#d0d2e1', bg:'#111217', bg2:'#07070a', _custom:true},
-  {id:'a-pilates-sunrise', profile:'Anusha', title:'Sunrise Pilates Studio', image:'banners/custom/anusha-pilates-sunrise.webp', category:'Custom', glyph:'image', scene:'photo', accent:'#c28e74', accent2:'#f0c8ad', bg:'#19130f', bg2:'#090705', _custom:true},
-  {id:'a-reading-corner', profile:'Anusha', title:'Candlelit Reading Corner', image:'banners/custom/anusha-reading-corner.webp', category:'Custom', glyph:'image', scene:'photo', accent:'#a4785d', accent2:'#ddb48d', bg:'#15120f', bg2:'#080706', _custom:true},
-  {id:'a-rooftop-dawn', profile:'Anusha', title:'Rooftop at Dawn', image:'banners/custom/anusha-rooftop-dawn.webp', category:'Custom', glyph:'image', scene:'photo', accent:'#b87d70', accent2:'#e8b19e', bg:'#171112', bg2:'#080707', _custom:true},
-  {id:'a-santorini-morning', profile:'Anusha', title:'Santorini Morning', image:'banners/custom/anusha-santorini.webp', category:'Custom', glyph:'image', scene:'photo', accent:'#678fa8', accent2:'#b7d6e5', bg:'#10161b', bg2:'#06090c', _custom:true},
-  {id:'a-strength-studio', profile:'Anusha', title:'Elegant Strength Studio', image:'banners/custom/anusha-strength-studio.webp', category:'Custom', glyph:'image', scene:'photo', accent:'#a67b63', accent2:'#dab294', bg:'#15110f', bg2:'#080605', _custom:true},
-  {id:'a-sunday-window', profile:'Anusha', title:'Sunday Morning Window', image:'banners/custom/anusha-sunday-window.webp', category:'Custom', glyph:'image', scene:'photo', accent:'#b9977d', accent2:'#ead4bd', bg:'#181410', bg2:'#090806', _custom:true},
-  {id:'a-swimmers-discipline', profile:'Anusha', title:'The Swimmer’s Discipline', image:'banners/custom/anusha-swimming-pool.webp', category:'Custom', glyph:'image', scene:'photo', accent:'#688fa2', accent2:'#b3ced8', bg:'#0f1519', bg2:'#06090b', _custom:true},
-  {id:'a-tennis-golden-hour', profile:'Anusha', title:'Tennis at Golden Hour', image:'banners/custom/anusha-tennis-golden-hour.webp', category:'Custom', glyph:'image', scene:'photo', accent:'#b48468', accent2:'#e5b896', bg:'#17120e', bg2:'#090705', _custom:true},
-  {id:'a-yoga-terrace', profile:'Anusha', title:'Golden-Hour Yoga Terrace', image:'banners/custom/anusha-yoga-terrace.webp', category:'Custom', glyph:'image', scene:'photo', accent:'#bd845f', accent2:'#edbb8f', bg:'#18120d', bg2:'#090705', _custom:true},
-  {id:'b-aston-martin-classic', profile:'Bhargav', title:'Aston Martin Classic', image:'banners/custom/bhargav-aston-martin-classic.webp', category:'Custom', glyph:'image', scene:'photo', accent:'#ad7b20', accent2:'#d2a84f', bg:'#111210', bg2:'#090a09', _custom:true},
-  {id:'b-the-bull', profile:'Bhargav', title:'The Bull', image:'banners/custom/bhargav-black-bull.webp', category:'Custom', glyph:'image', scene:'photo', accent:'#ad7b20', accent2:'#d2a84f', bg:'#111210', bg2:'#090a09', objectPosition:'center 25%', _custom:true},
-  {id:'b-black-falcon', profile:'Bhargav', title:'The Black Falcon', image:'banners/custom/bhargav-black-falcon.webp', category:'Custom', glyph:'image', scene:'photo', accent:'#ad7b20', accent2:'#d2a84f', bg:'#111210', bg2:'#090a09', _custom:true},
-  {id:'b-black-stallion', profile:'Bhargav', title:'The Black Stallion', image:'banners/custom/bhargav-black-stallion.webp', category:'Custom', glyph:'image', scene:'photo', accent:'#ad7b20', accent2:'#d2a84f', bg:'#111210', bg2:'#090a09', _custom:true},
-  {id:'b-bmw-grand-touring', profile:'Bhargav', title:'BMW Grand Touring', image:'banners/custom/bhargav-bmw-grand-touring.webp', category:'Custom', glyph:'image', scene:'photo', accent:'#ad7b20', accent2:'#d2a84f', bg:'#111210', bg2:'#090a09', _custom:true},
-  {id:'b-cadillac-suv', profile:'Bhargav', title:'Cadillac Command SUV', image:'banners/custom/bhargav-cadillac-suv.webp', category:'Custom', glyph:'image', scene:'photo', accent:'#ad7b20', accent2:'#d2a84f', bg:'#111210', bg2:'#090a09', _custom:true},
-  {id:'b-code-machine', profile:'Bhargav', title:'Code Building a Machine', image:'banners/custom/bhargav-code-machine.webp', category:'Custom', glyph:'image', scene:'photo', accent:'#ad7b20', accent2:'#d2a84f', bg:'#111210', bg2:'#090a09', _custom:true},
-  {id:'b-crown-forged', profile:'Bhargav', title:'The Crown Being Forged', image:'banners/custom/bhargav-crown-forged.webp', category:'Custom', glyph:'image', scene:'photo', accent:'#ad7b20', accent2:'#d2a84f', bg:'#111210', bg2:'#090a09', _custom:true},
-  {id:'b-dons-arrival', profile:'Bhargav', title:'The Don’s Arrival', image:'banners/custom/bhargav-dons-arrival.webp', category:'Custom', glyph:'image', scene:'photo', accent:'#ad7b20', accent2:'#d2a84f', bg:'#111210', bg2:'#090a09', _custom:true},
-  {id:'b-empire-construction', profile:'Bhargav', title:'Empire Under Construction', image:'banners/custom/bhargav-empire-construction.webp', category:'Custom', glyph:'image', scene:'photo', accent:'#ad7b20', accent2:'#d2a84f', bg:'#111210', bg2:'#090a09', _custom:true},
-  {id:'b-empty-boxing-ring', profile:'Bhargav', title:'Empty Boxing Ring', image:'banners/custom/bhargav-empty-boxing-ring.webp', category:'Custom', glyph:'image', scene:'photo', accent:'#ad7b20', accent2:'#d2a84f', bg:'#111210', bg2:'#090a09', _custom:true},
-  {id:'b-ford-mustang', profile:'Bhargav', title:'Ford Mustang Muscle', image:'banners/custom/bhargav-ford-mustang.webp', category:'Custom', glyph:'image', scene:'photo', accent:'#ad7b20', accent2:'#d2a84f', bg:'#111210', bg2:'#090a09', _custom:true},
-  {id:'b-grand-piano', profile:'Bhargav', title:'Grand Piano in an Empty Hall', image:'banners/custom/bhargav-grand-piano.webp', category:'Custom', glyph:'image', scene:'photo', accent:'#ad7b20', accent2:'#d2a84f', bg:'#111210', bg2:'#090a09', _custom:true},
-  {id:'b-head-table', profile:'Bhargav', title:'Head of the Table', image:'banners/custom/bhargav-head-table.webp', category:'Custom', glyph:'image', scene:'photo', accent:'#ad7b20', accent2:'#d2a84f', bg:'#111210', bg2:'#090a09', _custom:true},
-  {id:'b-iron-forge', profile:'Bhargav', title:'Iron Forge', image:'banners/custom/bhargav-iron-forge.webp', category:'Custom', glyph:'image', scene:'photo', accent:'#ad7b20', accent2:'#d2a84f', bg:'#111210', bg2:'#090a09', _custom:true},
-  {id:'b-lamborghini-supercar', profile:'Bhargav', title:'Lamborghini Supercar', image:'banners/custom/bhargav-lamborghini-supercar.webp', category:'Custom', glyph:'image', scene:'photo', accent:'#ad7b20', accent2:'#d2a84f', bg:'#111210', bg2:'#090a09', _custom:true},
-  {id:'b-last-man-training', profile:'Bhargav', title:'Last Man Training', image:'banners/custom/bhargav-last-man-training.webp', category:'Custom', glyph:'image', scene:'photo', accent:'#ad7b20', accent2:'#d2a84f', bg:'#111210', bg2:'#090a09', _custom:true},
-  {id:'b-lone-warrior', profile:'Bhargav', title:'Lone Warrior Against the Army', image:'banners/custom/bhargav-lone-warrior.webp', category:'Custom', glyph:'image', scene:'photo', accent:'#ad7b20', accent2:'#d2a84f', bg:'#111210', bg2:'#090a09', _custom:true},
-  {id:'b-manhattan-penthouse', profile:'Bhargav', title:'Manhattan Penthouse at Night', image:'banners/custom/bhargav-manhattan-penthouse.webp', category:'Custom', glyph:'image', scene:'photo', accent:'#ad7b20', accent2:'#d2a84f', bg:'#111210', bg2:'#090a09', _custom:true},
-  {id:'b-maserati-executive', profile:'Bhargav', title:'Maserati Executive', image:'banners/custom/bhargav-maserati-executive.webp', category:'Custom', glyph:'image', scene:'photo', accent:'#ad7b20', accent2:'#d2a84f', bg:'#111210', bg2:'#090a09', _custom:true},
-  {id:'b-mclaren-hypercar', profile:'Bhargav', title:'McLaren Track Hypercar', image:'banners/custom/bhargav-mclaren-hypercar.webp', category:'Custom', glyph:'image', scene:'photo', accent:'#ad7b20', accent2:'#d2a84f', bg:'#111210', bg2:'#090a09', _custom:true},
-  {id:'b-mercedes-roadster', profile:'Bhargav', title:'Mercedes-Benz Roadster', image:'banners/custom/bhargav-mercedes-roadster.webp', category:'Custom', glyph:'image', scene:'photo', accent:'#ad7b20', accent2:'#d2a84f', bg:'#111210', bg2:'#090a09', _custom:true},
-  {id:'b-pack-leader', profile:'Bhargav', title:'The Pack Leader', image:'banners/custom/bhargav-pack-leader.webp', category:'Custom', glyph:'image', scene:'photo', accent:'#ad7b20', accent2:'#d2a84f', bg:'#111210', bg2:'#090a09', _custom:true},
-  {id:'b-porsche-electric', profile:'Bhargav', title:'Porsche Electric Performance', image:'banners/custom/bhargav-porsche-electric.webp', category:'Custom', glyph:'image', scene:'photo', accent:'#ad7b20', accent2:'#d2a84f', bg:'#111210', bg2:'#090a09', _custom:true},
-  {id:'b-port-night', profile:'Bhargav', title:'Port at Night', image:'banners/custom/bhargav-port-night.webp', category:'Custom', glyph:'image', scene:'photo', accent:'#ad7b20', accent2:'#d2a84f', bg:'#111210', bg2:'#090a09', _custom:true},
-  {id:'b-rolls-royce', profile:'Bhargav', title:'Rolls-Royce Chauffeur', image:'banners/custom/bhargav-rolls-royce.webp', category:'Custom', glyph:'image', scene:'photo', accent:'#ad7b20', accent2:'#d2a84f', bg:'#111210', bg2:'#090a09', _custom:true},
-  {id:'b-wall-street-arrival', profile:'Bhargav', title:'Rainy Wall Street Arrival', image:'banners/custom/bhargav-wall-street-arrival.webp', category:'Custom', glyph:'image', scene:'photo', accent:'#ad7b20', accent2:'#d2a84f', bg:'#111210', bg2:'#090a09', _custom:true},
-  {id:'b-war-room', profile:'Bhargav', title:'The War Room', image:'banners/custom/bhargav-war-room.webp', category:'Custom', glyph:'image', scene:'photo', accent:'#ad7b20', accent2:'#d2a84f', bg:'#111210', bg2:'#090a09', _custom:true}
-];
-
-/* Still checked live, but only as a top-up for brand-new banners dropped
-   into banners/custom/ after the list above was generated — anything
-   whose id is already baked in above is skipped here, and if the fetch
-   fails (offline, stale cache, GitHub down) the 50 above still render
-   with zero dependency on it. */
-let customBannersCache = null;
-async function discoverCustomBanners(){
-  if(customBannersCache) return customBannersCache;
-  if(typeof GITHUB_REPO==='undefined' || GITHUB_REPO==='YOUR_USERNAME/YOUR_REPO'){ customBannersCache=[]; return customBannersCache; }
-  const knownIds = new Set(CUSTOM_BANNER_PRESETS.map(p=>p.id));
-  try{
-    const res = await fetch('https://api.github.com/repos/'+GITHUB_REPO+'/contents/banners/custom');
-    if(!res.ok){ customBannersCache=[]; return customBannersCache; }
-    const files = await res.json();
-    const jsonFiles = Array.isArray(files) ? files.filter(f=>f.type==='file' && /\.json$/i.test(f.name)) : [];
-    const loaded = await Promise.all(jsonFiles.map(async f=>{
-      try{
-        const r = await fetch(f.download_url);
-        const data = await r.json();
-        if(!data.id || !data.profile || !data.title) return null; // required fields
-        if(data.profile!=='Bhargav' && data.profile!=='Anusha') return null;
-        if(knownIds.has(data.id)) return null; // already baked into CUSTOM_BANNER_PRESETS above
-        return Object.assign({
-          category:'Custom', glyph:'image', scene:'photo',
-          accent:'#ad7b20', accent2:'#d2a84f', bg:'#111210', bg2:'#090a09',
-          _custom:true
-        }, data);
-      }catch(e){ return null; }
-    }));
-    customBannersCache = loaded.filter(Boolean);
-  }catch(e){ customBannersCache = []; }
-  return customBannersCache;
-}
-function allBannerPresets(){ return BANNER_PRESETS.concat(CUSTOM_BANNER_PRESETS, customBannersCache||[]); }
+function allBannerPresets(){ return BANNER_PRESETS; }
 
 function bannerPresetsFor(profile){ return allBannerPresets().filter(p=>p.profile===profile); }
 function bannerFind(id){ return allBannerPresets().find(p=>p.id===id); }
@@ -348,12 +241,7 @@ const bannerEngine = {
     root.style.setProperty('--accent2', preset.accent2);
     root.style.setProperty('--ihbg', preset.bg);
     root.style.setProperty('--ihbg2', preset.bg2);
-    // Anusha's custom photo banners should stay perfectly still (no entrance
-    // pop, no sweep shine) — only her original CSS motion scenes (goldenhour,
-    // florals, etc.) keep their motion. Bhargav's custom photo banners keep
-    // the smooth fade/settle entrance added alongside this.
-    const staticPhoto = preset.scene==='photo' && preset.profile==='Anusha';
-    scene.className = 'ih-banner-scene scene-'+preset.scene+(staticPhoto?' photo-static':'');
+    scene.className = 'ih-banner-scene scene-'+preset.scene;
     const build = SCENE_BUILDERS[preset.scene];
     scene.innerHTML = build ? build(preset) : '';
     const moodEl = document.getElementById('today-banner-mood');
@@ -458,7 +346,6 @@ function applyBannerRotationOnLoad(preset){
 }
 async function initTodayBanner(){
   if(!document.getElementById('today-banner')) return;
-  await discoverCustomBanners();
   const saved = await readJson(profileRef('hub-profiles','bannerTheme'), null);
   const list = bannerPresetsFor(state.profile);
   let preset = (saved && saved.active && bannerFind(saved.active) && bannerFind(saved.active).profile===state.profile)
@@ -473,7 +360,7 @@ async function initTodayBanner(){
   };
   preset = applyBannerRotationOnLoad(preset);
   bannerEngine.mount(preset);
-  renderBannerGallery(); // in case Settings was opened before custom banners finished loading
+  renderBannerGallery();
   renderBannerRotationControls();
   bannerScheduleTimerRotation();
 }
