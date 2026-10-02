@@ -1109,6 +1109,7 @@ async function enterProfile(profileId){
   showView('today');
   startNotificationLoop();
   startFocusTicker();
+  startTodayRolloverLoop();
 }
 
 /* =====================================================================
@@ -1473,6 +1474,16 @@ let templateLog = {};
 let autoConfig = { workoutsOn:true, groceryOn:true, groceryWeekday:6 };
 let activeView = 'today';
 let selectedDay = todayStr(); // which day the Today view is showing — lets you flip forward/back instead of always showing the actual today
+// True while the Today view should track the real "now" (the normal
+// state); false once the person has manually stepped to a different day
+// with the prev/next arrows or the day-picker. Needed because selectedDay
+// is only ever set once, at load — without this, a tab left open past
+// midnight keeps showing yesterday's date forever, so todayStr() (which
+// always reflects the real clock) stops matching it. That silently kills
+// isToday/isActualToday everywhere, including the gold "now" box/badge on
+// the current routine block, with zero visible error — exactly the "the
+// current-task box just disappeared" symptom this was reported as.
+let followingToday = true;
 let routineShowAll = false; // false = auto-hide routine blocks whose time has passed; true = "Show all" reveals them, with a tick/✗ badge showing which got done
 
 // Collapse/expand state for the Today view's panels (Tasks/Events/
@@ -1756,6 +1767,21 @@ function checkUpcoming(){
   }
 }
 function startNotificationLoop(){ checkUpcoming(); setInterval(checkUpcoming, 60000); }
+// Keeps the Today view's "now" highlight accurate without needing any
+// click/interaction: re-syncs selectedDay to the real date once midnight
+// passes (only while followingToday — a day you navigated to on purpose
+// is left alone), and re-renders every minute so the gold "now" box moves
+// from block to block as time passes, and clears from the last block of
+// the day instead of staying stuck there forever.
+function startTodayRolloverLoop(){
+  setInterval(()=>{
+    if(followingToday){
+      const real = todayStr();
+      if(selectedDay !== real) selectedDay = real;
+    }
+    if(activeView==='today') renderToday();
+  }, 60000);
+}
 function renderNotifBanner(){
   const el = document.getElementById('notif-banner-wrap');
   if(notifPermission!=='default'){ el.innerHTML=''; return; }
@@ -2818,11 +2844,11 @@ function renderToday(){
   wirePanelCollapseHandlers(el);
   document.getElementById('toggle-done-routine').addEventListener('click', ()=>{ routineShowAll = !routineShowAll; renderToday(); });
 
-  document.getElementById('day-prev').onclick = ()=>{ selectedDay=addDays(selectedDay,-1); renderToday(); };
-  document.getElementById('day-next').onclick = ()=>{ selectedDay=addDays(selectedDay,1); renderToday(); };
-  document.getElementById('day-picker').onchange = e=>{ if(e.target.value){ selectedDay=e.target.value; renderToday(); } };
+  document.getElementById('day-prev').onclick = ()=>{ followingToday=false; selectedDay=addDays(selectedDay,-1); renderToday(); };
+  document.getElementById('day-next').onclick = ()=>{ followingToday=false; selectedDay=addDays(selectedDay,1); renderToday(); };
+  document.getElementById('day-picker').onchange = e=>{ if(e.target.value){ followingToday=false; selectedDay=e.target.value; renderToday(); } };
   const todayBtn = document.getElementById('day-today');
-  if(todayBtn) todayBtn.onclick = ()=>{ selectedDay=todayStr(); renderToday(); };
+  if(todayBtn) todayBtn.onclick = ()=>{ followingToday=true; selectedDay=todayStr(); renderToday(); };
   document.getElementById('quick-add-today').onclick = ()=> openQuickAddModal(today);
   document.getElementById('open-weekly-btn').onclick = openWeeklyModal;
 
