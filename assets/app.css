@@ -132,6 +132,24 @@ html.wallpaper-live{background-size:250% 250%;animation:wallpaper-drift 24s ease
 .photo-widget-count{font-size:10.5px;color:#fff;font-variant-numeric:tabular-nums;margin:0 auto 0 2px;text-shadow:0 1px 3px rgba(0,0,0,.4)}
 .photo-widget .empty-state{display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;gap:10px;text-align:center;border:1.5px dashed var(--line);border-radius:var(--radius)}
 .photo-widget-add-empty{align-self:center}
+/* Sticky notes widget — mirrors apps/todo.html's own note-card styling
+   (same colors, same shape) since it's showing the exact same notes, kept
+   in sync both ways via Firestore (see startHubNotesWatch in app.js). */
+.hub-notes-widget{display:flex;flex-direction:column;gap:10px;height:100%}
+.hub-note-add-btn{width:100%;padding:9px;background:var(--surface-soft);border:1px dashed var(--line);border-radius:10px;font-size:12.5px;font-weight:700;color:var(--muted);display:flex;align-items:center;justify-content:center;gap:6px;cursor:pointer;flex:none}
+.hub-note-add-btn:hover{border-color:var(--accent);color:var(--accent-ink)}
+.hub-note-add-btn svg{width:13px;height:13px}
+.hub-notes-list{flex:1;min-height:0;overflow:auto;display:flex;flex-direction:column;gap:10px}
+.hub-note-card{border-radius:12px;padding:10px 10px 6px}
+.hub-note-card textarea{width:100%;background:transparent;border:none;resize:vertical;min-height:56px;font-family:inherit;font-size:12.5px;color:#3A3420;outline:none}
+.hub-note-card textarea::placeholder{color:#3A342088}
+.hub-note-footer{display:flex;justify-content:space-between;align-items:center;margin-top:4px}
+.hub-note-colors{display:flex;gap:5px}
+.hub-note-dot{width:14px;height:14px;border-radius:50%;cursor:pointer;box-shadow:inset 0 0 0 1px rgba(0,0,0,.12)}
+.hub-note-dot.selected{box-shadow:0 0 0 2px #3A342055}
+.hub-note-del-btn{width:20px;height:20px;border-radius:6px;border:0;background:rgba(0,0,0,.08);color:#3A3420;display:flex;align-items:center;justify-content:center;padding:0;cursor:pointer}
+.hub-note-del-btn:hover{background:rgba(0,0,0,.16)}
+.hub-note-del-btn svg{width:11px;height:11px}
 @media(max-width:900px){
   /* Fewer visual columns, but still the same fine --cs unit underneath —
      min() just reclamps each card's span to whatever fits this narrower

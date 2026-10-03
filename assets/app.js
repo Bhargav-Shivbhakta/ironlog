@@ -207,7 +207,7 @@ async function saveHubAccents(){try{await hubRef('theme-accents').set({json:JSON
 async function saveProfileAppearance(){try{await profileRef('hub-profiles','appearance').set({json:JSON.stringify({mode:state.theme.mode,wallpaper:state.theme.wallpaper})})}catch(e){}}
 
 function setGate(name){['loading','auth','profile'].forEach(x=>$(x+'-gate').hidden=x!==name);$('app-shell').hidden=!!name}
-function setProfile(name){state.profile=name;localStorage.setItem(PROFILE_KEY,name);document.body.dataset.profile=name;$('sidebar-profile').textContent=name;$('sidebar-avatar').textContent=name[0];$('sidebar-avatar').className='avatar '+name.toLowerCase();$('mobile-profile').textContent=name[0];$('mobile-profile').className='avatar '+name.toLowerCase();updateAppFrameProfile();updateProfileLinks();startHubAlarmWatch();applyTheme()}
+function setProfile(name){state.profile=name;localStorage.setItem(PROFILE_KEY,name);document.body.dataset.profile=name;$('sidebar-profile').textContent=name;$('sidebar-avatar').textContent=name[0];$('sidebar-avatar').className='avatar '+name.toLowerCase();$('mobile-profile').textContent=name[0];$('mobile-profile').className='avatar '+name.toLowerCase();updateAppFrameProfile();updateProfileLinks();startHubAlarmWatch();startHubNotesWatch();applyTheme()}
 // Keeps the profile capsule in the app viewer's own top bar in sync with
 // the hub-wide active profile — it's shown there instead of repeated
 // inside every embedded app (see openAppFrame / app-frame-profile below).
@@ -711,7 +711,9 @@ const WIDGET_TYPES={
       }catch(e){el.innerHTML='<div class="empty-state"><strong>Unavailable</strong>Could not load the grocery list.</div>'}
     }},
   photos:{title:'Photo widget',icon:'image',desc:'Your own little rotating gallery — add a batch of photos, shuffle them, or let it play on its own. Add as many of these as you like.',defaultSize:'lg',bare:true,multiple:true,
-    render(el,w){renderPhotoWidgetInto(el,w.id)}}
+    render(el,w){renderPhotoWidgetInto(el,w.id)}},
+  notes:{title:'Sticky notes',icon:'sticky-note',desc:'The same sticky notes as your To-Do app — write one here or there and it stays in sync both ways.',defaultSize:'md',
+    render(el){renderNotesWidgetInto(el)}}
 };
 /* ---- Photo widget: a small self-contained gallery, its own upload +
    shuffle + slideshow logic rather than a generic "widget data" blob,
@@ -818,6 +820,77 @@ async function handlePhotoWidgetUpload(fileList,el,widgetId){
   if(added){ pwRuntime(widgetId).order=[]; await savePhotoWidgets(); }
   if(skippedForSize)toast(added?added+' photo'+(added===1?'':'s')+' added — your library is getting full, so the rest were skipped':'Your photo library is full — remove a few or try smaller photos');
   renderPhotoWidgetInto(el,widgetId);
+}
+/* ---- Sticky notes widget: shows the exact same notes as the To-Do app's
+   Sticky Notes (apps/todo.html), not a separate copy. Both read/write the
+   one Firestore doc at todo-profiles/{profile}/data/stickyNotes — here via
+   profileRef('todo-profiles','stickyNotes'), there via todo.html's own
+   profileDoc(activeProfile,'stickyNotes'), which resolves to the identical
+   path. A live onSnapshot listener (same pattern as startHubAlarmWatch
+   below) means a note added/edited in one place shows up in the other
+   without needing a reload — genuinely synced, not just "same data on next
+   visit". ---- */
+const HUB_NOTE_COLORS=['#F6E7A6','#F1D7DE','#D9E8D3','#DCE6EE','#E6DCF0','#F2DFC7'];
+let hubStickyNotes=[];
+let hubStickyNotesUnsub=null;
+function startHubNotesWatch(){
+  if(hubStickyNotesUnsub){ try{hubStickyNotesUnsub();}catch(e){} hubStickyNotesUnsub=null; }
+  hubStickyNotes=[];
+  if(!state.user||!state.profile) return;
+  try{
+    hubStickyNotesUnsub=profileRef('todo-profiles','stickyNotes').onSnapshot(doc=>{
+      hubStickyNotes=(doc.exists&&doc.data().json)?safeJson(doc.data().json,[]):[];
+      document.querySelectorAll('[data-widget-type="notes"] .widget-card-body').forEach(el=>renderNotesWidgetInto(el));
+    },()=>{});
+  }catch(e){}
+}
+async function saveHubStickyNotes(){try{await profileRef('todo-profiles','stickyNotes').set({json:JSON.stringify(hubStickyNotes)});}catch(e){toast('Could not save note — try again')}}
+function renderNotesWidgetInto(el){
+  if(!el)return;
+  el.innerHTML='<div class="hub-notes-widget">'+
+    '<button type="button" class="hub-note-add-btn" data-hubnote-add><i data-lucide="plus"></i><span>New note</span></button>'+
+    '<div class="hub-notes-list">'+
+      (hubStickyNotes.length?hubStickyNotes.map(n=>
+        '<div class="hub-note-card" style="background:'+esc(n.color)+';" data-hubnote="'+esc(n.id)+'">'+
+          '<textarea data-hubnotetext="'+esc(n.id)+'" placeholder="Write anything…">'+esc(n.text)+'</textarea>'+
+          '<div class="hub-note-footer"><div class="hub-note-colors">'+HUB_NOTE_COLORS.map(c=>
+            '<span class="hub-note-dot'+(n.color===c?' selected':'')+'" style="background:'+c+';" data-hubnotecolor="'+esc(n.id)+'" data-color="'+c+'"></span>'
+          ).join('')+'</div><button type="button" class="hub-note-del-btn" data-hubnotedel="'+esc(n.id)+'" title="Delete note"><i data-lucide="x"></i></button></div>'+
+        '</div>'
+      ).join(''):'<div class="empty-state"><strong>No notes yet</strong>Jot anything down — it shows up in your To-Do app too.</div>')+
+    '</div>'+
+  '</div>';
+  if(window.lucide)lucide.createIcons();
+  el.querySelector('[data-hubnote-add]').addEventListener('click',async()=>{
+    hubStickyNotes.unshift({id:'note-'+Date.now(),text:'',color:HUB_NOTE_COLORS[Math.floor(Math.random()*HUB_NOTE_COLORS.length)]});
+    await saveHubStickyNotes();
+    renderNotesWidgetInto(el);
+    const first=el.querySelector('[data-hubnotetext]');
+    if(first)first.focus();
+  });
+  el.querySelectorAll('[data-hubnotetext]').forEach(ta=>{
+    let debounce;
+    ta.addEventListener('input',()=>{
+      clearTimeout(debounce);
+      debounce=setTimeout(async()=>{
+        const n=hubStickyNotes.find(x=>x.id===ta.dataset.hubnotetext);
+        if(n){n.text=ta.value;await saveHubStickyNotes();}
+      },400);
+    });
+  });
+  el.querySelectorAll('[data-hubnotecolor]').forEach(dot=>{
+    dot.addEventListener('click',async()=>{
+      const n=hubStickyNotes.find(x=>x.id===dot.dataset.hubnotecolor);
+      if(n){n.color=dot.dataset.color;await saveHubStickyNotes();renderNotesWidgetInto(el);}
+    });
+  });
+  el.querySelectorAll('[data-hubnotedel]').forEach(btn=>{
+    btn.addEventListener('click',async()=>{
+      hubStickyNotes=hubStickyNotes.filter(x=>x.id!==btn.dataset.hubnotedel);
+      await saveHubStickyNotes();
+      renderNotesWidgetInto(el);
+    });
+  });
 }
 let saveWidgetsTimer=null;
 function saveWidgetLayout(){
