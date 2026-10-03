@@ -2430,10 +2430,31 @@ function setSidebarCollapsed(collapsed){
   $('app-shell').classList.toggle('sidebar-collapsed',collapsed);
   try{localStorage.setItem(SIDEBAR_COLLAPSE_KEY,collapsed?'1':'0')}catch(e){}
 }
+// Refreshes whatever's currently showing: the embedded app if one's open
+// (same as its own Refresh button), otherwise the whole Hub page.
+function hubRefreshCurrentView(){
+  if($('app-frame-overlay') && !$('app-frame-overlay').hidden){ refreshAppFrame(); }
+  else{ location.reload(); }
+}
 if($('sidebar-toggle')){
+  // A single click still collapses/expands the sidebar, same as always. A
+  // second click landing quickly after it is treated as a double-click and
+  // refreshes the current view instead — the single-click action is held
+  // for a beat so a fast second click can cancel it rather than firing
+  // both the collapse AND the refresh.
+  let sidebarToggleClickTimer=null;
   $('sidebar-toggle').addEventListener('click',()=>{
-    sidebarAutoCollapsed=false; // a manual click always overrides the auto-collapse-on-open behavior below
-    setSidebarCollapsed(!$('app-shell').classList.contains('sidebar-collapsed'));
+    if(sidebarToggleClickTimer){
+      clearTimeout(sidebarToggleClickTimer);
+      sidebarToggleClickTimer=null;
+      hubRefreshCurrentView();
+      return;
+    }
+    sidebarToggleClickTimer=setTimeout(()=>{
+      sidebarToggleClickTimer=null;
+      sidebarAutoCollapsed=false; // a manual click always overrides the auto-collapse-on-open behavior below
+      setSidebarCollapsed(!$('app-shell').classList.contains('sidebar-collapsed'));
+    },300);
   });
   try{ if(localStorage.getItem(SIDEBAR_COLLAPSE_KEY)==='1') setSidebarCollapsed(true); }catch(e){}
 }
