@@ -1,0 +1,850 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Budget</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script src="https://unpkg.com/lucide@0.468.0/dist/umd/lucide.min.js"></script>
+<script src="../assets/theme.js"></script>
+<style>
+  :root{
+    --bg:#F4F4F0; --surface:#FFFFFF; --surface-alt:#EFEDE4;
+    --border:#ECECE6; --border-soft:#F1F1EB;
+    --text:#20211E; --text-soft:#74766F; --text-faint:#9A9C93;
+    --accent:#AD7B20; --accent-soft:#F7EFD9; --accent-deep:#7A5817;
+    --gold:#E8B84B; --gold-soft:#FBF1DC;
+    --danger:#B8493F; --danger-soft:#F8E5E2;
+    --good:#2F7C5A; --good-soft:#E3F1EA;
+    --b:#D6402C; --a:#A8517A;
+    --radius-lg:16px; --radius-md:11px; --radius-sm:8px;
+    --shadow:0 5px 20px rgba(32,33,30,.06);
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;padding:0 0 60px;-webkit-font-smoothing:antialiased;}
+  .wrap{max-width:min(90vw,980px);margin:0 auto;padding:16px 14px 0;}
+  h1,h2,h3{font-family:'Manrope',sans-serif;}
+  button,input,select,textarea{font-family:inherit;}
+  a{color:var(--accent-deep);}
+
+  .loading-gate{position:fixed;inset:0;z-index:200;background:var(--bg);display:flex;align-items:center;justify-content:center;color:var(--text-soft);}
+
+  .topbar-wrap{background:#2E1F06;color:#FBF5E8;padding:12px 16px;margin-bottom:16px;}
+  .topbar-inner{max-width:min(90vw,980px);margin:0 auto;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;}
+  .brand-cluster{display:flex;align-items:center;gap:12px;flex-wrap:wrap;}
+  .brand{display:flex;align-items:center;gap:9px;font-size:15px;font-weight:800;font-family:'Manrope',sans-serif;}
+  .mark{width:27px;height:27px;border-radius:9px;display:grid;place-items:center;background:var(--gold);color:#2E1F06;font-size:14px;font-weight:850;flex:none;}
+  .hub-link{color:#D9C9A8;text-decoration:none;font-size:11.5px;}
+  body.embedded .topbar-wrap{display:none;}
+
+  .profile-overlay{position:fixed;inset:0;z-index:150;background:var(--bg);display:flex;align-items:center;justify-content:center;}
+  .profile-card-row{display:flex;gap:16px;}
+  .profile-card{width:150px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:22px 12px;text-align:center;cursor:pointer;box-shadow:var(--shadow);}
+  .profile-card:hover{border-color:var(--accent);}
+  .profile-avatar{width:52px;height:52px;border-radius:50%;margin:0 auto 10px;display:grid;place-items:center;font-weight:800;font-size:20px;color:#fff;}
+  .profile-avatar.b{background:var(--b);} .profile-avatar.a{background:var(--a);}
+  .profile-name{font-weight:700;}
+
+  .who-badge{display:flex;align-items:center;gap:6px;cursor:pointer;background:#3D290A;border-radius:999px;padding:4px 10px 4px 4px;}
+  .who-avatar{width:22px;height:22px;border-radius:50%;display:grid;place-items:center;font-size:11px;font-weight:800;color:#fff;}
+  .who-avatar.av-b{background:var(--b);} .who-avatar.av-a{background:var(--a);}
+  .who-name{font-size:12px;font-weight:700;color:#FBF5E8;}
+
+  header.app-head{text-align:center;margin-bottom:14px;}
+  header.app-head h1{font-size:23px;font-weight:800;margin:0 0 2px;}
+  header.app-head p{margin:0;color:var(--text-soft);font-size:12.5px;}
+
+  .segmented{max-width:520px;margin:0 auto 14px;background:var(--surface-alt);border-radius:999px;padding:3px;display:flex;gap:2px;}
+  .segmented button{flex:1;border:none;background:transparent;border-radius:999px;padding:8px 4px;font-size:12px;font-weight:700;color:var(--text-soft);cursor:pointer;}
+  .segmented button.active{background:var(--surface);color:var(--text);box-shadow:var(--shadow);}
+  .tab-page{display:none;} .tab-page.active{display:block;}
+
+  .stat-row{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin:0 0 16px;}
+  .stat-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-md);padding:12px 12px;box-shadow:var(--shadow);min-width:0;}
+  .stat-card.over{border-color:var(--danger);}
+  .stat-card .sc-label{font-size:10px;color:var(--text-faint);font-weight:700;text-transform:uppercase;letter-spacing:0.02em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .stat-card .sc-value{font-family:'Manrope',sans-serif;font-weight:800;font-size:20px;margin-top:4px;}
+  .stat-card .sc-value small{font-size:12px;font-weight:600;color:var(--text-soft);}
+  @media(max-width:640px){.stat-row{grid-template-columns:repeat(2,1fr);}}
+
+  .section-title{font-family:'Manrope',sans-serif;font-size:13px;font-weight:700;color:var(--text-soft);margin:18px 0 8px;display:flex;align-items:center;gap:8px;}
+  .section-title::after{content:'';flex:1;height:1px;background:var(--border);}
+  .section-title .st-action{margin-left:auto;font-size:11.5px;font-weight:700;color:var(--accent-deep);cursor:pointer;background:none;border:0;padding:0;}
+  .section-title::after{display:none;}
+
+  .cat-row{background:var(--surface);border:1px solid var(--border-soft);border-radius:var(--radius-md);padding:11px 13px;margin-bottom:8px;box-shadow:var(--shadow);}
+  .cat-row-top{display:flex;align-items:center;gap:8px;margin-bottom:6px;}
+  .cat-dot{width:10px;height:10px;border-radius:50%;flex:none;}
+  .cat-name{font-weight:700;font-size:13.5px;flex:1;}
+  .cat-amounts{font-size:12px;color:var(--text-soft);}
+  .cat-amounts strong{color:var(--text);}
+  .cat-bar-track{height:7px;border-radius:99px;background:var(--surface-alt);overflow:hidden;}
+  .cat-bar-fill{height:100%;border-radius:99px;transition:width .3s ease;}
+  .empty-state{background:var(--surface);border:1px dashed var(--border);border-radius:var(--radius-md);padding:18px;text-align:center;color:var(--text-soft);font-size:13px;}
+
+  .chart-bars{display:flex;align-items:flex-end;gap:8px;height:110px;padding:8px 4px 0;}
+  .chart-bar-col{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;height:100%;min-width:0;}
+  .chart-bar{width:100%;max-width:34px;border-radius:5px 5px 0 0;background:var(--accent);min-height:3px;transition:height .3s ease;}
+  .chart-bar-label{font-size:9.5px;color:var(--text-faint);margin-top:5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%;}
+  .chart-bar-value{font-size:9px;color:var(--text-soft);font-weight:700;}
+
+  .txn-row,.bill-row{background:var(--surface);border:1px solid var(--border-soft);border-left:3px solid var(--border);border-radius:var(--radius-md);padding:10px 13px;margin-bottom:7px;box-shadow:var(--shadow);display:flex;align-items:center;gap:10px;}
+  .txn-row.income{border-left-color:var(--good);}
+  .txn-row.expense{border-left-color:var(--accent);}
+  .bill-row.overdue{border-left-color:var(--danger);}
+  .bill-row.today{border-left-color:var(--gold);}
+  .bill-row.upcoming{border-left-color:var(--accent);}
+  .bill-row.paid{border-left-color:var(--good);}
+  .txn-body,.bill-body{flex:1;min-width:0;}
+  .txn-title,.bill-title{font-size:13.5px;font-weight:700;}
+  .txn-meta,.bill-meta{display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-top:4px;}
+  .person-pill{font-size:10px;font-weight:700;border-radius:20px;padding:2px 8px;color:#fff;}
+  .person-pill.b{background:var(--b);} .person-pill.a{background:var(--a);} .person-pill.shared{background:var(--text-faint);}
+  .status-pill{font-size:10px;font-weight:700;border-radius:20px;padding:2px 8px;}
+  .status-pill.overdue{background:var(--danger-soft);color:var(--danger);}
+  .status-pill.today{background:var(--gold-soft);color:#8a6416;}
+  .status-pill.upcoming{background:var(--accent-soft);color:var(--accent-deep);}
+  .status-pill.paid{background:var(--good-soft);color:var(--good);}
+  .cat-chip{font-size:10px;font-weight:700;border-radius:20px;padding:2px 8px;background:var(--surface-alt);color:var(--text-soft);}
+  .txn-amount{font-family:'Manrope',sans-serif;font-weight:800;font-size:15px;white-space:nowrap;}
+  .txn-amount.income{color:var(--good);} .txn-amount.expense{color:var(--text);}
+  .row-actions{display:flex;gap:4px;flex:none;}
+  .row-actions button{border:0;background:var(--surface-alt);border-radius:7px;width:26px;height:26px;display:flex;align-items:center;justify-content:center;cursor:pointer;color:var(--text-soft);}
+  .row-actions button:hover{background:var(--border);}
+  .row-actions button svg{width:13px;height:13px;}
+
+  .filter-row{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px;align-items:center;}
+  .filter-row select,.filter-row input[type=search]{font-size:12px;padding:6px 9px;border-radius:8px;border:1px solid var(--border);background:var(--surface);}
+  .filter-row input[type=search]{flex:1;min-width:120px;}
+
+  .card-form{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:16px;box-shadow:var(--shadow);margin-bottom:18px;}
+  .card-form h3{margin:0 0 12px;font-size:14px;}
+  .form-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px;}
+  .form-grid label{display:flex;flex-direction:column;gap:4px;font-size:11px;font-weight:700;color:var(--text-soft);}
+  .form-grid input,.form-grid select,.form-grid textarea{font-size:13px;padding:8px 10px;border-radius:8px;border:1px solid var(--border);background:var(--bg);}
+  .form-grid textarea{resize:vertical;min-height:38px;}
+  .scope-toggle{display:flex;gap:2px;background:var(--surface-alt);border-radius:999px;padding:3px;}
+  .scope-toggle button{flex:1;border:0;background:transparent;border-radius:999px;padding:7px 6px;font-size:11.5px;font-weight:700;color:var(--text-soft);cursor:pointer;}
+  .scope-toggle button.active{background:var(--surface);color:var(--text);box-shadow:var(--shadow);}
+  .type-toggle{display:flex;gap:2px;background:var(--surface-alt);border-radius:999px;padding:3px;}
+  .type-toggle button{flex:1;border:0;background:transparent;border-radius:999px;padding:7px 6px;font-size:11.5px;font-weight:700;color:var(--text-soft);cursor:pointer;}
+  .type-toggle button.active.expense{background:var(--accent);color:#fff;}
+  .type-toggle button.active.income{background:var(--good);color:#fff;}
+  .form-actions{display:flex;gap:8px;margin-top:12px;justify-content:flex-end;}
+  .button{border:0;border-radius:9px;padding:9px 16px;font-size:12.5px;font-weight:700;cursor:pointer;}
+  .button.primary{background:var(--accent);color:#fff;}
+  .button.secondary{background:var(--surface-alt);color:var(--text);}
+  .button svg{width:13px;height:13px;vertical-align:-2px;margin-right:3px;}
+
+  .modal-overlay{position:fixed;inset:0;z-index:220;background:rgba(20,20,17,.4);display:flex;align-items:center;justify-content:center;padding:20px;}
+  .modal-overlay[hidden]{display:none;}
+  .modal{width:100%;max-width:520px;max-height:84vh;overflow-y:auto;background:var(--surface);border-radius:var(--radius-lg);padding:18px;box-shadow:0 24px 70px rgba(0,0,0,0.22);}
+  .modal-head{display:flex;align-items:center;gap:8px;margin-bottom:12px;}
+  .modal-head h3{margin:0;font-size:16px;flex:1;}
+  .modal-close{border:0;background:var(--surface-alt);border-radius:8px;width:28px;height:28px;color:var(--text-soft);cursor:pointer;}
+  .mini-cat-row{display:flex;align-items:center;gap:8px;padding:7px 0;border-bottom:1px solid var(--border-soft);}
+  .mini-cat-row input[type=text]{flex:1;min-width:0;font-size:12.5px;padding:6px 8px;border-radius:7px;border:1px solid var(--border);}
+  .mini-cat-row input[type=number]{width:76px;font-size:12.5px;padding:6px 8px;border-radius:7px;border:1px solid var(--border);}
+  .mini-cat-row button{border:0;background:var(--surface-alt);border-radius:7px;width:26px;height:26px;cursor:pointer;color:var(--text-soft);}
+
+  .toast{position:fixed;bottom:18px;left:50%;transform:translateX(-50%);background:#20211E;color:#fff;padding:9px 16px;border-radius:10px;font-size:12.5px;z-index:300;box-shadow:0 10px 30px rgba(0,0,0,.25);opacity:0;pointer-events:none;transition:opacity .2s;}
+  .toast.show{opacity:1;}
+</style>
+</head>
+<body>
+<script>try{ if(window.self !== window.top) document.body.classList.add('embedded'); }catch(e){ document.body.classList.add('embedded'); }</script>
+
+<div class="loading-gate" id="loading-gate">Loading…</div>
+
+<div class="profile-overlay" id="profile-overlay" style="display:none">
+  <div>
+    <h2 style="text-align:center;margin-bottom:18px;">Who's this?</h2>
+    <div class="profile-card-row" id="profile-card-row"></div>
+  </div>
+</div>
+
+<div class="topbar-wrap">
+  <div class="topbar-inner">
+    <div class="brand-cluster">
+      <div class="brand"><span class="mark">$</span><span>Budget</span></div>
+      <a class="hub-link" href="../index.html">← Back to Home Hub</a>
+    </div>
+    <div class="who-badge" id="who-badge"></div>
+  </div>
+</div>
+
+<div class="wrap" id="app-wrap" style="display:none">
+  <header class="app-head">
+    <h1>Budget</h1>
+    <p>Track spending, set category limits, and keep an eye on recurring bills.</p>
+  </header>
+
+  <div class="segmented" id="tab-segmented">
+    <button type="button" data-tab="overview" class="active">Overview</button>
+    <button type="button" data-tab="transactions">Transactions</button>
+    <button type="button" data-tab="bills">Bills</button>
+  </div>
+
+  <!-- OVERVIEW -->
+  <section class="tab-page active" id="page-overview">
+    <div class="stat-row" id="overview-stats"></div>
+
+    <div class="section-title"><span>Your categories</span><button type="button" class="st-action" data-opencats="personal">Manage</button></div>
+    <div id="overview-personal-cats"></div>
+
+    <div class="section-title"><span>Shared categories</span><button type="button" class="st-action" data-opencats="shared">Manage</button></div>
+    <div id="overview-shared-cats"></div>
+
+    <div class="section-title"><span>Spending by category — this month</span></div>
+    <div id="overview-chart-category" class="chart-bars"></div>
+
+    <div class="section-title"><span>Last 6 months</span></div>
+    <div id="overview-chart-trend" class="chart-bars"></div>
+  </section>
+
+  <!-- TRANSACTIONS -->
+  <section class="tab-page" id="page-transactions">
+    <div class="card-form">
+      <h3>Add a transaction</h3>
+      <div class="scope-toggle" id="txn-scope-toggle" style="margin-bottom:10px;max-width:220px;">
+        <button type="button" data-scope="personal" class="active">Mine</button>
+        <button type="button" data-scope="shared">Shared</button>
+      </div>
+      <div class="type-toggle" id="txn-type-toggle" style="margin-bottom:10px;max-width:220px;">
+        <button type="button" data-type="expense" class="active expense">Expense</button>
+        <button type="button" data-type="income">Income</button>
+      </div>
+      <div class="form-grid">
+        <label>Amount<input type="number" id="txn-amount" min="0" step="0.01" placeholder="0.00"></label>
+        <label>Category<select id="txn-category"></select></label>
+        <label id="txn-who-label">Who paid<select id="txn-who"><option value="Bhargav">Bhargav</option><option value="Anusha">Anusha</option></select></label>
+        <label>Date<input type="date" id="txn-date"></label>
+        <label style="grid-column:1/-1">Note<input type="text" id="txn-note" placeholder="Optional"></label>
+      </div>
+      <div class="form-actions">
+        <button type="button" class="button secondary" id="txn-cancel-edit" hidden>Cancel edit</button>
+        <button type="button" class="button primary" id="txn-submit"><i data-lucide="plus"></i>Add transaction</button>
+      </div>
+    </div>
+
+    <div class="filter-row">
+      <select id="txn-filter-scope"><option value="all">All</option><option value="personal">Mine</option><option value="shared">Shared</option></select>
+      <select id="txn-filter-category"><option value="">All categories</option></select>
+      <input type="search" id="txn-search" placeholder="Search notes…">
+    </div>
+    <div id="transactions-list"></div>
+  </section>
+
+  <!-- BILLS -->
+  <section class="tab-page" id="page-bills">
+    <div class="card-form">
+      <h3>Add a recurring bill</h3>
+      <div class="scope-toggle" id="bill-scope-toggle" style="margin-bottom:10px;max-width:220px;">
+        <button type="button" data-scope="personal" class="active">Mine</button>
+        <button type="button" data-scope="shared">Shared</button>
+      </div>
+      <div class="form-grid">
+        <label>Name<input type="text" id="bill-name" placeholder="e.g. Rent"></label>
+        <label>Amount<input type="number" id="bill-amount" min="0" step="0.01" placeholder="0.00"></label>
+        <label>Category<select id="bill-category"></select></label>
+        <label>Due day of month<input type="number" id="bill-dueday" min="1" max="31" placeholder="1–31"></label>
+      </div>
+      <div class="form-actions">
+        <button type="button" class="button secondary" id="bill-cancel-edit" hidden>Cancel edit</button>
+        <button type="button" class="button primary" id="bill-submit"><i data-lucide="plus"></i>Add bill</button>
+      </div>
+    </div>
+    <div id="bills-list"></div>
+  </section>
+</div>
+
+<!-- Categories modal -->
+<div class="modal-overlay" id="cats-modal-overlay" hidden>
+  <div class="modal">
+    <div class="modal-head"><h3 id="cats-modal-title">Categories</h3><button type="button" class="modal-close" id="cats-modal-close">✕</button></div>
+    <div id="cats-modal-list"></div>
+    <div class="form-actions" style="margin-top:10px;">
+      <button type="button" class="button secondary" id="cats-add-new"><i data-lucide="plus"></i>Add category</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+/* =====================================================================
+   FIREBASE / PROFILE — same shape as every other app in the suite.
+   Personal data: budget-profiles/{profile}/data/{key}
+   Shared data (joint household spending, visible to both profiles,
+   same pattern todo.html uses for sharedTasks): budget-shared/{key}
+===================================================================== */
+const FIREBASE_CONFIG = {
+  apiKey: "AIzaSyBe01eR2RZwSbU_aoJMeh_2MMJ5mqkVuKk",
+  authDomain: "iron-log-bfc55.firebaseapp.com",
+  projectId: "iron-log-bfc55",
+  storageBucket: "iron-log-bfc55.firebasestorage.app",
+  messagingSenderId: "106586808946",
+  appId: "1:106586808946:web:f4736554ba9fc82c6fd8eb"
+};
+firebase.initializeApp(FIREBASE_CONFIG);
+const auth = firebase.auth();
+const db = firebase.firestore();
+if(window.self === window.top){
+  try{ db.enablePersistence({synchronizeTabs:true}).catch(function(){}); }catch(e){}
+}
+let currentUser = null;
+let activeProfile = null;
+const LAST_PROFILE_KEY = 'budget-last-profile';
+
+function profileDoc(profileId, key){
+  return db.collection('users').doc(currentUser.uid).collection('budget-profiles').doc(profileId).collection('data').doc(key);
+}
+function sharedDoc(key){
+  return db.collection('users').doc(currentUser.uid).collection('budget-shared').doc(key);
+}
+function otherProfile(p){ return p==='Bhargav' ? 'Anusha' : 'Bhargav'; }
+function pad2(n){ return String(n).padStart(2,'0'); }
+function todayStr(){ const d=new Date(); return d.getFullYear()+'-'+pad2(d.getMonth()+1)+'-'+pad2(d.getDate()); }
+function monthKey(dateStr){ return (dateStr||'').slice(0,7); }
+function thisMonthKey(){ return monthKey(todayStr()); }
+function monthLabel(key){ const [y,m]=key.split('-'); return new Date(Number(y),Number(m)-1,1).toLocaleDateString(undefined,{month:'short'}); }
+function fmtMoney(n){ n=Number(n)||0; return '$'+n.toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2}); }
+function escapeHtml(s){ return String(s==null?'':s).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];}); }
+function uid(){ return 'id-'+Date.now()+'-'+Math.random().toString(36).slice(2,8); }
+let toastTimer=null;
+function toast(msg){ const t=document.getElementById('toast'); t.textContent=msg; t.classList.add('show'); clearTimeout(toastTimer); toastTimer=setTimeout(function(){t.classList.remove('show')},2200); }
+
+const CATEGORY_COLORS=['#AD7B20','#2A78D6','#A8517A','#2F7C5A','#B8493F','#7A5817','#5C8A6E','#4A5ED6','#C9922E','#B25C78'];
+const DEFAULT_PERSONAL_CATEGORIES=['Groceries','Dining out','Transport','Subscriptions','Fun','Shopping','Health','Misc'];
+const DEFAULT_SHARED_CATEGORIES=['Rent / Mortgage','Utilities','Shared groceries','Household','Shared subscriptions','Misc'];
+function seedCategories(names){
+  return names.map(function(name,i){ return {id:uid(),name:name,budget:0,color:CATEGORY_COLORS[i%CATEGORY_COLORS.length]}; });
+}
+
+/* ---- in-memory state, personal + shared, loaded for the active profile ---- */
+let personalTransactions=[], sharedTransactions=[];
+let personalCategories=[], sharedCategories=[];
+let personalBills=[], sharedBills=[];
+let activeTab='overview';
+let editingTxnId=null, editingTxnScope=null;
+let editingBillId=null, editingBillScope=null;
+let catsModalScope='personal';
+
+async function loadBudgetData(){
+  const [pt,st,pc,sc,pb,sb]=await Promise.all([
+    profileDoc(activeProfile,'transactions').get().catch(function(){return null;}),
+    sharedDoc('transactions').get().catch(function(){return null;}),
+    profileDoc(activeProfile,'categories').get().catch(function(){return null;}),
+    sharedDoc('categories').get().catch(function(){return null;}),
+    profileDoc(activeProfile,'bills').get().catch(function(){return null;}),
+    sharedDoc('bills').get().catch(function(){return null;})
+  ]);
+  personalTransactions = (pt && pt.exists && pt.data().json) ? JSON.parse(pt.data().json) : [];
+  sharedTransactions = (st && st.exists && st.data().json) ? JSON.parse(st.data().json) : [];
+  personalCategories = (pc && pc.exists && pc.data().json) ? JSON.parse(pc.data().json) : null;
+  sharedCategories = (sc && sc.exists && sc.data().json) ? JSON.parse(sc.data().json) : null;
+  personalBills = (pb && pb.exists && pb.data().json) ? JSON.parse(pb.data().json) : [];
+  sharedBills = (sb && sb.exists && sb.data().json) ? JSON.parse(sb.data().json) : [];
+  // First time this profile opens Budget: seed a starter category set so
+  // the app isn't an empty shell. Shared categories are seeded once per
+  // household (whoever gets here first), not per profile.
+  let needSavePersonalCats=false, needSaveSharedCats=false;
+  if(personalCategories===null){ personalCategories=seedCategories(DEFAULT_PERSONAL_CATEGORIES); needSavePersonalCats=true; }
+  if(sharedCategories===null){ sharedCategories=seedCategories(DEFAULT_SHARED_CATEGORIES); needSaveSharedCats=true; }
+  if(needSavePersonalCats) await saveCats('personal');
+  if(needSaveSharedCats) await saveCats('shared');
+}
+async function saveTxns(scope){
+  try{
+    if(scope==='personal') await profileDoc(activeProfile,'transactions').set({json:JSON.stringify(personalTransactions)});
+    else await sharedDoc('transactions').set({json:JSON.stringify(sharedTransactions)});
+  }catch(e){ toast('Could not save — try again'); }
+}
+async function saveCats(scope){
+  try{
+    if(scope==='personal') await profileDoc(activeProfile,'categories').set({json:JSON.stringify(personalCategories)});
+    else await sharedDoc('categories').set({json:JSON.stringify(sharedCategories)});
+  }catch(e){ toast('Could not save — try again'); }
+}
+async function saveBills(scope){
+  try{
+    if(scope==='personal') await profileDoc(activeProfile,'bills').set({json:JSON.stringify(personalBills)});
+    else await sharedDoc('bills').set({json:JSON.stringify(sharedBills)});
+  }catch(e){ toast('Could not save — try again'); }
+}
+
+function txnsFor(scope){ return scope==='shared' ? sharedTransactions : personalTransactions; }
+function catsFor(scope){ return scope==='shared' ? sharedCategories : personalCategories; }
+function billsFor(scope){ return scope==='shared' ? sharedBills : personalBills; }
+function allTxns(){ return personalTransactions.concat(sharedTransactions); }
+function catName(scope,id){ const c=catsFor(scope).find(function(x){return x.id===id;}); return c?c.name:'Uncategorized'; }
+function catColor(scope,id){ const c=catsFor(scope).find(function(x){return x.id===id;}); return c?c.color:'#999'; }
+
+/* =====================================================================
+   OVERVIEW
+===================================================================== */
+function monthSpend(txns, key){
+  return txns.filter(function(t){ return t.type==='expense' && monthKey(t.date)===key; }).reduce(function(s,t){ return s+Number(t.amount||0); },0);
+}
+function monthIncome(txns, key){
+  return txns.filter(function(t){ return t.type==='income' && monthKey(t.date)===key; }).reduce(function(s,t){ return s+Number(t.amount||0); },0);
+}
+function categorySpendThisMonth(scope, catId){
+  return txnsFor(scope).filter(function(t){ return t.type==='expense' && t.categoryId===catId && monthKey(t.date)===thisMonthKey(); }).reduce(function(s,t){ return s+Number(t.amount||0); },0);
+}
+function renderOverviewStats(){
+  const key=thisMonthKey();
+  const mySpent=monthSpend(personalTransactions,key), sharedSpent=monthSpend(sharedTransactions,key);
+  const totalSpent=mySpent+sharedSpent;
+  const totalBudget=personalCategories.concat(sharedCategories).reduce(function(s,c){ return s+(Number(c.budget)||0); },0);
+  const remaining=totalBudget-totalSpent;
+  const el=document.getElementById('overview-stats');
+  el.innerHTML=
+    '<div class="stat-card"><div class="sc-label">Spent this month</div><div class="sc-value">'+fmtMoney(totalSpent)+'</div></div>'+
+    '<div class="stat-card"><div class="sc-label">Budgeted</div><div class="sc-value">'+(totalBudget>0?fmtMoney(totalBudget):'<small>Not set</small>')+'</div></div>'+
+    '<div class="stat-card'+(remaining<0?' over':'')+'"><div class="sc-label">Remaining</div><div class="sc-value">'+(totalBudget>0?fmtMoney(remaining):'<small>—</small>')+'</div></div>'+
+    '<div class="stat-card"><div class="sc-label">Shared spend</div><div class="sc-value">'+fmtMoney(sharedSpent)+'</div></div>';
+}
+function renderCatProgress(scope, containerId){
+  const cats=catsFor(scope);
+  const el=document.getElementById(containerId);
+  if(!cats.length){ el.innerHTML='<div class="empty-state">No categories yet.</div>'; return; }
+  el.innerHTML=cats.map(function(c){
+    const spent=categorySpendThisMonth(scope,c.id);
+    const budget=Number(c.budget)||0;
+    const pct=budget>0?Math.min(100,Math.round(spent/budget*100)):0;
+    const over=budget>0 && spent>budget;
+    return '<div class="cat-row">'+
+      '<div class="cat-row-top"><span class="cat-dot" style="background:'+c.color+'"></span><span class="cat-name">'+escapeHtml(c.name)+'</span>'+
+      '<span class="cat-amounts"><strong>'+fmtMoney(spent)+'</strong>'+(budget>0?' / '+fmtMoney(budget):'')+'</span></div>'+
+      (budget>0?'<div class="cat-bar-track"><div class="cat-bar-fill" style="width:'+pct+'%;background:'+(over?'var(--danger)':c.color)+'"></div></div>':'')+
+    '</div>';
+  }).join('');
+}
+function renderCategoryChart(){
+  const key=thisMonthKey();
+  const byCat={};
+  allTxns().filter(function(t){ return t.type==='expense' && monthKey(t.date)===key; }).forEach(function(t){
+    const scope=personalTransactions.indexOf(t)!==-1?'personal':'shared';
+    const k=scope+':'+t.categoryId;
+    byCat[k]=(byCat[k]||0)+Number(t.amount||0);
+  });
+  const rows=Object.keys(byCat).map(function(k){
+    const parts=k.split(':'); const scope=parts[0], catId=parts[1];
+    return {name:catName(scope,catId), color:catColor(scope,catId), amount:byCat[k]};
+  }).sort(function(a,b){ return b.amount-a.amount; }).slice(0,8);
+  const el=document.getElementById('overview-chart-category');
+  if(!rows.length){ el.innerHTML='<div class="empty-state">No spending logged yet this month.</div>'; return; }
+  const max=Math.max.apply(null, rows.map(function(r){return r.amount;}));
+  el.innerHTML=rows.map(function(r){
+    const h=max>0?Math.max(4,Math.round(r.amount/max*100)):4;
+    return '<div class="chart-bar-col"><div class="chart-bar-value">'+fmtMoney(r.amount).replace('.00','')+'</div><div class="chart-bar" style="height:'+h+'%;background:'+r.color+'"></div><div class="chart-bar-label">'+escapeHtml(r.name)+'</div></div>';
+  }).join('');
+}
+function renderTrendChart(){
+  const months=[];
+  const now=new Date();
+  for(let i=5;i>=0;i--){
+    const d=new Date(now.getFullYear(),now.getMonth()-i,1);
+    months.push(d.getFullYear()+'-'+pad2(d.getMonth()+1));
+  }
+  const totals=months.map(function(k){ return monthSpend(personalTransactions,k)+monthSpend(sharedTransactions,k); });
+  const max=Math.max.apply(null, totals.concat([1]));
+  const el=document.getElementById('overview-chart-trend');
+  el.innerHTML=months.map(function(k,i){
+    const h=Math.max(4,Math.round(totals[i]/max*100));
+    const isCur=k===thisMonthKey();
+    return '<div class="chart-bar-col"><div class="chart-bar-value">'+fmtMoney(totals[i]).replace('.00','')+'</div><div class="chart-bar" style="height:'+h+'%;background:'+(isCur?'var(--accent)':'var(--surface-alt)')+';border:1px solid '+(isCur?'var(--accent)':'var(--border)')+'"></div><div class="chart-bar-label">'+monthLabel(k)+'</div></div>';
+  }).join('');
+}
+function renderOverview(){
+  renderOverviewStats();
+  renderCatProgress('personal','overview-personal-cats');
+  renderCatProgress('shared','overview-shared-cats');
+  renderCategoryChart();
+  renderTrendChart();
+}
+
+/* =====================================================================
+   TRANSACTIONS
+===================================================================== */
+function populateCategorySelect(sel, scope, includeAll){
+  const cats=catsFor(scope);
+  sel.innerHTML=(includeAll?'<option value="">All categories</option>':'')+cats.map(function(c){ return '<option value="'+c.id+'">'+escapeHtml(c.name)+'</option>'; }).join('');
+}
+function currentTxnScope(){ return document.querySelector('#txn-scope-toggle button.active').dataset.scope; }
+function currentTxnType(){ return document.querySelector('#txn-type-toggle button.active').dataset.type; }
+function refreshTxnForm(){
+  const scope=currentTxnScope();
+  populateCategorySelect(document.getElementById('txn-category'), scope, false);
+  document.getElementById('txn-who-label').style.display = scope==='shared' ? '' : 'none';
+}
+function resetTxnForm(){
+  editingTxnId=null; editingTxnScope=null;
+  document.getElementById('txn-amount').value='';
+  document.getElementById('txn-note').value='';
+  document.getElementById('txn-date').value=todayStr();
+  document.getElementById('txn-submit').innerHTML='<i data-lucide="plus"></i>Add transaction';
+  document.getElementById('txn-cancel-edit').hidden=true;
+  if(window.lucide) lucide.createIcons();
+  refreshTxnForm();
+}
+async function submitTxnForm(){
+  const amount=parseFloat(document.getElementById('txn-amount').value);
+  if(!amount || amount<=0){ toast('Enter an amount'); return; }
+  const scope=currentTxnScope(), type=currentTxnType();
+  const categoryId=document.getElementById('txn-category').value;
+  const who=document.getElementById('txn-who').value;
+  const date=document.getElementById('txn-date').value||todayStr();
+  const note=document.getElementById('txn-note').value.trim();
+  const arr=txnsFor(scope);
+  if(editingTxnId && editingTxnScope===scope){
+    const t=arr.find(function(x){return x.id===editingTxnId;});
+    if(t){ Object.assign(t,{amount:amount,type:type,categoryId:categoryId,who:scope==='shared'?who:null,date:date,note:note}); }
+  }else{
+    if(editingTxnId){ // scope changed mid-edit — remove from the old scope, add fresh to the new one
+      const oldArr=txnsFor(editingTxnScope);
+      const idx=oldArr.findIndex(function(x){return x.id===editingTxnId;});
+      if(idx!==-1){ oldArr.splice(idx,1); await saveTxns(editingTxnScope); }
+    }
+    arr.unshift({id:uid(),amount:amount,type:type,categoryId:categoryId,who:scope==='shared'?who:null,date:date,note:note,createdAt:Date.now()});
+  }
+  await saveTxns(scope);
+  resetTxnForm();
+  renderOverview(); renderTransactions();
+  toast('Saved');
+}
+function editTxn(scope,id){
+  const t=txnsFor(scope).find(function(x){return x.id===id;});
+  if(!t) return;
+  editingTxnId=id; editingTxnScope=scope;
+  document.querySelectorAll('#txn-scope-toggle button').forEach(function(b){ b.classList.toggle('active', b.dataset.scope===scope); });
+  document.querySelectorAll('#txn-type-toggle button').forEach(function(b){ b.classList.toggle('active', b.dataset.type===t.type); });
+  refreshTxnForm();
+  document.getElementById('txn-amount').value=t.amount;
+  document.getElementById('txn-category').value=t.categoryId||'';
+  if(t.who) document.getElementById('txn-who').value=t.who;
+  document.getElementById('txn-date').value=t.date;
+  document.getElementById('txn-note').value=t.note||'';
+  document.getElementById('txn-submit').innerHTML='<i data-lucide="check"></i>Save changes';
+  document.getElementById('txn-cancel-edit').hidden=false;
+  if(window.lucide) lucide.createIcons();
+  showTab('transactions');
+  document.querySelector('.card-form').scrollIntoView({behavior:'smooth',block:'start'});
+}
+async function deleteTxn(scope,id){
+  const arr=txnsFor(scope);
+  const idx=arr.findIndex(function(x){return x.id===id;});
+  if(idx===-1) return;
+  arr.splice(idx,1);
+  await saveTxns(scope);
+  renderOverview(); renderTransactions();
+  toast('Deleted');
+}
+function renderTransactions(){
+  const scopeFilter=document.getElementById('txn-filter-scope').value;
+  const catFilter=document.getElementById('txn-filter-category').value;
+  const q=document.getElementById('txn-search').value.trim().toLowerCase();
+  let rows=[];
+  if(scopeFilter!=='shared') rows=rows.concat(personalTransactions.map(function(t){ return Object.assign({_scope:'personal'},t); }));
+  if(scopeFilter!=='personal') rows=rows.concat(sharedTransactions.map(function(t){ return Object.assign({_scope:'shared'},t); }));
+  if(catFilter) rows=rows.filter(function(t){ return t.categoryId===catFilter; });
+  if(q) rows=rows.filter(function(t){ return (t.note||'').toLowerCase().indexOf(q)!==-1 || catName(t._scope,t.categoryId).toLowerCase().indexOf(q)!==-1; });
+  rows.sort(function(a,b){ return (b.date||'').localeCompare(a.date||'') || (b.createdAt||0)-(a.createdAt||0); });
+  const el=document.getElementById('transactions-list');
+  if(!rows.length){ el.innerHTML='<div class="empty-state">No transactions yet.</div>'; return; }
+  el.innerHTML=rows.map(function(t){
+    const whoPill = t._scope==='shared'
+      ? '<span class="person-pill '+(t.who==='Bhargav'?'b':t.who==='Anusha'?'a':'shared')+'">'+(t.who||'Shared')+'</span>'
+      : '';
+    return '<div class="txn-row '+t.type+'" data-txnwrap="'+t._scope+':'+t.id+'">'+
+      '<div class="txn-body"><div class="txn-title">'+escapeHtml(t.note||catName(t._scope,t.categoryId))+'</div>'+
+      '<div class="txn-meta">'+whoPill+'<span class="cat-chip">'+escapeHtml(catName(t._scope,t.categoryId))+'</span><span class="cat-chip">'+escapeHtml(t.date)+'</span></div></div>'+
+      '<div class="txn-amount '+t.type+'">'+(t.type==='income'?'+':'−')+fmtMoney(t.amount).replace('$','$')+'</div>'+
+      '<div class="row-actions"><button type="button" data-txnedit="'+t._scope+':'+t.id+'" title="Edit"><i data-lucide="pencil"></i></button>'+
+      '<button type="button" data-txndel="'+t._scope+':'+t.id+'" title="Delete"><i data-lucide="trash-2"></i></button></div>'+
+    '</div>';
+  }).join('');
+  if(window.lucide) lucide.createIcons();
+  el.querySelectorAll('[data-txnedit]').forEach(function(btn){
+    btn.addEventListener('click', function(){ const parts=btn.dataset.txnedit.split(':'); editTxn(parts[0],parts[1]); });
+  });
+  el.querySelectorAll('[data-txndel]').forEach(function(btn){
+    btn.addEventListener('click', function(){ const parts=btn.dataset.txndel.split(':'); if(confirm('Delete this transaction?')) deleteTxn(parts[0],parts[1]); });
+  });
+}
+
+/* =====================================================================
+   BILLS — a simple reminder list, not auto-logged. "Log payment" jumps
+   to the Transactions tab with the form pre-filled so the real entry is
+   still a deliberate, one-click action, never silently created for you.
+===================================================================== */
+function currentBillScope(){ return document.querySelector('#bill-scope-toggle button.active').dataset.scope; }
+function refreshBillForm(){ populateCategorySelect(document.getElementById('bill-category'), currentBillScope(), false); }
+function resetBillForm(){
+  editingBillId=null; editingBillScope=null;
+  document.getElementById('bill-name').value='';
+  document.getElementById('bill-amount').value='';
+  document.getElementById('bill-dueday').value='';
+  document.getElementById('bill-submit').innerHTML='<i data-lucide="plus"></i>Add bill';
+  document.getElementById('bill-cancel-edit').hidden=true;
+  if(window.lucide) lucide.createIcons();
+  refreshBillForm();
+}
+async function submitBillForm(){
+  const name=document.getElementById('bill-name').value.trim();
+  const amount=parseFloat(document.getElementById('bill-amount').value);
+  const dueDay=parseInt(document.getElementById('bill-dueday').value,10);
+  if(!name){ toast('Name this bill'); return; }
+  if(!dueDay || dueDay<1 || dueDay>31){ toast('Due day should be 1–31'); return; }
+  const scope=currentBillScope();
+  const categoryId=document.getElementById('bill-category').value;
+  const arr=billsFor(scope);
+  if(editingBillId && editingBillScope===scope){
+    const b=arr.find(function(x){return x.id===editingBillId;});
+    if(b){ Object.assign(b,{name:name,amount:amount||0,categoryId:categoryId,dueDay:dueDay}); }
+  }else{
+    arr.push({id:uid(),name:name,amount:amount||0,categoryId:categoryId,dueDay:dueDay,lastLoggedMonth:null});
+  }
+  await saveBills(scope);
+  resetBillForm();
+  renderBills();
+  toast('Saved');
+}
+function editBill(scope,id){
+  const b=billsFor(scope).find(function(x){return x.id===id;});
+  if(!b) return;
+  editingBillId=id; editingBillScope=scope;
+  document.querySelectorAll('#bill-scope-toggle button').forEach(function(btn){ btn.classList.toggle('active', btn.dataset.scope===scope); });
+  refreshBillForm();
+  document.getElementById('bill-name').value=b.name;
+  document.getElementById('bill-amount').value=b.amount;
+  document.getElementById('bill-category').value=b.categoryId||'';
+  document.getElementById('bill-dueday').value=b.dueDay;
+  document.getElementById('bill-submit').innerHTML='<i data-lucide="check"></i>Save changes';
+  document.getElementById('bill-cancel-edit').hidden=false;
+  if(window.lucide) lucide.createIcons();
+  showTab('bills');
+  document.querySelectorAll('.card-form')[1].scrollIntoView({behavior:'smooth',block:'start'});
+}
+async function deleteBill(scope,id){
+  const arr=billsFor(scope);
+  const idx=arr.findIndex(function(x){return x.id===id;});
+  if(idx===-1) return;
+  arr.splice(idx,1);
+  await saveBills(scope);
+  renderBills();
+  toast('Deleted');
+}
+function billStatus(b){
+  const now=new Date(), day=now.getDate();
+  const thisMonth=thisMonthKey();
+  if(b.lastLoggedMonth===thisMonth) return 'paid';
+  if(day>b.dueDay) return 'overdue';
+  if(day===b.dueDay) return 'today';
+  return 'upcoming';
+}
+function billStatusLabel(status,b){
+  if(status==='paid') return 'Paid this month';
+  if(status==='overdue') return 'Overdue';
+  if(status==='today') return 'Due today';
+  const now=new Date();
+  const daysAway=b.dueDay-now.getDate();
+  return 'Due in '+daysAway+' day'+(daysAway===1?'':'s');
+}
+async function markBillPaid(scope,id){
+  const b=billsFor(scope).find(function(x){return x.id===id;});
+  if(!b) return;
+  b.lastLoggedMonth=thisMonthKey();
+  await saveBills(scope);
+  renderBills();
+}
+function logBillPayment(scope,id){
+  const b=billsFor(scope).find(function(x){return x.id===id;});
+  if(!b) return;
+  showTab('transactions');
+  document.querySelectorAll('#txn-scope-toggle button').forEach(function(btn){ btn.classList.toggle('active', btn.dataset.scope===scope); });
+  document.querySelectorAll('#txn-type-toggle button').forEach(function(btn){ btn.classList.toggle('active', btn.dataset.type==='expense'); });
+  refreshTxnForm();
+  document.getElementById('txn-amount').value=b.amount;
+  document.getElementById('txn-category').value=b.categoryId||'';
+  document.getElementById('txn-note').value=b.name;
+  document.getElementById('txn-date').value=todayStr();
+  document.querySelector('.card-form').scrollIntoView({behavior:'smooth',block:'start'});
+  toast('Review and add the transaction below, then it’ll mark as paid');
+  // Marks the bill paid once the matching transaction actually gets added —
+  // simplest reliable way without guessing at a submit hook: just flag it
+  // here since the person is about to submit the pre-filled form anyway.
+  markBillPaid(scope,id);
+}
+function renderBills(){
+  const rows=personalBills.map(function(b){ return Object.assign({_scope:'personal'},b); })
+    .concat(sharedBills.map(function(b){ return Object.assign({_scope:'shared'},b); }));
+  rows.sort(function(a,b){ return a.dueDay-b.dueDay; });
+  const el=document.getElementById('bills-list');
+  if(!rows.length){ el.innerHTML='<div class="empty-state">No recurring bills yet.</div>'; return; }
+  el.innerHTML=rows.map(function(b){
+    const status=billStatus(b);
+    return '<div class="bill-row '+status+'">'+
+      '<div class="bill-body"><div class="bill-title">'+escapeHtml(b.name)+'</div>'+
+      '<div class="bill-meta"><span class="status-pill '+status+'">'+billStatusLabel(status,b)+'</span>'+
+      '<span class="cat-chip">'+escapeHtml(catName(b._scope,b.categoryId))+'</span>'+
+      '<span class="cat-chip">Day '+b.dueDay+(b._scope==='shared'?' · Shared':'')+'</span></div></div>'+
+      '<div class="txn-amount expense">'+fmtMoney(b.amount)+'</div>'+
+      '<div class="row-actions">'+
+      (status!=='paid'?'<button type="button" data-billpay="'+b._scope+':'+b.id+'" title="Log payment"><i data-lucide="check-circle"></i></button>':'')+
+      '<button type="button" data-billedit="'+b._scope+':'+b.id+'" title="Edit"><i data-lucide="pencil"></i></button>'+
+      '<button type="button" data-billdel="'+b._scope+':'+b.id+'" title="Delete"><i data-lucide="trash-2"></i></button></div>'+
+    '</div>';
+  }).join('');
+  if(window.lucide) lucide.createIcons();
+  el.querySelectorAll('[data-billpay]').forEach(function(btn){
+    btn.addEventListener('click', function(){ const p=btn.dataset.billpay.split(':'); logBillPayment(p[0],p[1]); });
+  });
+  el.querySelectorAll('[data-billedit]').forEach(function(btn){
+    btn.addEventListener('click', function(){ const p=btn.dataset.billedit.split(':'); editBill(p[0],p[1]); });
+  });
+  el.querySelectorAll('[data-billdel]').forEach(function(btn){
+    btn.addEventListener('click', function(){ const p=btn.dataset.billdel.split(':'); if(confirm('Delete this bill?')) deleteBill(p[0],p[1]); });
+  });
+}
+
+/* =====================================================================
+   CATEGORIES MODAL
+===================================================================== */
+function openCatsModal(scope){
+  catsModalScope=scope;
+  document.getElementById('cats-modal-title').textContent=(scope==='shared'?'Shared':'Your')+' categories';
+  renderCatsModal();
+  document.getElementById('cats-modal-overlay').hidden=false;
+}
+function closeCatsModal(){ document.getElementById('cats-modal-overlay').hidden=true; }
+function renderCatsModal(){
+  const cats=catsFor(catsModalScope);
+  const el=document.getElementById('cats-modal-list');
+  el.innerHTML=cats.map(function(c){
+    return '<div class="mini-cat-row" data-catrow="'+c.id+'">'+
+      '<span class="cat-dot" style="background:'+c.color+'"></span>'+
+      '<input type="text" value="'+escapeHtml(c.name)+'" data-catname="'+c.id+'">'+
+      '<input type="number" min="0" step="1" value="'+(c.budget||'')+'" placeholder="Budget" data-catbudget="'+c.id+'">'+
+      '<button type="button" data-catdel="'+c.id+'" title="Delete"><i data-lucide="trash-2"></i></button>'+
+    '</div>';
+  }).join('');
+  if(window.lucide) lucide.createIcons();
+  let debounce;
+  function scheduleSave(){ clearTimeout(debounce); debounce=setTimeout(function(){ saveCats(catsModalScope); renderOverview(); refreshTxnForm(); refreshBillForm(); }, 400); }
+  el.querySelectorAll('[data-catname]').forEach(function(inp){
+    inp.addEventListener('input', function(){
+      const c=cats.find(function(x){return x.id===inp.dataset.catname;});
+      if(c){ c.name=inp.value; scheduleSave(); }
+    });
+  });
+  el.querySelectorAll('[data-catbudget]').forEach(function(inp){
+    inp.addEventListener('input', function(){
+      const c=cats.find(function(x){return x.id===inp.dataset.catbudget;});
+      if(c){ c.budget=parseFloat(inp.value)||0; scheduleSave(); }
+    });
+  });
+  el.querySelectorAll('[data-catdel]').forEach(function(btn){
+    btn.addEventListener('click', function(){
+      if(!confirm('Delete this category? Past transactions keep showing it as "Uncategorized".')) return;
+      const idx=cats.findIndex(function(x){return x.id===btn.dataset.catdel;});
+      if(idx!==-1){ cats.splice(idx,1); saveCats(catsModalScope).then(function(){ renderCatsModal(); renderOverview(); refreshTxnForm(); refreshBillForm(); }); }
+    });
+  });
+}
+document.getElementById('cats-add-new').addEventListener('click', function(){
+  const cats=catsFor(catsModalScope);
+  cats.push({id:uid(),name:'New category',budget:0,color:CATEGORY_COLORS[cats.length%CATEGORY_COLORS.length]});
+  saveCats(catsModalScope).then(function(){ renderCatsModal(); renderOverview(); refreshTxnForm(); refreshBillForm(); });
+});
+document.getElementById('cats-modal-close').addEventListener('click', closeCatsModal);
+document.getElementById('cats-modal-overlay').addEventListener('click', function(e){ if(e.target.id==='cats-modal-overlay') closeCatsModal(); });
+document.querySelectorAll('[data-opencats]').forEach(function(btn){ btn.addEventListener('click', function(){ openCatsModal(btn.dataset.opencats); }); });
+
+/* =====================================================================
+   TABS / WIRING
+===================================================================== */
+function showTab(tab){
+  activeTab=tab;
+  document.querySelectorAll('#tab-segmented button').forEach(function(b){ b.classList.toggle('active', b.dataset.tab===tab); });
+  document.querySelectorAll('.tab-page').forEach(function(p){ p.classList.toggle('active', p.id==='page-'+tab); });
+  if(tab==='overview') renderOverview();
+  if(tab==='transactions') renderTransactions();
+  if(tab==='bills') renderBills();
+}
+document.querySelectorAll('#tab-segmented button').forEach(function(b){ b.addEventListener('click', function(){ showTab(b.dataset.tab); }); });
+
+document.querySelectorAll('#txn-scope-toggle button').forEach(function(b){
+  b.addEventListener('click', function(){ document.querySelectorAll('#txn-scope-toggle button').forEach(function(x){x.classList.remove('active');}); b.classList.add('active'); refreshTxnForm(); });
+});
+document.querySelectorAll('#txn-type-toggle button').forEach(function(b){
+  b.addEventListener('click', function(){ document.querySelectorAll('#txn-type-toggle button').forEach(function(x){x.classList.remove('active');}); b.classList.add('active'); });
+});
+document.getElementById('txn-submit').addEventListener('click', submitTxnForm);
+document.getElementById('txn-cancel-edit').addEventListener('click', resetTxnForm);
+document.getElementById('txn-filter-scope').addEventListener('change', function(){
+  populateCategorySelect(document.getElementById('txn-filter-category'), document.getElementById('txn-filter-scope').value==='shared'?'shared':'personal', true);
+  renderTransactions();
+});
+document.getElementById('txn-filter-category').addEventListener('change', renderTransactions);
+document.getElementById('txn-search').addEventListener('input', renderTransactions);
+
+document.querySelectorAll('#bill-scope-toggle button').forEach(function(b){
+  b.addEventListener('click', function(){ document.querySelectorAll('#bill-scope-toggle button').forEach(function(x){x.classList.remove('active');}); b.classList.add('active'); refreshBillForm(); });
+});
+document.getElementById('bill-submit').addEventListener('click', submitBillForm);
+document.getElementById('bill-cancel-edit').addEventListener('click', resetBillForm);
+
+/* =====================================================================
+   PROFILE ENTRY
+===================================================================== */
+function showProfilePicker(){
+  const row=document.getElementById('profile-card-row');
+  row.innerHTML='';
+  [{id:'Bhargav',cls:'b'},{id:'Anusha',cls:'a'}].forEach(function(p){
+    const card=document.createElement('div');
+    card.className='profile-card';
+    card.innerHTML='<div class="profile-avatar '+p.cls+'">'+p.id[0]+'</div><div class="profile-name">'+p.id+'</div>';
+    card.addEventListener('click', function(){ enterProfile(p.id); });
+    row.appendChild(card);
+  });
+  document.getElementById('loading-gate').style.display='none';
+  document.getElementById('profile-overlay').style.display='flex';
+}
+auth.onAuthStateChanged(function(user){
+  currentUser=user;
+  if(!user){ if(window.self!==window.top) return; window.location.href='../index.html'; return; }
+  const params=new URLSearchParams(window.location.search);
+  const linkProfile=params.get('profile');
+  if(linkProfile==='Bhargav' || linkProfile==='Anusha'){ enterProfile(linkProfile); return; }
+  let last=null;
+  try{ last=localStorage.getItem(LAST_PROFILE_KEY); }catch(e){}
+  if(last==='Bhargav' || last==='Anusha') enterProfile(last);
+  else showProfilePicker();
+});
+async function enterProfile(profileId){
+  activeProfile=profileId;
+  document.body.dataset.profile=profileId.toLowerCase();
+  if(window.HubTheme) HubTheme.applyHubTheme(profileId,{base:'--accent',deep:'--accent-deep',soft:'--accent-soft'}).catch(function(){});
+  try{ localStorage.setItem(LAST_PROFILE_KEY, profileId); }catch(e){}
+  document.getElementById('loading-gate').style.display='none';
+  document.getElementById('profile-overlay').style.display='none';
+  document.getElementById('app-wrap').style.display='block';
+  document.getElementById('who-badge').innerHTML='<span class="who-avatar av-'+(profileId==='Bhargav'?'b':'a')+'">'+profileId[0]+'</span><span class="who-name">'+profileId+'</span>';
+  document.getElementById('who-badge').onclick=function(){ enterProfile(otherProfile(activeProfile)); };
+  await loadBudgetData();
+  document.getElementById('txn-date').value=todayStr();
+  populateCategorySelect(document.getElementById('txn-filter-category'), 'personal', true);
+  refreshTxnForm();
+  refreshBillForm();
+  showTab('overview');
+  if(window.lucide) lucide.createIcons();
+}
+</script>
+</body>
+</html>

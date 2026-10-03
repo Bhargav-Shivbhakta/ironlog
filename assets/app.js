@@ -97,7 +97,7 @@ THEME_HUES.forEach(hs=>{
 const DEFAULT_APP_ICON={
   'grocery.html':'shopping-cart','schedule.html':'calendar-clock','todo.html':'list-checks',
   'skin.html':'sparkles','chores.html':'spray-can','diet.html':'utensils',
-  'calendar.html':'calendar-days','gym.html':'dumbbell'
+  'calendar.html':'calendar-days','gym.html':'dumbbell','budget.html':'piggy-bank'
 };
 const ICON_LIBRARY=[
   'house','shopping-cart','shopping-bag','utensils','coffee','pizza','apple','carrot','salad','cake','soup',
@@ -233,7 +233,8 @@ const FALLBACK_APPS = [
   { file: 'skin.html', title: 'Skin Plan' },
   { file: 'chores.html', title: 'Household Chores' },
   { file: 'diet.html', title: 'Diet Tracker' },
-  { file: 'calendar.html', title: 'Calendar' }
+  { file: 'calendar.html', title: 'Calendar' },
+  { file: 'budget.html', title: 'Budget' }
 ];
 const ICONS = {
   'grocery.html': 'tile-icons/grocery.png', 'schedule.html': 'tile-icons/schedule.png',
@@ -248,7 +249,7 @@ const DEFAULT_CATEGORY = {
   'gym.html':'health',
   'schedule.html':'planner', 'todo.html':'planner', 'calendar.html':'planner', 'clock.html':'planner',
   'diet.html':'health', 'skin.html':'health',
-  'grocery.html':'home', 'chores.html':'home'
+  'grocery.html':'home', 'chores.html':'home', 'budget.html':'home'
 };
 const HIDDEN_APPS = new Set(['clock.html']); // reached only via its own widget/link, never a tile
 function titleFromFilename(name){ return name.replace(/\.html?$/i,'').replace(/[-_]+/g,' ').replace(/\b\w/g, c=>c.toUpperCase()); }
@@ -722,6 +723,45 @@ const WIDGET_TYPES={
         el.innerHTML='<strong style="display:block;font-size:26px;font-weight:700;letter-spacing:-.02em">'+remaining+'</strong><p style="margin:4px 0 10px;color:var(--muted)">item'+(remaining===1?'':'s')+' still to buy</p><a class="widget-card-link" href="apps/grocery.html" data-profile-link>Open Grocery <i data-lucide="arrow-up-right"></i></a>';
         updateProfileLinks();if(window.lucide)lucide.createIcons();
       }catch(e){el.innerHTML='<div class="empty-state"><strong>Unavailable</strong>Could not load the grocery list.</div>'}
+    }},
+  budget:{title:'Budget',icon:'piggy-bank',desc:"This month's spending vs. your category budgets, personal + shared combined.",defaultSize:'md',
+    async render(el){
+      el.innerHTML='<div class="empty-state"><strong>Loading…</strong></div>';
+      try{
+        const uid=state.user.uid;
+        const [pt,st,pc,sc]=await Promise.all([
+          db.collection('users').doc(uid).collection('budget-profiles').doc(state.profile).collection('data').doc('transactions').get().catch(()=>null),
+          db.collection('users').doc(uid).collection('budget-shared').doc('transactions').get().catch(()=>null),
+          db.collection('users').doc(uid).collection('budget-profiles').doc(state.profile).collection('data').doc('categories').get().catch(()=>null),
+          db.collection('users').doc(uid).collection('budget-shared').doc('categories').get().catch(()=>null)
+        ]);
+        const personalTxns=(pt&&pt.exists&&pt.data().json)?safeJson(pt.data().json,[]):[];
+        const sharedTxns=(st&&st.exists&&st.data().json)?safeJson(st.data().json,[]):[];
+        const personalCats=(pc&&pc.exists&&pc.data().json)?safeJson(pc.data().json,[]):[];
+        const sharedCats=(sc&&sc.exists&&sc.data().json)?safeJson(sc.data().json,[]):[];
+        const monthKey=new Date().toISOString().slice(0,7);
+        const spentIn=txns=>txns.filter(t=>t.type==='expense'&&(t.date||'').slice(0,7)===monthKey).reduce((s,t)=>s+(Number(t.amount)||0),0);
+        const spent=spentIn(personalTxns)+spentIn(sharedTxns);
+        const budget=personalCats.concat(sharedCats).reduce((s,c)=>s+(Number(c.budget)||0),0);
+        const remaining=budget-spent;
+        const fmt=n=>'$'+(Number(n)||0).toLocaleString(undefined,{maximumFractionDigits:0});
+        // Top categories this month, personal + shared combined, for a quick
+        // "where did it go" glance without opening the full app.
+        const byCat={};
+        [{list:personalTxns,cats:personalCats},{list:sharedTxns,cats:sharedCats}].forEach(({list,cats})=>{
+          list.filter(t=>t.type==='expense'&&(t.date||'').slice(0,7)===monthKey).forEach(t=>{
+            const cat=cats.find(c=>c.id===t.categoryId);
+            const name=cat?cat.name:'Uncategorized';
+            byCat[name]=(byCat[name]||0)+(Number(t.amount)||0);
+          });
+        });
+        const topCats=Object.entries(byCat).sort((a,b)=>b[1]-a[1]).slice(0,3);
+        el.innerHTML='<strong style="display:block;font-size:26px;font-weight:700;letter-spacing:-.02em">'+fmt(spent)+'</strong>'+
+          '<p style="margin:4px 0 10px;color:var(--muted)">spent this month'+(budget>0?(remaining<0?' · '+fmt(-remaining)+' over budget':' · '+fmt(remaining)+' left'):'')+'</p>'+
+          (topCats.length?'<div style="display:flex;flex-direction:column;gap:4px;margin-bottom:10px">'+topCats.map(([name,amt])=>'<div style="display:flex;justify-content:space-between;font-size:12px;color:var(--muted)"><span>'+esc(name)+'</span><strong style="color:var(--text)">'+fmt(amt)+'</strong></div>').join('')+'</div>':'')+
+          '<a class="widget-card-link" href="apps/budget.html" data-profile-link>Open Budget <i data-lucide="arrow-up-right"></i></a>';
+        updateProfileLinks();if(window.lucide)lucide.createIcons();
+      }catch(e){el.innerHTML='<div class="empty-state"><strong>Unavailable</strong>Could not load your budget.</div>'}
     }},
   photos:{title:'Photo widget',icon:'image',desc:'Your own little rotating gallery — add a batch of photos, shuffle them, or let it play on its own. Add as many of these as you like.',defaultSize:'lg',bare:true,multiple:true,
     render(el,w){renderPhotoWidgetInto(el,w.id)}},
