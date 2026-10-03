@@ -831,20 +831,50 @@ async function handlePhotoWidgetUpload(fileList,el,widgetId){
    without needing a reload — genuinely synced, not just "same data on next
    visit". ---- */
 const HUB_NOTE_COLORS=['#F6E7A6','#F1D7DE','#D9E8D3','#DCE6EE','#E6DCF0','#F2DFC7'];
+const HUB_NOTE_FONTS=[{value:'',label:'Font…'},{value:'Georgia, serif',label:'Serif'},{value:"'Courier New', monospace",label:'Mono'},{value:"'Caveat', cursive",label:'Handwritten'},{value:"'Comic Sans MS', cursive",label:'Casual'}];
+const HUB_NOTE_LIST_STYLES=[{value:'',label:'Style…'},{value:'decimal',label:'1, 2, 3'},{value:'lower-alpha',label:'a, b, c'},{value:'upper-roman',label:'I, II, III'},{value:'disc',label:'• Bullet'},{value:'circle',label:'○ Circle'},{value:'square',label:'▪ Square'}];
+// Notes were plain text (a <textarea>) before rich formatting existed. A
+// note already saved as plain text has no HTML tags in it at all, so it's
+// escaped for safe display; a note that's been through the new toolbar has
+// real <b>/<i>/<u>/<ul>/<ol>/<font>/<span> tags in it and is trusted as-is.
+// This one check is how old notes keep displaying correctly without a
+// one-time migration step.
+function hubNoteDisplayHtml(text){
+  if(!text)return'';
+  return /<\/?(b|i|u|font|span|ul|ol|li)[ \/>]/i.test(text)?text:esc(text);
+}
 let hubStickyNotes=[];
 let hubStickyNotesUnsub=null;
+// Tracks the json we most recently wrote ourselves. onSnapshot fires again
+// the instant that write lands (even just the local-cache echo of our own
+// set()), and re-rendering on every single one of those was wiping out and
+// rebuilding the whole widget's DOM mid-keystroke — destroying the textarea
+// you were actively focused in/typing into, which is what looked like the
+// cursor "exiting" the widget. If the incoming data is exactly what we just
+// saved, there's nothing new to show, so skip the rebuild entirely; a
+// genuine change (from another device/tab) always has different json and
+// still re-renders normally.
+let hubStickyNotesLastSyncedJson=null;
 function startHubNotesWatch(){
   if(hubStickyNotesUnsub){ try{hubStickyNotesUnsub();}catch(e){} hubStickyNotesUnsub=null; }
   hubStickyNotes=[];
+  hubStickyNotesLastSyncedJson=null;
   if(!state.user||!state.profile) return;
   try{
     hubStickyNotesUnsub=profileRef('todo-profiles','stickyNotes').onSnapshot(doc=>{
-      hubStickyNotes=(doc.exists&&doc.data().json)?safeJson(doc.data().json,[]):[];
+      const json=(doc.exists&&doc.data().json)?doc.data().json:'[]';
+      if(json===hubStickyNotesLastSyncedJson) return;
+      hubStickyNotesLastSyncedJson=json;
+      hubStickyNotes=safeJson(json,[]);
       document.querySelectorAll('[data-widget-type="notes"] .widget-card-body').forEach(el=>renderNotesWidgetInto(el));
     },()=>{});
   }catch(e){}
 }
-async function saveHubStickyNotes(){try{await profileRef('todo-profiles','stickyNotes').set({json:JSON.stringify(hubStickyNotes)});}catch(e){toast('Could not save note — try again')}}
+async function saveHubStickyNotes(){
+  const json=JSON.stringify(hubStickyNotes);
+  hubStickyNotesLastSyncedJson=json;
+  try{await profileRef('todo-profiles','stickyNotes').set({json});}catch(e){toast('Could not save note — try again')}
+}
 function renderNotesWidgetInto(el){
   if(!el)return;
   el.innerHTML='<div class="hub-notes-widget">'+
@@ -852,7 +882,17 @@ function renderNotesWidgetInto(el){
     '<div class="hub-notes-list">'+
       (hubStickyNotes.length?hubStickyNotes.map(n=>
         '<div class="hub-note-card" style="background:'+esc(n.color)+';" data-hubnote="'+esc(n.id)+'">'+
-          '<textarea data-hubnotetext="'+esc(n.id)+'" placeholder="Write anything…">'+esc(n.text)+'</textarea>'+
+          '<div class="hub-note-toolbar">'+
+            '<button type="button" data-notecmd="bold" title="Bold (Ctrl+B)"><i data-lucide="bold"></i></button>'+
+            '<button type="button" data-notecmd="italic" title="Italic (Ctrl+I)"><i data-lucide="italic"></i></button>'+
+            '<button type="button" data-notecmd="underline" title="Underline (Ctrl+U)"><i data-lucide="underline"></i></button>'+
+            '<span class="hub-note-sep"></span>'+
+            '<button type="button" data-notecmd="insertUnorderedList" title="Bullet list"><i data-lucide="list"></i></button>'+
+            '<button type="button" data-notecmd="insertOrderedList" title="Numbered list"><i data-lucide="list-ordered"></i></button>'+
+            '<select data-noteliststyle title="Numbering / bullet style">'+HUB_NOTE_LIST_STYLES.map(f=>'<option value="'+f.value+'">'+f.label+'</option>').join('')+'</select>'+
+            '<select data-notefont title="Font">'+HUB_NOTE_FONTS.map(f=>'<option value="'+esc(f.value)+'">'+f.label+'</option>').join('')+'</select>'+
+          '</div>'+
+          '<div class="hub-note-text" contenteditable="true" data-hubnotetext="'+esc(n.id)+'" data-placeholder="Write anything…">'+hubNoteDisplayHtml(n.text)+'</div>'+
           '<div class="hub-note-footer"><div class="hub-note-colors">'+HUB_NOTE_COLORS.map(c=>
             '<span class="hub-note-dot'+(n.color===c?' selected':'')+'" style="background:'+c+';" data-hubnotecolor="'+esc(n.id)+'" data-color="'+c+'"></span>'
           ).join('')+'</div><button type="button" class="hub-note-del-btn" data-hubnotedel="'+esc(n.id)+'" title="Delete note"><i data-lucide="x"></i></button></div>'+
@@ -868,14 +908,56 @@ function renderNotesWidgetInto(el){
     const first=el.querySelector('[data-hubnotetext]');
     if(first)first.focus();
   });
-  el.querySelectorAll('[data-hubnotetext]').forEach(ta=>{
+  el.querySelectorAll('.hub-note-card').forEach(card=>{
+    const id=card.dataset.hubnote;
+    const textEl=card.querySelector('[data-hubnotetext]');
     let debounce;
-    ta.addEventListener('input',()=>{
+    const commit=()=>{
       clearTimeout(debounce);
       debounce=setTimeout(async()=>{
-        const n=hubStickyNotes.find(x=>x.id===ta.dataset.hubnotetext);
-        if(n){n.text=ta.value;await saveHubStickyNotes();}
+        const n=hubStickyNotes.find(x=>x.id===id);
+        if(n){n.text=textEl.innerHTML;await saveHubStickyNotes();}
       },400);
+    };
+    textEl.addEventListener('input',commit);
+    textEl.addEventListener('keydown',e=>{
+      const mod=e.ctrlKey||e.metaKey;
+      if(!mod)return;
+      const k=e.key.toLowerCase();
+      if(k==='b'||k==='i'||k==='u'){
+        e.preventDefault();
+        document.execCommand(k==='b'?'bold':k==='i'?'italic':'underline');
+        commit();
+      }
+    });
+    card.querySelectorAll('[data-notecmd]').forEach(btn=>{
+      btn.addEventListener('mousedown',e=>e.preventDefault());
+      btn.addEventListener('click',()=>{
+        textEl.focus();
+        document.execCommand(btn.dataset.notecmd);
+        commit();
+      });
+    });
+    const listStyleSel=card.querySelector('[data-noteliststyle]');
+    if(listStyleSel)listStyleSel.addEventListener('change',()=>{
+      const style=listStyleSel.value;
+      listStyleSel.value='';
+      if(!style)return;
+      textEl.focus();
+      const sel=window.getSelection();
+      let node=sel&&sel.rangeCount?sel.getRangeAt(0).startContainer:null;
+      while(node&&node!==textEl&&node.nodeName!=='OL'&&node.nodeName!=='UL')node=node.parentNode;
+      if(node&&(node.nodeName==='OL'||node.nodeName==='UL'))node.style.listStyleType=style;
+      commit();
+    });
+    const fontSel=card.querySelector('[data-notefont]');
+    if(fontSel)fontSel.addEventListener('change',()=>{
+      const font=fontSel.value;
+      fontSel.value='';
+      if(!font)return;
+      textEl.focus();
+      document.execCommand('fontName',false,font);
+      commit();
     });
   });
   el.querySelectorAll('[data-hubnotecolor]').forEach(dot=>{

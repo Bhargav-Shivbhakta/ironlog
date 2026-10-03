@@ -281,7 +281,16 @@
   /* STICKY NOTES — always-visible compact panel in the left rail (no FAB/drawer) */
   .note-add-btn{width:100%;padding:10px;background:var(--surface);border:1px dashed var(--border);border-radius:12px;font-size:13px;font-weight:700;color:var(--text-soft);margin-bottom:14px;cursor:pointer;}
   .note-card{border-radius:14px;padding:12px 12px 8px;margin-bottom:12px;box-shadow:0 4px 12px -6px rgba(0,0,0,0.2);position:relative;}
+  .note-toolbar{display:flex;align-items:center;gap:3px;margin-bottom:7px;flex-wrap:wrap;}
+  .note-toolbar button{width:24px;height:24px;border:0;border-radius:6px;background:rgba(0,0,0,.06);color:#3A3420;display:flex;align-items:center;justify-content:center;padding:0;cursor:pointer;flex:none;font-size:11px;font-family:'Inter',sans-serif;font-weight:400;line-height:1;}
+  .note-toolbar button:hover{background:rgba(0,0,0,.14);}
+  .note-toolbar button svg{width:12px;height:12px;}
+  .note-toolbar .note-sep{width:1px;height:17px;background:rgba(0,0,0,.14);margin:0 2px;flex:none;}
+  .note-toolbar select{border:0;border-radius:6px;background:rgba(0,0,0,.06);color:#3A3420;font-size:11px;padding:3px 4px;cursor:pointer;max-width:80px;}
   .note-card textarea{width:100%;background:transparent;border:none;resize:vertical;min-height:70px;font-family:'Inter',sans-serif;font-size:13.5px;color:#3A3420;outline:none;}
+  .note-text{width:100%;min-height:70px;font-family:'Inter',sans-serif;font-size:13.5px;color:#3A3420;outline:none;white-space:pre-wrap;word-wrap:break-word;overflow-wrap:break-word;}
+  .note-text ul,.note-text ol{margin:4px 0 4px 18px;padding:0;}
+  .note-text:empty:before{content:attr(data-placeholder);color:#3A342088;pointer-events:none;}
   .note-card .nc-footer{display:flex;justify-content:space-between;align-items:center;margin-top:4px;}
   .nc-colors{display:flex;gap:5px;}
   .nc-color-dot{width:15px;height:15px;border-radius:50%;border:2px solid rgba(0,0,0,0.15);cursor:pointer;}
@@ -2023,6 +2032,17 @@ function openTagsPanel(){
    to lose while you're in here anyway.
 ===================================================================== */
 const NOTE_COLORS = ['#F6E7A6','#F1D7DE','#D9E8D3','#DCE6EE','#E6DCF0','#F2DFC7'];
+const NOTE_FONTS = [{value:'',label:'Font…'},{value:'Georgia, serif',label:'Serif'},{value:"'Courier New', monospace",label:'Mono'},{value:"'Caveat', cursive",label:'Handwritten'},{value:"'Comic Sans MS', cursive",label:'Casual'}];
+const NOTE_LIST_STYLES = [{value:'',label:'Style…'},{value:'decimal',label:'1, 2, 3'},{value:'lower-alpha',label:'a, b, c'},{value:'upper-roman',label:'I, II, III'},{value:'disc',label:'• Bullet'},{value:'circle',label:'○ Circle'},{value:'square',label:'▪ Square'}];
+// Same rule the Hub widget uses: a note with no formatting tags in it is
+// old plain text, so escape it; a note with real <b>/<i>/<ul>/etc in it has
+// been through the toolbar already and is trusted as-is. Keeps old notes
+// displaying correctly with no migration step, and keeps this file and the
+// Hub's copy of this logic (assets/app.js, hubNoteDisplayHtml) in sync.
+function noteDisplayHtml(text){
+  if(!text) return '';
+  return /<\/?(b|i|u|font|span|ul|ol|li)[ \/>]/i.test(text) ? text : escapeHtml(text);
+}
 let stickyNotes = [];
 async function loadStickyNotes(){
   try{ const doc = await profileDoc(activeProfile,'stickyNotes').get(); stickyNotes = (doc.exists && doc.data().json) ? JSON.parse(doc.data().json) : []; }
@@ -2038,21 +2058,73 @@ function renderNotesPanel(){
   if(!list) return;
   list.innerHTML = stickyNotes.length ? stickyNotes.map(function(n){
     return '<div class="note-card compact" style="background:'+n.color+';" data-notecard="'+n.id+'">'+
-      '<textarea data-notetext="'+n.id+'" placeholder="Write anything…">'+escapeHtml(n.text)+'</textarea>'+
+      '<div class="note-toolbar">'+
+        '<button type="button" data-notecmd="bold" title="Bold (Ctrl+B)"><b>B</b></button>'+
+        '<button type="button" data-notecmd="italic" title="Italic (Ctrl+I)"><i>I</i></button>'+
+        '<button type="button" data-notecmd="underline" title="Underline (Ctrl+U)"><u>U</u></button>'+
+        '<span class="note-sep"></span>'+
+        '<button type="button" data-notecmd="insertUnorderedList" title="Bullet list">•≡</button>'+
+        '<button type="button" data-notecmd="insertOrderedList" title="Numbered list">1≡</button>'+
+        '<select data-noteliststyle title="Numbering / bullet style">'+NOTE_LIST_STYLES.map(function(f){ return '<option value="'+f.value+'">'+f.label+'</option>'; }).join('')+'</select>'+
+        '<select data-notefont title="Font">'+NOTE_FONTS.map(function(f){ return '<option value="'+f.value+'">'+f.label+'</option>'; }).join('')+'</select>'+
+      '</div>'+
+      '<div class="note-text" contenteditable="true" data-notetext="'+n.id+'" data-placeholder="Write anything…">'+noteDisplayHtml(n.text)+'</div>'+
       '<div class="nc-footer"><div class="nc-colors">'+NOTE_COLORS.map(function(c){
         return '<span class="nc-color-dot '+(n.color===c?'selected':'')+'" style="background:'+c+';" data-notecolor="'+n.id+'" data-color="'+c+'"></span>';
       }).join('')+'</div><button type="button" class="nc-del-btn" data-notedel="'+n.id+'">✕</button></div>'+
     '</div>';
   }).join('') : '<div class="empty-note" style="padding:14px 4px;">No notes yet — jot anything down above.</div>';
 
-  list.querySelectorAll('[data-notetext]').forEach(function(ta){
+  list.querySelectorAll('[data-notecard]').forEach(function(card){
+    const id = card.dataset.notecard;
+    const textEl = card.querySelector('[data-notetext]');
     let debounce;
-    ta.addEventListener('input', function(){
+    const commit = function(){
       clearTimeout(debounce);
       debounce = setTimeout(async function(){
-        const n = stickyNotes.find(function(x){ return x.id===ta.dataset.notetext; });
-        if(n){ n.text = ta.value; await saveStickyNotes(); }
+        const n = stickyNotes.find(function(x){ return x.id===id; });
+        if(n){ n.text = textEl.innerHTML; await saveStickyNotes(); }
       }, 400);
+    };
+    textEl.addEventListener('input', commit);
+    textEl.addEventListener('keydown', function(e){
+      const mod = e.ctrlKey || e.metaKey;
+      if(!mod) return;
+      const k = e.key.toLowerCase();
+      if(k==='b' || k==='i' || k==='u'){
+        e.preventDefault();
+        document.execCommand(k==='b'?'bold':k==='i'?'italic':'underline');
+        commit();
+      }
+    });
+    card.querySelectorAll('[data-notecmd]').forEach(function(btn){
+      btn.addEventListener('mousedown', function(e){ e.preventDefault(); });
+      btn.addEventListener('click', function(){
+        textEl.focus();
+        document.execCommand(btn.dataset.notecmd);
+        commit();
+      });
+    });
+    const listStyleSel = card.querySelector('[data-noteliststyle]');
+    if(listStyleSel) listStyleSel.addEventListener('change', function(){
+      const style = listStyleSel.value;
+      listStyleSel.value = '';
+      if(!style) return;
+      textEl.focus();
+      const sel = window.getSelection();
+      let node = sel && sel.rangeCount ? sel.getRangeAt(0).startContainer : null;
+      while(node && node!==textEl && node.nodeName!=='OL' && node.nodeName!=='UL') node = node.parentNode;
+      if(node && (node.nodeName==='OL' || node.nodeName==='UL')) node.style.listStyleType = style;
+      commit();
+    });
+    const fontSel = card.querySelector('[data-notefont]');
+    if(fontSel) fontSel.addEventListener('change', function(){
+      const font = fontSel.value;
+      fontSel.value = '';
+      if(!font) return;
+      textEl.focus();
+      document.execCommand('fontName', false, font);
+      commit();
     });
   });
   list.querySelectorAll('[data-notecolor]').forEach(function(dot){
