@@ -536,6 +536,20 @@ function currentTimelineIndex(items){
 // survives the 30s auto-refresh re-render instead of resetting closed
 // every time.
 let timelineShowPast=false;
+// Was unconditional before: every 30s re-render (see startTimelineAutoAdvance
+// below) called scrollIntoView on the "current" row, and because this widget
+// card has no scrollable wrapper of its own, the browser had nowhere closer
+// to scroll than the whole page — so the dashboard would periodically jerk
+// itself down to wherever the schedule widget happened to sit, which is
+// exactly what felt like being "taken to the schedule tab" out of nowhere.
+// Now it's opt-in via Settings (see TIMELINE_AUTOSCROLL_KEY), off by default.
+const TIMELINE_AUTOSCROLL_KEY='hub-timeline-autoscroll';
+let timelineAutoScroll=(()=>{try{return localStorage.getItem(TIMELINE_AUTOSCROLL_KEY)==='on'}catch(e){return false}})();
+function updateTimelineAutoScrollUI(){
+  const btn=$('timeline-autoscroll-toggle'),status=$('timeline-autoscroll-status');
+  if(btn)btn.textContent=timelineAutoScroll?'Turn off auto-scroll':'Turn on auto-scroll';
+  if(status)status.textContent=timelineAutoScroll?'On':'Off';
+}
 function renderTimelineInto(el,items){
   if(!el)return;
   if(!items.length){el.innerHTML='<div class="empty-state"><strong>No scheduled blocks</strong>Your day is open. Add plans from the schedule.</div>';return}
@@ -551,10 +565,9 @@ function renderTimelineInto(el,items){
   el.classList.toggle('show-past', timelineShowPast);
   const toggleBtn=$('timeline-toggle-btn');
   if(toggleBtn) toggleBtn.addEventListener('click', ()=>{ timelineShowPast=!timelineShowPast; renderTimelineInto(el,items); });
-  // Keep "now" in view inside the timeline's own scroll area (not the
-  // whole page) as the day's list grows — scrollIntoView with a nearest
-  // ancestor scroll container does exactly that without jumping the page.
-  if(curIdx>=0){
+  // Keep "now" in view inside the timeline's own scroll area as the day's
+  // list grows — only when the person has turned this on in Settings.
+  if(curIdx>=0&&timelineAutoScroll){
     const curEl=el.querySelector('[data-tl-row="'+curIdx+'"]');
     if(curEl) curEl.scrollIntoView({block:'center', behavior:'smooth'});
   }
@@ -919,7 +932,33 @@ function renderNotesWidgetInto(el){
         if(n){n.text=textEl.innerHTML;await saveHubStickyNotes();}
       },400);
     };
+    // Toolbar buttons show whether bold/italic/underline is "on" at the
+    // cursor — without this there was no way to tell a format had taken
+    // until you looked at the text itself, which read as the toolbar just
+    // not working.
+    const updateToolbarState=()=>{
+      try{
+        const b=card.querySelector('[data-notecmd="bold"]'),i=card.querySelector('[data-notecmd="italic"]'),u=card.querySelector('[data-notecmd="underline"]');
+        if(b)b.classList.toggle('active',document.queryCommandState('bold'));
+        if(i)i.classList.toggle('active',document.queryCommandState('italic'));
+        if(u)u.classList.toggle('active',document.queryCommandState('underline'));
+      }catch(e){}
+    };
     textEl.addEventListener('input',commit);
+    textEl.addEventListener('keyup',updateToolbarState);
+    textEl.addEventListener('mouseup',updateToolbarState);
+    textEl.addEventListener('focus',updateToolbarState);
+    // Pasting from anywhere else (an email, a webpage, another app) used to
+    // drag in that source's own fonts, colors and sizes along with the
+    // text — a note could suddenly have five different fonts in it and
+    // look broken. This strips all of that and keeps only the plain text,
+    // which then picks up this note's own formatting normally.
+    textEl.addEventListener('paste',e=>{
+      e.preventDefault();
+      const text=(e.clipboardData||window.clipboardData).getData('text/plain');
+      document.execCommand('insertText',false,text);
+      commit();
+    });
     textEl.addEventListener('keydown',e=>{
       const mod=e.ctrlKey||e.metaKey;
       if(!mod)return;
@@ -928,6 +967,7 @@ function renderNotesWidgetInto(el){
         e.preventDefault();
         document.execCommand(k==='b'?'bold':k==='i'?'italic':'underline');
         commit();
+        updateToolbarState();
       }
     });
     card.querySelectorAll('[data-notecmd]').forEach(btn=>{
@@ -936,6 +976,7 @@ function renderNotesWidgetInto(el){
         textEl.focus();
         document.execCommand(btn.dataset.notecmd);
         commit();
+        updateToolbarState();
       });
     });
     const listStyleSel=card.querySelector('[data-noteliststyle]');
@@ -2395,6 +2436,14 @@ if($('sidebar-toggle')){
     setSidebarCollapsed(!$('app-shell').classList.contains('sidebar-collapsed'));
   });
   try{ if(localStorage.getItem(SIDEBAR_COLLAPSE_KEY)==='1') setSidebarCollapsed(true); }catch(e){}
+}
+if($('timeline-autoscroll-toggle')){
+  $('timeline-autoscroll-toggle').addEventListener('click',()=>{
+    timelineAutoScroll=!timelineAutoScroll;
+    try{localStorage.setItem(TIMELINE_AUTOSCROLL_KEY,timelineAutoScroll?'on':'off')}catch(e){}
+    updateTimelineAutoScrollUI();
+  });
+  updateTimelineAutoScrollUI();
 }
 
 /* =====================================================================
