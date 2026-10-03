@@ -150,6 +150,20 @@ html.wallpaper-live{background-size:250% 250%;animation:wallpaper-drift 24s ease
 .hub-note-del-btn{width:20px;height:20px;border-radius:6px;border:0;background:rgba(0,0,0,.08);color:#3A3420;display:flex;align-items:center;justify-content:center;padding:0;cursor:pointer}
 .hub-note-del-btn:hover{background:rgba(0,0,0,.16)}
 .hub-note-del-btn svg{width:11px;height:11px}
+/* Jarvis floating mic — fixed bottom-right, above everything, only
+   visible once turned on in Settings (assets/voice.js toggles [hidden]).
+   data-state drives which listening/speaking visual it shows. */
+.jarvis-btn{position:fixed;right:22px;bottom:22px;z-index:60;width:54px;height:54px;border-radius:50%;border:0;background:var(--ink);color:#fff;display:flex;align-items:center;justify-content:center;cursor:pointer;box-shadow:0 10px 28px rgba(0,0,0,.28);padding:0}
+.jarvis-btn svg{width:22px;height:22px;position:relative;z-index:1}
+.jarvis-ring{position:absolute;inset:-6px;border-radius:50%;border:2px solid var(--accent);opacity:0;pointer-events:none}
+.jarvis-btn[data-state="listening-wake"] .jarvis-ring{opacity:.55;animation:jarvis-pulse 2.6s ease-in-out infinite}
+.jarvis-btn[data-state="listening-command"]{background:var(--accent-ink)}
+.jarvis-btn[data-state="listening-command"] .jarvis-ring{opacity:.85;border-color:#fff;animation:jarvis-pulse 1s ease-in-out infinite}
+.jarvis-btn[data-state="speaking"]{background:var(--accent-ink)}
+.jarvis-btn[data-state="speaking"] .jarvis-ring{opacity:.7;animation:jarvis-pulse .7s ease-in-out infinite}
+@keyframes jarvis-pulse{0%{transform:scale(1);opacity:.6}70%{transform:scale(1.35);opacity:0}100%{transform:scale(1.35);opacity:0}}
+@media(prefers-reduced-motion:reduce){.jarvis-ring{animation:none!important}}
+@media(max-width:700px){.jarvis-btn{right:16px;bottom:84px}}
 @media(max-width:900px){
   /* Fewer visual columns, but still the same fine --cs unit underneath —
      min() just reclamps each card's span to whatever fits this narrower

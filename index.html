@@ -363,6 +363,18 @@
         </section>
 
         <section class="surface settings-card">
+          <div class="section-head with-icon"><span class="section-head-icon"><i data-lucide="mic"></i></span><div><p class="section-kicker">Hands-free</p><h2>Voice control</h2></div></div>
+          <p class="settings-hint">Say "Hey Jarvis" to open an app, add a task, or hear a quick summary of your day — see the full list of things it understands below. It only listens while this is turned on and the Hub is open in this browser; your browser will show a mic-in-use indicator the whole time. Voice audio is processed by your browser's own speech service (not stored by this app) to turn it into text.</p>
+          <div class="banner-pool-actions">
+            <button type="button" class="button secondary small" id="voice-toggle">Turn on voice control</button>
+            <span class="settings-hint" id="voice-status" style="margin:0 0 0 auto;"></span>
+          </div>
+          <p class="settings-hint" id="voice-examples" style="margin-top:12px">
+            Try: "Hey Jarvis, open gym" · "add a task to buy milk" · "add a note that the car needs gas" · "mark trash as done" · "switch to Bhargav" / "switch to Anusha" · "dark mode" / "light mode" · "what's next" · "how many tasks do I have" · "what time is it" · "repeat that" · "go to today" · "what can you do"
+          </p>
+        </section>
+
+        <section class="surface settings-card">
           <div class="section-head with-icon"><span class="section-head-icon"><i data-lucide="layout-grid"></i></span><div><p class="section-kicker">Appearance</p><h2>App icons</h2></div></div>
           <p class="settings-hint">Each app's icon now follows the active theme automatically. Tap any app below to pick a different icon, or upload your own image.</p>
           <div class="app-icon-grid" id="settings-app-icons"></div>
@@ -410,6 +422,14 @@
       </form>
     </div>
   </div>
+  <!-- Jarvis voice control — floating mic, hidden unless turned on in
+       Settings. See assets/voice.js. data-state (idle/listening-wake/
+       listening-command/speaking) drives which visual state it's in. -->
+  <button type="button" class="jarvis-btn" id="jarvis-btn" data-state="idle" hidden title="Jarvis is listening for &quot;Hey Jarvis&quot;">
+    <span class="jarvis-ring"></span>
+    <i data-lucide="mic"></i>
+  </button>
+
   <div class="insights-recovery" id="insights-recovery" hidden>
     <div class="insights-recovery-card">
       <div class="insights-pulse-orb">◇</div>
@@ -470,5 +490,6 @@
 
   <script src="assets/banners.js?v=20261001a"></script>
   <script src="assets/app.js"></script>
+  <script src="assets/voice.js"></script>
 </body>
 </html>
