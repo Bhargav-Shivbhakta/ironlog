@@ -25,21 +25,12 @@
     --shadow:0 5px 20px rgba(32,33,30,.06);
   }
   *{box-sizing:border-box;}
-  body{margin:0;font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;padding:0 0 60px;-webkit-font-smoothing:antialiased;}
-  .wrap{max-width:min(90vw,980px);margin:0 auto;padding:16px 14px 0;}
+  body{margin:0;font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;-webkit-font-smoothing:antialiased;}
   h1,h2,h3{font-family:'Manrope',sans-serif;}
   button,input,select,textarea{font-family:inherit;}
   a{color:var(--accent-deep);}
 
   .loading-gate{position:fixed;inset:0;z-index:200;background:var(--bg);display:flex;align-items:center;justify-content:center;color:var(--text-soft);}
-
-  .topbar-wrap{background:#2E1F06;color:#FBF5E8;padding:12px 16px;margin-bottom:16px;}
-  .topbar-inner{max-width:min(90vw,980px);margin:0 auto;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;}
-  .brand-cluster{display:flex;align-items:center;gap:12px;flex-wrap:wrap;}
-  .brand{display:flex;align-items:center;gap:9px;font-size:15px;font-weight:800;font-family:'Manrope',sans-serif;}
-  .mark{width:27px;height:27px;border-radius:9px;display:grid;place-items:center;background:var(--gold);color:#2E1F06;font-size:14px;font-weight:850;flex:none;}
-  .hub-link{color:#D9C9A8;text-decoration:none;font-size:11.5px;}
-  body.embedded .topbar-wrap{display:none;}
 
   .profile-overlay{position:fixed;inset:0;z-index:150;background:var(--bg);display:flex;align-items:center;justify-content:center;}
   .profile-card-row{display:flex;gap:16px;}
@@ -49,19 +40,125 @@
   .profile-avatar.b{background:var(--b);} .profile-avatar.a{background:var(--a);}
   .profile-name{font-weight:700;}
 
-  .who-badge{display:flex;align-items:center;gap:6px;cursor:pointer;background:#3D290A;border-radius:999px;padding:4px 10px 4px 4px;}
+  .who-badge{display:flex;align-items:center;gap:6px;cursor:pointer;background:var(--surface-alt);border-radius:999px;padding:4px 10px 4px 4px;}
   .who-avatar{width:22px;height:22px;border-radius:50%;display:grid;place-items:center;font-size:11px;font-weight:800;color:#fff;}
   .who-avatar.av-b{background:var(--b);} .who-avatar.av-a{background:var(--a);}
-  .who-name{font-size:12px;font-weight:700;color:#FBF5E8;}
+  .who-name{font-size:12px;font-weight:700;color:var(--text);}
 
-  header.app-head{text-align:center;margin-bottom:14px;}
-  header.app-head h1{font-size:23px;font-weight:800;margin:0 0 2px;}
-  header.app-head p{margin:0;color:var(--text-soft);font-size:12.5px;}
+  /* ===== SIDEBAR SHELL — replaced the old topbar + horizontal segmented
+     tabs now that there are 11 sections; a grouped vertical nav scales
+     better and leaves room to breathe. Collapses to an icon rail under
+     880px rather than a bottom bar, since there are too many destinations
+     for a 4-5 slot bottom nav to make sense here. ===== */
+  :root{ --side-bg:#20211E; --side-panel:#2B2C26; --side-border:#3A3B33; --side-text:#BDC0B2; --side-text-dim:#86897D; }
+  .app-shell{display:grid;grid-template-columns:230px 1fr;min-height:100vh;align-items:start;}
+  .side{background:var(--side-bg);color:#FBF5E8;padding:18px 12px;display:flex;flex-direction:column;position:sticky;top:0;height:100vh;overflow-y:auto;}
+  .side-logo{display:flex;align-items:center;gap:9px;font-size:15px;font-weight:800;font-family:'Manrope',sans-serif;padding:2px 9px 18px;}
+  .side-mark{width:27px;height:27px;border-radius:9px;background:var(--gold);color:#20211E;display:grid;place-items:center;font-weight:850;font-size:14px;flex:none;}
+  .side-space{background:var(--side-panel);border:1px solid var(--side-border);border-radius:10px;padding:11px 12px;margin:0 0 16px;}
+  .side-space small{color:var(--side-text-dim);font-size:9.5px;text-transform:uppercase;letter-spacing:1px;}
+  .side-space b{display:block;font-size:12px;margin-top:5px;color:#FBF5E8;}
+  .side-group{color:var(--side-text-dim);font-size:9.5px;font-weight:700;text-transform:uppercase;letter-spacing:1px;margin:14px 9px 5px;}
+  .side-nav{display:flex;flex-direction:column;gap:1px;}
+  .side-nav button{display:flex;align-items:center;gap:10px;width:100%;background:none;border:0;color:var(--side-text);text-align:left;padding:9px 10px;border-radius:8px;cursor:pointer;font-size:12.5px;font-weight:650;font-family:inherit;}
+  .side-nav button svg{width:15px;height:15px;flex:none;}
+  .side-nav button:hover{background:var(--side-panel);color:#fff;}
+  .side-nav button.active{background:var(--side-panel);color:#fff;box-shadow:inset 3px 0 var(--gold);}
+  .side-hub-link{margin-top:auto;display:flex;align-items:center;gap:8px;color:var(--side-text-dim);text-decoration:none;font-size:11.5px;padding:10px 10px 2px;}
+  .side-hub-link:hover{color:#fff;}
+  .side-hub-link svg{width:14px;height:14px;}
+  body.embedded .side-logo,body.embedded .side-hub-link{display:none;}
 
-  .segmented{max-width:520px;margin:0 auto 14px;background:var(--surface-alt);border-radius:999px;padding:3px;display:flex;gap:2px;}
-  .segmented button{flex:1;border:none;background:transparent;border-radius:999px;padding:8px 4px;font-size:12px;font-weight:700;color:var(--text-soft);cursor:pointer;}
-  .segmented button.active{background:var(--surface);color:var(--text);box-shadow:var(--shadow);}
+  .side-main{min-width:0;}
+  .side-top{height:60px;background:var(--surface);border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;padding:0 26px;position:sticky;top:0;z-index:5;}
+  .side-crumb{color:var(--text-soft);font-size:12px;}
+  .side-crumb b{color:var(--text);}
+  .side-content{max-width:960px;margin:0 auto;padding:24px 22px 60px;}
+
+  .page-head{margin-bottom:18px;}
+  .page-head h1{font-size:25px;font-weight:800;margin:0 0 4px;letter-spacing:-0.4px;}
+  .page-head p{margin:0;color:var(--text-soft);font-size:12.5px;max-width:580px;line-height:1.5;}
+
+  @media(max-width:880px){
+    .app-shell{grid-template-columns:62px 1fr;}
+    .side{padding:14px 6px;}
+    .side-logo span.lbl,.side-space,.side-group,.side-nav button span,.side-hub-link span{display:none;}
+    .side-logo{justify-content:center;padding-bottom:12px;}
+    .side-nav button{justify-content:center;padding:10px 2px;}
+    .side-hub-link{justify-content:center;}
+    .side-content{padding:16px 14px 60px;}
+    .side-top{padding:0 14px;}
+    .page-head h1{font-size:21px;}
+  }
+
   .tab-page{display:none;} .tab-page.active{display:block;}
+
+  /* ===== TODAY — action-first work queue, see renderTodayQueue(). Reuses
+     the bill/txn-row look (icon + body + action) rather than inventing a
+     new card shape. ===== */
+  .queue-item{background:var(--surface);border:1px solid var(--border-soft);border-left:3px solid var(--border);border-radius:var(--radius-md);padding:11px 13px;margin-bottom:8px;box-shadow:var(--shadow);display:flex;align-items:center;gap:11px;}
+  .queue-item.urgent{border-left-color:var(--danger);}
+  .queue-item.notice{border-left-color:var(--gold);}
+  .queue-item.info{border-left-color:var(--accent);}
+  .queue-icon{width:32px;height:32px;border-radius:9px;background:var(--surface-alt);display:flex;align-items:center;justify-content:center;flex:none;font-size:15px;}
+  .queue-body{flex:1;min-width:0;}
+  .queue-title{font-size:13.5px;font-weight:700;}
+  .queue-sub{font-size:11.5px;color:var(--text-soft);margin-top:2px;line-height:1.4;}
+  .queue-all-clear{background:var(--good-soft);color:var(--good);border-radius:var(--radius-md);padding:22px;text-align:center;font-size:13.5px;font-weight:700;}
+
+  /* ===== DEBT / ACCOUNTS — same row shape as bills, a couple of extra
+     chips (APR/APY, payoff estimate). ===== */
+  .debt-row,.account-row{background:var(--surface);border:1px solid var(--border-soft);border-left:3px solid var(--accent);border-radius:var(--radius-md);padding:10px 13px;margin-bottom:7px;box-shadow:var(--shadow);display:flex;align-items:center;gap:10px;}
+  .debt-row{border-left-color:var(--danger);}
+  .account-row.cd{border-left-color:var(--gold);}
+  .account-row.credit-card,.account-row.loan{border-left-color:var(--danger);}
+  .strategy-pill{font-size:10px;font-weight:700;border-radius:20px;padding:2px 8px;background:var(--accent-soft);color:var(--accent-deep);}
+  .interest-preview{background:#20211E;color:#FBF5E8;border-radius:10px;padding:11px 13px;margin-top:4px;}
+  .interest-preview small{color:#C9C4B3;font-size:10px;text-transform:uppercase;letter-spacing:.03em;}
+  .interest-preview strong{display:block;font-family:'Manrope',sans-serif;font-size:21px;margin-top:3px;}
+
+  /* ===== SHARED — settle-up hero + per-expense settle list ===== */
+  .balance-banner{background:#20211E;color:#FBF5E8;border-radius:var(--radius-lg);padding:18px 20px;margin-bottom:16px;display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap;}
+  .balance-banner .bb-label{font-size:11px;color:#C9C4B3;text-transform:uppercase;letter-spacing:.03em;}
+  .balance-banner .bb-value{font-family:'Manrope',sans-serif;font-weight:800;font-size:24px;margin-top:4px;}
+  .balance-banner.settled{background:var(--good-soft);color:var(--good);}
+  .balance-banner.settled .bb-label{color:var(--good);opacity:.75;}
+  .balance-banner button{flex:none;}
+  .split-row{display:flex;gap:2px;background:var(--surface-alt);border-radius:999px;padding:3px;}
+  .split-row button{flex:1;border:0;background:transparent;border-radius:999px;padding:7px 6px;font-size:11.5px;font-weight:700;color:var(--text-soft);cursor:pointer;}
+  .split-row button.active{background:var(--surface);color:var(--text);box-shadow:var(--shadow);}
+
+  /* ===== INVESTMENTS / INCOME — same row shape again, plus a return-%
+     pill colored by gain/loss. ===== */
+  .invest-row{background:var(--surface);border:1px solid var(--border-soft);border-left:3px solid var(--good);border-radius:var(--radius-md);padding:10px 13px;margin-bottom:7px;box-shadow:var(--shadow);display:flex;align-items:center;gap:10px;}
+  .invest-row.loss{border-left-color:var(--danger);}
+  .return-pill{font-size:10px;font-weight:800;border-radius:20px;padding:2px 8px;}
+  .return-pill.gain{background:var(--good-soft);color:var(--good);}
+  .return-pill.loss{background:var(--danger-soft);color:var(--danger);}
+  .income-row{background:var(--surface);border:1px solid var(--border-soft);border-left:3px solid var(--good);border-radius:var(--radius-md);padding:10px 13px;margin-bottom:7px;box-shadow:var(--shadow);display:flex;align-items:center;gap:10px;}
+
+  /* ===== FORECAST ===== */
+  .forecast-line{display:flex;justify-content:space-between;align-items:center;border-top:1px solid var(--border-soft);padding:10px 0;font-size:12.5px;}
+  .forecast-line:first-child{border-top:0;}
+  .forecast-line b{font-family:'Manrope',sans-serif;}
+  .forecast-hero{background:#20211E;color:#FBF5E8;border-radius:var(--radius-lg);padding:20px 22px;margin-bottom:16px;}
+  .forecast-hero .fh-label{font-size:10.5px;color:#C9C4B3;text-transform:uppercase;letter-spacing:.04em;}
+  .forecast-hero .fh-value{font-family:'Manrope',sans-serif;font-weight:800;font-size:30px;margin:4px 0 2px;}
+  .forecast-hero .fh-sub{font-size:11.5px;color:#C9C4B3;}
+  .forecast-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;}
+  @media(max-width:700px){.forecast-grid{grid-template-columns:1fr;}}
+  .reminder-row{display:flex;align-items:center;gap:10px;padding:9px 0;border-top:1px solid var(--border-soft);font-size:12.5px;}
+  .reminder-row:first-child{border-top:0;}
+
+  /* ===== TAX CALCULATOR ===== */
+  .tax-disclaimer{background:var(--gold-soft);color:#8a6416;border-radius:var(--radius-md);padding:11px 13px;font-size:11.5px;line-height:1.5;margin-bottom:16px;}
+  .tax-result{background:#20211E;color:#FBF5E8;border-radius:var(--radius-lg);padding:20px 22px;margin-top:16px;}
+  .tax-result .tr-label{font-size:10.5px;color:#C9C4B3;text-transform:uppercase;letter-spacing:.04em;}
+  .tax-result .tr-value{font-family:'Manrope',sans-serif;font-weight:800;font-size:30px;margin:4px 0 10px;}
+  .tax-result .tr-line{display:flex;justify-content:space-between;font-size:11.5px;color:#D9D5C6;padding:5px 0;border-top:1px solid #3A3B33;}
+  .tax-result .tr-line:first-of-type{border-top:1px solid #3A3B33;margin-top:4px;}
+  .tax-result .tr-line.total{border-top:1px solid #3A3B33;margin-top:6px;padding-top:9px;font-weight:800;color:#FBF5E8;font-size:12.5px;}
+  .taxreturn-row{background:var(--surface);border:1px solid var(--border-soft);border-left:3px solid var(--accent);border-radius:var(--radius-md);padding:10px 13px;margin-bottom:7px;box-shadow:var(--shadow);display:flex;align-items:center;gap:10px;}
 
   .stat-row{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin:0 0 16px;}
   .stat-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-md);padding:12px 12px;box-shadow:var(--shadow);min-width:0;}
@@ -167,30 +264,48 @@
   </div>
 </div>
 
-<div class="topbar-wrap">
-  <div class="topbar-inner">
-    <div class="brand-cluster">
-      <div class="brand"><span class="mark">$</span><span>Budget</span></div>
-      <a class="hub-link" href="../index.html">← Back to Home Hub</a>
-    </div>
-    <div class="who-badge" id="who-badge"></div>
-  </div>
-</div>
+<div class="app-shell" id="app-wrap" style="display:none">
+  <aside class="side">
+    <div class="side-logo"><span class="side-mark">$</span><span class="lbl">Budget</span></div>
+    <div class="side-space"><small>Household space</small><b>Bhargav + Anusha</b></div>
+    <nav class="side-nav" id="side-nav">
+      <div class="side-group">Core</div>
+      <button type="button" data-tab="today" class="active"><i data-lucide="sun"></i><span>Today</span></button>
+      <button type="button" data-tab="overview"><i data-lucide="layout-dashboard"></i><span>Overview</span></button>
+      <button type="button" data-tab="transactions"><i data-lucide="list"></i><span>Transactions</span></button>
+      <button type="button" data-tab="bills"><i data-lucide="receipt"></i><span>Bills</span></button>
+      <div class="side-group">Build wealth</div>
+      <button type="button" data-tab="accounts"><i data-lucide="landmark"></i><span>Accounts &amp; CDs</span></button>
+      <button type="button" data-tab="investments"><i data-lucide="trending-up"></i><span>Investments</span></button>
+      <button type="button" data-tab="income"><i data-lucide="calendar-clock"></i><span>Income</span></button>
+      <button type="button" data-tab="debt"><i data-lucide="credit-card"></i><span>Debt</span></button>
+      <div class="side-group">Household</div>
+      <button type="button" data-tab="shared"><i data-lucide="users"></i><span>Shared money</span></button>
+      <div class="side-group">Reports</div>
+      <button type="button" data-tab="forecast"><i data-lucide="activity"></i><span>Forecast</span></button>
+      <button type="button" data-tab="tax"><i data-lucide="file-text"></i><span>Tax calculator</span></button>
+    </nav>
+    <a class="side-hub-link" href="../index.html"><i data-lucide="arrow-left"></i><span>Home Hub</span></a>
+  </aside>
 
-<div class="wrap" id="app-wrap" style="display:none">
-  <header class="app-head">
-    <h1>Budget</h1>
-    <p>Track spending, set category limits, and keep an eye on recurring bills.</p>
-  </header>
+  <main class="side-main">
+    <header class="side-top">
+      <div class="side-crumb">Budget / <b id="page-crumb">Today</b></div>
+      <div class="who-badge" id="who-badge"></div>
+    </header>
 
-  <div class="segmented" id="tab-segmented">
-    <button type="button" data-tab="overview" class="active">Overview</button>
-    <button type="button" data-tab="transactions">Transactions</button>
-    <button type="button" data-tab="bills">Bills</button>
-  </div>
+    <div class="side-content">
+
+  <!-- TODAY — action-first work queue: what actually needs a decision
+       right now, instead of leading with stats. See renderTodayQueue(). -->
+  <section class="tab-page active" id="page-today">
+    <div class="page-head"><h1>Today</h1><p>What actually needs a decision right now — overdue bills, unsettled shared expenses, debts and CDs coming up.</p></div>
+    <div id="today-queue"></div>
+  </section>
 
   <!-- OVERVIEW -->
-  <section class="tab-page active" id="page-overview">
+  <section class="tab-page" id="page-overview">
+    <div class="page-head"><h1>Overview</h1><p>Spending against your category budgets this month.</p></div>
     <div class="stat-row" id="overview-stats"></div>
 
     <div class="section-title"><span>Your categories</span><button type="button" class="st-action" data-opencats="personal">Manage</button></div>
@@ -208,6 +323,7 @@
 
   <!-- TRANSACTIONS -->
   <section class="tab-page" id="page-transactions">
+    <div class="page-head"><h1>Transactions</h1><p>Every logged expense and income, personal and shared.</p></div>
     <div class="card-form">
       <h3>Add a transaction</h3>
       <div class="scope-toggle" id="txn-scope-toggle" style="margin-bottom:10px;max-width:220px;">
@@ -225,6 +341,18 @@
         <label>Date<input type="date" id="txn-date"></label>
         <label style="grid-column:1/-1">Note<input type="text" id="txn-note" placeholder="Optional"></label>
       </div>
+      <!-- Only shown for a Shared expense — this is what feeds the Settle-up
+           flow on the Shared tab: 50/50 splits the amount automatically,
+           Exact lets you enter exactly what the other person owes (e.g. you
+           covered your own share too). -->
+      <div id="txn-split-wrap" style="margin-top:10px;display:none">
+        <label style="display:block;font-size:11px;font-weight:700;color:var(--text-soft);margin-bottom:5px;">Split</label>
+        <div class="split-row" id="txn-split-toggle">
+          <button type="button" data-split="half" class="active">50 / 50</button>
+          <button type="button" data-split="exact">Exact amount owed</button>
+        </div>
+        <label id="txn-owed-label" style="display:none;margin-top:8px;">Amount the other person owes<input type="number" id="txn-owed" min="0" step="0.01" placeholder="0.00"></label>
+      </div>
       <div class="form-actions">
         <button type="button" class="button secondary" id="txn-cancel-edit" hidden>Cancel edit</button>
         <button type="button" class="button primary" id="txn-submit"><i data-lucide="plus"></i>Add transaction</button>
@@ -241,6 +369,7 @@
 
   <!-- BILLS -->
   <section class="tab-page" id="page-bills">
+    <div class="page-head"><h1>Bills</h1><p>Recurring charges — a reminder list, not auto-paid.</p></div>
     <div class="card-form">
       <h3>Add a recurring bill</h3>
       <div class="scope-toggle" id="bill-scope-toggle" style="margin-bottom:10px;max-width:220px;">
@@ -260,6 +389,173 @@
     </div>
     <div id="bills-list"></div>
   </section>
+
+  <!-- DEBT -->
+  <section class="tab-page" id="page-debt">
+    <div class="page-head"><h1>Debt</h1><p>Credit cards and loans — balance, APR, minimum payment, and a rough payoff estimate.</p></div>
+    <div class="card-form">
+      <h3>Add a debt</h3>
+      <div class="scope-toggle" id="debt-scope-toggle" style="margin-bottom:10px;max-width:220px;">
+        <button type="button" data-scope="personal" class="active">Mine</button>
+        <button type="button" data-scope="shared">Shared</button>
+      </div>
+      <div class="form-grid">
+        <label>Name<input type="text" id="debt-name" placeholder="e.g. Student loan"></label>
+        <label>Balance<input type="number" id="debt-balance" min="0" step="0.01" placeholder="0.00"></label>
+        <label>APR %<input type="number" id="debt-apr" min="0" step="0.01" placeholder="0.00"></label>
+        <label>Minimum payment<input type="number" id="debt-min" min="0" step="0.01" placeholder="0.00"></label>
+        <label>Due day of month<input type="number" id="debt-dueday" min="1" max="31" placeholder="1–31"></label>
+        <label>Payoff strategy<select id="debt-strategy"><option value="">None set</option><option value="Avalanche">Avalanche (highest APR first)</option><option value="Snowball">Snowball (smallest balance first)</option></select></label>
+      </div>
+      <div class="form-actions">
+        <button type="button" class="button secondary" id="debt-cancel-edit" hidden>Cancel edit</button>
+        <button type="button" class="button primary" id="debt-submit"><i data-lucide="plus"></i>Add debt</button>
+      </div>
+    </div>
+    <div id="debt-list"></div>
+  </section>
+
+  <!-- ACCOUNTS -->
+  <section class="tab-page" id="page-accounts">
+    <div class="page-head"><h1>Accounts &amp; CDs</h1><p>Real balances per account, with a live compound-interest calculator for CDs and HYSAs.</p></div>
+    <div class="stat-row" id="accounts-stats"></div>
+    <div class="card-form">
+      <h3>Add an account or CD</h3>
+      <div class="scope-toggle" id="account-scope-toggle" style="margin-bottom:10px;max-width:220px;">
+        <button type="button" data-scope="personal" class="active">Mine</button>
+        <button type="button" data-scope="shared">Shared</button>
+      </div>
+      <div class="form-grid">
+        <label>Name<input type="text" id="account-name" placeholder="e.g. Emergency fund CD"></label>
+        <label>Type<select id="account-type"><option>Checking</option><option>Savings</option><option>HYSA</option><option>CD</option><option>Credit card</option><option>Loan</option><option>Investment</option></select></label>
+        <label>Current balance<input type="number" id="account-balance" min="0" step="0.01" placeholder="0.00"></label>
+        <label>APY / APR %<input type="number" id="account-apy" min="0" step="0.01" placeholder="0.00"></label>
+        <label>Compounds per year<input type="number" id="account-compound" min="1" step="1" value="12"></label>
+        <label>Term (months)<input type="number" id="account-term" min="0" step="1" placeholder="12"></label>
+        <label>Maturity / next event date<input type="date" id="account-maturity"></label>
+        <label style="grid-column:1/-1">Note<input type="text" id="account-note" placeholder="Optional — e.g. 'renew or move to HYSA'"></label>
+      </div>
+      <div class="interest-preview"><small>Projected value at maturity</small><strong id="account-interest-preview">$0.00</strong></div>
+      <div class="form-actions">
+        <button type="button" class="button secondary" id="account-cancel-edit" hidden>Cancel edit</button>
+        <button type="button" class="button primary" id="account-submit"><i data-lucide="plus"></i>Add account</button>
+      </div>
+    </div>
+    <div id="account-list"></div>
+  </section>
+
+  <!-- SHARED — settle-up view: a running balance between the two of you
+       from shared expenses, separate from the category-budget view on
+       Overview. Settling here just flags those transactions as settled;
+       it never silently creates or deletes a transaction. -->
+  <section class="tab-page" id="page-shared">
+    <div class="page-head"><h1>Shared money</h1><p>Who paid, who owes, and settling up — separate from the category-budget view on Overview.</p></div>
+    <div id="shared-balance-banner"></div>
+    <div class="section-title"><span>Unsettled shared expenses</span></div>
+    <div id="shared-unsettled-list"></div>
+    <div class="section-title"><span>Settled</span></div>
+    <div id="shared-settled-list"></div>
+  </section>
+
+  <!-- INVESTMENTS -->
+  <section class="tab-page" id="page-investments">
+    <div class="page-head"><h1>Investments</h1><p>Holdings with real cost-basis-vs-value math — not just a static number.</p></div>
+    <div class="stat-row" id="investments-stats"></div>
+    <div class="card-form">
+      <h3>Add a holding</h3>
+      <div class="scope-toggle" id="investment-scope-toggle" style="margin-bottom:10px;max-width:220px;">
+        <button type="button" data-scope="personal" class="active">Mine</button>
+        <button type="button" data-scope="shared">Shared</button>
+      </div>
+      <div class="form-grid">
+        <label>Name<input type="text" id="investment-name" placeholder="e.g. Total market ETF"></label>
+        <label>Account<input type="text" id="investment-account" placeholder="e.g. Roth IRA"></label>
+        <label>Cost basis<input type="number" id="investment-basis" min="0" step="0.01" placeholder="0.00"></label>
+        <label>Current value<input type="number" id="investment-value" min="0" step="0.01" placeholder="0.00"></label>
+      </div>
+      <div class="form-actions">
+        <button type="button" class="button secondary" id="investment-cancel-edit" hidden>Cancel edit</button>
+        <button type="button" class="button primary" id="investment-submit"><i data-lucide="plus"></i>Add holding</button>
+      </div>
+    </div>
+    <div id="investment-list"></div>
+  </section>
+
+  <!-- INCOME SCHEDULES -->
+  <section class="tab-page" id="page-income">
+    <div class="page-head"><h1>Income</h1><p>Recurring income sources with a frequency and next date — feeds the Forecast below instead of guessing from past transactions.</p></div>
+    <div class="card-form">
+      <h3>Add an income source</h3>
+      <div class="scope-toggle" id="income-scope-toggle" style="margin-bottom:10px;max-width:220px;">
+        <button type="button" data-scope="personal" class="active">Mine</button>
+        <button type="button" data-scope="shared">Shared</button>
+      </div>
+      <div class="form-grid">
+        <label>Name<input type="text" id="income-name" placeholder="e.g. Salary"></label>
+        <label>Amount<input type="number" id="income-amount" min="0" step="0.01" placeholder="0.00"></label>
+        <label>Frequency<select id="income-frequency"><option>Monthly</option><option>Biweekly</option><option>Weekly</option><option>One-time</option></select></label>
+        <label>Next payment date<input type="date" id="income-nextdate"></label>
+      </div>
+      <div class="form-actions">
+        <button type="button" class="button secondary" id="income-cancel-edit" hidden>Cancel edit</button>
+        <button type="button" class="button primary" id="income-submit"><i data-lucide="plus"></i>Add income</button>
+      </div>
+    </div>
+    <div id="income-list"></div>
+  </section>
+
+  <!-- FORECAST -->
+  <section class="tab-page" id="page-forecast">
+    <div class="page-head"><h1>Forecast</h1><p>A real projection from current balances, scheduled income, bills, and minimum debt payments — not just balance plus a flat guess.</p></div>
+    <div id="forecast-hero"></div>
+    <div class="forecast-grid">
+      <div class="card-form">
+        <h3>30-day assumptions</h3>
+        <div id="forecast-30-lines"></div>
+      </div>
+      <div class="card-form">
+        <h3>90-day assumptions</h3>
+        <div id="forecast-90-lines"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- TAX CALCULATOR -->
+  <section class="tab-page" id="page-tax">
+    <div class="page-head"><h1>Tax calculator</h1><p>A federal planning estimate, laid out like a 1040 — not a tax return, not tax advice.</p></div>
+    <div class="tax-disclaimer"><strong>Rough estimate only.</strong> Uses 2025 federal bracket and standard-deduction figures as a stand-in for planning purposes (final 2026 figures aren't something I can confirm reliably here), a simplified flat self-employment tax, a flat state-rate approximation instead of your actual state's real brackets, and a simplified Child Tax Credit phase-out. Confirm real numbers with a CPA or filing software at tax time.</div>
+    <div class="card-form">
+      <div class="scope-toggle" id="tax-scope-toggle" style="margin-bottom:10px;max-width:220px;">
+        <button type="button" data-scope="personal" class="active">Mine</button>
+        <button type="button" data-scope="shared">Shared</button>
+      </div>
+      <div class="form-grid">
+        <label>Tax year<input type="number" id="tax-year" step="1" placeholder="2025"></label>
+        <label>Filing status<select id="tax-filing"><option>Single</option><option>Married filing jointly</option><option>Married filing separately</option><option>Head of household</option></select></label>
+        <label>W-2 wages<input type="number" id="tax-wages" min="0" step="0.01" value="0"></label>
+        <label>Freelance / self-employment income<input type="number" id="tax-freelance" min="0" step="0.01" value="0"></label>
+        <label>Interest income<input type="number" id="tax-interest" min="0" step="0.01" value="0"></label>
+        <label>Ordinary dividends<input type="number" id="tax-dividends" min="0" step="0.01" value="0"></label>
+        <label>Long-term capital gains<input type="number" id="tax-gains" min="0" step="0.01" value="0"></label>
+        <label>Itemized deductions<input type="number" id="tax-itemized" min="0" step="0.01" value="0" placeholder="0 to use the standard deduction"></label>
+        <label>Dependents under 17<input type="number" id="tax-dependents" min="0" step="1" value="0"></label>
+        <label>Other credits ($)<input type="number" id="tax-othercredits" min="0" step="0.01" value="0"></label>
+        <label>State flat tax rate %<input type="number" id="tax-staterate" min="0" step="0.1" value="0" placeholder="0 for no state tax"></label>
+        <label>Federal tax withheld<input type="number" id="tax-withheld" min="0" step="0.01" value="0"></label>
+      </div>
+      <div class="form-actions">
+        <button type="button" class="button secondary" id="tax-export-btn"><i data-lucide="download"></i>Download summary</button>
+        <button type="button" class="button secondary" id="tax-save-btn"><i data-lucide="save"></i>Save as filed</button>
+        <button type="button" class="button primary" id="tax-calc-btn"><i data-lucide="calculator"></i>Calculate estimate</button>
+      </div>
+      <div id="tax-result"></div>
+    </div>
+    <div class="section-title"><span>Filed returns</span></div>
+    <div id="tax-returns-list"></div>
+  </section>
+
+    </div>
+  </main>
 </div>
 
 <!-- Categories modal -->
@@ -329,19 +625,38 @@ function seedCategories(names){
 let personalTransactions=[], sharedTransactions=[];
 let personalCategories=[], sharedCategories=[];
 let personalBills=[], sharedBills=[];
-let activeTab='overview';
+let personalDebts=[], sharedDebts=[];
+let personalAccounts=[], sharedAccounts=[];
+let personalInvestments=[], sharedInvestments=[];
+let personalIncome=[], sharedIncome=[];
+let personalTaxReturns=[], sharedTaxReturns=[];
+let activeTab='today';
 let editingTxnId=null, editingTxnScope=null;
 let editingBillId=null, editingBillScope=null;
+let editingDebtId=null, editingDebtScope=null;
+let editingAccountId=null, editingAccountScope=null;
+let editingInvestmentId=null, editingInvestmentScope=null;
+let editingIncomeId=null, editingIncomeScope=null;
 let catsModalScope='personal';
 
 async function loadBudgetData(){
-  const [pt,st,pc,sc,pb,sb]=await Promise.all([
+  const [pt,st,pc,sc,pb,sb,pd,sd,pa,sa,pi,si,pn,sn,ptx,stx]=await Promise.all([
     profileDoc(activeProfile,'transactions').get().catch(function(){return null;}),
     sharedDoc('transactions').get().catch(function(){return null;}),
     profileDoc(activeProfile,'categories').get().catch(function(){return null;}),
     sharedDoc('categories').get().catch(function(){return null;}),
     profileDoc(activeProfile,'bills').get().catch(function(){return null;}),
-    sharedDoc('bills').get().catch(function(){return null;})
+    sharedDoc('bills').get().catch(function(){return null;}),
+    profileDoc(activeProfile,'debts').get().catch(function(){return null;}),
+    sharedDoc('debts').get().catch(function(){return null;}),
+    profileDoc(activeProfile,'accounts').get().catch(function(){return null;}),
+    sharedDoc('accounts').get().catch(function(){return null;}),
+    profileDoc(activeProfile,'investments').get().catch(function(){return null;}),
+    sharedDoc('investments').get().catch(function(){return null;}),
+    profileDoc(activeProfile,'income').get().catch(function(){return null;}),
+    sharedDoc('income').get().catch(function(){return null;}),
+    profileDoc(activeProfile,'taxReturns').get().catch(function(){return null;}),
+    sharedDoc('taxReturns').get().catch(function(){return null;})
   ]);
   personalTransactions = (pt && pt.exists && pt.data().json) ? JSON.parse(pt.data().json) : [];
   sharedTransactions = (st && st.exists && st.data().json) ? JSON.parse(st.data().json) : [];
@@ -349,6 +664,16 @@ async function loadBudgetData(){
   sharedCategories = (sc && sc.exists && sc.data().json) ? JSON.parse(sc.data().json) : null;
   personalBills = (pb && pb.exists && pb.data().json) ? JSON.parse(pb.data().json) : [];
   sharedBills = (sb && sb.exists && sb.data().json) ? JSON.parse(sb.data().json) : [];
+  personalDebts = (pd && pd.exists && pd.data().json) ? JSON.parse(pd.data().json) : [];
+  sharedDebts = (sd && sd.exists && sd.data().json) ? JSON.parse(sd.data().json) : [];
+  personalAccounts = (pa && pa.exists && pa.data().json) ? JSON.parse(pa.data().json) : [];
+  sharedAccounts = (sa && sa.exists && sa.data().json) ? JSON.parse(sa.data().json) : [];
+  personalInvestments = (pi && pi.exists && pi.data().json) ? JSON.parse(pi.data().json) : [];
+  sharedInvestments = (si && si.exists && si.data().json) ? JSON.parse(si.data().json) : [];
+  personalIncome = (pn && pn.exists && pn.data().json) ? JSON.parse(pn.data().json) : [];
+  sharedIncome = (sn && sn.exists && sn.data().json) ? JSON.parse(sn.data().json) : [];
+  personalTaxReturns = (ptx && ptx.exists && ptx.data().json) ? JSON.parse(ptx.data().json) : [];
+  sharedTaxReturns = (stx && stx.exists && stx.data().json) ? JSON.parse(stx.data().json) : [];
   // First time this profile opens Budget: seed a starter category set so
   // the app isn't an empty shell. Shared categories are seeded once per
   // household (whoever gets here first), not per profile.
@@ -376,11 +701,43 @@ async function saveBills(scope){
     else await sharedDoc('bills').set({json:JSON.stringify(sharedBills)});
   }catch(e){ toast('Could not save — try again'); }
 }
+async function saveDebts(scope){
+  try{
+    if(scope==='personal') await profileDoc(activeProfile,'debts').set({json:JSON.stringify(personalDebts)});
+    else await sharedDoc('debts').set({json:JSON.stringify(sharedDebts)});
+  }catch(e){ toast('Could not save — try again'); }
+}
+async function saveAccounts(scope){
+  try{
+    if(scope==='personal') await profileDoc(activeProfile,'accounts').set({json:JSON.stringify(personalAccounts)});
+    else await sharedDoc('accounts').set({json:JSON.stringify(sharedAccounts)});
+  }catch(e){ toast('Could not save — try again'); }
+}
+async function saveInvestments(scope){
+  try{
+    if(scope==='personal') await profileDoc(activeProfile,'investments').set({json:JSON.stringify(personalInvestments)});
+    else await sharedDoc('investments').set({json:JSON.stringify(sharedInvestments)});
+  }catch(e){ toast('Could not save — try again'); }
+}
+async function saveIncome(scope){
+  try{
+    if(scope==='personal') await profileDoc(activeProfile,'income').set({json:JSON.stringify(personalIncome)});
+    else await sharedDoc('income').set({json:JSON.stringify(sharedIncome)});
+  }catch(e){ toast('Could not save — try again'); }
+}
 
 function txnsFor(scope){ return scope==='shared' ? sharedTransactions : personalTransactions; }
 function catsFor(scope){ return scope==='shared' ? sharedCategories : personalCategories; }
 function billsFor(scope){ return scope==='shared' ? sharedBills : personalBills; }
+function debtsFor(scope){ return scope==='shared' ? sharedDebts : personalDebts; }
+function accountsFor(scope){ return scope==='shared' ? sharedAccounts : personalAccounts; }
+function investmentsFor(scope){ return scope==='shared' ? sharedInvestments : personalInvestments; }
+function incomeFor(scope){ return scope==='shared' ? sharedIncome : personalIncome; }
 function allTxns(){ return personalTransactions.concat(sharedTransactions); }
+function allDebts(){ return personalDebts.map(function(d){return Object.assign({_scope:'personal'},d);}).concat(sharedDebts.map(function(d){return Object.assign({_scope:'shared'},d);})); }
+function allAccounts(){ return personalAccounts.map(function(a){return Object.assign({_scope:'personal'},a);}).concat(sharedAccounts.map(function(a){return Object.assign({_scope:'shared'},a);})); }
+function allInvestments(){ return personalInvestments.map(function(a){return Object.assign({_scope:'personal'},a);}).concat(sharedInvestments.map(function(a){return Object.assign({_scope:'shared'},a);})); }
+function allIncome(){ return personalIncome.map(function(a){return Object.assign({_scope:'personal'},a);}).concat(sharedIncome.map(function(a){return Object.assign({_scope:'shared'},a);})); }
 function catName(scope,id){ const c=catsFor(scope).find(function(x){return x.id===id;}); return c?c.name:'Uncategorized'; }
 function catColor(scope,id){ const c=catsFor(scope).find(function(x){return x.id===id;}); return c?c.color:'#999'; }
 
@@ -478,16 +835,28 @@ function populateCategorySelect(sel, scope, includeAll){
 }
 function currentTxnScope(){ return document.querySelector('#txn-scope-toggle button.active').dataset.scope; }
 function currentTxnType(){ return document.querySelector('#txn-type-toggle button.active').dataset.type; }
+function currentTxnSplit(){ return document.querySelector('#txn-split-toggle button.active').dataset.split; }
 function refreshTxnForm(){
-  const scope=currentTxnScope();
+  const scope=currentTxnScope(), type=currentTxnType();
   populateCategorySelect(document.getElementById('txn-category'), scope, false);
   document.getElementById('txn-who-label').style.display = scope==='shared' ? '' : 'none';
+  // The settle-up split fields only make sense for a shared expense — a
+  // shared *income* (rare, but allowed) or a personal transaction has no
+  // "who owes whom" question to answer.
+  document.getElementById('txn-split-wrap').style.display = (scope==='shared' && type==='expense') ? 'block' : 'none';
+}
+function refreshTxnSplitUI(){
+  const split=currentTxnSplit();
+  document.getElementById('txn-owed-label').style.display = split==='exact' ? '' : 'none';
 }
 function resetTxnForm(){
   editingTxnId=null; editingTxnScope=null;
   document.getElementById('txn-amount').value='';
   document.getElementById('txn-note').value='';
   document.getElementById('txn-date').value=todayStr();
+  document.getElementById('txn-owed').value='';
+  document.querySelectorAll('#txn-split-toggle button').forEach(function(b){ b.classList.toggle('active', b.dataset.split==='half'); });
+  refreshTxnSplitUI();
   document.getElementById('txn-submit').innerHTML='<i data-lucide="plus"></i>Add transaction';
   document.getElementById('txn-cancel-edit').hidden=true;
   if(window.lucide) lucide.createIcons();
@@ -501,17 +870,20 @@ async function submitTxnForm(){
   const who=document.getElementById('txn-who').value;
   const date=document.getElementById('txn-date').value||todayStr();
   const note=document.getElementById('txn-note').value.trim();
+  const isSharedExpense = scope==='shared' && type==='expense';
+  const splitMethod = isSharedExpense ? currentTxnSplit() : null;
+  const owedAmount = isSharedExpense ? (splitMethod==='exact' ? (parseFloat(document.getElementById('txn-owed').value)||0) : Math.round(amount/2*100)/100) : null;
   const arr=txnsFor(scope);
   if(editingTxnId && editingTxnScope===scope){
     const t=arr.find(function(x){return x.id===editingTxnId;});
-    if(t){ Object.assign(t,{amount:amount,type:type,categoryId:categoryId,who:scope==='shared'?who:null,date:date,note:note}); }
+    if(t){ Object.assign(t,{amount:amount,type:type,categoryId:categoryId,who:scope==='shared'?who:null,date:date,note:note,splitMethod:splitMethod,owedAmount:owedAmount}); if(!isSharedExpense){ delete t.settled; } }
   }else{
     if(editingTxnId){ // scope changed mid-edit — remove from the old scope, add fresh to the new one
       const oldArr=txnsFor(editingTxnScope);
       const idx=oldArr.findIndex(function(x){return x.id===editingTxnId;});
       if(idx!==-1){ oldArr.splice(idx,1); await saveTxns(editingTxnScope); }
     }
-    arr.unshift({id:uid(),amount:amount,type:type,categoryId:categoryId,who:scope==='shared'?who:null,date:date,note:note,createdAt:Date.now()});
+    arr.unshift({id:uid(),amount:amount,type:type,categoryId:categoryId,who:scope==='shared'?who:null,date:date,note:note,createdAt:Date.now(),splitMethod:splitMethod,owedAmount:owedAmount,settled:isSharedExpense?false:undefined});
   }
   await saveTxns(scope);
   resetTxnForm();
@@ -530,6 +902,9 @@ function editTxn(scope,id){
   if(t.who) document.getElementById('txn-who').value=t.who;
   document.getElementById('txn-date').value=t.date;
   document.getElementById('txn-note').value=t.note||'';
+  document.querySelectorAll('#txn-split-toggle button').forEach(function(b){ b.classList.toggle('active', b.dataset.split===(t.splitMethod||'half')); });
+  document.getElementById('txn-owed').value=t.owedAmount||'';
+  refreshTxnSplitUI();
   document.getElementById('txn-submit').innerHTML='<i data-lucide="check"></i>Save changes';
   document.getElementById('txn-cancel-edit').hidden=false;
   if(window.lucide) lucide.createIcons();
@@ -714,6 +1089,789 @@ function renderBills(){
 }
 
 /* =====================================================================
+   DEBT — credit cards and loans. Not auto-paid from anywhere (same
+   "simple reminder" philosophy as Bills) — just balance, APR, minimum,
+   due day, and an optional strategy label plus a rough payoff estimate
+   (balance / minimum payment, clearly marked as rough — this ignores
+   interest accrual, it's a ballpark not an amortization schedule).
+===================================================================== */
+function currentDebtScope(){ return document.querySelector('#debt-scope-toggle button.active').dataset.scope; }
+function resetDebtForm(){
+  editingDebtId=null; editingDebtScope=null;
+  document.getElementById('debt-name').value='';
+  document.getElementById('debt-balance').value='';
+  document.getElementById('debt-apr').value='';
+  document.getElementById('debt-min').value='';
+  document.getElementById('debt-dueday').value='';
+  document.getElementById('debt-strategy').value='';
+  document.getElementById('debt-submit').innerHTML='<i data-lucide="plus"></i>Add debt';
+  document.getElementById('debt-cancel-edit').hidden=true;
+  if(window.lucide) lucide.createIcons();
+}
+async function submitDebtForm(){
+  const name=document.getElementById('debt-name').value.trim();
+  const balance=parseFloat(document.getElementById('debt-balance').value)||0;
+  const apr=parseFloat(document.getElementById('debt-apr').value)||0;
+  const min=parseFloat(document.getElementById('debt-min').value)||0;
+  const dueDay=parseInt(document.getElementById('debt-dueday').value,10)||null;
+  const strategy=document.getElementById('debt-strategy').value;
+  if(!name){ toast('Name this debt'); return; }
+  const scope=currentDebtScope();
+  const arr=debtsFor(scope);
+  if(editingDebtId && editingDebtScope===scope){
+    const d=arr.find(function(x){return x.id===editingDebtId;});
+    if(d){ Object.assign(d,{name:name,balance:balance,apr:apr,min:min,dueDay:dueDay,strategy:strategy}); }
+  }else{
+    arr.push({id:uid(),name:name,balance:balance,apr:apr,min:min,dueDay:dueDay,strategy:strategy});
+  }
+  await saveDebts(scope);
+  resetDebtForm();
+  renderDebt();
+  toast('Saved');
+}
+function editDebt(scope,id){
+  const d=debtsFor(scope).find(function(x){return x.id===id;});
+  if(!d) return;
+  editingDebtId=id; editingDebtScope=scope;
+  document.querySelectorAll('#debt-scope-toggle button').forEach(function(b){ b.classList.toggle('active', b.dataset.scope===scope); });
+  document.getElementById('debt-name').value=d.name;
+  document.getElementById('debt-balance').value=d.balance;
+  document.getElementById('debt-apr').value=d.apr;
+  document.getElementById('debt-min').value=d.min;
+  document.getElementById('debt-dueday').value=d.dueDay||'';
+  document.getElementById('debt-strategy').value=d.strategy||'';
+  document.getElementById('debt-submit').innerHTML='<i data-lucide="check"></i>Save changes';
+  document.getElementById('debt-cancel-edit').hidden=false;
+  if(window.lucide) lucide.createIcons();
+  showTab('debt');
+  document.querySelector('#page-debt .card-form').scrollIntoView({behavior:'smooth',block:'start'});
+}
+async function deleteDebt(scope,id){
+  const arr=debtsFor(scope);
+  const idx=arr.findIndex(function(x){return x.id===id;});
+  if(idx===-1) return;
+  arr.splice(idx,1);
+  await saveDebts(scope);
+  renderDebt();
+  toast('Deleted');
+}
+function debtsDueSoon(withinDays){
+  const now=new Date(), day=now.getDate();
+  return allDebts().filter(function(d){
+    if(!d.dueDay) return false;
+    const diff=d.dueDay-day;
+    return diff>=0 && diff<=withinDays;
+  });
+}
+function renderDebt(){
+  const rows=allDebts().sort(function(a,b){ return (b.apr||0)-(a.apr||0); });
+  const el=document.getElementById('debt-list');
+  if(!rows.length){ el.innerHTML='<div class="empty-state">No debts tracked — nice, or just not entered yet.</div>'; return; }
+  const totalBalance=rows.reduce(function(s,d){return s+(Number(d.balance)||0);},0);
+  el.innerHTML='<div class="stat-row" style="grid-template-columns:1fr 1fr"><div class="stat-card"><div class="sc-label">Total debt</div><div class="sc-value">'+fmtMoney(totalBalance)+'</div></div><div class="stat-card"><div class="sc-label">Accounts</div><div class="sc-value">'+rows.length+'</div></div></div>'+
+    rows.map(function(d){
+      const months=d.min>0 ? Math.ceil((Number(d.balance)||0)/d.min) : null;
+      return '<div class="debt-row">'+
+        '<div class="bill-body"><div class="bill-title">'+escapeHtml(d.name)+(d._scope==='shared'?' <span class="cat-chip">Shared</span>':'')+'</div>'+
+        '<div class="bill-meta">'+(d.apr?'<span class="cat-chip">'+d.apr+'% APR</span>':'')+(d.dueDay?'<span class="cat-chip">Due day '+d.dueDay+'</span>':'')+(d.strategy?'<span class="strategy-pill">'+escapeHtml(d.strategy)+'</span>':'')+(months?'<span class="cat-chip">~'+months+' mo at min payment</span>':'')+'</div></div>'+
+        '<div class="txn-amount expense">'+fmtMoney(d.balance)+'</div>'+
+        '<div class="row-actions"><button type="button" data-debtedit="'+d._scope+':'+d.id+'" title="Edit"><i data-lucide="pencil"></i></button>'+
+        '<button type="button" data-debtdel="'+d._scope+':'+d.id+'" title="Delete"><i data-lucide="trash-2"></i></button></div>'+
+      '</div>';
+    }).join('');
+  if(window.lucide) lucide.createIcons();
+  el.querySelectorAll('[data-debtedit]').forEach(function(btn){ btn.addEventListener('click', function(){ const p=btn.dataset.debtedit.split(':'); editDebt(p[0],p[1]); }); });
+  el.querySelectorAll('[data-debtdel]').forEach(function(btn){ btn.addEventListener('click', function(){ const p=btn.dataset.debtdel.split(':'); if(confirm('Delete this debt?')) deleteDebt(p[0],p[1]); }); });
+}
+
+/* =====================================================================
+   ACCOUNTS & CDS — real balances per account, plus a live compound-
+   interest calculator (same formula as the reference demo: FV = P(1 +
+   r/n)^(n·t) ) shown while filling out the form, not just after saving.
+===================================================================== */
+function currentAccountScope(){ return document.querySelector('#account-scope-toggle button.active').dataset.scope; }
+function accountInterestPreview(){
+  const p=parseFloat(document.getElementById('account-balance').value)||0;
+  const r=parseFloat(document.getElementById('account-apy').value)||0;
+  const n=parseInt(document.getElementById('account-compound').value,10)||1;
+  const months=parseInt(document.getElementById('account-term').value,10)||0;
+  const t=months/12;
+  const fv = r>0 && t>0 ? p*Math.pow(1+(r/100)/n, n*t) : p;
+  document.getElementById('account-interest-preview').textContent = fmtMoney(fv) + (r>0 && t>0 ? ' ('+fmtMoney(fv-p)+' interest)' : '');
+}
+['account-balance','account-apy','account-compound','account-term'].forEach(function(id){
+  document.getElementById(id).addEventListener('input', accountInterestPreview);
+});
+function resetAccountForm(){
+  editingAccountId=null; editingAccountScope=null;
+  document.getElementById('account-name').value='';
+  document.getElementById('account-type').value='Checking';
+  document.getElementById('account-balance').value='';
+  document.getElementById('account-apy').value='';
+  document.getElementById('account-compound').value='12';
+  document.getElementById('account-term').value='';
+  document.getElementById('account-maturity').value='';
+  document.getElementById('account-note').value='';
+  document.getElementById('account-submit').innerHTML='<i data-lucide="plus"></i>Add account';
+  document.getElementById('account-cancel-edit').hidden=true;
+  if(window.lucide) lucide.createIcons();
+  accountInterestPreview();
+}
+async function submitAccountForm(){
+  const name=document.getElementById('account-name').value.trim();
+  if(!name){ toast('Name this account'); return; }
+  const type=document.getElementById('account-type').value;
+  const balance=parseFloat(document.getElementById('account-balance').value)||0;
+  const apy=parseFloat(document.getElementById('account-apy').value)||0;
+  const compound=parseInt(document.getElementById('account-compound').value,10)||12;
+  const term=parseInt(document.getElementById('account-term').value,10)||0;
+  const maturity=document.getElementById('account-maturity').value||null;
+  const note=document.getElementById('account-note').value.trim();
+  const scope=currentAccountScope();
+  const arr=accountsFor(scope);
+  if(editingAccountId && editingAccountScope===scope){
+    const a=arr.find(function(x){return x.id===editingAccountId;});
+    if(a){ Object.assign(a,{name:name,type:type,balance:balance,apy:apy,compound:compound,term:term,maturity:maturity,note:note}); }
+  }else{
+    arr.push({id:uid(),name:name,type:type,balance:balance,apy:apy,compound:compound,term:term,maturity:maturity,note:note});
+  }
+  await saveAccounts(scope);
+  resetAccountForm();
+  renderAccounts();
+  toast('Saved');
+}
+function editAccount(scope,id){
+  const a=accountsFor(scope).find(function(x){return x.id===id;});
+  if(!a) return;
+  editingAccountId=id; editingAccountScope=scope;
+  document.querySelectorAll('#account-scope-toggle button').forEach(function(b){ b.classList.toggle('active', b.dataset.scope===scope); });
+  document.getElementById('account-name').value=a.name;
+  document.getElementById('account-type').value=a.type;
+  document.getElementById('account-balance').value=a.balance;
+  document.getElementById('account-apy').value=a.apy;
+  document.getElementById('account-compound').value=a.compound||12;
+  document.getElementById('account-term').value=a.term||'';
+  document.getElementById('account-maturity').value=a.maturity||'';
+  document.getElementById('account-note').value=a.note||'';
+  document.getElementById('account-submit').innerHTML='<i data-lucide="check"></i>Save changes';
+  document.getElementById('account-cancel-edit').hidden=false;
+  if(window.lucide) lucide.createIcons();
+  accountInterestPreview();
+  showTab('accounts');
+  document.querySelector('#page-accounts .card-form').scrollIntoView({behavior:'smooth',block:'start'});
+}
+async function deleteAccount(scope,id){
+  const arr=accountsFor(scope);
+  const idx=arr.findIndex(function(x){return x.id===id;});
+  if(idx===-1) return;
+  arr.splice(idx,1);
+  await saveAccounts(scope);
+  renderAccounts();
+  toast('Deleted');
+}
+function accountsMaturingSoon(withinDays){
+  const now=new Date(); now.setHours(0,0,0,0);
+  const cutoff=new Date(now); cutoff.setDate(cutoff.getDate()+withinDays);
+  return allAccounts().filter(function(a){
+    if(!a.maturity) return false;
+    const d=new Date(a.maturity+'T00:00:00');
+    return d>=now && d<=cutoff;
+  });
+}
+function renderAccountsStats(){
+  const all=allAccounts();
+  const total=all.reduce(function(s,a){return s+(Number(a.balance)||0);},0);
+  const liquid=all.filter(function(a){return a.type!=='CD';}).reduce(function(s,a){return s+(Number(a.balance)||0);},0);
+  const interest=all.reduce(function(s,a){
+    const r=Number(a.apy)||0, n=Number(a.compound)||1, t=(Number(a.term)||0)/12, p=Number(a.balance)||0;
+    if(!r || !t) return s;
+    return s + (p*Math.pow(1+(r/100)/n,n*t) - p);
+  },0);
+  const debtTotal=allDebts().reduce(function(s,d){return s+(Number(d.balance)||0);},0);
+  const el=document.getElementById('accounts-stats');
+  el.innerHTML=
+    '<div class="stat-card"><div class="sc-label">Total balances</div><div class="sc-value">'+fmtMoney(total)+'</div></div>'+
+    '<div class="stat-card"><div class="sc-label">Liquid (non-CD)</div><div class="sc-value">'+fmtMoney(liquid)+'</div></div>'+
+    '<div class="stat-card"><div class="sc-label">Projected interest</div><div class="sc-value">'+fmtMoney(interest)+'</div></div>'+
+    '<div class="stat-card'+(debtTotal>0?' over':'')+'"><div class="sc-label">Net worth</div><div class="sc-value">'+fmtMoney(total-debtTotal)+'</div></div>';
+}
+function renderAccounts(){
+  renderAccountsStats();
+  const rows=allAccounts();
+  const el=document.getElementById('account-list');
+  if(!rows.length){ el.innerHTML='<div class="empty-state">No accounts yet — add a checking account, savings, or a CD.</div>'; return; }
+  el.innerHTML=rows.map(function(a){
+    const typeClass=a.type.toLowerCase().replace(/\s+/g,'-');
+    return '<div class="account-row '+typeClass+'">'+
+      '<div class="bill-body"><div class="bill-title">'+escapeHtml(a.name)+(a._scope==='shared'?' <span class="cat-chip">Shared</span>':'')+'</div>'+
+      '<div class="bill-meta"><span class="cat-chip">'+escapeHtml(a.type)+'</span>'+(a.apy?'<span class="cat-chip">'+a.apy+'% APY</span>':'')+(a.maturity?'<span class="cat-chip">Matures '+escapeHtml(a.maturity)+'</span>':'')+(a.note?'<span class="cat-chip">'+escapeHtml(a.note)+'</span>':'')+'</div></div>'+
+      '<div class="txn-amount income">'+fmtMoney(a.balance)+'</div>'+
+      '<div class="row-actions"><button type="button" data-accountedit="'+a._scope+':'+a.id+'" title="Edit"><i data-lucide="pencil"></i></button>'+
+      '<button type="button" data-accountdel="'+a._scope+':'+a.id+'" title="Delete"><i data-lucide="trash-2"></i></button></div>'+
+    '</div>';
+  }).join('');
+  if(window.lucide) lucide.createIcons();
+  el.querySelectorAll('[data-accountedit]').forEach(function(btn){ btn.addEventListener('click', function(){ const p=btn.dataset.accountedit.split(':'); editAccount(p[0],p[1]); }); });
+  el.querySelectorAll('[data-accountdel]').forEach(function(btn){ btn.addEventListener('click', function(){ const p=btn.dataset.accountdel.split(':'); if(confirm('Delete this account?')) deleteAccount(p[0],p[1]); }); });
+}
+
+/* =====================================================================
+   SHARED — settle-up view. Every shared EXPENSE transaction carries who
+   paid it and how much the other person owes (set on the transaction
+   form — see refreshTxnForm/currentTxnSplit). This just totals the
+   unsettled ones into a single running balance and lets you clear them,
+   either one at a time or all at once. Nothing here moves money for
+   real — it's bookkeeping, same as the rest of the app.
+===================================================================== */
+function sharedExpensesWithOwed(){
+  return sharedTransactions.filter(function(t){ return t.type==='expense' && t.who && t.owedAmount>0; });
+}
+function sharedBalance(){
+  // Positive = Anusha owes Bhargav; negative = Bhargav owes Anusha.
+  let bal=0;
+  sharedExpensesWithOwed().filter(function(t){ return !t.settled; }).forEach(function(t){
+    bal += (t.who==='Bhargav' ? 1 : -1) * t.owedAmount;
+  });
+  return Math.round(bal*100)/100;
+}
+async function settleTxn(id){
+  const t=sharedTransactions.find(function(x){return x.id===id;});
+  if(!t) return;
+  t.settled=true;
+  await saveTxns('shared');
+  renderShared(); renderTodayQueue();
+  toast('Marked settled');
+}
+async function settleAllShared(){
+  sharedExpensesWithOwed().forEach(function(t){ t.settled=true; });
+  await saveTxns('shared');
+  renderShared(); renderTodayQueue();
+  toast('All settled up');
+}
+function renderShared(){
+  const bal=sharedBalance();
+  const banner=document.getElementById('shared-balance-banner');
+  if(bal===0){
+    banner.innerHTML='<div class="balance-banner settled"><div><div class="bb-label">Settle up</div><div class="bb-value">All settled up 🎉</div></div></div>';
+  }else{
+    const owerName = bal>0 ? 'Anusha' : 'Bhargav', owedName = bal>0 ? 'Bhargav' : 'Anusha';
+    banner.innerHTML='<div class="balance-banner"><div><div class="bb-label">Settle up</div><div class="bb-value">'+owerName+' owes '+owedName+' '+fmtMoney(Math.abs(bal))+'</div></div><button type="button" class="button primary" id="settle-all-btn">Settle all up</button></div>';
+    const btn=document.getElementById('settle-all-btn');
+    if(btn) btn.addEventListener('click', settleAllShared);
+  }
+  const unsettled=sharedExpensesWithOwed().filter(function(t){ return !t.settled; }).sort(function(a,b){ return (b.date||'').localeCompare(a.date||''); });
+  const settled=sharedExpensesWithOwed().filter(function(t){ return t.settled; }).sort(function(a,b){ return (b.date||'').localeCompare(a.date||''); }).slice(0,20);
+  function rowHtml(t,settledRow){
+    const other = t.who==='Bhargav' ? 'Anusha' : 'Bhargav';
+    return '<div class="txn-row expense" data-sharedwrap="'+t.id+'">'+
+      '<div class="txn-body"><div class="txn-title">'+escapeHtml(t.note||catName('shared',t.categoryId))+'</div>'+
+      '<div class="txn-meta"><span class="person-pill '+(t.who==='Bhargav'?'b':'a')+'">'+t.who+' paid</span><span class="cat-chip">'+escapeHtml(t.date)+'</span></div></div>'+
+      '<div class="txn-amount expense">'+other+' owes '+fmtMoney(t.owedAmount)+'</div>'+
+      (settledRow?'<span class="status-pill paid">Settled</span>':'<div class="row-actions"><button type="button" data-settletxn="'+t.id+'" title="Mark settled"><i data-lucide="check-circle"></i></button></div>')+
+    '</div>';
+  }
+  document.getElementById('shared-unsettled-list').innerHTML = unsettled.length ? unsettled.map(function(t){return rowHtml(t,false);}).join('') : '<div class="empty-state">Nothing unsettled right now.</div>';
+  document.getElementById('shared-settled-list').innerHTML = settled.length ? settled.map(function(t){return rowHtml(t,true);}).join('') : '<div class="empty-state">No settled expenses yet.</div>';
+  if(window.lucide) lucide.createIcons();
+  document.querySelectorAll('[data-settletxn]').forEach(function(btn){ btn.addEventListener('click', function(){ settleTxn(btn.dataset.settletxn); }); });
+}
+
+/* =====================================================================
+   TODAY — action-first work queue. Pulls from bills/shared/debt/accounts
+   rather than owning any data itself, so it's always a reflection of
+   what's already entered elsewhere, never a separate thing to maintain.
+===================================================================== */
+function renderTodayQueue(){
+  const el=document.getElementById('today-queue');
+  const items=[];
+  personalBills.map(function(b){return Object.assign({_scope:'personal'},b);})
+    .concat(sharedBills.map(function(b){return Object.assign({_scope:'shared'},b);}))
+    .forEach(function(b){
+      const status=billStatus(b);
+      if(status==='overdue') items.push({cls:'urgent',icon:'⚠',title:b.name+' is overdue',sub:fmtMoney(b.amount)+(b._scope==='shared'?' · Shared bill':'')+' — due day '+b.dueDay,action:'Log payment',onclick:function(){ logBillPayment(b._scope,b.id); }});
+      else if(status==='today') items.push({cls:'notice',icon:'📅',title:b.name+' is due today',sub:fmtMoney(b.amount)+(b._scope==='shared'?' · Shared bill':''),action:'Log payment',onclick:function(){ logBillPayment(b._scope,b.id); }});
+    });
+  const bal=sharedBalance();
+  if(bal!==0){
+    const owerName=bal>0?'Anusha':'Bhargav', owedName=bal>0?'Bhargav':'Anusha';
+    items.push({cls:'info',icon:'⇄',title:owerName+' owes '+owedName+' '+fmtMoney(Math.abs(bal)),sub:'From shared expenses not yet settled.',action:'Resolve',onclick:function(){ showTab('shared'); }});
+  }
+  debtsDueSoon(5).forEach(function(d){
+    items.push({cls:'notice',icon:'💳',title:d.name+' payment due soon',sub:(d.min?fmtMoney(d.min)+' minimum · ':'')+'due day '+d.dueDay,action:'View',onclick:function(){ showTab('debt'); }});
+  });
+  accountsMaturingSoon(30).forEach(function(a){
+    items.push({cls:'info',icon:'◷',title:a.name+' matures soon',sub:'Matures '+a.maturity+' — renew, move it, or fund a goal.',action:'Open',onclick:function(){ showTab('accounts'); }});
+  });
+  if(!items.length){ el.innerHTML='<div class="queue-all-clear">You\'re all caught up. Nothing needs a decision right now.</div>'; return; }
+  el.innerHTML=items.map(function(it,i){
+    return '<div class="queue-item '+it.cls+'"><div class="queue-icon">'+it.icon+'</div>'+
+      '<div class="queue-body"><div class="queue-title">'+escapeHtml(it.title)+'</div><div class="queue-sub">'+escapeHtml(it.sub)+'</div></div>'+
+      '<button type="button" class="button secondary" data-queueaction="'+i+'">'+escapeHtml(it.action)+'</button></div>';
+  }).join('');
+  el.querySelectorAll('[data-queueaction]').forEach(function(btn){
+    btn.addEventListener('click', function(){ items[parseInt(btn.dataset.queueaction,10)].onclick(); });
+  });
+}
+
+/* =====================================================================
+   INVESTMENTS — real cost-basis-vs-value math (the reference demo's
+   version was a static display row with nothing computed). Return % is
+   (value − basis) / basis, so a zero-basis entry just shows no return
+   pill rather than dividing by zero.
+===================================================================== */
+function currentInvestmentScope(){ return document.querySelector('#investment-scope-toggle button.active').dataset.scope; }
+function resetInvestmentForm(){
+  editingInvestmentId=null; editingInvestmentScope=null;
+  document.getElementById('investment-name').value='';
+  document.getElementById('investment-account').value='';
+  document.getElementById('investment-basis').value='';
+  document.getElementById('investment-value').value='';
+  document.getElementById('investment-submit').innerHTML='<i data-lucide="plus"></i>Add holding';
+  document.getElementById('investment-cancel-edit').hidden=true;
+  if(window.lucide) lucide.createIcons();
+}
+async function submitInvestmentForm(){
+  const name=document.getElementById('investment-name').value.trim();
+  if(!name){ toast('Name this holding'); return; }
+  const account=document.getElementById('investment-account').value.trim();
+  const basis=parseFloat(document.getElementById('investment-basis').value)||0;
+  const value=parseFloat(document.getElementById('investment-value').value)||0;
+  const scope=currentInvestmentScope();
+  const arr=investmentsFor(scope);
+  if(editingInvestmentId && editingInvestmentScope===scope){
+    const h=arr.find(function(x){return x.id===editingInvestmentId;});
+    if(h){ Object.assign(h,{name:name,account:account,basis:basis,value:value}); }
+  }else{
+    arr.push({id:uid(),name:name,account:account,basis:basis,value:value});
+  }
+  await saveInvestments(scope);
+  resetInvestmentForm();
+  renderInvestments();
+  toast('Saved');
+}
+function editInvestment(scope,id){
+  const h=investmentsFor(scope).find(function(x){return x.id===id;});
+  if(!h) return;
+  editingInvestmentId=id; editingInvestmentScope=scope;
+  document.querySelectorAll('#investment-scope-toggle button').forEach(function(b){ b.classList.toggle('active', b.dataset.scope===scope); });
+  document.getElementById('investment-name').value=h.name;
+  document.getElementById('investment-account').value=h.account||'';
+  document.getElementById('investment-basis').value=h.basis;
+  document.getElementById('investment-value').value=h.value;
+  document.getElementById('investment-submit').innerHTML='<i data-lucide="check"></i>Save changes';
+  document.getElementById('investment-cancel-edit').hidden=false;
+  if(window.lucide) lucide.createIcons();
+  showTab('investments');
+  document.querySelector('#page-investments .card-form').scrollIntoView({behavior:'smooth',block:'start'});
+}
+async function deleteInvestment(scope,id){
+  const arr=investmentsFor(scope);
+  const idx=arr.findIndex(function(x){return x.id===id;});
+  if(idx===-1) return;
+  arr.splice(idx,1);
+  await saveInvestments(scope);
+  renderInvestments();
+  toast('Deleted');
+}
+function renderInvestments(){
+  const rows=allInvestments();
+  const totalBasis=rows.reduce(function(s,h){return s+(Number(h.basis)||0);},0);
+  const totalValue=rows.reduce(function(s,h){return s+(Number(h.value)||0);},0);
+  const totalReturn=totalValue-totalBasis;
+  const returnPct=totalBasis>0?(totalReturn/totalBasis*100):0;
+  document.getElementById('investments-stats').innerHTML=
+    '<div class="stat-card"><div class="sc-label">Total invested</div><div class="sc-value">'+fmtMoney(totalBasis)+'</div></div>'+
+    '<div class="stat-card"><div class="sc-label">Current value</div><div class="sc-value">'+fmtMoney(totalValue)+'</div></div>'+
+    '<div class="stat-card'+(totalReturn<0?' over':'')+'"><div class="sc-label">Total return</div><div class="sc-value">'+fmtMoney(totalReturn)+'</div></div>'+
+    '<div class="stat-card'+(totalReturn<0?' over':'')+'"><div class="sc-label">Return %</div><div class="sc-value">'+returnPct.toFixed(1)+'%</div></div>';
+  const el=document.getElementById('investment-list');
+  if(!rows.length){ el.innerHTML='<div class="empty-state">No holdings yet.</div>'; return; }
+  el.innerHTML=rows.map(function(h){
+    const ret=(Number(h.value)||0)-(Number(h.basis)||0);
+    const pct=h.basis>0?(ret/h.basis*100):0;
+    const isLoss=ret<0;
+    return '<div class="invest-row'+(isLoss?' loss':'')+'">'+
+      '<div class="bill-body"><div class="bill-title">'+escapeHtml(h.name)+(h._scope==='shared'?' <span class="cat-chip">Shared</span>':'')+'</div>'+
+      '<div class="bill-meta">'+(h.account?'<span class="cat-chip">'+escapeHtml(h.account)+'</span>':'')+'<span class="cat-chip">Basis '+fmtMoney(h.basis)+'</span>'+(h.basis>0?'<span class="return-pill '+(isLoss?'loss':'gain')+'">'+(isLoss?'':'+')+pct.toFixed(1)+'%</span>':'')+'</div></div>'+
+      '<div class="txn-amount income">'+fmtMoney(h.value)+'</div>'+
+      '<div class="row-actions"><button type="button" data-investedit="'+h._scope+':'+h.id+'" title="Edit"><i data-lucide="pencil"></i></button>'+
+      '<button type="button" data-investdel="'+h._scope+':'+h.id+'" title="Delete"><i data-lucide="trash-2"></i></button></div>'+
+    '</div>';
+  }).join('');
+  if(window.lucide) lucide.createIcons();
+  el.querySelectorAll('[data-investedit]').forEach(function(btn){ btn.addEventListener('click', function(){ const p=btn.dataset.investedit.split(':'); editInvestment(p[0],p[1]); }); });
+  el.querySelectorAll('[data-investdel]').forEach(function(btn){ btn.addEventListener('click', function(){ const p=btn.dataset.investdel.split(':'); if(confirm('Delete this holding?')) deleteInvestment(p[0],p[1]); }); });
+}
+
+/* =====================================================================
+   INCOME SCHEDULES — separate from transactions: a forward-looking
+   schedule (name, amount, frequency, next date) that the Forecast below
+   actually projects forward, instead of averaging past transactions.
+===================================================================== */
+function currentIncomeScope(){ return document.querySelector('#income-scope-toggle button.active').dataset.scope; }
+function resetIncomeForm(){
+  editingIncomeId=null; editingIncomeScope=null;
+  document.getElementById('income-name').value='';
+  document.getElementById('income-amount').value='';
+  document.getElementById('income-frequency').value='Monthly';
+  document.getElementById('income-nextdate').value='';
+  document.getElementById('income-submit').innerHTML='<i data-lucide="plus"></i>Add income';
+  document.getElementById('income-cancel-edit').hidden=true;
+  if(window.lucide) lucide.createIcons();
+}
+async function submitIncomeForm(){
+  const name=document.getElementById('income-name').value.trim();
+  if(!name){ toast('Name this income source'); return; }
+  const amount=parseFloat(document.getElementById('income-amount').value)||0;
+  const frequency=document.getElementById('income-frequency').value;
+  const nextDate=document.getElementById('income-nextdate').value||todayStr();
+  const scope=currentIncomeScope();
+  const arr=incomeFor(scope);
+  if(editingIncomeId && editingIncomeScope===scope){
+    const n=arr.find(function(x){return x.id===editingIncomeId;});
+    if(n){ Object.assign(n,{name:name,amount:amount,frequency:frequency,nextDate:nextDate}); }
+  }else{
+    arr.push({id:uid(),name:name,amount:amount,frequency:frequency,nextDate:nextDate});
+  }
+  await saveIncome(scope);
+  resetIncomeForm();
+  renderIncome();
+  toast('Saved');
+}
+function editIncome(scope,id){
+  const n=incomeFor(scope).find(function(x){return x.id===id;});
+  if(!n) return;
+  editingIncomeId=id; editingIncomeScope=scope;
+  document.querySelectorAll('#income-scope-toggle button').forEach(function(b){ b.classList.toggle('active', b.dataset.scope===scope); });
+  document.getElementById('income-name').value=n.name;
+  document.getElementById('income-amount').value=n.amount;
+  document.getElementById('income-frequency').value=n.frequency;
+  document.getElementById('income-nextdate').value=n.nextDate;
+  document.getElementById('income-submit').innerHTML='<i data-lucide="check"></i>Save changes';
+  document.getElementById('income-cancel-edit').hidden=false;
+  if(window.lucide) lucide.createIcons();
+  showTab('income');
+  document.querySelector('#page-income .card-form').scrollIntoView({behavior:'smooth',block:'start'});
+}
+async function deleteIncome(scope,id){
+  const arr=incomeFor(scope);
+  const idx=arr.findIndex(function(x){return x.id===id;});
+  if(idx===-1) return;
+  arr.splice(idx,1);
+  await saveIncome(scope);
+  renderIncome();
+  toast('Deleted');
+}
+function renderIncome(){
+  const rows=allIncome().sort(function(a,b){ return (a.nextDate||'').localeCompare(b.nextDate||''); });
+  const el=document.getElementById('income-list');
+  if(!rows.length){ el.innerHTML='<div class="empty-state">No income sources scheduled yet.</div>'; return; }
+  el.innerHTML=rows.map(function(n){
+    return '<div class="income-row">'+
+      '<div class="bill-body"><div class="bill-title">'+escapeHtml(n.name)+(n._scope==='shared'?' <span class="cat-chip">Shared</span>':'')+'</div>'+
+      '<div class="bill-meta"><span class="cat-chip">'+escapeHtml(n.frequency)+'</span><span class="cat-chip">Next '+escapeHtml(n.nextDate)+'</span></div></div>'+
+      '<div class="txn-amount income">+'+fmtMoney(n.amount)+'</div>'+
+      '<div class="row-actions"><button type="button" data-incomeedit="'+n._scope+':'+n.id+'" title="Edit"><i data-lucide="pencil"></i></button>'+
+      '<button type="button" data-incomedel="'+n._scope+':'+n.id+'" title="Delete"><i data-lucide="trash-2"></i></button></div>'+
+    '</div>';
+  }).join('');
+  if(window.lucide) lucide.createIcons();
+  el.querySelectorAll('[data-incomeedit]').forEach(function(btn){ btn.addEventListener('click', function(){ const p=btn.dataset.incomeedit.split(':'); editIncome(p[0],p[1]); }); });
+  el.querySelectorAll('[data-incomedel]').forEach(function(btn){ btn.addEventListener('click', function(){ const p=btn.dataset.incomedel.split(':'); if(confirm('Delete this income source?')) deleteIncome(p[0],p[1]); }); });
+}
+
+/* =====================================================================
+   FORECAST — a real projection: current account balances, plus however
+   many times each income schedule actually lands in the window, minus
+   however many times each bill's/debt's due-day actually lands in the
+   window — not just "balance + monthly net × days", which breaks the
+   moment any schedule doesn't land on a clean 30-day cadence.
+===================================================================== */
+function occurrencesWithin(nextDateStr, frequency, days){
+  if(!nextDateStr) return 0;
+  let d=new Date(nextDateStr+'T00:00:00');
+  if(isNaN(d.getTime())) return 0;
+  const today=new Date(todayStr()+'T00:00:00');
+  const cutoff=new Date(today); cutoff.setDate(cutoff.getDate()+days);
+  if(frequency==='One-time') return (d>=today && d<=cutoff) ? 1 : 0;
+  const stepDays = frequency==='Weekly' ? 7 : frequency==='Biweekly' ? 14 : null;
+  let count=0;
+  if(frequency==='Monthly'){
+    while(d<today) d.setMonth(d.getMonth()+1);
+    while(d<=cutoff){ count++; d.setMonth(d.getMonth()+1); }
+    return count;
+  }
+  if(!stepDays) return 0;
+  while(d<today) d.setDate(d.getDate()+stepDays);
+  while(d<=cutoff){ count++; d.setDate(d.getDate()+stepDays); }
+  return count;
+}
+function occurrencesByDueDay(dueDay, days){
+  if(!dueDay) return 0;
+  const today=new Date(todayStr()+'T00:00:00');
+  const cutoff=new Date(today); cutoff.setDate(cutoff.getDate()+days);
+  let cursor=new Date(today.getFullYear(), today.getMonth(), dueDay);
+  if(cursor<today) cursor=new Date(cursor.getFullYear(), cursor.getMonth()+1, dueDay);
+  let count=0;
+  while(cursor<=cutoff){ count++; cursor=new Date(cursor.getFullYear(), cursor.getMonth()+1, dueDay); }
+  return count;
+}
+function computeForecast(days){
+  const totalBalance=allAccounts().reduce(function(s,a){return s+(Number(a.balance)||0);},0);
+  const incomeTotal=allIncome().reduce(function(s,n){ return s+occurrencesWithin(n.nextDate,n.frequency,days)*(Number(n.amount)||0); },0);
+  const billsTotal=personalBills.concat(sharedBills).reduce(function(s,b){ return s+occurrencesByDueDay(b.dueDay,days)*(Number(b.amount)||0); },0);
+  const debtMinTotal=allDebts().reduce(function(s,d){ return s+occurrencesByDueDay(d.dueDay,days)*(Number(d.min)||0); },0);
+  return {totalBalance:totalBalance,incomeTotal:incomeTotal,billsTotal:billsTotal,debtMinTotal:debtMinTotal,projected:totalBalance+incomeTotal-billsTotal-debtMinTotal};
+}
+function renderForecast(){
+  const f30=computeForecast(30), f90=computeForecast(90);
+  document.getElementById('forecast-hero').innerHTML=
+    '<div class="forecast-hero"><div class="fh-label">30-day projected balance</div><div class="fh-value">'+fmtMoney(f30.projected)+'</div>'+
+    '<div class="fh-sub">From '+fmtMoney(f30.totalBalance)+' today, plus income actually scheduled to land, minus bills and debt minimums actually due in that window.</div></div>';
+  function lines(f){
+    return '<div class="forecast-line"><span>Current balances</span><b>'+fmtMoney(f.totalBalance)+'</b></div>'+
+      '<div class="forecast-line"><span>Scheduled income</span><b>+'+fmtMoney(f.incomeTotal)+'</b></div>'+
+      '<div class="forecast-line"><span>Bills due</span><b>−'+fmtMoney(f.billsTotal)+'</b></div>'+
+      '<div class="forecast-line"><span>Debt minimum payments due</span><b>−'+fmtMoney(f.debtMinTotal)+'</b></div>'+
+      '<div class="forecast-line"><span>Projected balance</span><b>'+fmtMoney(f.projected)+'</b></div>';
+  }
+  document.getElementById('forecast-30-lines').innerHTML=lines(f30);
+  document.getElementById('forecast-90-lines').innerHTML=lines(f90);
+}
+
+/* =====================================================================
+   TAX CALCULATOR — a real federal planning estimate laid out like a
+   1040: total income → adjustments → AGI → deduction (larger of
+   itemized or standard) → taxable income → tax → credits → plus SE tax
+   and a flat-rate state estimate → total tax vs. withholding. Long-term
+   capital gains are taxed separately via the stacking method (0/15/20%).
+   Uses 2025 federal figures as a stand-in (disclaimed in the UI) since
+   final 2026 figures aren't reliably known here; state tax is a flat
+   rate you supply, not a real state's bracket table; the Child Tax
+   Credit phase-out is simplified. "Save as filed" just snapshots the
+   inputs+result into a per-year history — nothing here actually files
+   anything.
+===================================================================== */
+const TAX_RATES=[.10,.12,.22,.24,.32,.35,.37];
+const TAX_TABLES={
+  'Single':{std:15000,brackets:[11925,48475,103350,197300,250525,626350],ltcg:[48350,533400],ctcPhaseoutStart:200000},
+  'Married filing jointly':{std:30000,brackets:[23850,96950,206700,394600,501050,751600],ltcg:[96700,600050],ctcPhaseoutStart:400000},
+  'Married filing separately':{std:15000,brackets:[11925,48475,103350,197300,250525,375800],ltcg:[48350,300000],ctcPhaseoutStart:200000},
+  'Head of household':{std:22500,brackets:[17000,64850,103350,197300,250500,626350],ltcg:[64750,566700],ctcPhaseoutStart:200000}
+};
+let editingTaxReturnId=null, editingTaxReturnScope=null;
+function bracketTax(taxable, brackets){
+  let tax=0,last=0;
+  for(let i=0;i<brackets.length;i++){
+    const slice=Math.max(0,Math.min(taxable,brackets[i])-last);
+    tax+=slice*TAX_RATES[i];
+    last=brackets[i];
+  }
+  tax+=Math.max(0,taxable-last)*TAX_RATES[TAX_RATES.length-1];
+  return tax;
+}
+function ltcgTax(ordinaryTaxable, gains, thresholds){
+  if(gains<=0) return 0;
+  const zeroCap=thresholds[0], fifteenCap=thresholds[1];
+  let start=ordinaryTaxable, remaining=gains, tax=0;
+  const zeroPortion=Math.max(0,Math.min(remaining,zeroCap-start));
+  remaining-=zeroPortion; start+=zeroPortion;
+  const fifteenPortion=Math.max(0,Math.min(remaining,fifteenCap-start));
+  tax+=fifteenPortion*0.15;
+  remaining-=fifteenPortion; start+=fifteenPortion;
+  tax+=remaining*0.20;
+  return tax;
+}
+// $2,000/qualifying child, reduced $50 per $1,000 of AGI over the
+// filing-status threshold — the real mechanism, simplified to ignore the
+// refundable/non-refundable split.
+function childTaxCredit(agi, dependents, cfg){
+  if(dependents<=0) return 0;
+  let credit=dependents*2000;
+  const over=Math.max(0, agi-cfg.ctcPhaseoutStart);
+  const reduction=Math.ceil(over/1000)*50;
+  return Math.max(0, credit-reduction);
+}
+function readTaxForm(){
+  return {
+    year: parseInt(document.getElementById('tax-year').value,10) || new Date().getFullYear(),
+    filing: document.getElementById('tax-filing').value,
+    wages: parseFloat(document.getElementById('tax-wages').value)||0,
+    freelance: parseFloat(document.getElementById('tax-freelance').value)||0,
+    interest: parseFloat(document.getElementById('tax-interest').value)||0,
+    dividends: parseFloat(document.getElementById('tax-dividends').value)||0,
+    gains: parseFloat(document.getElementById('tax-gains').value)||0,
+    itemized: parseFloat(document.getElementById('tax-itemized').value)||0,
+    dependents: parseInt(document.getElementById('tax-dependents').value,10)||0,
+    otherCredits: parseFloat(document.getElementById('tax-othercredits').value)||0,
+    stateRate: parseFloat(document.getElementById('tax-staterate').value)||0,
+    withheld: parseFloat(document.getElementById('tax-withheld').value)||0
+  };
+}
+function writeTaxForm(f){
+  document.getElementById('tax-year').value=f.year;
+  document.getElementById('tax-filing').value=f.filing;
+  document.getElementById('tax-wages').value=f.wages;
+  document.getElementById('tax-freelance').value=f.freelance;
+  document.getElementById('tax-interest').value=f.interest;
+  document.getElementById('tax-dividends').value=f.dividends;
+  document.getElementById('tax-gains').value=f.gains;
+  document.getElementById('tax-itemized').value=f.itemized;
+  document.getElementById('tax-dependents').value=f.dependents;
+  document.getElementById('tax-othercredits').value=f.otherCredits;
+  document.getElementById('tax-staterate').value=f.stateRate;
+  document.getElementById('tax-withheld').value=f.withheld;
+}
+// The actual 1040-shaped math — returns every line so both the on-screen
+// summary and the exported document render from the same numbers.
+function computeTaxReturn(f){
+  const cfg=TAX_TABLES[f.filing];
+  const totalIncome=f.wages+f.freelance+f.interest+f.dividends+f.gains;
+  const seTax=f.freelance>0 ? f.freelance*0.9235*0.153 : 0;
+  const agi=Math.max(0, f.wages+f.freelance+f.interest+f.dividends+f.gains-(seTax/2));
+  const deduction=Math.max(cfg.std, f.itemized);
+  const usedItemized=f.itemized>cfg.std;
+  const ordinaryTaxable=Math.max(0, agi-deduction);
+  const ordinaryTax=bracketTax(ordinaryTaxable, cfg.brackets);
+  const gainsTax=ltcgTax(ordinaryTaxable, f.gains, cfg.ltcg);
+  const taxBeforeCredits=ordinaryTax+gainsTax;
+  const ctc=childTaxCredit(agi, f.dependents, cfg);
+  const credits=ctc+f.otherCredits;
+  const taxAfterCredits=Math.max(0, taxBeforeCredits-credits);
+  const stateTax=agi*(f.stateRate/100);
+  const totalTax=taxAfterCredits+seTax+stateTax;
+  const balance=totalTax-f.withheld;
+  return {totalIncome:totalIncome,seTax:seTax,agi:agi,deduction:deduction,usedItemized:usedItemized,ordinaryTaxable:ordinaryTaxable,ordinaryTax:ordinaryTax,gainsTax:gainsTax,taxBeforeCredits:taxBeforeCredits,ctc:ctc,credits:credits,taxAfterCredits:taxAfterCredits,stateTax:stateTax,totalTax:totalTax,balance:balance};
+}
+function renderTaxResult(f,r){
+  document.getElementById('tax-result').innerHTML=
+    '<div class="tax-result"><div class="tr-label">'+(r.balance>=0?'Estimated amount owed':'Estimated refund')+'</div><div class="tr-value">'+fmtMoney(Math.abs(r.balance))+'</div>'+
+    '<div class="tr-line"><span>Total income</span><span>'+fmtMoney(r.totalIncome)+'</span></div>'+
+    '<div class="tr-line"><span>Adjustments (½ self-employment tax)</span><span>−'+fmtMoney(r.seTax/2)+'</span></div>'+
+    '<div class="tr-line"><span>Adjusted gross income (AGI)</span><span>'+fmtMoney(r.agi)+'</span></div>'+
+    '<div class="tr-line"><span>Deduction ('+(r.usedItemized?'itemized':'standard')+')</span><span>−'+fmtMoney(r.deduction)+'</span></div>'+
+    '<div class="tr-line"><span>Taxable income</span><span>'+fmtMoney(r.ordinaryTaxable)+'</span></div>'+
+    '<div class="tr-line"><span>Tax on ordinary income</span><span>'+fmtMoney(r.ordinaryTax)+'</span></div>'+
+    '<div class="tr-line"><span>Tax on long-term capital gains</span><span>'+fmtMoney(r.gainsTax)+'</span></div>'+
+    '<div class="tr-line"><span>Tax before credits</span><span>'+fmtMoney(r.taxBeforeCredits)+'</span></div>'+
+    '<div class="tr-line"><span>Child tax credit + other credits</span><span>−'+fmtMoney(r.credits)+'</span></div>'+
+    '<div class="tr-line"><span>Tax after credits</span><span>'+fmtMoney(r.taxAfterCredits)+'</span></div>'+
+    '<div class="tr-line"><span>Self-employment tax</span><span>'+fmtMoney(r.seTax)+'</span></div>'+
+    '<div class="tr-line"><span>State tax (flat-rate estimate)</span><span>'+fmtMoney(r.stateTax)+'</span></div>'+
+    '<div class="tr-line total"><span>Total tax</span><span>'+fmtMoney(r.totalTax)+'</span></div>'+
+    '<div class="tr-line"><span>Federal + state withholding</span><span>−'+fmtMoney(f.withheld)+'</span></div></div>';
+}
+function computeTax(){
+  const f=readTaxForm();
+  const r=computeTaxReturn(f);
+  renderTaxResult(f,r);
+}
+function currentTaxScope(){ return document.querySelector('#tax-scope-toggle button.active').dataset.scope; }
+function taxReturnsFor(scope){ return scope==='shared' ? sharedTaxReturns : personalTaxReturns; }
+async function saveTaxReturns(scope){
+  try{
+    if(scope==='personal') await profileDoc(activeProfile,'taxReturns').set({json:JSON.stringify(personalTaxReturns)});
+    else await sharedDoc('taxReturns').set({json:JSON.stringify(sharedTaxReturns)});
+  }catch(e){ toast('Could not save — try again'); }
+}
+async function saveTaxAsFiled(){
+  const f=readTaxForm();
+  const r=computeTaxReturn(f);
+  const scope=currentTaxScope();
+  const arr=taxReturnsFor(scope);
+  const entry=Object.assign({},f,{result:r});
+  if(editingTaxReturnId && editingTaxReturnScope===scope){
+    const idx=arr.findIndex(function(x){return x.id===editingTaxReturnId;});
+    if(idx!==-1) arr[idx]=Object.assign({id:editingTaxReturnId},entry);
+  }else{
+    entry.id=uid();
+    arr.unshift(entry);
+  }
+  await saveTaxReturns(scope);
+  editingTaxReturnId=null; editingTaxReturnScope=null;
+  renderTaxReturnsList();
+  renderTaxResult(f,r);
+  toast('Saved to filed returns');
+}
+function loadTaxReturn(scope,id){
+  const entry=taxReturnsFor(scope).find(function(x){return x.id===id;});
+  if(!entry) return;
+  editingTaxReturnId=id; editingTaxReturnScope=scope;
+  document.querySelectorAll('#tax-scope-toggle button').forEach(function(b){ b.classList.toggle('active', b.dataset.scope===scope); });
+  writeTaxForm(entry);
+  renderTaxResult(entry, entry.result);
+  document.querySelector('#page-tax .card-form').scrollIntoView({behavior:'smooth',block:'start'});
+}
+async function deleteTaxReturn(scope,id){
+  const arr=taxReturnsFor(scope);
+  const idx=arr.findIndex(function(x){return x.id===id;});
+  if(idx===-1) return;
+  arr.splice(idx,1);
+  await saveTaxReturns(scope);
+  renderTaxReturnsList();
+  toast('Deleted');
+}
+function renderTaxReturnsList(){
+  const rows=personalTaxReturns.map(function(t){return Object.assign({_scope:'personal'},t);})
+    .concat(sharedTaxReturns.map(function(t){return Object.assign({_scope:'shared'},t);}))
+    .sort(function(a,b){ return (b.year||0)-(a.year||0); });
+  const el=document.getElementById('tax-returns-list');
+  if(!el) return;
+  if(!rows.length){ el.innerHTML='<div class="empty-state">Nothing saved yet — calculate an estimate above, then "Save as filed".</div>'; return; }
+  el.innerHTML=rows.map(function(t){
+    const owed=t.result.balance>=0;
+    return '<div class="taxreturn-row">'+
+      '<div class="bill-body"><div class="bill-title">'+t.year+' · '+escapeHtml(t.filing)+(t._scope==='shared'?' <span class="cat-chip">Shared</span>':'')+'</div>'+
+      '<div class="bill-meta"><span class="cat-chip">'+(owed?'Owed':'Refund')+' '+fmtMoney(Math.abs(t.result.balance))+'</span><span class="cat-chip">Total tax '+fmtMoney(t.result.totalTax)+'</span></div></div>'+
+      '<div class="row-actions"><button type="button" data-taxload="'+t._scope+':'+t.id+'" title="Load"><i data-lucide="eye"></i></button>'+
+      '<button type="button" data-taxdel="'+t._scope+':'+t.id+'" title="Delete"><i data-lucide="trash-2"></i></button></div>'+
+    '</div>';
+  }).join('');
+  if(window.lucide) lucide.createIcons();
+  el.querySelectorAll('[data-taxload]').forEach(function(btn){ btn.addEventListener('click', function(){ const p=btn.dataset.taxload.split(':'); loadTaxReturn(p[0],p[1]); }); });
+  el.querySelectorAll('[data-taxdel]').forEach(function(btn){ btn.addEventListener('click', function(){ const p=btn.dataset.taxdel.split(':'); if(confirm('Delete this saved return?')) deleteTaxReturn(p[0],p[1]); }); });
+}
+// Exported as a self-contained .html file (Blob + download link) rather
+// than a PDF — no PDF library is loaded here, and a clean printable HTML
+// page covers "keep it for your records / hand it to a preparer" just as
+// well; the browser's own Print → Save as PDF covers the rest.
+function exportTaxSummary(){
+  const f=readTaxForm();
+  const r=computeTaxReturn(f);
+  const line=function(label,val){ return '<tr><td style="padding:6px 0;color:#555">'+label+'</td><td style="padding:6px 0;text-align:right;font-weight:600">'+val+'</td></tr>'; };
+  const html='<!doctype html><html><head><meta charset="utf-8"><title>Tax summary '+f.year+'</title>'+
+    '<style>body{font-family:Georgia,serif;max-width:640px;margin:40px auto;color:#20211E;padding:0 20px}h1{font-size:22px;margin-bottom:2px}.sub{color:#74766F;font-size:13px;margin-bottom:24px}table{width:100%;border-collapse:collapse;font-size:14px}tr{border-bottom:1px solid #eee}.total td{font-weight:800;font-size:16px;border-top:2px solid #20211E;border-bottom:none;padding-top:10px}.disclaimer{margin-top:26px;font-size:11.5px;color:#888;line-height:1.6;border-top:1px solid #eee;padding-top:14px}</style>'+
+    '</head><body>'+
+    '<h1>Tax summary — '+f.year+'</h1>'+
+    '<div class="sub">'+escapeHtml(f.filing)+' · Prepared '+todayStr()+' · Household finance estimate, not a filed return</div>'+
+    '<table>'+
+      line('Total income', fmtMoney(r.totalIncome))+
+      line('Adjustments (½ SE tax)', '−'+fmtMoney(r.seTax/2))+
+      line('Adjusted gross income', fmtMoney(r.agi))+
+      line('Deduction ('+(r.usedItemized?'itemized':'standard')+')', '−'+fmtMoney(r.deduction))+
+      line('Taxable income', fmtMoney(r.ordinaryTaxable))+
+      line('Tax on ordinary income', fmtMoney(r.ordinaryTax))+
+      line('Tax on long-term capital gains', fmtMoney(r.gainsTax))+
+      line('Tax before credits', fmtMoney(r.taxBeforeCredits))+
+      line('Credits (child tax credit + other)', '−'+fmtMoney(r.credits))+
+      line('Tax after credits', fmtMoney(r.taxAfterCredits))+
+      line('Self-employment tax', fmtMoney(r.seTax))+
+      line('State tax (flat-rate estimate)', fmtMoney(r.stateTax))+
+      '<tr class="total"><td>Total tax</td><td style="text-align:right">'+fmtMoney(r.totalTax)+'</td></tr>'+
+      line('Withholding', '−'+fmtMoney(f.withheld))+
+      line(r.balance>=0?'Estimated amount owed':'Estimated refund', fmtMoney(Math.abs(r.balance)))+
+    '</table>'+
+    '<div class="disclaimer">Rough planning estimate generated by the Budget app. Uses 2025 federal bracket and standard-deduction figures as a stand-in, a simplified flat self-employment tax, a flat-rate state-tax approximation, and a simplified Child Tax Credit phase-out. Not tax advice and not a filed return — confirm real numbers with a CPA or filing software.</div>'+
+    '</body></html>';
+  const blob=new Blob([html],{type:'text/html'});
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(blob);
+  a.download='tax-summary-'+f.year+'-'+(activeProfile||'household')+'.html';
+  document.body.appendChild(a); a.click(); a.remove();
+  toast('Downloaded');
+}
+
+/* =====================================================================
    CATEGORIES MODAL
 ===================================================================== */
 function openCatsModal(scope){
@@ -769,21 +1927,34 @@ document.querySelectorAll('[data-opencats]').forEach(function(btn){ btn.addEvent
 /* =====================================================================
    TABS / WIRING
 ===================================================================== */
+const TAB_LABELS={today:'Today',overview:'Overview',transactions:'Transactions',bills:'Bills',debt:'Debt',accounts:'Accounts & CDs',investments:'Investments',income:'Income',shared:'Shared money',forecast:'Forecast',tax:'Tax calculator'};
 function showTab(tab){
   activeTab=tab;
-  document.querySelectorAll('#tab-segmented button').forEach(function(b){ b.classList.toggle('active', b.dataset.tab===tab); });
+  document.querySelectorAll('#side-nav button').forEach(function(b){ b.classList.toggle('active', b.dataset.tab===tab); });
   document.querySelectorAll('.tab-page').forEach(function(p){ p.classList.toggle('active', p.id==='page-'+tab); });
+  const crumb=document.getElementById('page-crumb'); if(crumb) crumb.textContent=TAB_LABELS[tab]||tab;
+  if(tab==='today') renderTodayQueue();
   if(tab==='overview') renderOverview();
   if(tab==='transactions') renderTransactions();
   if(tab==='bills') renderBills();
+  if(tab==='debt') renderDebt();
+  if(tab==='accounts') renderAccounts();
+  if(tab==='investments') renderInvestments();
+  if(tab==='income') renderIncome();
+  if(tab==='shared') renderShared();
+  if(tab==='forecast') renderForecast();
+  if(tab==='tax') renderTaxReturnsList();
 }
-document.querySelectorAll('#tab-segmented button').forEach(function(b){ b.addEventListener('click', function(){ showTab(b.dataset.tab); }); });
+document.querySelectorAll('#side-nav button').forEach(function(b){ b.addEventListener('click', function(){ showTab(b.dataset.tab); }); });
 
 document.querySelectorAll('#txn-scope-toggle button').forEach(function(b){
   b.addEventListener('click', function(){ document.querySelectorAll('#txn-scope-toggle button').forEach(function(x){x.classList.remove('active');}); b.classList.add('active'); refreshTxnForm(); });
 });
 document.querySelectorAll('#txn-type-toggle button').forEach(function(b){
-  b.addEventListener('click', function(){ document.querySelectorAll('#txn-type-toggle button').forEach(function(x){x.classList.remove('active');}); b.classList.add('active'); });
+  b.addEventListener('click', function(){ document.querySelectorAll('#txn-type-toggle button').forEach(function(x){x.classList.remove('active');}); b.classList.add('active'); refreshTxnForm(); });
+});
+document.querySelectorAll('#txn-split-toggle button').forEach(function(b){
+  b.addEventListener('click', function(){ document.querySelectorAll('#txn-split-toggle button').forEach(function(x){x.classList.remove('active');}); b.classList.add('active'); refreshTxnSplitUI(); });
 });
 document.getElementById('txn-submit').addEventListener('click', submitTxnForm);
 document.getElementById('txn-cancel-edit').addEventListener('click', resetTxnForm);
@@ -799,6 +1970,37 @@ document.querySelectorAll('#bill-scope-toggle button').forEach(function(b){
 });
 document.getElementById('bill-submit').addEventListener('click', submitBillForm);
 document.getElementById('bill-cancel-edit').addEventListener('click', resetBillForm);
+
+document.querySelectorAll('#debt-scope-toggle button').forEach(function(b){
+  b.addEventListener('click', function(){ document.querySelectorAll('#debt-scope-toggle button').forEach(function(x){x.classList.remove('active');}); b.classList.add('active'); });
+});
+document.getElementById('debt-submit').addEventListener('click', submitDebtForm);
+document.getElementById('debt-cancel-edit').addEventListener('click', resetDebtForm);
+
+document.querySelectorAll('#account-scope-toggle button').forEach(function(b){
+  b.addEventListener('click', function(){ document.querySelectorAll('#account-scope-toggle button').forEach(function(x){x.classList.remove('active');}); b.classList.add('active'); });
+});
+document.getElementById('account-submit').addEventListener('click', submitAccountForm);
+document.getElementById('account-cancel-edit').addEventListener('click', resetAccountForm);
+
+document.querySelectorAll('#investment-scope-toggle button').forEach(function(b){
+  b.addEventListener('click', function(){ document.querySelectorAll('#investment-scope-toggle button').forEach(function(x){x.classList.remove('active');}); b.classList.add('active'); });
+});
+document.getElementById('investment-submit').addEventListener('click', submitInvestmentForm);
+document.getElementById('investment-cancel-edit').addEventListener('click', resetInvestmentForm);
+
+document.querySelectorAll('#income-scope-toggle button').forEach(function(b){
+  b.addEventListener('click', function(){ document.querySelectorAll('#income-scope-toggle button').forEach(function(x){x.classList.remove('active');}); b.classList.add('active'); });
+});
+document.getElementById('income-submit').addEventListener('click', submitIncomeForm);
+document.getElementById('income-cancel-edit').addEventListener('click', resetIncomeForm);
+
+document.querySelectorAll('#tax-scope-toggle button').forEach(function(b){
+  b.addEventListener('click', function(){ document.querySelectorAll('#tax-scope-toggle button').forEach(function(x){x.classList.remove('active');}); b.classList.add('active'); });
+});
+document.getElementById('tax-calc-btn').addEventListener('click', computeTax);
+document.getElementById('tax-save-btn').addEventListener('click', saveTaxAsFiled);
+document.getElementById('tax-export-btn').addEventListener('click', exportTaxSummary);
 
 /* =====================================================================
    PROFILE ENTRY
@@ -834,15 +2036,19 @@ async function enterProfile(profileId){
   try{ localStorage.setItem(LAST_PROFILE_KEY, profileId); }catch(e){}
   document.getElementById('loading-gate').style.display='none';
   document.getElementById('profile-overlay').style.display='none';
-  document.getElementById('app-wrap').style.display='block';
+  document.getElementById('app-wrap').style.display='grid';
   document.getElementById('who-badge').innerHTML='<span class="who-avatar av-'+(profileId==='Bhargav'?'b':'a')+'">'+profileId[0]+'</span><span class="who-name">'+profileId+'</span>';
   document.getElementById('who-badge').onclick=function(){ enterProfile(otherProfile(activeProfile)); };
   await loadBudgetData();
   document.getElementById('txn-date').value=todayStr();
+  document.getElementById('income-nextdate').value=todayStr();
+  document.getElementById('tax-year').value=new Date().getFullYear();
   populateCategorySelect(document.getElementById('txn-filter-category'), 'personal', true);
   refreshTxnForm();
+  refreshTxnSplitUI();
   refreshBillForm();
-  showTab('overview');
+  accountInterestPreview();
+  showTab('today');
   if(window.lucide) lucide.createIcons();
 }
 </script>

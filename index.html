@@ -170,6 +170,12 @@
              changes to keep them updated. -->
         <section class="ih-banner" id="today-banner" aria-label="Today banner">
           <div class="ih-banner-scene" id="today-banner-scene" aria-hidden="true"></div>
+          <!-- Shown instead of the scene/top/stat-strip below for a character-pack
+               banner (preset.embed) — a fully self-contained animated page that
+               draws its own header, quote/thought/greeting sequence and stat
+               strip, and reads live profile/task/event data off this parent page
+               itself once framed in. See assets/banners.js bannerEngine.mount(). -->
+          <iframe id="today-banner-embed" class="ih-banner-embed" hidden title="Live banner" loading="lazy"></iframe>
           <div class="ih-banner-top">
             <div class="ih-copy">
               <p class="eyebrow" id="today-date">Today</p>
@@ -338,6 +344,11 @@
         <section class="surface settings-card">
           <div class="section-head with-icon"><span class="section-head-icon"><i data-lucide="flame"></i></span><div><p class="section-kicker">Today page</p><h2>Banner</h2></div></div>
           <p class="settings-hint">Your own animated Today banner — picking one here only changes yours, never the other profile's. Click a banner to activate it. The checkbox in the corner of each one controls whether Shuffle/rotation is allowed to pick it — uncheck any you don't want showing up on their own.</p>
+          <div class="banner-gallery-tabs" id="banner-gallery-tabs">
+            <button type="button" data-banner-tab="all" class="active">All</button>
+            <button type="button" data-banner-tab="original">Original 8</button>
+            <button type="button" data-banner-tab="characters">Characters</button>
+          </div>
           <div class="banner-pool-actions">
             <button type="button" class="button secondary small" id="banner-pool-toggle">Select all</button>
             <span class="settings-hint" id="banner-pool-count" style="margin:0 0 0 auto;"></span>

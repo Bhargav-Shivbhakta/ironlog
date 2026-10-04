@@ -219,7 +219,37 @@ const BANNER_PRESETS_ARCHIVED = [
    accent:'#8fb4ff', accent2:'#e7efff', bg:'#0b0d13', bg2:'#05060a', scene:'thunder'}
 ];
 
-function allBannerPresets(){ return BANNER_PRESETS; }
+/* ---- Character pack ("Final Eight" #2) — 8 fully self-contained animated
+   banners, not run through SCENE_BUILDERS at all. Each `embed` file already
+   contains its own quote → thought → live-greeting sequence, its own
+   stat strip, and its own replay button, and reads the Hub's live profile/
+   task/event data straight out of the parent page (same mechanism as
+   stat-tasks/stat-next/stat-focus below) once it's framed in — see
+   assets/banners/custom/README.txt. bannerEngine.mount() below swaps in
+   an <iframe> for anything with an `embed` field instead of building a
+   scene. pack:'characters' is what the Settings gallery's category tabs
+   filter on (see bannerGalleryVisibleList) — everything above this point
+   is implicitly pack:'original'. ---- */
+const BANNER_CHARACTER_PACK = [
+  {id:'c-don-vito', profile:'Bhargav', title:'Don Vito Corleone', category:'Characters', pack:'characters', glyph:'crown',
+   accent:'#ad7b20', accent2:'#d5ad58', bg:'#090b09', bg2:'#090b09', embed:'assets/banners/custom/01-don-vito.html'},
+  {id:'c-michael-corleone', profile:'Bhargav', title:'Michael Corleone', category:'Characters', pack:'characters', glyph:'briefcase',
+   accent:'#ad7b20', accent2:'#d5ad58', bg:'#090b09', bg2:'#090b09', embed:'assets/banners/custom/02-michael-corleone.html'},
+  {id:'c-thomas-shelby', profile:'Bhargav', title:'Thomas Shelby', category:'Characters', pack:'characters', glyph:'cigarette',
+   accent:'#ad7b20', accent2:'#d5ad58', bg:'#090b09', bg2:'#090b09', embed:'assets/banners/custom/03-thomas-shelby.html'},
+  {id:'c-harvey-specter', profile:'Bhargav', title:'Harvey Specter', category:'Characters', pack:'characters', glyph:'gavel',
+   accent:'#ad7b20', accent2:'#d5ad58', bg:'#090b09', bg2:'#090b09', embed:'assets/banners/custom/04-harvey-specter.html'},
+  {id:'c-jon-snow', profile:'Bhargav', title:'Jon Snow', category:'Characters', pack:'characters', glyph:'sword',
+   accent:'#ad7b20', accent2:'#d5ad58', bg:'#090b09', bg2:'#090b09', embed:'assets/banners/custom/05-jon-snow.html'},
+  {id:'c-james-bond', profile:'Bhargav', title:'James Bond', category:'Characters', pack:'characters', glyph:'target',
+   accent:'#ad7b20', accent2:'#d5ad58', bg:'#090b09', bg2:'#090b09', embed:'assets/banners/custom/06-james-bond.html'},
+  {id:'c-john-wick', profile:'Bhargav', title:'John Wick', category:'Characters', pack:'characters', glyph:'crosshair',
+   accent:'#ad7b20', accent2:'#d5ad58', bg:'#090b09', bg2:'#090b09', embed:'assets/banners/custom/07-john-wick.html'},
+  {id:'c-rocky-balboa', profile:'Bhargav', title:'Rocky Balboa', category:'Characters', pack:'characters', glyph:'trophy',
+   accent:'#ad7b20', accent2:'#d5ad58', bg:'#090b09', bg2:'#090b09', embed:'assets/banners/custom/08-rocky-balboa.html'}
+];
+
+function allBannerPresets(){ return BANNER_PRESETS.concat(BANNER_CHARACTER_PACK); }
 
 function bannerPresetsFor(profile){ return allBannerPresets().filter(p=>p.profile===profile); }
 function bannerFind(id){ return allBannerPresets().find(p=>p.id===id); }
@@ -235,12 +265,37 @@ const bannerEngine = {
   mount(preset){
     const root = document.getElementById('today-banner');
     const scene = document.getElementById('today-banner-scene');
-    if(!root || !scene || !preset) return;
+    const embedFrame = document.getElementById('today-banner-embed');
+    if(!root || !preset) return;
     this.current = preset.id;
     root.style.setProperty('--accent', preset.accent);
     root.style.setProperty('--accent2', preset.accent2);
     root.style.setProperty('--ihbg', preset.bg);
     root.style.setProperty('--ihbg2', preset.bg2);
+    if(preset.embed){
+      // Character-pack banner: a fully self-contained animated page with
+      // its own header/stat-strip/replay button baked in — swap in an
+      // iframe and hide the host's own chrome instead of running it
+      // through SCENE_BUILDERS. It reads live profile/task/event data
+      // straight off the parent page once framed in (same-origin), so no
+      // extra wiring is needed here beyond pointing the iframe at it.
+      root.classList.add('is-embed');
+      if(scene) scene.innerHTML = '';
+      const moodEl = document.getElementById('today-banner-mood');
+      if(moodEl){ moodEl.hidden = true; moodEl.textContent=''; }
+      if(embedFrame){
+        embedFrame.hidden = false;
+        // Cache-bust so replay() (which just calls mount() again) forces
+        // the iframe to reload and restart its animation from 0%, not
+        // just re-show whatever frame it happened to be paused on.
+        embedFrame.src = preset.embed+'?t='+Date.now();
+      }
+      if(window.lucide) lucide.createIcons();
+      return;
+    }
+    root.classList.remove('is-embed');
+    if(embedFrame){ embedFrame.hidden = true; embedFrame.removeAttribute('src'); }
+    if(!scene) return;
     scene.className = 'ih-banner-scene scene-'+preset.scene;
     const build = SCENE_BUILDERS[preset.scene];
     scene.innerHTML = build ? build(preset) : '';
@@ -311,12 +366,20 @@ async function toggleBannerShuffleInclusion(id){
 // so this is really "uncheck everything to then pick a few," not a way
 // to turn shuffle off; Rotate mode's own 'off' option does that.
 async function setBannerShufflePoolAll(includeAll){
-  const list = bannerPresetsFor(state.profile);
-  const ids = includeAll ? list.map(p=>p.id) : [];
+  // Scoped to whichever tab is open, not every banner the profile has —
+  // "Select all" while looking at Characters shouldn't silently also pull
+  // in every original banner you never asked to include.
+  const visible = bannerGalleryVisibleList();
+  const current = (state.bannerTheme && Array.isArray(state.bannerTheme.shufflePool))
+    ? state.bannerTheme.shufflePool.slice()
+    : bannerPresetsFor(state.profile).map(p=>p.id); // materialize the implicit "everything" first
+  const visibleIds = new Set(visible.map(p=>p.id));
+  let ids = current.filter(id=>!visibleIds.has(id)); // keep choices for banners outside this tab untouched
+  if(includeAll) ids = ids.concat(visible.map(p=>p.id));
   state.bannerTheme = Object.assign({}, state.bannerTheme, {shufflePool: ids});
   await saveBannerTheme();
   renderBannerGallery();
-  toast(includeAll ? 'All banners included in shuffle' : 'All banners left out — pick a few to include');
+  toast(includeAll ? 'All banners in this tab included in shuffle' : 'This tab left out of shuffle — pick a few to include');
 }
 let bannerRotateTimer = null;
 function bannerScheduleTimerRotation(){
@@ -404,16 +467,42 @@ async function setBannerRotateMinutes(minutes){
 
 /* ---------------------------------------------------------------------
    Settings gallery — a simple static swatch per preset (glyph + accent
-   gradient), scoped to the signed-in profile's own 8. Clicking one
+   gradient), scoped to the signed-in profile's own banners. Clicking one
    activates it live on the Today page and persists the choice.
+
+   Category tabs (All / Original 8 / Characters, more packs later just
+   need a new `pack` value here and one more button in index.html) filter
+   which of the profile's banners are shown — bannerGalleryTab is a plain
+   in-memory UI filter, not persisted, so it always opens back on "All".
 --------------------------------------------------------------------- */
+let bannerGalleryTab = 'all';
+function bannerGalleryVisibleList(){
+  const list = bannerPresetsFor(state.profile);
+  if(bannerGalleryTab==='original') return list.filter(p=>(p.pack||'original')==='original');
+  if(bannerGalleryTab==='characters') return list.filter(p=>p.pack==='characters');
+  return list;
+}
+function renderBannerGalleryTabs(){
+  const wrap = document.getElementById('banner-gallery-tabs');
+  if(!wrap) return;
+  wrap.querySelectorAll('[data-banner-tab]').forEach(btn=>{
+    btn.classList.toggle('active', btn.dataset.bannerTab===bannerGalleryTab);
+  });
+}
 function renderBannerGallery(){
   const grid = document.getElementById('banner-gallery');
   if(!grid) return;
-  const list = bannerPresetsFor(state.profile);
+  renderBannerGalleryTabs();
+  const list = bannerGalleryVisibleList();
   const active = (state.bannerTheme && state.bannerTheme.active) || (bannerDefaultFor(state.profile)||{}).id;
   const pool = state.bannerTheme && Array.isArray(state.bannerTheme.shufflePool) ? new Set(state.bannerTheme.shufflePool) : null;
   let includedCount = 0;
+  if(!list.length){
+    grid.innerHTML = '<p class="banner-gallery-empty">Nothing in this tab yet.</p>';
+    const countEl0 = document.getElementById('banner-pool-count');
+    if(countEl0) countEl0.textContent = '';
+    return;
+  }
   grid.innerHTML = list.map(p=>{
     const thumbImg = p.thumb || p.image || p.carImg;
     // A real <img loading="lazy" decoding="async"> instead of a CSS
@@ -468,6 +557,13 @@ function wireBannerGallery(){
     if(shuffleBtn){ e.stopPropagation(); toggleBannerShuffleInclusion(shuffleBtn.dataset.bannerShuffleToggle); return; }
     const btn = e.target.closest('[data-banner-select]');
     if(btn) selectBannerPreset(btn.dataset.bannerSelect);
+  });
+  const tabsWrap = document.getElementById('banner-gallery-tabs');
+  if(tabsWrap) tabsWrap.addEventListener('click', e=>{
+    const tabBtn = e.target.closest('[data-banner-tab]');
+    if(!tabBtn) return;
+    bannerGalleryTab = tabBtn.dataset.bannerTab;
+    renderBannerGallery();
   });
   const replayBtn = document.getElementById('today-banner-replay');
   if(replayBtn) replayBtn.addEventListener('click', ()=>bannerEngine.replay());

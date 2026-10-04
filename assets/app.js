@@ -97,7 +97,7 @@ THEME_HUES.forEach(hs=>{
 const DEFAULT_APP_ICON={
   'grocery.html':'shopping-cart','schedule.html':'calendar-clock','todo.html':'list-checks',
   'skin.html':'sparkles','chores.html':'spray-can','diet.html':'utensils',
-  'calendar.html':'calendar-days','gym.html':'dumbbell','budget.html':'piggy-bank'
+  'calendar.html':'calendar-days','gym.html':'dumbbell','budget.html':'piggy-bank','pledge.html':'flag'
 };
 const ICON_LIBRARY=[
   'house','shopping-cart','shopping-bag','utensils','coffee','pizza','apple','carrot','salad','cake','soup',
@@ -234,7 +234,8 @@ const FALLBACK_APPS = [
   { file: 'chores.html', title: 'Household Chores' },
   { file: 'diet.html', title: 'Diet Tracker' },
   { file: 'calendar.html', title: 'Calendar' },
-  { file: 'budget.html', title: 'Budget' }
+  { file: 'budget.html', title: 'Budget' },
+  { file: 'pledge.html', title: 'Pledge' }
 ];
 const ICONS = {
   'grocery.html': 'tile-icons/grocery.png', 'schedule.html': 'tile-icons/schedule.png',
@@ -249,7 +250,8 @@ const DEFAULT_CATEGORY = {
   'gym.html':'health',
   'schedule.html':'planner', 'todo.html':'planner', 'calendar.html':'planner', 'clock.html':'planner',
   'diet.html':'health', 'skin.html':'health',
-  'grocery.html':'home', 'chores.html':'home', 'budget.html':'home'
+  'grocery.html':'home', 'chores.html':'home', 'budget.html':'home',
+  'pledge.html':'planner'
 };
 const HIDDEN_APPS = new Set(['clock.html']); // reached only via its own widget/link, never a tile
 function titleFromFilename(name){ return name.replace(/\.html?$/i,'').replace(/[-_]+/g,' ').replace(/\b\w/g, c=>c.toUpperCase()); }
@@ -762,6 +764,30 @@ const WIDGET_TYPES={
           '<a class="widget-card-link" href="apps/budget.html" data-profile-link>Open Budget <i data-lucide="arrow-up-right"></i></a>';
         updateProfileLinks();if(window.lucide)lucide.createIcons();
       }catch(e){el.innerHTML='<div class="empty-state"><strong>Unavailable</strong>Could not load your budget.</div>'}
+    }},
+  pledge:{title:'Pledge',icon:'flag',desc:"Today's requirements for your active commitment, and the reward riding on it.",defaultSize:'md',
+    async render(el){
+      el.innerHTML='<div class="empty-state"><strong>Loading…</strong></div>';
+      try{
+        const uid=state.user.uid;
+        const snap=await db.collection('users').doc(uid).collection('apps').doc('pledge-v2').collection('data').doc('state').get();
+        const pState=(snap.exists&&snap.data().json)?safeJson(snap.data().json,null):null;
+        const goals=(pState&&pState.goals)||[];
+        const mine=goals.filter(g=>g.profileId===state.profile&&g.status==='active');
+        const goal=mine.find(g=>g.id===pState.activeGoalId)||mine[0];
+        if(!goal){el.innerHTML='<div class="empty-state"><strong>No active commitment</strong>Start one in Pledge.</div>';updateProfileLinks();if(window.lucide)lucide.createIcons();return}
+        const level=goal.levels[goal.currentLevelIndex]||goal.levels[goal.levels.length-1];
+        const todayKey=(()=>{const d=new Date();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')})();
+        const rec=level.days_log&&level.days_log[todayKey];
+        const doneIds=(rec&&rec.doneTaskIds)||[];
+        const total=level.tasks.length;
+        const done=level.tasks.filter(t=>doneIds.includes(t.id)||(t.frequency==='once'&&t.doneOnce)).length;
+        el.innerHTML='<strong style="display:block;font-size:26px;font-weight:700;letter-spacing:-.02em">'+done+' / '+total+'</strong>'+
+          '<p style="margin:4px 0 10px;color:var(--muted)">today’s requirements for “'+esc(goal.title)+'”</p>'+
+          (level.reward&&level.reward.name?'<div style="font-size:12px;color:var(--muted);margin-bottom:10px">Reward: <strong style="color:var(--text)">'+esc(level.reward.name)+'</strong></div>':'')+
+          '<a class="widget-card-link" href="apps/pledge.html" data-profile-link>Open Pledge <i data-lucide="arrow-up-right"></i></a>';
+        updateProfileLinks();if(window.lucide)lucide.createIcons();
+      }catch(e){el.innerHTML='<div class="empty-state"><strong>Unavailable</strong>Could not load Pledge.</div>'}
     }},
   taskmap:{title:'Task order map',icon:'git-branch',desc:"The same level-by-level order map from the To-Do app's Map view — see what's next and what's still waiting on something else, right from Today.",defaultSize:'lg',
     async render(el){

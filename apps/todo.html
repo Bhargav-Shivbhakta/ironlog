@@ -89,18 +89,21 @@
   .progress-ring-wrap{margin-bottom:14px;}
   .progress-ring-card{
     background:linear-gradient(135deg,#FFFFFF,var(--surface-2));border:1px solid var(--border);border-radius:var(--radius-lg);
-    padding:14px 18px;display:flex;align-items:center;gap:16px;box-shadow:var(--shadow);
+    padding:16px 20px;display:flex;align-items:center;gap:18px;box-shadow:var(--shadow);
   }
-  .ring-svg-wrap{position:relative;width:74px;height:74px;flex:none;}
-  .ring-svg{width:74px;height:74px;transform:rotate(-90deg);}
-  .ring-track{fill:none;stroke:var(--border);stroke-width:8;}
-  .ring-fill{fill:none;stroke:url(#ringGradient);stroke-width:8;stroke-linecap:round;transition:stroke-dashoffset .6s cubic-bezier(.34,1.2,.64,1);}
-  .ring-center{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;}
-  .ring-pct{font-family:'Manrope',sans-serif;font-weight:800;font-size:16px;color:var(--text);}
-  .ring-label{font-size:8.5px;color:var(--text-faint);text-transform:uppercase;letter-spacing:0.04em;}
+  /* Bigger ring + a solid disc behind the number (.ring-center) so the
+     percentage reads clearly instead of sitting directly over the two-tone
+     gradient arc — that's what was making the text hard to make out. */
+  .ring-svg-wrap{position:relative;width:92px;height:92px;flex:none;}
+  .ring-svg{width:92px;height:92px;transform:rotate(-90deg);overflow:visible;}
+  .ring-track{fill:none;stroke:var(--border-soft);stroke-width:10;}
+  .ring-fill{fill:none;stroke:url(#ringGradient);stroke-width:10;stroke-linecap:round;transition:stroke-dashoffset .6s cubic-bezier(.34,1.2,.64,1);filter:drop-shadow(0 2px 5px rgba(0,0,0,0.18));}
+  .ring-center{position:absolute;inset:8px;display:flex;flex-direction:column;align-items:center;justify-content:center;background:var(--surface);border-radius:50%;box-shadow:inset 0 0 0 1px var(--border-soft);}
+  .ring-pct{font-family:'Manrope',sans-serif;font-weight:800;font-size:21px;color:var(--text);line-height:1;}
+  .ring-label{font-size:8.5px;color:var(--text-faint);text-transform:uppercase;letter-spacing:0.05em;margin-top:3px;}
   .ring-side{flex:1;}
-  .ring-streak{font-size:13.5px;font-weight:700;color:var(--text);display:flex;align-items:center;gap:5px;}
-  .ring-msg{font-size:12px;color:var(--text-soft);margin-top:2px;}
+  .ring-streak{font-size:14px;font-weight:700;color:var(--text);display:flex;align-items:center;gap:5px;}
+  .ring-msg{font-size:12.5px;color:var(--text-soft);margin-top:3px;}
 
   /* ===== COMMAND CENTER — at-a-glance triage row (Today/Upcoming/Overdue/Notes) ===== */
   .command-center{display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:12px;margin:14px 0 16px;}
@@ -161,24 +164,60 @@
   .task-map-head{display:flex;justify-content:space-between;align-items:flex-start;gap:10px;margin-bottom:10px;}
   .task-map-head h3{font-size:15px;margin:0 0 3px;}
   .task-map-head p{font-size:11.5px;color:var(--text-soft);margin:0;}
+  .task-map-toolbar{display:flex;align-items:center;gap:8px;margin-bottom:10px;}
+  .task-map-toolbar input{flex:1;min-width:0;font-size:12.5px;padding:8px 11px;border-radius:999px;border:1px solid var(--border);background:var(--surface-2);color:var(--text);}
+  .task-map-toolbar input:focus{outline:none;border-color:var(--accent);}
+  .task-map-toolbar button{flex:none;font-size:11px;font-weight:700;padding:7px 11px;border-radius:999px;border:1px solid var(--accent);background:var(--accent-soft);color:var(--accent-deep);cursor:pointer;}
+  .task-map-toolbar button[hidden]{display:none;}
   .task-map-scroll{overflow:auto;flex:1;min-height:200px;border-radius:10px;}
   .task-map-inner{position:relative;}
   .task-map-svg{position:absolute;top:0;left:0;pointer-events:none;overflow:visible;}
-  .task-map-columns{display:flex;gap:30px;align-items:flex-start;position:relative;padding:4px;}
-  .task-map-col{display:flex;flex-direction:column;gap:14px;width:170px;flex:none;}
-  .task-map-col-label{font-size:9.5px;color:var(--text-faint);font-weight:700;text-transform:uppercase;letter-spacing:0.05em;text-align:center;}
-  .task-map-node{background:var(--surface-2);border:1.5px solid var(--border);border-radius:10px;padding:9px 10px;cursor:pointer;position:relative;transition:border-color .15s,box-shadow .15s;}
-  .task-map-node:hover{border-color:var(--accent);}
-  .task-map-node.selecting{border-color:var(--accent);box-shadow:0 0 0 2px var(--accent-soft);}
+  .task-map-columns{display:flex;gap:34px;align-items:flex-start;position:relative;padding:4px;}
+  .task-map-col{display:flex;flex-direction:column;gap:14px;width:198px;flex:none;}
+  .task-map-col-label{font-size:9.5px;color:var(--text-faint);font-weight:700;text-transform:uppercase;letter-spacing:0.05em;text-align:center;padding-bottom:6px;border-bottom:2px solid var(--border-soft);margin-bottom:2px;}
+  /* Card: a colored rail on the left ties it to its list (same color the
+     list chip uses elsewhere), a title row with the link button, a small
+     meta row (due + priority) so you don't have to open the task just to
+     see when it's due, then lock/dependency info. */
+  .task-map-node{background:var(--surface-2);border:1.5px solid var(--border);border-left-width:4px;border-radius:10px;padding:9px 10px 9px 9px;cursor:pointer;position:relative;transition:border-color .15s,box-shadow .15s,opacity .2s,filter .2s;box-shadow:0 1px 0 rgba(0,0,0,0.02);}
+  .task-map-node:hover{border-color:var(--accent);box-shadow:0 4px 14px -6px rgba(0,0,0,0.18);}
   .task-map-node.done{opacity:0.5;}
-  .task-map-node.blocked{border-style:dashed;}
-  .task-map-node-title{font-size:12px;font-weight:700;line-height:1.3;}
+  .task-map-node.blocked{border-left-style:dashed;}
+  .task-map-node.focused{border-color:var(--accent);box-shadow:0 0 0 2px var(--accent-soft);}
+  .task-map-node.related{border-color:var(--accent);}
+  .task-map-node.dim{opacity:0.22;filter:grayscale(.3);}
+  .task-map-node.search-hit{box-shadow:0 0 0 2px var(--p3);}
+  .task-map-node-top{display:flex;align-items:flex-start;gap:6px;}
+  .task-map-node-title{font-size:12.5px;font-weight:700;line-height:1.32;flex:1;min-width:0;overflow:hidden;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;}
   .task-map-node-title.strike{text-decoration:line-through;color:var(--text-faint);}
-  .task-map-lock{font-size:10px;color:var(--overdue-grey);margin-top:3px;}
+  .task-map-link-btn{flex:none;border:0;background:var(--surface);border:1px solid var(--border);border-radius:7px;width:22px;height:22px;font-size:11px;line-height:1;cursor:pointer;color:var(--text-soft);}
+  .task-map-link-btn:hover{background:var(--accent-soft);color:var(--accent-deep);border-color:var(--accent);}
+  .task-map-node-meta{display:flex;flex-wrap:wrap;gap:4px;margin-top:6px;}
+  .task-map-meta-chip{font-size:9.5px;font-weight:600;border-radius:20px;padding:2px 7px;background:var(--surface);color:var(--text-soft);border:1px solid var(--border-soft);}
+  .task-map-meta-chip.prio1{background:var(--p1-soft);color:var(--p1);border-color:transparent;}
+  .task-map-meta-chip.prio2{background:var(--p2-soft);color:var(--p2);border-color:transparent;}
+  .task-map-meta-chip.prio3{background:var(--p3-soft);color:var(--p3);border-color:transparent;}
+  .task-map-meta-chip.overdue{background:var(--danger-soft);color:var(--danger);border-color:transparent;}
+  .task-map-lock{font-size:10px;color:var(--overdue-grey);margin-top:5px;line-height:1.35;}
   .task-map-deps{display:flex;flex-wrap:wrap;gap:3px;margin-top:5px;}
   .task-map-dep-chip{font-size:9.5px;background:var(--surface);border:1px solid var(--border);border-radius:20px;padding:1px 6px;display:flex;align-items:center;gap:3px;color:var(--text-soft);}
   .task-map-dep-chip button{border:0;background:none;color:var(--text-faint);cursor:pointer;padding:0;font-size:10px;line-height:1;}
   .task-map-empty{color:var(--text-soft);font-size:12.5px;padding:20px;text-align:center;}
+  .task-map-svg path.dim{opacity:0.08;}
+  .task-map-svg path.lit{opacity:0.95;stroke-width:2.4;}
+  /* Link picker — a small floating popover (same fixed+body-append pattern
+     as .schedule-quick-menu elsewhere in this file), opened from a card's
+     🔗 button so linking is an explicit pick-from-a-list action instead of
+     an implicit two-click gesture you had to remember mid-click. */
+  .task-map-link-popover{position:fixed;z-index:500;width:240px;max-height:300px;display:flex;flex-direction:column;background:var(--surface);border:1px solid var(--border);border-radius:11px;box-shadow:0 14px 34px -10px rgba(0,0,0,0.25);padding:8px;}
+  .task-map-link-popover-label{font-size:10.5px;font-weight:700;color:var(--text-faint);text-transform:uppercase;letter-spacing:0.04em;padding:2px 4px 6px;}
+  .task-map-link-popover input{width:100%;font-size:12.5px;padding:7px 9px;border-radius:8px;border:1px solid var(--border);background:var(--surface-2);color:var(--text);margin-bottom:6px;}
+  .task-map-link-popover-list{overflow-y:auto;flex:1;}
+  .task-map-link-opt{display:flex;align-items:center;gap:6px;padding:7px 8px;border-radius:8px;cursor:pointer;font-size:12.5px;}
+  .task-map-link-opt:hover{background:var(--surface-2);}
+  .task-map-link-opt span.dot{width:7px;height:7px;border-radius:50%;flex:none;}
+  .task-map-link-opt .lbl{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .task-map-link-empty{font-size:12px;color:var(--text-faint);padding:10px 6px;text-align:center;}
 
   /* ===== SCHEDULE QUICK-BUTTON — on a pending task row, jump straight to
      "make it due today / tomorrow / pick a date" without opening the full
@@ -647,14 +686,22 @@
     <!-- Dependency map — same tasks as the list on the left (whichever
          View tab is active), laid out in columns by "level": anything with
          no prerequisites in column 1, anything that only depends on column-1
-         tasks in column 2, and so on. Click one task then another to link
-         them (first must finish before second); click a chip's ✕ to unlink.
-         Mutually exclusive with the detail panel — opening one closes the
-         other, so the split grid never has to juggle three columns. -->
+         tasks in column 2, and so on. Each card has its own 🔗 button that
+         opens a searchable picker to set what it depends on (no more
+         remembering an implicit "first click" target); clicking a card
+         itself highlights its whole chain and fades everything unrelated,
+         which is what actually keeps this usable once there are a lot of
+         tasks on the board. Mutually exclusive with the detail panel —
+         opening one closes the other, so the split grid never has to
+         juggle three columns. -->
     <aside class="task-map-panel" id="task-map-panel" hidden>
       <div class="task-map-head">
-        <div><h3>Order map</h3><p id="task-map-hint">Click a task, then the one that should come after it, to link them.</p></div>
+        <div><h3>Order map</h3><p id="task-map-hint">Click a card to trace its chain. Use 🔗 to set what a task depends on.</p></div>
         <button type="button" class="task-detail-panel-close" id="task-map-close">✕</button>
+      </div>
+      <div class="task-map-toolbar">
+        <input type="text" id="task-map-search" placeholder="🔍 Find a task on the map…">
+        <button type="button" id="task-map-clear-focus" hidden>✕ Clear highlight</button>
       </div>
       <div class="task-map-scroll" id="task-map-scroll">
         <div class="task-map-inner" id="task-map-inner">
@@ -1489,17 +1536,25 @@ function renderProgressRing(){
   const el = document.getElementById('progress-ring-wrap');
   if(!el) return;
   const scoped = tasksInScope();
-  // Was filtering by DUE date here while the Today card/tab filters by
-  // START date (see filterBySmartView above) — two different definitions
-  // of "today's tasks" that could disagree with each other. Worse, "no due
-  // date at all" counted as "today" for the ring, so an already-done task
-  // with no due date could make the ring read 100% while the Today card,
-  // which only ever lists undone tasks, correctly showed nothing pending —
-  // a real mismatch, not just a coincidence of wording. Matching the Today
-  // tab's own startDate-based rule here keeps the two in agreement.
-  const todayTasks = scoped.filter(function(t){ return !t.startDate || t.startDate<=todayStr(); });
-  const doneToday = todayTasks.filter(function(t){ return t.done; }).length;
-  const pct = todayTasks.length ? Math.round(100*doneToday/todayTasks.length) : 0;
+  const today = todayStr();
+  // The ring is "how much of today did I clear" — so it has to count a
+  // completion against the DAY it actually happened on, not just whether
+  // the task happens to be done. Using t.done alone (even once already
+  // matched to the Today tab's startDate rule) still swept in tasks
+  // finished days ago, which could read 71% complete while the Today tab —
+  // which only ever lists open tasks — correctly showed a full pending
+  // list of 5. completedOn (stamped in toggleTask, cleared on un-check) is
+  // the actual "finished on this date" marker, so the pool below is today's
+  // tasks that are either still open or were finished specifically today —
+  // the same set the Today tab would show if it didn't hide done tasks.
+  const todayPool = scoped.filter(function(t){
+    const started = !t.startDate || t.startDate<=today;
+    if(!started) return false;
+    return !t.done || t.completedOn===today;
+  });
+  const doneToday = todayPool.filter(function(t){ return t.done && t.completedOn===today; }).length;
+  const pct = todayPool.length ? Math.round(100*doneToday/todayPool.length) : 0;
+  const todayTasks = todayPool;
   const streak = choreStreakForTasks();
   const r = 34, circumference = Math.round(2*Math.PI*r*100)/100;
   const offset = Math.round((circumference * (1 - pct/100))*100)/100;
@@ -1758,33 +1813,70 @@ function syncDetailPanel(){
 
 /* =====================================================================
    ORDER MAP PANEL — see the task-map-panel markup and the ORDER MAP
-   helpers above findTaskAnywhere for the data side of this. mapOpen
-   tracks whether the panel is showing; mapLinkFromId tracks the "first
-   click" of a click-then-click link gesture.
+   helpers above findTaskAnywhere for the data side of this.
+   mapOpen tracks whether the panel is showing. mapFocusId is the card
+   currently "traced" (click a card to highlight its whole chain of
+   ancestors+descendants and fade everything else — this replaced an
+   earlier click-this-then-click-that linking gesture that got genuinely
+   hard to track once the board had more than a handful of tasks).
+   mapSearchTerm drives the same dim/highlight treatment from the search
+   box. Linking itself now happens explicitly through a card's own 🔗
+   button, which opens mapLinkPickerFor + a small floating popover rather
+   than relying on remembering which card you clicked first.
 ===================================================================== */
 let mapOpen = false;
-let mapLinkFromId = null;
+let mapFocusId = null;
+let mapSearchTerm = '';
+let mapLinkPickerFor = null; // task id whose 🔗 popover is currently open
 function openTaskMap(){
   closeTaskDetailPanel(); // shares the split's second column with the detail panel
   mapOpen = true;
-  mapLinkFromId = null;
+  mapFocusId = null;
+  mapSearchTerm = '';
+  const search = document.getElementById('task-map-search');
+  if(search) search.value = '';
   document.getElementById('task-map-panel').hidden = false;
   document.getElementById('task-split').classList.add('has-map');
   renderTaskMap();
 }
 function closeTaskMap(){
   mapOpen = false;
-  mapLinkFromId = null;
+  mapFocusId = null;
+  closeMapLinkPicker();
   const panel = document.getElementById('task-map-panel');
   if(panel) panel.hidden = true;
   const split = document.getElementById('task-split');
   if(split) split.classList.remove('has-map');
+}
+// Everything connected to id — walking both up (what it depends on) and
+// down (what depends on it), across the *full* task set so the chain is
+// correct even if part of it is currently filtered out of view. Used to
+// decide what stays lit up vs. fades when a card is clicked.
+function mapRelatedIds(id){
+  const all = allVisibleTasks();
+  const byId = {}; all.forEach(function(t){ byId[t.id]=t; });
+  const seen = {}; seen[id]=true;
+  const up = [id], down = [id];
+  while(up.length){
+    const cur = up.pop();
+    (byId[cur] && byId[cur].dependsOn || []).forEach(function(depId){
+      if(!seen[depId] && byId[depId]){ seen[depId]=true; up.push(depId); }
+    });
+  }
+  while(down.length){
+    const cur = down.pop();
+    all.forEach(function(t){
+      if((t.dependsOn||[]).indexOf(cur)!==-1 && !seen[t.id]){ seen[t.id]=true; down.push(t.id); }
+    });
+  }
+  return seen;
 }
 function renderTaskMap(){
   if(!mapOpen) return;
   const cols = document.getElementById('task-map-columns');
   const svg = document.getElementById('task-map-svg');
   const hint = document.getElementById('task-map-hint');
+  const clearBtn = document.getElementById('task-map-clear-focus');
   if(!cols || !svg) return;
   taskLevelMemo = {}; // dependencies may have changed since the last render
   // Same task set as whichever list view is currently showing (Today,
@@ -1798,7 +1890,14 @@ function renderTaskMap(){
     svg.innerHTML=''; svg.setAttribute('width',0); svg.setAttribute('height',0);
     return;
   }
-  hint.textContent = mapLinkFromId ? 'Now click the task that should come after "'+ (function(){ const f=findTaskAnywhere(mapLinkFromId); return f?f.t.title:''; })() +'" — or click it again to cancel.' : 'Click a task, then the one that should come after it, to link them.';
+  const focusTask = mapFocusId ? findTaskAnywhere(mapFocusId) : null;
+  const related = focusTask ? mapRelatedIds(mapFocusId) : null;
+  const term = mapSearchTerm.trim().toLowerCase();
+  if(clearBtn) clearBtn.hidden = !mapFocusId;
+  if(hint){
+    hint.textContent = focusTask ? 'Showing the chain for "'+focusTask.t.title+'" — click it again, or Clear, to see everything.'
+      : 'Click a card to trace its chain. Use 🔗 to set what a task depends on.';
+  }
   const byLevel = {};
   base.forEach(function(t){
     const lvl = taskLevel(t.id);
@@ -1810,13 +1909,24 @@ function renderTaskMap(){
       '<div class="task-map-col-label">Level '+(lvl+1)+'</div>'+
       byLevel[lvl].map(function(t){
         const blocked = !t.done && taskIsBlocked(t);
+        const list = listById(t.listId);
+        const dueClass = taskDueClass(t);
+        const isDim = (related && !related[t.id]) || (!related && term && t.title.toLowerCase().indexOf(term)===-1 && term.length);
+        const isSearchHit = !related && term && t.title.toLowerCase().indexOf(term)!==-1;
+        const meta = [];
+        if(t.due) meta.push('<span class="task-map-meta-chip'+(!t.done && dueClass==='overdue'?' overdue':'')+'">'+fmtDue(t.due)+'</span>');
+        if(t.priority) meta.push('<span class="task-map-meta-chip prio'+t.priority+'">P'+t.priority+'</span>');
         const deps = (t.dependsOn||[]).map(function(depId){
           const f=findTaskAnywhere(depId);
           if(!f) return '';
           return '<span class="task-map-dep-chip">'+escapeHtml(f.t.title)+' <button type="button" data-mapunlink="'+t.id+':'+depId+'" title="Unlink">✕</button></span>';
         }).join('');
-        return '<div class="task-map-node'+(t.done?' done':'')+(blocked?' blocked':'')+(mapLinkFromId===t.id?' selecting':'')+'" data-mapnode="'+t.id+'">'+
-          '<div class="task-map-node-title'+(t.done?' strike':'')+'">'+escapeHtml(t.title)+'</div>'+
+        return '<div class="task-map-node'+(t.done?' done':'')+(blocked?' blocked':'')+(mapFocusId===t.id?' focused':'')+(related && related[t.id] && mapFocusId!==t.id?' related':'')+(isDim?' dim':'')+(isSearchHit?' search-hit':'')+'" data-mapnode="'+t.id+'" style="border-left-color:'+(list?list.color:'var(--border)')+'">'+
+          '<div class="task-map-node-top">'+
+            '<div class="task-map-node-title'+(t.done?' strike':'')+'" title="'+escapeHtml(t.title)+'">'+escapeHtml(t.title)+'</div>'+
+            '<button type="button" class="task-map-link-btn" data-maplinkbtn="'+t.id+'" title="Set what this depends on">🔗</button>'+
+          '</div>'+
+          (meta.length?'<div class="task-map-node-meta">'+meta.join('')+'</div>':'')+
           (blocked?'<div class="task-map-lock">🔒 Waiting on: '+escapeHtml(blockingTaskNames(t).join(', '))+'</div>':'')+
           (deps?'<div class="task-map-deps">'+deps+'</div>':'')+
         '</div>';
@@ -1842,11 +1952,12 @@ function renderTaskMap(){
       (t.dependsOn||[]).forEach(function(depId){
         const fromEl = cols.querySelector('[data-mapnode="'+depId+'"]');
         if(!fromEl) return; // dependency exists but isn't in this filtered view — nothing to draw to
+        const lit = related ? (related[t.id] && related[depId]) : true;
         const fr = fromEl.getBoundingClientRect(), tr = toEl.getBoundingClientRect();
         const x1 = fr.right - innerRect.left, y1 = fr.top + fr.height/2 - innerRect.top;
         const x2 = tr.left - innerRect.left, y2 = tr.top + tr.height/2 - innerRect.top;
         const mx = (x1+x2)/2;
-        lines.push('<path d="M'+x1+','+y1+' C'+mx+','+y1+' '+mx+','+y2+' '+x2+','+y2+'" fill="none" stroke="var(--accent)" stroke-width="1.6" opacity="0.55"/>');
+        lines.push('<path class="'+(lit?'lit':'dim')+'" d="M'+x1+','+y1+' C'+mx+','+y1+' '+mx+','+y2+' '+x2+','+y2+'" fill="none" stroke="var(--accent)" stroke-width="1.6" opacity="0.55"/>');
       });
     });
     svg.innerHTML = lines.join('');
@@ -1861,21 +1972,81 @@ function renderTaskMap(){
       render();
     });
   });
-  cols.querySelectorAll('[data-mapnode]').forEach(function(node){
-    node.addEventListener('click', async function(){
-      const id = node.dataset.mapnode;
-      if(!mapLinkFromId){
-        mapLinkFromId = id;
-        renderTaskMap();
-        return;
-      }
-      if(mapLinkFromId===id){ mapLinkFromId=null; renderTaskMap(); return; }
-      const ok = await addDependency(id, mapLinkFromId); // id (second click) depends on mapLinkFromId (first click)
-      mapLinkFromId = null;
-      renderTaskMap();
-      if(ok) render();
+  cols.querySelectorAll('[data-maplinkbtn]').forEach(function(btn){
+    btn.addEventListener('click', function(e){
+      e.stopPropagation();
+      openMapLinkPicker(btn.dataset.maplinkbtn, btn);
     });
   });
+  cols.querySelectorAll('[data-mapnode]').forEach(function(node){
+    node.addEventListener('click', function(){
+      const id = node.dataset.mapnode;
+      mapFocusId = (mapFocusId===id) ? null : id;
+      renderTaskMap();
+    });
+  });
+}
+/* ---- Link picker popover: pick what a task depends on from a searchable
+   list instead of a two-click gesture across the whole board. Same
+   fixed-position-appended-to-body approach as .schedule-quick-menu. ---- */
+function closeMapLinkPicker(){
+  mapLinkPickerFor = null;
+  const existing = document.getElementById('task-map-link-popover');
+  if(existing) existing.remove();
+  document.removeEventListener('click', mapLinkPickerOutsideHandler, true);
+}
+function mapLinkPickerOutsideHandler(e){
+  const pop = document.getElementById('task-map-link-popover');
+  if(pop && !pop.contains(e.target)) closeMapLinkPicker();
+}
+function openMapLinkPicker(taskId, anchorEl){
+  if(mapLinkPickerFor===taskId){ closeMapLinkPicker(); return; }
+  closeMapLinkPicker();
+  mapLinkPickerFor = taskId;
+  const pop = document.createElement('div');
+  pop.className = 'task-map-link-popover';
+  pop.id = 'task-map-link-popover';
+  pop.innerHTML = '<div class="task-map-link-popover-label">Depends on…</div>'+
+    '<input type="text" id="task-map-link-search" placeholder="Search tasks…">'+
+    '<div class="task-map-link-popover-list" id="task-map-link-list"></div>';
+  document.body.appendChild(pop);
+  const rect = anchorEl.getBoundingClientRect();
+  const top = Math.min(rect.bottom+6, window.innerHeight-310);
+  const left = Math.min(rect.left, window.innerWidth-250);
+  pop.style.top = Math.max(8,top)+'px';
+  pop.style.left = Math.max(8,left)+'px';
+  function renderOptions(filterText){
+    const found = findTaskAnywhere(taskId);
+    const existingDeps = (found && found.t.dependsOn) || [];
+    const q = (filterText||'').trim().toLowerCase();
+    const candidates = allVisibleTasks().filter(function(c){
+      if(c.id===taskId) return false;
+      if(existingDeps.indexOf(c.id)!==-1) return false;
+      if(wouldCreateCycle(c.id, taskId)) return false;
+      if(q && c.title.toLowerCase().indexOf(q)===-1) return false;
+      return true;
+    }).slice(0,60);
+    const list = document.getElementById('task-map-link-list');
+    if(!list) return;
+    if(!candidates.length){ list.innerHTML = '<div class="task-map-link-empty">No matching tasks to link.</div>'; return; }
+    list.innerHTML = candidates.map(function(c){
+      const l = listById(c.listId);
+      return '<div class="task-map-link-opt" data-mappick="'+c.id+'"><span class="dot" style="background:'+(l?l.color:'var(--border)')+'"></span><span class="lbl">'+escapeHtml(c.title)+'</span></div>';
+    }).join('');
+    list.querySelectorAll('[data-mappick]').forEach(function(opt){
+      opt.addEventListener('click', async function(){
+        const ok = await addDependency(taskId, opt.dataset.mappick);
+        closeMapLinkPicker();
+        renderTaskMap();
+        if(ok) render();
+      });
+    });
+  }
+  renderOptions('');
+  const searchInput = document.getElementById('task-map-link-search');
+  searchInput.addEventListener('input', function(){ renderOptions(searchInput.value); });
+  searchInput.focus();
+  setTimeout(function(){ document.addEventListener('click', mapLinkPickerOutsideHandler, true); }, 0);
 }
 
 function renderWeekView(listEl, scoped){
@@ -2849,6 +3020,14 @@ function initControls(){
   document.getElementById('manage-tags-btn').addEventListener('click', openTagsPanel);
   document.getElementById('map-toggle-btn').addEventListener('click', openTaskMap);
   document.getElementById('task-map-close').addEventListener('click', closeTaskMap);
+  document.getElementById('task-map-search').addEventListener('input', function(e){
+    mapSearchTerm = e.target.value;
+    renderTaskMap();
+  });
+  document.getElementById('task-map-clear-focus').addEventListener('click', function(){
+    mapFocusId = null;
+    renderTaskMap();
+  });
   document.getElementById('note-add-btn').addEventListener('click', addStickyNote);
   document.getElementById('backup-button').addEventListener('click', openBackupModal);
   document.getElementById('task-detail-panel-close').addEventListener('click', closeTaskDetailPanel);

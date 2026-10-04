@@ -1,0 +1,805 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Pledge — Turn ambition into a kept promise</title>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script src="../assets/theme.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+/* Pledge — campaign-dossier dark reskin. --green/--green2 stay the live
+   theme hooks: --green is overridden per profile by HubTheme.applyHubTheme
+   (Bhargav's gold, Anusha's rose, or whatever the Hub's accent picker has
+   stored), and every "accent" tint below (--green2, --line-accent, chip
+   backgrounds, the gold-foil feel) is derived from var(--green) with
+   color-mix() rather than hardcoded, so the war-room shell still follows
+   the Hub's per-profile theme instead of fighting it. */
+:root{--bg:#0d1113;--panel:#161b1d;--panel2:#1b2123;--line:#2c3436;--ink:#e9ece7;--muted:#8d9794;
+--green:#c9a96b;--green2:color-mix(in srgb,var(--green) 20%,var(--panel));
+--line-accent:color-mix(in srgb,var(--green) 45%,var(--line));
+--ink-on-accent:#14181a;
+--lime:var(--green);--gold:var(--green);
+--ok:#7fa98c;--ok2:color-mix(in srgb,var(--ok) 20%,var(--panel));
+--oxblood:#8a3a3f;--oxblood2:color-mix(in srgb,var(--oxblood) 22%,var(--panel));
+--violet:#6f9fc9;--violet2:color-mix(in srgb,var(--violet) 20%,var(--panel));
+--coral:#c97b4e;--orange:#c97b4e;--red:var(--oxblood);--blue:var(--violet);
+--shadow:0 20px 50px rgba(0,0,0,.55)}
+body.embedded .topbar-wrap{display:none}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font:14px/1.45 Inter,ui-sans-serif,system-ui,-apple-system,Segoe UI,sans-serif}
+h1,h2,h3,h4{font-family:Georgia,'Times New Roman',serif;letter-spacing:.01em}
+button,input,select,textarea{font:inherit}button{cursor:pointer}.app{min-height:100vh;display:flex;flex-direction:column}
+.topbar-wrap{background:var(--panel2);color:#F2EFE6;padding:14px 20px;border-bottom:1px solid var(--line)}.topbar-inner{max-width:min(96vw,1800px);margin:0 auto;display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap}.brand-cluster{display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+.brand{display:flex;align-items:center;gap:10px;font-size:17px;font-weight:800;flex:none;font-family:Georgia,serif}.mark{width:30px;height:30px;border-radius:3px;display:grid;place-items:center;background:var(--lime);color:var(--ink-on-accent);font-size:16px;font-weight:850;box-shadow:0 0 0 1px color-mix(in srgb,var(--green) 55%,black)}
+.hub-link{color:#9aa3a0;text-decoration:none;font-size:12px}
+.profile-box{display:flex;align-items:center;gap:8px}.profile-buttons{display:flex;gap:4px;background:var(--bg);border:1px solid var(--line);border-radius:4px;padding:4px}.profile-buttons button{border:0;border-radius:3px;background:transparent;color:#9aa3a0;padding:7px 12px;font-weight:750;font-size:12.5px}.profile-buttons button.active{background:var(--lime);color:var(--ink-on-accent)}
+.sync-box{display:flex;align-items:center;gap:8px}.sync-box b{color:#F2EFE6;font-size:12px;font-weight:700}.sync-dot{width:7px;height:7px;border-radius:50%;background:#55605f;display:inline-block;margin-right:5px}.sync-dot.on{background:var(--ok);box-shadow:0 0 0 4px color-mix(in srgb,var(--ok) 25%,transparent)}
+.navbar-wrap{position:sticky;top:0;z-index:60;background:var(--bg);padding:14px 20px 0}.nav-row{max-width:min(96vw,1800px);margin:0 auto;display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap}.nav{display:flex;gap:3px;background:var(--panel);border:1px solid var(--line);border-radius:4px;padding:4px;flex-wrap:wrap}.nav button{border:0;background:transparent;color:var(--muted);border-radius:3px;padding:9px 14px;font-weight:700;white-space:nowrap;font-size:12.5px;text-transform:uppercase;letter-spacing:.04em}.nav button.active{background:var(--green);color:var(--ink-on-accent)}.nav button:hover{color:var(--ink)}
+.goal-switch{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.main{width:100%;max-width:min(96vw,1800px);margin:auto;padding:28px 34px 60px}.top{display:flex;justify-content:space-between;align-items:center;margin-bottom:22px;flex-wrap:wrap;gap:10px}.eyebrow{text-transform:uppercase;letter-spacing:.17em;color:var(--green);font-size:10px;font-weight:850}.top h1{font-size:29px;line-height:1.1;margin:4px 0}.top .sub{color:var(--muted);font-size:13px}
+.page{display:none}.page.active{display:block}
+.cards{display:grid;grid-template-columns:repeat(3,1fr);gap:11px;margin-bottom:17px}.metric{background:var(--panel);border:1px solid var(--line);box-shadow:0 5px 20px rgba(0,0,0,.25);border-radius:4px;padding:15px;position:relative;overflow:hidden}.metric:before{content:"";position:absolute;left:0;right:0;top:0;height:3px;background:var(--green)}.metric:nth-child(2):before{background:var(--violet)}.metric:nth-child(3):before{background:var(--ok)}.metric span{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em}.metric b{font-size:22px;display:block;margin-top:5px;color:var(--ink)}
+.btn{border:0;border-radius:4px;background:var(--green);box-shadow:0 6px 16px rgba(0,0,0,.3);color:var(--ink-on-accent);padding:9px 13px;font-weight:750;text-decoration:none;display:inline-flex;align-items:center;justify-content:center;gap:6px}.btn.soft{background:var(--green2);box-shadow:none;color:var(--green)}.btn.ghost{background:var(--panel);box-shadow:none;border:1px solid var(--line);color:var(--ink)}.btn.danger{background:var(--oxblood2);box-shadow:none;color:#e9b3b0;border:1px solid color-mix(in srgb,var(--oxblood) 45%,var(--line))}.btn.gold{background:var(--lime);color:var(--ink-on-accent);box-shadow:0 6px 16px color-mix(in srgb,var(--green) 35%,transparent)}.btn.sm{padding:6px 9px;font-size:11px}.btn:disabled{opacity:.5;cursor:default}
+.input,select,textarea{width:100%;background:var(--bg);color:var(--ink);border:1px solid var(--line);border-radius:4px;padding:9px 10px;outline:none}.input:focus,select:focus,textarea:focus{border-color:var(--green);box-shadow:0 0 0 3px color-mix(in srgb,var(--green) 20%,transparent)}
+.label{font-size:10px;color:var(--muted);font-weight:750;margin-bottom:3px;text-transform:uppercase;letter-spacing:.08em}
+.grid-2{display:grid;grid-template-columns:1fr 1fr;gap:10px}.grid-3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:4px;padding:17px;box-shadow:0 5px 20px rgba(0,0,0,.25);margin-bottom:14px}
+.card h2,.card h3{margin:0 0 4px}
+.head{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:13px;flex-wrap:wrap}
+.hero{border-radius:4px;overflow:hidden;position:relative;min-height:190px;background:linear-gradient(120deg,var(--panel2),#0d1113);margin-bottom:16px;background-size:cover;background-position:center;border:1px solid var(--line-accent)}
+.hero:after{content:"";position:absolute;inset:0;background:linear-gradient(100deg,#0d1113f5 0%,#0d1113bb 55%,#0d111322 100%)}
+.hero:before{content:"CONFIDENTIAL \2022 PERSONAL ORDER";position:absolute;z-index:3;right:22px;top:18px;font-family:Georgia,serif;font-size:10px;letter-spacing:.14em;color:color-mix(in srgb,var(--green) 70%,#9aa3a0);border:1px solid color-mix(in srgb,var(--green) 55%,var(--line));padding:4px 9px;border-radius:2px;transform:rotate(2deg);opacity:.75}
+.hero-content{position:relative;z-index:2;padding:26px 28px;max-width:640px;color:#F2EFE6}
+.hero-content .eyebrow2{color:var(--lime);text-transform:uppercase;letter-spacing:.17em;font-size:10px;font-weight:800}
+.hero-content h1{font-size:33px;margin:8px 0 6px;color:#fff}
+.hero-content p{color:#b9c0bd;font-size:12.5px;margin:0 0 14px;line-height:1.5}
+.deadline-pill{display:inline-flex;align-items:center;gap:5px;background:#ffffff0f;border:1px solid #ffffff22;color:#F2EFE6;border-radius:3px;padding:5px 11px;font-size:11px;font-weight:700;margin-top:4px}
+.deadline-pill.danger{background:color-mix(in srgb,var(--oxblood) 30%,transparent);color:#f3c9c6;border-color:color-mix(in srgb,var(--oxblood) 55%,transparent)}
+.ladder{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px;margin:14px 0}
+.rung{border:1px solid var(--line);border-radius:4px;padding:14px;background:var(--panel);cursor:pointer;position:relative;border-top:3px solid var(--line)}
+.rung.current{border-color:var(--line-accent);border-top-color:var(--lime);background:var(--green2)}
+.rung.done{border-color:color-mix(in srgb,var(--ok) 40%,var(--line));border-top-color:var(--ok);background:var(--ok2)}
+.rung.recovery{border-color:color-mix(in srgb,var(--oxblood) 45%,var(--line));border-top-color:var(--oxblood);background:var(--oxblood2)}
+.rung.paused{border-color:var(--line);border-top-color:var(--muted);background:var(--panel2)}
+.rung.upcoming{opacity:.55}
+.rung .rung-index{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.1em;font-weight:800;font-family:Georgia,serif}
+.rung h3{font-size:16px;margin:8px 0 4px}
+.rung .rung-meta{font-size:11px;color:var(--muted)}
+.reward-banner{background:linear-gradient(135deg,var(--panel2) 0%,#0d1113 55%,var(--panel2) 100%);color:#F2EFE6;border-radius:4px;padding:14px 16px;border:1px solid color-mix(in srgb,var(--lime) 40%,var(--line));display:grid;grid-template-columns:72px 1fr;gap:14px;align-items:center}
+.reward-banner.no-image{grid-template-columns:1fr}
+.reward-thumb{width:72px;height:72px;border-radius:3px;background:#ffffff0f;background-size:cover;background-position:center;display:grid;place-items:center;font-size:22px;border:1px solid #ffffff1a}
+.reward-banner span.tag{color:#9aa3a0;font-size:10px;text-transform:uppercase;letter-spacing:.1em;font-weight:800}
+.reward-title{font-size:16px;font-weight:800;margin:3px 0 0;color:var(--lime);font-family:Georgia,serif}
+.reward-detail{color:#b9c0bd;font-size:12px;margin-top:3px}
+.reward-status-chip{display:inline-block;margin-top:6px;font-size:10px;font-weight:800;padding:3px 8px;border-radius:3px;background:#ffffff14;color:#F2EFE6;letter-spacing:.05em}
+.progress-wrap{display:flex;align-items:center;justify-content:space-between;gap:10px;font-size:12px;color:var(--muted);margin-top:10px}
+.bar{height:8px;background:var(--bg);border:1px solid var(--line);border-radius:2px;overflow:hidden}.bar i{display:block;height:100%;background:var(--green);border-radius:2px;transition:width .3s}
+.streak-chip{display:inline-flex;align-items:center;gap:4px;background:var(--green2);color:var(--green);border:1px solid var(--line-accent);border-radius:3px;padding:4px 10px;font-weight:800;font-size:12px;white-space:nowrap}
+.xp-chip{display:inline-flex;align-items:center;gap:4px;background:var(--violet2);color:var(--violet);border:1px solid color-mix(in srgb,var(--violet) 40%,var(--line));border-radius:3px;padding:4px 10px;font-weight:800;font-size:12px;white-space:nowrap}
+.grace-chip{display:inline-flex;align-items:center;gap:4px;background:var(--ok2);color:var(--ok);border:1px solid color-mix(in srgb,var(--ok) 40%,var(--line));border-radius:3px;padding:4px 10px;font-weight:800;font-size:12px;white-space:nowrap}
+.task-row{display:flex;align-items:flex-start;gap:10px;padding:10px 0;border-bottom:1px solid var(--line)}.task-row:last-child{border:0}
+.chk{width:24px;height:24px;flex:none;border-radius:3px;border:2px solid var(--line);background:var(--bg);color:transparent;font-size:14px;display:grid;place-items:center;margin-top:1px}
+.chk.done{background:var(--green);border-color:var(--green);color:var(--ink-on-accent)}
+.task-row.all-done .task-label{text-decoration:line-through;color:var(--muted)}
+.task-label{font-weight:700;font-size:13px}
+.task-sub{font-size:11px;color:var(--muted);margin-top:2px}
+.task-tags{display:flex;gap:5px;flex-wrap:wrap;margin-top:5px}
+.tag-pill{font-size:9.5px;font-weight:800;padding:2px 7px;border-radius:3px;background:var(--green2);color:var(--green);text-transform:uppercase;letter-spacing:.05em}
+.tag-pill.peer{background:var(--violet2);color:var(--violet)}
+.recovery-banner{background:var(--oxblood2);border:1px solid color-mix(in srgb,var(--oxblood) 45%,var(--line));border-radius:4px;padding:16px;margin:14px 0}
+.recovery-banner h3{margin:0 0 6px;color:#f0b9b5;font-family:Georgia,serif}
+.recovery-actions{display:flex;gap:7px;flex-wrap:wrap;margin-top:10px}
+.checkpoint-banner{background:var(--violet2);border:1px solid color-mix(in srgb,var(--violet) 40%,var(--line));border-radius:4px;padding:15px;margin:14px 0}
+.commit-note{background:var(--green2);border:1px solid var(--line-accent);border-radius:4px;padding:12px 14px;font-size:12.5px;color:color-mix(in srgb,var(--green) 70%,var(--ink));font-style:italic;margin:12px 0;font-family:Georgia,serif}
+.pledge-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(330px,1fr));gap:14px}
+.war-card{background:var(--panel);border:1px solid var(--line);border-radius:4px;padding:15px}
+.vault-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px}
+.vault-item{border:1px solid var(--line);border-radius:4px;overflow:hidden;background:var(--panel)}
+.vault-image{height:110px;background:linear-gradient(135deg,var(--panel2),#0d1113);background-size:cover;background-position:center}
+.vault-copy{padding:12px}
+.timeline-strip{display:flex;gap:8px;overflow-x:auto;padding:4px 0}
+.timeline-thumb{width:64px;height:64px;border-radius:3px;background-size:cover;background-position:center;border:1px solid var(--line);flex:none}
+.history-item{display:flex;justify-content:space-between;gap:12px;padding:9px 0;border-bottom:1px solid var(--line);font-size:12px}.history-item:last-child{border:0}
+.history-item small{color:var(--muted)}
+.modal-wrap{position:fixed;inset:0;background:rgba(0,0,0,.65);z-index:70;display:grid;place-items:center;padding:18px;overflow:auto}
+.modal{width:min(680px,100%);max-height:88vh;overflow:auto;background:var(--panel);border:1px solid var(--line);border-radius:4px;padding:21px;box-shadow:var(--shadow);margin:auto}
+.modal.wide{width:min(900px,100%)}
+.modal h2{margin:0}.modal-actions{display:flex;justify-content:flex-end;gap:8px;margin-top:17px;flex-wrap:wrap}
+.task-editor{border:1px solid var(--line);border-radius:4px;padding:13px;margin-bottom:10px;background:var(--panel2)}
+.toast{position:fixed;right:22px;bottom:22px;background:var(--panel2);border:1px solid var(--line-accent);color:#F2EFE6;border-radius:4px;padding:11px 15px;z-index:80;opacity:0;transform:translateY(10px);transition:.2s;pointer-events:none;box-shadow:var(--shadow);max-width:320px}.toast.show{opacity:1;transform:none}
+.loading{position:fixed;inset:0;background:var(--bg);z-index:100;display:grid;place-items:center;text-align:center}.loading div{background:var(--panel);border:1px solid var(--line);border-radius:4px;padding:25px;box-shadow:var(--shadow)}
+.empty{text-align:center;color:var(--muted);padding:34px 12px}
+.template-row{display:flex;gap:7px;flex-wrap:wrap;margin-top:10px}
+.focus-overlay{position:fixed;inset:0;background:#000000d9;z-index:90;display:grid;place-items:center;padding:20px}
+.focus-dialog{width:min(440px,100%);background:var(--panel2);border:1px solid var(--line-accent);color:#F2EFE6;border-radius:4px;padding:30px;text-align:center;position:relative}
+.focus-dialog .eyebrow2{color:var(--lime);text-transform:uppercase;letter-spacing:.17em;font-size:10px;font-weight:800}
+.focus-timer{font-size:52px;font-weight:800;color:var(--lime);margin:16px 0;font-family:Georgia,serif}
+.focus-close{position:absolute;top:10px;right:14px;background:none;border:0;color:#9aa3a0;font-size:22px}
+.spot-check-wrap{background:var(--green2);border:1px solid var(--line-accent);border-radius:4px;padding:10px;margin-top:8px}
+.war-row{display:grid;grid-template-columns:1fr auto;gap:6px}
+button,.btn{transition:transform .12s cubic-bezier(.34,1.56,.64,1),box-shadow .15s ease}button:active,.btn:active{transform:scale(.96)}
+.card,.rung,.war-card,.vault-item{transition:transform .18s cubic-bezier(.16,1,.3,1),box-shadow .18s ease;animation:life-fade-in .38s cubic-bezier(.16,1,.3,1) both}
+.card:hover,.rung:hover,.war-card:hover{transform:translateY(-2px);box-shadow:0 10px 28px rgba(0,0,0,.4)}
+@keyframes life-fade-in{from{opacity:0;transform:translateY(8px)}}
+@media(max-width:900px){.nav-row{flex-direction:column;align-items:stretch}.topbar-inner{flex-direction:column;align-items:stretch}.brand-cluster{justify-content:space-between}.main{padding:20px 15px}.cards{grid-template-columns:1fr 1fr}.pledge-grid{grid-template-columns:1fr}.grid-2,.grid-3{grid-template-columns:1fr}.reward-banner{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<script>try{ if(window.self !== window.top) document.body.classList.add('embedded'); }catch(e){ document.body.classList.add('embedded'); }</script>
+<div class="loading" id="loading"><div><b style="font-size:18px">Opening Pledge</b><p class="sub" id="loadingText">Connecting your commitments…</p></div></div>
+<div class="app" id="shell" style="visibility:hidden">
+<div class="topbar-wrap"><div class="topbar-inner">
+  <div class="brand-cluster">
+    <div class="brand"><span class="mark">P</span> Pledge</div>
+    <a class="hub-link" href="../index.html">← Home hub</a>
+    <div class="profile-box"><div class="profile-buttons"><button id="profileBhargav" onclick="setProfile('Bhargav')">Bhargav</button><button id="profileAnusha" onclick="setProfile('Anusha')">Anusha</button></div></div>
+  </div>
+  <div class="sync-box"><span class="sync-dot" id="syncDot"></span><b id="syncLabel">Connecting</b></div>
+</div></div>
+<div class="navbar-wrap"><div class="nav-row">
+  <nav class="nav" id="nav">
+    <button data-page="home" class="active" onclick="go('home')">⌂ Operation</button>
+    <button data-page="editor" onclick="go('editor')">✎ Command desk</button>
+    <button data-page="mission" onclick="go('mission')">◉ Today's order</button>
+    <button data-page="war" onclick="go('war')">▦ War room</button>
+    <button data-page="vault" onclick="go('vault')">◇ Vault</button>
+    <button data-page="review" onclick="go('review')">▣ Review</button>
+  </nav>
+  <div class="goal-switch">
+    <select class="input" id="goalSelect" style="min-width:160px"></select>
+    <button class="btn soft sm" onclick="openNewGoal()">+ New goal</button>
+  </div>
+</div></div>
+<main class="main">
+<header class="top"><div><div class="eyebrow" id="eyebrow">Ambition → commitment → reward</div><h1 id="pageTitle">The operation</h1><div class="sub" id="pageSub">Pick the work. Pick the reward. Climb the ladder.</div></div></header>
+
+<section class="page active" id="home"></section>
+<section class="page" id="editor"></section>
+<section class="page" id="mission"></section>
+<section class="page" id="war"></section>
+<section class="page" id="vault"></section>
+<section class="page" id="review"></section>
+
+</main></div><div id="modal"></div><div class="toast" id="toast"></div><div id="focusHost"></div>
+<script>
+window.addEventListener('error',e=>{const l=document.getElementById('loadingText');if(l&&document.getElementById('loading').style.display!=='none')l.textContent='Something went wrong: '+e.message});
+if(typeof firebase==='undefined'){document.getElementById('loadingText').textContent='Connected services could not load. Check your connection and refresh.'}else{
+const CONFIG={apiKey:'AIzaSyBe01eR2RZwSbU_aoJMeh_2MMJ5mqkVuKk',authDomain:'iron-log-bfc55.firebaseapp.com',projectId:'iron-log-bfc55',storageBucket:'iron-log-bfc55.firebasestorage.app',messagingSenderId:'106586808946',appId:'1:106586808946:web:f4736554ba9fc82c6fd8eb'};
+if(!firebase.apps.length)firebase.initializeApp(CONFIG);const auth=firebase.auth(),db=firebase.firestore();if(window.self===window.top){try{db.enablePersistence({synchronizeTabs:true}).catch(()=>{})}catch(e){}}
+const $=id=>document.getElementById(id),clone=x=>JSON.parse(JSON.stringify(x));
+const esc=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+let user=null,state=null,saveTimer=null;
+
+/* ===================== dates ===================== */
+function pad2(n){return String(n).padStart(2,'0')}
+function todayKey(){const d=new Date();return d.getFullYear()+'-'+pad2(d.getMonth()+1)+'-'+pad2(d.getDate())}
+function addDays(iso,n){const d=new Date(iso+'T12:00:00');d.setDate(d.getDate()+n);return d.toISOString().slice(0,10)}
+function formatDate(iso){return iso?new Date(iso+'T12:00:00').toLocaleDateString(undefined,{month:'short',day:'numeric',year:'numeric'}):'—'}
+function dowOf(iso){return new Date(iso+'T12:00:00').getDay()}
+
+/* ===================== persistence ===================== */
+function doc(k){return db.collection('users').doc(user.uid).collection('apps').doc('pledge-v2').collection('data').doc(k)}
+function save(){if(!user)return;$('syncLabel').textContent='Saving…';$('syncDot').classList.remove('on');clearTimeout(saveTimer);saveTimer=setTimeout(async()=>{try{await doc('state').set({json:JSON.stringify(state),updatedAt:firebase.firestore.FieldValue.serverTimestamp()});$('syncLabel').textContent='Saved to cloud';$('syncDot').classList.add('on')}catch(e){$('syncLabel').textContent='Save needs retry'}},300)}
+function toast(t){$('toast').textContent=t;$('toast').classList.add('show');clearTimeout(toast.t);toast.t=setTimeout(()=>$('toast').classList.remove('show'),2800)}
+
+/* ===================== templates ===================== */
+const TEMPLATES={
+  exam:{title:'Pass the certification',description:'Earn the result through disciplined preparation.',type:'Education',why:'This qualification opens the next door.',target:'Pass the exam',days:14,task:'Complete one focused study block',detail:'60 minutes with practice questions'},
+  fitness:{title:'Build the body',description:'Train consistently and earn the result.',type:'Fitness',why:'Strength and health compound over time.',target:'Complete the training block',days:30,task:"Complete today's training",detail:'Follow the planned session without skipping the final set'},
+  career:{title:'Advance the career',description:'Build the evidence and skill for the next role.',type:'Career',why:'The next opportunity requires a stronger standard.',target:'Complete the career milestone',days:30,task:'Complete one career-building block',detail:'90 minutes of deliberate work'},
+  project:{title:'Finish the project',description:'Turn the idea into a finished deliverable.',type:'Project',why:'Finished work creates leverage.',target:'Ship the defined project',days:21,task:'Move the project forward',detail:'Complete one clearly defined deliverable'}
+};
+
+/* ===================== model ===================== */
+function freshTask(over){return Object.assign({id:'t-'+Date.now()+'-'+Math.random().toString(36).slice(2,6),title:'New task',detail:'Define the exact requirement',xp:100,time:'',duration:'',priority:'Normal',minimum:'',frequency:'daily',selectedDays:[],peer:'',requiresPhoto:false,doneOnce:false},over||{})}
+function freshReward(over){return Object.assign({name:'Choose the reward',price:0,url:'',image:'',status:'committed',fundSaved:0},over||{})}
+function freshLevel(over){return Object.assign({id:'lv-'+Date.now()+'-'+Math.random().toString(36).slice(2,6),title:'Foundation',days:7,rule:'Complete every requirement honestly. A missed day enters recovery.',status:'upcoming',startedAt:null,shared:false,tasks:[freshTask()],reward:freshReward(),days_log:{},recoveryEvents:[],excusedDates:[],recoveryTriggerDate:null,pausedOn:null,difficultySuggestion:null,sunkCostCheckpoint:{shown:false,decision:null}},over||{})}
+function freshGoal(over){
+  const lvl=freshLevel({status:'current',startedAt:todayKey()});
+  return Object.assign({
+    id:'g-'+Date.now()+'-'+Math.random().toString(36).slice(2,6),profileId:state?state.activeProfile:'Bhargav',
+    title:'New operation',description:'Define the result and earn the reward.',type:'Personal',why:'',startingPoint:'',target:'',deadline:'',priority:'High',
+    prepChecklist:'',reminderTime:'',reviewDay:'Sunday',background:'',
+    status:'active',currentLevelIndex:0,levels:[lvl],
+    milestones:[],commitNote:'',commitNoteSealedAt:null,
+    graceTokens:0,perfectDayStreak:0,xpBank:0,bonusRewards:[],
+    photoCheckins:[],
+    createdAt:Date.now()
+  },over||{});
+}
+function fresh(){return{version:2,activeProfile:'Bhargav',activeGoalId:null,goals:[],archivedGoals:[],history:[],reviews:{}}}
+
+async function load(){
+  const snap=await doc('state').get();
+  state=snap.exists?JSON.parse(snap.data().json):null;
+  if(!state||!state.goals){state=fresh()}
+  const qp=new URLSearchParams(location.search).get('profile');
+  state.activeProfile=qp==='Anusha'||qp==='Bhargav'?qp:(state.activeProfile||'Bhargav');
+  // No auto-created blank goal: every screen already has an empty-state
+  // prompting "+ New goal", so a first-time open starts genuinely empty
+  // instead of leaving an unwanted "New operation" cluttering the switcher.
+  if(state.activeGoalId&&!state.goals.some(g=>g.id===state.activeGoalId))state.activeGoalId=null;
+  if(!state.activeGoalId){const mine=state.goals.find(g=>g.profileId===state.activeProfile);if(mine)state.activeGoalId=mine.id}
+  state.goals.forEach(g=>evaluateGoal(g));
+}
+
+function myGoals(){return state.goals.filter(g=>g.profileId===state.activeProfile)}
+function activeGoal(){return state.goals.find(g=>g.id===state.activeGoalId)||myGoals()[0]}
+function currentLevel(g){return g.levels[g.currentLevelIndex]||g.levels[g.levels.length-1]}
+function levelProgress(l){const done=l.tasks.filter(t=>t.doneOnce||dayHasTask(l,todayKey(),t.id)).length;const total=l.tasks.length;if(!total)return 0;
+  // overall level progress = days with a fully-complete log / total days (more meaningful than today's checklist alone)
+  const end=addDays(l.startedAt||todayKey(),l.days-1);let doneDays=0,cursor=l.startedAt||todayKey();
+  while(cursor<=end){const rec=l.days_log[cursor];if((rec&&rec.complete)||(l.excusedDates||[]).includes(cursor))doneDays++;cursor=addDays(cursor,1)}
+  return Math.min(100,Math.round(doneDays/l.days*100));
+}
+function dayHasTask(level,dateKey,taskId){const rec=level.days_log[dateKey];return !!(rec&&rec.doneTaskIds&&rec.doneTaskIds.includes(taskId))}
+function logEvent(goalId,action,detail){state.history.unshift({id:Date.now()+Math.random(),date:new Date().toISOString(),goalId,action,detail});state.history=state.history.slice(0,400)}
+
+/* ===================== task due-today logic ===================== */
+function taskDueToday(task,dateKey){
+  if(task.frequency==='once')return !task.doneOnce;
+  if(task.frequency==='weekdays'){const d=dowOf(dateKey);return d>=1&&d<=5}
+  if(task.frequency==='selected')return (task.selectedDays||[]).includes(dowOf(dateKey));
+  return true;
+}
+function dueTasksFor(level,dateKey){return level.tasks.filter(t=>taskDueToday(t,dateKey))}
+
+/* ===================== grace tokens ===================== */
+function accrueGrace(goal){
+  if(goal.perfectDayStreak>0&&goal.perfectDayStreak%7===0){goal.graceTokens=(goal.graceTokens||0)+1;logEvent(goal.id,'Grace token earned','7 perfect days in a row');toast('🛡️ Grace token earned — a free pass for one missed day');}
+}
+
+/* ===================== evaluation / recovery engine =====================
+   Walks every fully-elapsed day of the current level's period. A day
+   counts as satisfied if its log is complete, OR the date is in
+   excusedDates (recovery actions, pause-resume, or an auto-spent grace
+   token all funnel through here). The first unsatisfied day either
+   silently consumes a grace token (if any are banked) or flips the level
+   into 'recovery' and waits for a manual choice. Nothing is ever
+   silently deleted — every excuse is logged. */
+function evaluateLevel(goal,level){
+  if(level.status!=='current')return;
+  const today=todayKey(),end=addDays(level.startedAt,level.days-1);
+  const lastCheck=today<=end?addDays(today,-1):end;
+  let cursor=level.startedAt;
+  while(cursor<=lastCheck){
+    const excused=(level.excusedDates||[]).includes(cursor);
+    const rec=level.days_log[cursor];
+    if(!excused&&!(rec&&rec.complete)){
+      if((goal.graceTokens||0)>0){
+        goal.graceTokens--;
+        level.excusedDates=level.excusedDates||[];level.excusedDates.push(cursor);
+        logEvent(goal.id,'Grace token auto-spent',cursor+' was about to break the streak');
+        cursor=addDays(cursor,1);continue;
+      }
+      level.status='recovery';level.recoveryTriggerDate=cursor;return;
+    }
+    cursor=addDays(cursor,1);
+  }
+  if(today>end){
+    level.status='done';
+    if(level.reward.status==='committed'||level.reward.status==='in-progress')level.reward.status='earned';
+    computeDifficultySuggestion(level);
+    logEvent(goal.id,'Level completed',level.title);
+    advanceGoal(goal);
+  }
+}
+function evaluateGoal(goal){(goal.levels||[]).forEach(l=>evaluateLevel(goal,l))}
+function computeDifficultySuggestion(level){
+  const n=(level.recoveryEvents||[]).length;
+  if(n===0)level.difficultySuggestion={days:Math.max(level.days,Math.round(level.days*1.3)),note:'Perfect run — raise the bar. Suggested a longer next level.'};
+  else if(n<=2)level.difficultySuggestion={days:level.days,note:'Solid run with a couple of recoveries — keep the same length next.'};
+  else level.difficultySuggestion={days:Math.max(3,Math.round(level.days*0.7)),note:'Several recoveries — suggested a shorter level next to rebuild momentum.'};
+}
+function advanceGoal(goal){
+  const next=goal.levels[goal.currentLevelIndex+1];
+  if(next){goal.currentLevelIndex++;next.status='current';next.startedAt=todayKey();}
+  else{toast('🏆 '+goal.title+' — the whole ladder is climbed!');logEvent(goal.id,'Ladder complete','Every level finished');}
+}
+
+/* ===================== checklist interaction ===================== */
+function recordPerfectStreak(goal,level,dateKey,wasComplete){
+  if(!wasComplete)return;
+  const yest=addDays(dateKey,-1);
+  const prevOk=(level.days_log[yest]&&level.days_log[yest].complete)||(level.excusedDates||[]).includes(yest)||dateKey===level.startedAt;
+  goal.perfectDayStreak=prevOk?(goal.perfectDayStreak||0)+1:1;
+  accrueGrace(goal);
+}
+function maybeSpotCheck(cb){
+  if(Math.random()<0.2){openSpotCheck(cb)}else cb(null);
+}
+function toggleTask(goalId,levelId,taskId){
+  const goal=state.goals.find(g=>g.id===goalId),level=goal.levels.find(l=>l.id===levelId),task=level.tasks.find(t=>t.id===taskId);
+  if(!goal||!level||!task||level.status!=='current')return;
+  const today=todayKey();
+  if(!dueTasksFor(level,today).some(t=>t.id===taskId))return;
+  const applyToggle=(note)=>{
+    level.days_log[today]=level.days_log[today]||{doneTaskIds:[],complete:false,spotCheckNotes:{}};
+    const rec=level.days_log[today];
+    const idx=rec.doneTaskIds.indexOf(taskId);
+    const turningOn=idx===-1;
+    if(turningOn){rec.doneTaskIds.push(taskId);if(note)rec.spotCheckNotes[taskId]=note;if(task.frequency==='once')task.doneOnce=true;goal.xpBank=(goal.xpBank||0)+(task.xp||0);
+      if(task.requiresPhoto){openPhotoCheckin(goal.id,level.id,taskId);}
+    }else{rec.doneTaskIds.splice(idx,1);if(task.frequency==='once')task.doneOnce=false;goal.xpBank=Math.max(0,(goal.xpBank||0)-(task.xp||0));}
+    const due=dueTasksFor(level,today);
+    rec.complete=due.length>0&&due.every(t=>rec.doneTaskIds.includes(t.id));
+    recordPerfectStreak(goal,level,today,rec.complete);
+    logEvent(goal.id,turningOn?'Task completed':'Task reopened',task.title);
+    evaluateLevel(goal,level);
+    save();renderPage(document.querySelector('.page.active').id);
+    if(level.status==='done')renderPage('home');
+  };
+  const currentlyDone=(level.days_log[today]&&level.days_log[today].doneTaskIds.includes(taskId));
+  if(currentlyDone){applyToggle(null)}else{maybeSpotCheck(applyToggle)}
+}
+
+/* ===================== recovery actions ===================== */
+function recoveryAction(goalId,levelId,action){
+  const goal=state.goals.find(g=>g.id===goalId),level=goal.levels.find(l=>l.id===levelId);
+  if(!goal||!level)return;
+  const date=level.recoveryTriggerDate;
+  if(action==='pause'){level.status='paused';level.pausedOn=todayKey();level.recoveryEvents.push({date,action,note:'Paused intentionally'});logEvent(goal.id,'Recovery: paused',level.title);save();renderPage('mission');toast('Order paused — resume any time, the gap stays visible, never erased');return}
+  level.excusedDates=level.excusedDates||[];level.excusedDates.push(date);
+  if(action==='extend')level.days=Number(level.days||0)+1;
+  level.recoveryEvents.push({date,action,note:action==='repeat'?'Repeated the day':action==='extend'?'Added a recovery day':'Used the minimum-day standard'});
+  level.status='current';level.recoveryTriggerDate=null;
+  logEvent(goal.id,'Recovery: '+action,level.title+' · '+date);
+  evaluateLevel(goal,level);
+  save();renderPage('mission');
+  toast('Recovery recorded — the ladder continues');
+}
+function resumeLevel(goalId,levelId){
+  const goal=state.goals.find(g=>g.id===goalId),level=goal.levels.find(l=>l.id===levelId);
+  if(!goal||!level||level.status!=='paused')return;
+  const from=level.pausedOn,today=todayKey();
+  level.excusedDates=level.excusedDates||[];
+  let cursor=from;while(cursor<=today){if(!level.excusedDates.includes(cursor))level.excusedDates.push(cursor);cursor=addDays(cursor,1)}
+  level.status='current';level.pausedOn=null;
+  logEvent(goal.id,'Level resumed',level.title);
+  evaluateLevel(goal,level);
+  save();renderPage('mission');toast('Resumed — the paused days are excused, not counted against you');
+}
+
+/* ===================== sunk-cost checkpoint ===================== */
+function daysElapsedIn(level){const today=todayKey(),end=addDays(level.startedAt,level.days-1),cap=today<end?today:end;const a=new Date(level.startedAt+'T12:00:00'),b=new Date(cap+'T12:00:00');return Math.max(0,Math.round((b-a)/86400000)+1)}
+function checkpointDue(level){return level.status==='current'&&!level.sunkCostCheckpoint.shown&&daysElapsedIn(level)>=Math.ceil(level.days/2)}
+function checkpointRespond(goalId,levelId,decision){
+  const goal=state.goals.find(g=>g.id===goalId),level=goal.levels.find(l=>l.id===levelId);
+  level.sunkCostCheckpoint={shown:true,decision,shownAt:Date.now()};
+  if(decision==='downgrade'){const remaining=level.days-daysElapsedIn(level);const cut=Math.max(1,Math.round(remaining*0.5));level.days=daysElapsedIn(level)+cut;toast('Scope downgraded — '+cut+' days left instead of '+remaining)}
+  else toast('Recommitted — full scope stays');
+  logEvent(goal.id,'Midpoint checkpoint',decision);
+  save();renderPage('mission');
+}
+
+/* ===================== reward lifecycle ===================== */
+function rewardAction(goalId,levelId,action){
+  const goal=state.goals.find(g=>g.id===goalId),level=goal.levels.find(l=>l.id===levelId);
+  if(action!=='abandoned'&&level.reward.status!=='earned'&&level.reward.status!=='purchased'){toast('Finish this level before claiming its reward');return}
+  level.reward.status=action;logEvent(goal.id,'Reward status changed',action);save();renderPage(document.querySelector('.page.active').id);toast('Reward status updated');
+}
+function depositToFund(goalId,levelId,amount){
+  const goal=state.goals.find(g=>g.id===goalId),level=goal.levels.find(l=>l.id===levelId);
+  level.reward.fundSaved=Math.max(0,(level.reward.fundSaved||0)+amount);save();renderPage(document.querySelector('.page.active').id);
+}
+
+/* ===================== bonus (XP bank) rewards ===================== */
+function addBonusReward(goalId){
+  const goal=state.goals.find(g=>g.id===goalId);
+  const name=prompt('Name this bonus reward');if(!name)return;
+  const xpRequired=Number(prompt('XP required to unlock it','500'))||500;
+  goal.bonusRewards.push({id:'b-'+Date.now(),name,xpRequired,claimed:false});
+  save();renderPage('vault');
+}
+function claimBonus(goalId,bonusId){
+  const goal=state.goals.find(g=>g.id===goalId),b=goal.bonusRewards.find(x=>x.id===bonusId);
+  if(!b||b.claimed)return;if((goal.xpBank||0)<b.xpRequired){toast('Not enough XP banked yet');return}
+  b.claimed=true;logEvent(goal.id,'Bonus reward claimed',b.name);save();renderPage('vault');toast('🎉 '+b.name+' claimed from the XP bank');
+}
+
+/* ===================== goal CRUD ===================== */
+function switchGoal(id){state.activeGoalId=id;save();renderGoalSelect();go(document.querySelector('.page.active').id)}
+function openNewGoal(){
+  $('modal').innerHTML='<div class="modal-wrap"><div class="modal"><div class="head"><div><h2>New operation</h2><div class="sub">Start blank or load a template, then refine it in the Command desk.</div></div><button class="btn ghost sm" onclick="closeModal()">×</button></div>'
+    +'<div><div class="label">Operation name</div><input class="input" id="ngTitle" placeholder="e.g. Run a half marathon"></div>'
+    +'<div class="template-row">'+Object.entries(TEMPLATES).map(([k,t])=>'<button class="btn soft sm" onclick="createFromTemplate(\''+k+'\')">'+esc(t.type)+' template</button>').join('')+'</div>'
+    +'<div class="modal-actions"><button class="btn ghost" onclick="closeModal()">Cancel</button><button class="btn gold" onclick="createBlankGoal()">Create blank operation</button></div>'
+    +'</div></div>';
+}
+function createBlankGoal(){
+  const title=$('ngTitle').value.trim()||'New operation';
+  const g=freshGoal({title});state.goals.push(g);state.activeGoalId=g.id;
+  save();closeModal();renderGoalSelect();go('editor');toast('Operation created — define the work in the Command desk');
+}
+function createFromTemplate(key){
+  const t=TEMPLATES[key];
+  const g=freshGoal({title:t.title,description:t.description,type:t.type,why:t.why,target:t.target});
+  g.levels=[freshLevel({title:'Foundation',days:t.days,status:'current',startedAt:todayKey(),tasks:[freshTask({title:t.task,detail:t.detail})]})];
+  state.goals.push(g);state.activeGoalId=g.id;
+  save();closeModal();renderGoalSelect();go('home');toast(t.type+' template loaded');
+}
+function archiveGoal(goalId){
+  if(!confirm('Archive this operation? Its history and levels stay, just out of the active list.'))return;
+  const idx=state.goals.findIndex(g=>g.id===goalId),g=state.goals[idx];
+  g.status='archived';state.archivedGoals.push(g);state.goals.splice(idx,1);
+  if(!myGoals().length){const fresh2=freshGoal({});state.goals.push(fresh2);state.activeGoalId=fresh2.id}
+  else state.activeGoalId=myGoals()[0].id;
+  save();renderGoalSelect();go('home');toast('Operation archived');
+}
+
+/* ===================== milestones ===================== */
+function addMilestone(goalId){
+  const goal=state.goals.find(g=>g.id===goalId);
+  goal.milestones.push({id:'m-'+Date.now(),title:'New milestone',criteria:'Define the exit condition',status:'upcoming'});
+  save();renderPage('editor');
+}
+function updateMilestone(goalId,mid,field,value){
+  const goal=state.goals.find(g=>g.id===goalId),m=goal.milestones.find(x=>x.id===mid);
+  m[field]=value;save();
+}
+function deleteMilestone(goalId,mid){const goal=state.goals.find(g=>g.id===goalId);goal.milestones=goal.milestones.filter(x=>x.id!==mid);save();renderPage('editor')}
+
+/* ===================== commit note ===================== */
+function sealCommitNote(goalId){
+  const goal=state.goals.find(g=>g.id===goalId),val=$('commitNoteInput').value.trim();
+  if(!val)return toast('Write the note before sealing it');
+  goal.commitNote=val;goal.commitNoteSealedAt=Date.now();
+  logEvent(goal.id,'Commit note sealed','');
+  save();renderPage('editor');toast('Sealed — it will remind you during any recovery moment');
+}
+function resealCommitNote(goalId){
+  if(!confirm('Reseal with a new note? The old one is replaced.'))return;
+  const goal=state.goals.find(g=>g.id===goalId);goal.commitNote='';goal.commitNoteSealedAt=null;save();renderPage('editor');
+}
+
+/* ===================== spot-check modal ===================== */
+let pendingSpotCheckCb=null;
+function openSpotCheck(cb){
+  pendingSpotCheckCb=cb;
+  $('modal').innerHTML='<div class="modal-wrap"><div class="modal"><div class="head"><div><h2>Quick spot-check</h2><div class="sub">Random integrity check — one line on what you actually did.</div></div></div><textarea class="input" id="spotCheckNote" placeholder="What did you actually do?" rows="3"></textarea><div class="modal-actions"><button class="btn gold" onclick="submitSpotCheck()">Confirm and check off</button></div></div></div>';
+}
+function submitSpotCheck(){
+  const note=$('spotCheckNote').value.trim();
+  if(!note){toast('A quick line is required for this one');return}
+  closeModal();const cb=pendingSpotCheckCb;pendingSpotCheckCb=null;if(cb)cb(note);
+}
+
+/* ===================== photo check-in ===================== */
+function openPhotoCheckin(goalId,levelId,taskId){
+  $('modal').innerHTML='<div class="modal-wrap"><div class="modal"><div class="head"><div><h2>Progress photo</h2><div class="sub">Optional — attach today’s check-in photo to the timeline.</div></div></div><input type="file" accept="image/*" class="input" id="photoFileInput"><div class="modal-actions"><button class="btn ghost" onclick="closeModal()">Skip</button><button class="btn gold" onclick="savePhotoCheckin(\''+goalId+'\',\''+levelId+'\',\''+taskId+'\')">Attach photo</button></div></div></div>';
+}
+function savePhotoCheckin(goalId,levelId,taskId){
+  const file=$('photoFileInput').files[0];
+  if(!file){closeModal();return}
+  const reader=new FileReader();
+  reader.onload=()=>{
+    const goal=state.goals.find(g=>g.id===goalId);
+    goal.photoCheckins.push({date:todayKey(),taskId,levelId,dataUrl:reader.result});
+    save();closeModal();renderPage(document.querySelector('.page.active').id);toast('Photo added to the timeline');
+  };
+  reader.readAsDataURL(file);
+}
+
+/* ===================== focus timer ===================== */
+let focusInterval=null,focusSeconds=0;
+function openFocus(goalId,levelId,taskId){
+  const goal=state.goals.find(g=>g.id===goalId),level=goal.levels.find(l=>l.id===levelId),task=level.tasks.find(t=>t.id===taskId);
+  focusSeconds=(Number(task.duration)||25)*60;
+  $('focusHost').innerHTML='<div class="focus-overlay" id="focusOverlay"><div class="focus-dialog"><button class="focus-close" onclick="closeFocus()">×</button><div class="eyebrow2">Focus mode</div><h2 style="margin:10px 0 4px">'+esc(task.title)+'</h2><p style="color:#C9C7D6;font-size:12px">'+esc(task.detail||'')+'</p><div class="focus-timer" id="focusTimer">'+pad2(Math.floor(focusSeconds/60))+':'+pad2(focusSeconds%60)+'</div><div class="modal-actions" style="justify-content:center"><button class="btn gold" id="focusStartBtn" onclick="startFocusTimer()">Start timer</button><button class="btn" onclick="completeFocusTask(\''+goalId+'\',\''+levelId+'\',\''+taskId+'\')">Complete task</button></div></div></div>';
+  logEvent(goalId,'Focus opened',task.title);
+}
+function startFocusTimer(){
+  clearInterval(focusInterval);
+  const tick=()=>{const el=$('focusTimer');if(!el)return;el.textContent=pad2(Math.floor(focusSeconds/60))+':'+pad2(focusSeconds%60);if(focusSeconds<=0){clearInterval(focusInterval);toast('Focus session complete')}else focusSeconds--};
+  tick();focusInterval=setInterval(tick,1000);toast('Focus session started');
+}
+function closeFocus(){clearInterval(focusInterval);$('focusHost').innerHTML=''}
+function completeFocusTask(goalId,levelId,taskId){
+  closeFocus();
+  const goal=state.goals.find(g=>g.id===goalId),level=goal.levels.find(l=>l.id===levelId),today=todayKey();
+  const alreadyDone=level.days_log[today]&&level.days_log[today].doneTaskIds.includes(taskId);
+  if(!alreadyDone)toggleTask(goalId,levelId,taskId);
+}
+
+/* ===================== export / import / calendar / print / reminder ===================== */
+function exportBackup(){const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([JSON.stringify(state,null,2)],{type:'application/json'}));a.download='pledge-backup.json';a.click();URL.revokeObjectURL(a.href);toast('Backup exported')}
+function importBackup(input){
+  const f=input.files[0];if(!f)return;
+  const r=new FileReader();
+  r.onload=()=>{try{const parsed=JSON.parse(r.result);if(!parsed.goals)throw new Error('bad file');state=parsed;save();renderGoalSelect();go('home');toast('Backup imported')}catch(e){toast('Import failed: invalid backup file')}};
+  r.readAsText(f);
+}
+function exportCalendar(goal,level){
+  const start=new Date();
+  const rows=level.tasks.map((t,i)=>{const d=new Date(start);d.setDate(start.getDate()+i);const day=d.toISOString().slice(0,10).replace(/-/g,'');return'BEGIN:VEVENT\nUID:pledge-'+Date.now()+'-'+i+'\nDTSTAMP:'+day+'T080000Z\nDTSTART:'+day+'T080000\nSUMMARY:'+(t.title||'Task').replace(/[;,]/g,'')+'\nDESCRIPTION:'+(t.detail||'').replace(/[;,]/g,'')+'\nEND:VEVENT'}).join('\n');
+  const blob=new Blob(['BEGIN:VCALENDAR\nVERSION:2.0\nPRODID:-//Pledge//Goals//EN\n'+rows+'\nEND:VCALENDAR'],{type:'text/calendar'});
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='pledge-order.ics';a.click();URL.revokeObjectURL(a.href);toast('Calendar file exported');
+}
+function requestReminder(){if('Notification' in window){Notification.requestPermission().then(x=>toast(x==='granted'?'Reminder permission granted.':'Reminder permission not granted.'))}else toast('Browser reminders are unavailable here.')}
+function printReport(){window.print()}
+
+/* ===================== weekly review ===================== */
+function saveReview(goalId){
+  const worked=$('reviewWorked').value,friction=$('reviewFriction').value,changes=$('reviewChanges').value;
+  state.reviews[goalId]=state.reviews[goalId]||[];
+  state.reviews[goalId].unshift({worked,friction,changes,savedAt:Date.now()});
+  logEvent(goalId,'After-action review saved','Weekly review recorded');
+  save();renderPage('review');toast('Review saved');
+}
+
+/* ===================== nav / render dispatch ===================== */
+function go(page){
+  document.querySelectorAll('.page').forEach(p=>p.classList.toggle('active',p.id===page));
+  document.querySelectorAll('#nav button').forEach(b=>b.classList.toggle('active',b.dataset.page===page));
+  const titles={home:'The operation',editor:'The command desk',mission:"Today's order",war:'The war room',vault:'The vault',review:'After-action review'};
+  const subs={home:'Pick the work. Pick the reward. Climb the ladder.',editor:'Every field is saved automatically and can be changed later.',mission:'Complete every requirement honestly.',war:'Every active operation, side by side.',vault:'Every reward, tied to the level that earns it.',review:'Improve the system using what actually happened.'};
+  $('pageTitle').textContent=titles[page];$('pageSub').textContent=subs[page];
+  renderPage(page);
+}
+function renderPage(page){state.goals.forEach(g=>evaluateGoal(g));renderGoalSelect();
+  if(page==='home')renderHome();else if(page==='editor')renderEditor();else if(page==='mission')renderMission();else if(page==='war')renderWar();else if(page==='vault')renderVault();else if(page==='review')renderReview();
+}
+function renderGoalSelect(){
+  const sel=$('goalSelect');const mine=myGoals();
+  sel.innerHTML=mine.map(g=>'<option value="'+g.id+'" '+(g.id===state.activeGoalId?'selected':'')+'>'+esc(g.title)+'</option>').join('')||'<option>No operations yet</option>';
+  sel.onchange=()=>switchGoal(sel.value);
+}
+function closeModal(){$('modal').innerHTML=''}
+
+/* ===================== HOME ===================== */
+function rewardStatusLabel(s){return{committed:'COMMITTED',locked:'LOCKED','in-progress':'IN PROGRESS',earned:'EARNED',purchased:'PURCHASED',claimed:'CLAIMED',abandoned:'ABANDONED'}[s]||s.toUpperCase()}
+function deadlineHtml(goal){
+  if(!goal.deadline)return '<div class="deadline-pill">No deadline set — add one in the Command desk</div>';
+  const days=Math.ceil((new Date(goal.deadline+'T23:59:59')-new Date())/86400000);
+  const txt=days<0?'Deadline passed — choose a recovery action':days===0?'Deadline is today':days+' days remaining until '+formatDate(goal.deadline);
+  return '<div class="deadline-pill'+(days<=2?' danger':'')+'">⏰ '+txt+'</div>';
+}
+function renderHome(){
+  const mine=myGoals();
+  if(!mine.length){$('home').innerHTML='<div class="empty">No operations yet. Click "+ New goal" to turn an ambition into a ladder you can climb.</div>';return}
+  const goal=activeGoal();if(!goal){$('home').innerHTML='<div class="empty">Pick an operation from the dropdown above.</div>';return}
+  const level=currentLevel(goal),pct=levelProgress(level);
+  const heroStyle=goal.background?' style="background-image:url('+"'"+goal.background+"'"+')"':'';
+  let html='<div class="hero"'+heroStyle+'><div class="hero-content"><div class="eyebrow2">Active operation · '+esc(goal.profileId)+'</div><h1>'+esc(goal.title)+'</h1><p>'+esc(goal.description||'')+'</p>'+deadlineHtml(goal)
+    +'<div class="modal-actions" style="justify-content:flex-start;margin-top:14px"><button class="btn gold sm" onclick="go(\'mission\')">Open today’s order</button><button class="btn ghost sm" onclick="go(\'editor\')">Edit operation</button><label class="btn ghost sm" style="cursor:pointer">Change backdrop<input type="file" accept="image/*" class="input" style="display:none" onchange="changeBackground(\''+goal.id+'\',this)"></label><button class="btn danger sm" onclick="archiveGoal(\''+goal.id+'\')">Archive</button></div>'
+    +'</div></div>';
+  if(goal.commitNote)html+='<div class="commit-note">“'+esc(goal.commitNote)+'”</div>';
+  html+=rewardBannerHtml(goal,level,'home');
+  html+='<div class="head" style="margin-top:18px"><h2 style="margin:0">The climb</h2><span class="sub">'+goal.levels.length+' levels · current: '+esc(level.title)+'</span></div>';
+  html+='<div class="ladder">'+goal.levels.map((l,i)=>'<div class="rung '+l.status+'" onclick="go(\'editor\')"><div class="rung-index">Level '+pad2(i+1)+'</div><h3>'+esc(l.title)+'</h3><div class="rung-meta">'+l.days+' days · '+levelProgress(l)+'%</div></div>').join('')+'</div>';
+  html+='<div class="grid-3">'
+    +'<div class="card"><h3>Standing</h3><div style="font-size:26px;font-weight:800">'+pct+'%</div><div class="bar"><i style="width:'+pct+'%"></i></div><p class="sub" style="margin:8px 0 0">'+level.title+' · '+(level.status==='recovery'?'In recovery':level.status==='paused'?'Paused':level.status==='done'?'Complete':'Active')+'</p></div>'
+    +'<div class="card"><h3>XP bank</h3><div style="font-size:26px;font-weight:800">'+(goal.xpBank||0)+'</div><p class="sub" style="margin:8px 0 0">Never lost, even through a recovery</p></div>'
+    +'<div class="card"><h3>Grace tokens</h3><div style="font-size:26px;font-weight:800">🛡️ '+(goal.graceTokens||0)+'</div><p class="sub" style="margin:8px 0 0">Earned every 7 perfect days in a row</p></div>'
+    +'</div>';
+  if(goal.photoCheckins&&goal.photoCheckins.length){html+='<div class="card"><h3>Timeline</h3><div class="timeline-strip">'+goal.photoCheckins.slice().reverse().map(p=>'<div class="timeline-thumb" style="background-image:url('+"'"+p.dataUrl+"'"+')" title="'+p.date+'"></div>').join('')+'</div></div>'}
+  $('home').innerHTML=html;
+}
+function changeBackground(goalId,input){
+  const f=input.files[0];if(!f)return;const r=new FileReader();r.onload=()=>{const goal=state.goals.find(g=>g.id===goalId);goal.background=r.result;save();renderHome();toast('Backdrop updated')};r.readAsDataURL(f);
+}
+function rewardBannerHtml(goal,level,prefix){
+  const r=level.reward,fundPct=r.price>0?Math.min(100,Math.round((r.fundSaved||0)/r.price*100)):0;
+  return '<div class="reward-banner'+(r.image?'':' no-image')+'">'
+    +(r.image?'<div class="reward-thumb" style="background-image:url(\''+r.image+'\')"></div>':'')
+    +'<div><span class="tag">Reward waiting · Level '+(goal.levels.indexOf(level)+1)+'</span><div class="reward-title">🎁 '+esc(r.name)+'</div>'+(r.price?'<div class="reward-detail">$'+r.price+(r.url?' · <a href="'+esc(r.url)+'" target="_blank" rel="noopener" style="color:#C9C7D6">product link →</a>':'')+'</div>':'')
+    +'<span class="reward-status-chip">'+rewardStatusLabel(r.status)+'</span>'
+    +(r.price?'<div class="progress-wrap" style="color:#C9C7D6"><span>Saved $'+(r.fundSaved||0)+' / $'+r.price+'</span></div><div class="bar" style="background:#ffffff1f"><i style="width:'+fundPct+'%;background:var(--lime)"></i></div><div class="modal-actions" style="justify-content:flex-start;margin-top:8px"><button class="btn ghost sm" onclick="promptDeposit(\''+goal.id+'\',\''+level.id+'\')">+ Log savings</button></div>':'')
+    +rewardActionsHtml(goal,level)
+    +'</div></div>';
+}
+function rewardActionsHtml(goal,level){
+  if(level.status!=='done'&&level.reward.status!=='earned'&&level.reward.status!=='purchased'&&level.reward.status!=='claimed')return '';
+  return '<div class="modal-actions" style="justify-content:flex-start;margin-top:8px">'
+    +'<button class="btn ghost sm" onclick="rewardAction(\''+goal.id+'\',\''+level.id+'\',\'purchased\')">Mark purchased</button>'
+    +'<button class="btn gold sm" onclick="rewardAction(\''+goal.id+'\',\''+level.id+'\',\'claimed\')">Claim reward</button>'
+    +'<button class="btn danger sm" onclick="rewardAction(\''+goal.id+'\',\''+level.id+'\',\'abandoned\')">Abandon reward</button>'
+    +'</div>';
+}
+function promptDeposit(goalId,levelId){const v=Number(prompt('How much are you putting toward this reward?','10'));if(v)depositToFund(goalId,levelId,v)}
+
+/* ===================== EDITOR (command desk) ===================== */
+function renderEditor(){
+  const goal=activeGoal();
+  if(!goal){$('editor').innerHTML='<div class="empty">Create an operation first.</div>';return}
+  let html='<div class="head"><div><h2 style="margin:0">'+esc(goal.title)+'</h2><p class="sub">Every field below is saved locally and synced to the cloud.</p></div><div class="modal-actions"><button class="btn ghost sm" onclick="exportBackup()">Export backup</button><label class="btn ghost sm" style="cursor:pointer">Import backup<input type="file" accept="application/json" style="display:none" onchange="importBackup(this)"></label></div></div>';
+
+  html+='<div class="card"><h3>Goal file</h3><div class="grid-2">'
+    +field('Operation name','gTitle',goal.title)
+    +selectField('Goal type','gType',['Personal','Fitness','Education','Career','Financial','Project','Employee development','Student plan'],goal.type)
+    +field('Briefing','gDescription',goal.description)
+    +field('Why this matters','gWhy',goal.why)
+    +field('Starting point','gStarting',goal.startingPoint)
+    +field('Target result','gTarget',goal.target)
+    +field('Target date','gDeadline',goal.deadline,'date')
+    +selectField('Priority','gPriority',['Critical','High','Normal','Low'],goal.priority)
+    +'</div><div class="template-row">'+Object.entries(TEMPLATES).map(([k,t])=>'<button class="btn ghost sm" onclick="createFromTemplate(\''+k+'\')">Load '+esc(t.type)+' template</button>').join('')+'</div></div>';
+
+  html+='<div class="card"><h3>Environment preparation</h3><div class="grid-2">'
+    +'<div class="label" style="grid-column:1/-1">Preparation checklist</div><textarea class="input" id="gPrep" style="grid-column:1/-1" rows="3">'+esc(goal.prepChecklist)+'</textarea>'
+    +field('Daily reminder time','gReminder',goal.reminderTime,'time')
+    +selectField('Weekly review day','gReviewDay',['Sunday','Monday','Friday','Saturday'],goal.reviewDay)
+    +'</div></div>';
+
+  html+='<div class="card"><h3>Sealed commit note</h3>'+(goal.commitNoteSealedAt
+    ?('<div class="commit-note">“'+esc(goal.commitNote)+'”</div><p class="sub">Sealed '+new Date(goal.commitNoteSealedAt).toLocaleString()+'. Shown back to you during any recovery moment.</p><button class="btn soft sm" onclick="resealCommitNote(\''+goal.id+'\')">Reseal with a new note</button>')
+    :('<p class="sub">Write why you will not fail this time. Once sealed it becomes read-only — a reminder for the hard moments.</p><textarea class="input" id="commitNoteInput" rows="3" placeholder="Why this matters, written to your future self"></textarea><button class="btn gold sm" style="margin-top:8px" onclick="sealCommitNote(\''+goal.id+'\')">Seal this note</button>'))
+    +'</div>';
+
+  html+='<div class="card"><h3>Milestones</h3><div class="sub" style="margin-bottom:8px">Big markers, lighter than the daily grind.</div>'
+    +goal.milestones.map(m=>'<div class="grid-3" style="margin-bottom:7px"><input class="input" value="'+esc(m.title)+'" onchange="updateMilestone(\''+goal.id+'\',\''+m.id+'\',\'title\',this.value)"><input class="input" value="'+esc(m.criteria)+'" onchange="updateMilestone(\''+goal.id+'\',\''+m.id+'\',\'criteria\',this.value)"><div style="display:flex;gap:6px"><select class="input" onchange="updateMilestone(\''+goal.id+'\',\''+m.id+'\',\'status\',this.value)">'+['upcoming','active','complete'].map(s=>'<option '+(m.status===s?'selected':'')+'>'+s+'</option>').join('')+'</select><button class="btn danger sm" onclick="deleteMilestone(\''+goal.id+'\',\''+m.id+'\')">×</button></div></div>').join('')
+    +'<button class="btn soft sm" onclick="addMilestone(\''+goal.id+'\')">+ Add milestone</button></div>';
+
+  html+='<div class="head"><h2 style="margin:0">Levels (the ladder)</h2><button class="btn gold sm" onclick="addLevel(\''+goal.id+'\')">+ Add level</button></div>';
+  html+=goal.levels.map((l,i)=>levelEditorCard(goal,l,i)).join('');
+
+  $('editor').innerHTML=html;
+  wireEditorInputs(goal);
+}
+function field(label,id,value,type){return '<div class="re-field"><div class="label">'+label+'</div><input class="input" id="'+id+'" type="'+(type||'text')+'" value="'+esc(value||'')+'"></div>'}
+function selectField(label,id,opts,value){return '<div class="re-field"><div class="label">'+label+'</div><select class="input" id="'+id+'">'+opts.map(o=>'<option '+(o===value?'selected':'')+'>'+o+'</option>').join('')+'</select></div>'}
+function levelEditorCard(goal,level,i){
+  const suggestion=level.difficultySuggestion;
+  return '<div class="card" style="border-color:'+(level.id===currentLevel(goal).id?'var(--lime)':'var(--line)')+'">'
+    +'<div class="head"><div><div class="eyebrow">Level '+(i+1)+(level.id===currentLevel(goal).id?' · current':'')+'</div><h3 style="margin:4px 0">'+esc(level.title)+'</h3><p class="sub">'+level.days+' days · '+level.tasks.length+' tasks · '+levelProgress(level)+'% · status: '+level.status+'</p></div><div class="modal-actions">'+(goal.levels.length>1?'<button class="btn danger sm" onclick="deleteLevel(\''+goal.id+'\',\''+level.id+'\')">Delete</button>':'')+'</div></div>'
+    +(suggestion?'<div class="checkpoint-banner"><b>Suggested next level:</b> '+suggestion.note+' ('+suggestion.days+' days)</div>':'')
+    +'<div class="grid-2">'+field('Level name','lvTitle-'+level.id,level.title)+field('Required days','lvDays-'+level.id,level.days,'number')
+    +'<div class="re-field" style="grid-column:1/-1"><div class="label">Completion & failure rule</div><textarea class="input" id="lvRule-'+level.id+'" rows="2">'+esc(level.rule)+'</textarea></div>'
+    +'<label style="display:flex;align-items:center;gap:7px;font-size:12px;color:var(--muted)"><input type="checkbox" id="lvShared-'+level.id+'" '+(level.shared?'checked':'')+'> Shared level — both profiles must complete their own tasks each day</label>'
+    +'</div>'
+    +'<div class="head" style="margin-top:12px"><h3 style="margin:0;font-size:14px">Tasks</h3><button class="btn soft sm" onclick="addTask(\''+goal.id+'\',\''+level.id+'\')">+ Add task</button></div>'
+    +level.tasks.map(t=>taskEditorHtml(goal,level,t)).join('')
+    +'<div class="head" style="margin-top:12px"><h3 style="margin:0;font-size:14px">Reward</h3></div>'
+    +rewardEditorHtml(goal,level)
+    +'</div>';
+}
+function taskEditorHtml(goal,level,t){
+  return '<div class="task-editor" data-task="'+t.id+'">'
+    +'<div class="grid-3">'+field('Task name','tt-'+t.id,t.title)+field('XP','tx-'+t.id,t.xp,'number')+'<button class="btn danger sm" onclick="deleteTask(\''+goal.id+'\',\''+level.id+'\',\''+t.id+'\')">Delete task</button>'
+    +field('Detail / exact requirement','td-'+t.id,t.detail)+field('Time','tm-'+t.id,t.time)+field('Duration (min)','tu-'+t.id,t.duration,'number')
+    +selectField('Priority','tp-'+t.id,['Critical','High','Normal','Low'],t.priority)
+    +selectField('Frequency','tf-'+t.id,['daily','weekdays','selected','once'],t.frequency)
+    +selectField('Peer approval','tr-'+t.id,['','Bhargav','Anusha'],t.peer)
+    +'</div>'
+    +field('Minimum-day version (for recovery)','tn-'+t.id,t.minimum)
+    +'<label style="display:flex;align-items:center;gap:7px;font-size:12px;color:var(--muted);margin-top:6px"><input type="checkbox" id="tphoto-'+t.id+'" '+(t.requiresPhoto?'checked':'')+'> Requires a photo check-in when completed</label>'
+    +'<button class="btn ghost sm" style="margin-top:8px" onclick="openFocus(\''+goal.id+'\',\''+level.id+'\',\''+t.id+'\')">Define focus task</button>'
+    +'</div>';
+}
+function rewardEditorHtml(goal,level){
+  const r=level.reward;
+  return '<div class="reward-banner" style="background:#FAFAF7;color:var(--ink);border-color:var(--line)"><div style="display:grid;gap:8px;grid-column:1/-1">'
+    +'<div class="grid-2">'+field('Reward name','rn-'+level.id,r.name)+field('Price ($)','rp-'+level.id,r.price,'number')
+    +'<div class="re-field" style="grid-column:1/-1">'+field('Product link','ru-'+level.id,r.url)+'</div>'
+    +'</div><label class="btn ghost sm" style="cursor:pointer;width:max-content">Upload reward image<input type="file" accept="image/*" style="display:none" onchange="uploadRewardImage(\''+goal.id+'\',\''+level.id+'\',this)"></label>'
+    +'</div></div>';
+}
+function wireEditorInputs(goal){
+  const bind=(id,obj,key,num)=>{const el=$(id);if(!el)return;el.addEventListener('input',()=>{obj[key]=num?Number(el.value)||0:el.value;save()})};
+  bind('gTitle',goal,'title');bind('gType',goal,'type');bind('gDescription',goal,'description');bind('gWhy',goal,'why');bind('gStarting',goal,'startingPoint');bind('gTarget',goal,'target');bind('gDeadline',goal,'deadline');bind('gPriority',goal,'priority');bind('gPrep',goal,'prepChecklist');bind('gReminder',goal,'reminderTime');bind('gReviewDay',goal,'reviewDay');
+  ['gTitle','gDescription'].forEach(id=>{const el=$(id);if(el)el.addEventListener('input',()=>renderGoalSelect())});
+  goal.levels.forEach(level=>{
+    bind('lvTitle-'+level.id,level,'title');bind('lvDays-'+level.id,level,'days',true);bind('lvRule-'+level.id,level,'rule');
+    const sh=$('lvShared-'+level.id);if(sh)sh.addEventListener('change',()=>{level.shared=sh.checked;save()});
+    level.tasks.forEach(t=>{
+      bind('tt-'+t.id,t,'title');bind('tx-'+t.id,t,'xp',true);bind('td-'+t.id,t,'detail');bind('tm-'+t.id,t,'time');bind('tu-'+t.id,t,'duration',true);bind('tp-'+t.id,t,'priority');bind('tf-'+t.id,t,'frequency');bind('tr-'+t.id,t,'peer');bind('tn-'+t.id,t,'minimum');
+      const ph=$('tphoto-'+t.id);if(ph)ph.addEventListener('change',()=>{t.requiresPhoto=ph.checked;save()});
+    });
+    bind('rn-'+level.id,level.reward,'name');bind('rp-'+level.id,level.reward,'price',true);bind('ru-'+level.id,level.reward,'url');
+  });
+}
+function addTask(goalId,levelId){const goal=state.goals.find(g=>g.id===goalId),level=goal.levels.find(l=>l.id===levelId);level.tasks.push(freshTask());save();renderEditor();toast('Task added')}
+function deleteTask(goalId,levelId,taskId){const goal=state.goals.find(g=>g.id===goalId),level=goal.levels.find(l=>l.id===levelId);level.tasks=level.tasks.filter(t=>t.id!==taskId);save();renderEditor();toast('Task deleted')}
+function uploadRewardImage(goalId,levelId,input){const f=input.files[0];if(!f)return;const r=new FileReader();r.onload=()=>{const goal=state.goals.find(g=>g.id===goalId),level=goal.levels.find(l=>l.id===levelId);level.reward.image=r.result;save();renderEditor();toast('Reward image saved')};r.readAsDataURL(f)}
+function addLevel(goalId){
+  const goal=state.goals.find(g=>g.id===goalId),prev=goal.levels[goal.levels.length-1];
+  const suggestion=prev&&prev.difficultySuggestion;
+  const carried=prev?prev.tasks.map(t=>freshTask({title:t.title,detail:t.detail,xp:t.xp,frequency:t.frequency,priority:t.priority})):[];
+  const nl=freshLevel({title:'New level',days:suggestion?suggestion.days:7,tasks:carried.length?carried:[freshTask()]});
+  goal.levels.push(nl);save();renderEditor();toast(suggestion?'New level added using the suggested length':'New level added with previous tasks carried forward');
+}
+function deleteLevel(goalId,levelId){
+  if(!confirm('Delete this level and its reward?'))return;
+  const goal=state.goals.find(g=>g.id===goalId),idx=goal.levels.findIndex(l=>l.id===levelId);
+  goal.levels.splice(idx,1);goal.currentLevelIndex=Math.min(goal.currentLevelIndex,goal.levels.length-1);
+  if(!goal.levels.some(l=>l.status==='current')&&goal.levels[goal.currentLevelIndex]){goal.levels[goal.currentLevelIndex].status='current';goal.levels[goal.currentLevelIndex].startedAt=goal.levels[goal.currentLevelIndex].startedAt||todayKey()}
+  save();renderEditor();toast('Level deleted');
+}
+
+/* ===================== MISSION (today's order) ===================== */
+function renderMission(){
+  const goal=activeGoal();
+  if(!goal){$('mission').innerHTML='<div class="empty">Create an operation first.</div>';return}
+  const level=currentLevel(goal),today=todayKey();
+  let html='<div class="card"><div class="eyebrow">Level '+(goal.levels.indexOf(level)+1)+' · '+level.days+'-day commitment</div><h2 style="margin:6px 0">'+esc(level.title)+'</h2><p class="sub">'+level.rule+'</p>'+deadlineHtml(goal)+'</div>';
+  html+=rewardBannerHtml(goal,level,'mission');
+
+  if(level.status==='recovery'){
+    html+='<div class="recovery-banner"><h3>Missed '+formatDate(level.recoveryTriggerDate)+'</h3><p>Nothing is silently erased — choose a deliberate recovery action.</p>'
+      +(goal.commitNote?'<div class="commit-note">Remember why: “'+esc(goal.commitNote)+'”</div>':'')
+      +'<div class="recovery-actions"><button class="btn soft sm" onclick="recoveryAction(\''+goal.id+'\',\''+level.id+'\',\'repeat\')">Repeat that day</button><button class="btn soft sm" onclick="recoveryAction(\''+goal.id+'\',\''+level.id+'\',\'extend\')">Add a recovery day</button><button class="btn soft sm" onclick="recoveryAction(\''+goal.id+'\',\''+level.id+'\',\'minimum\')">Use the minimum-day standard</button><button class="btn danger sm" onclick="recoveryAction(\''+goal.id+'\',\''+level.id+'\',\'pause\')">Pause intentionally</button></div></div>';
+  }else if(level.status==='paused'){
+    html+='<div class="recovery-banner"><h3>Paused since '+formatDate(level.pausedOn)+'</h3><p>The paused days will be excused, not counted against you, once you resume.</p><button class="btn gold sm" onclick="resumeLevel(\''+goal.id+'\',\''+level.id+'\')">Resume order</button></div>';
+  }else if(level.status==='done'){
+    html+='<div class="checkpoint-banner"><h3 style="margin:0 0 4px">Level complete 🏆</h3><p class="sub" style="margin:0">Head to the Command desk to add the next level'+(level.difficultySuggestion?' — a suggested length is waiting for you there.':'.')+'</p></div>';
+  }else{
+    if(checkpointDue(level)){
+      html+='<div class="checkpoint-banner"><h3 style="margin:0 0 4px">Still worth it?</h3><p class="sub" style="margin:0 0 10px">You’re past the midpoint of '+esc(level.title)+'. Recommit to the full scope, or deliberately downgrade it — either way it’s logged, not abandoned silently.</p><div class="modal-actions" style="justify-content:flex-start"><button class="btn gold sm" onclick="checkpointRespond(\''+goal.id+'\',\''+level.id+'\',\'recommit\')">Recommit to full scope</button><button class="btn ghost sm" onclick="checkpointRespond(\''+goal.id+'\',\''+level.id+'\',\'downgrade\')">Downgrade scope</button></div></div>';
+    }
+    const due=dueTasksFor(level,today);
+    const rec=level.days_log[today]||{doneTaskIds:[]};
+    html+='<div class="card"><div class="head"><h3 style="margin:0">Today’s requirements</h3><div class="modal-actions"><button class="btn ghost sm" onclick="exportCalendar(activeGoal(),currentLevel(activeGoal()))">Add to calendar</button><button class="btn ghost sm" onclick="requestReminder()">Enable reminder</button></div></div>'
+      +(due.length?due.map(t=>taskRowHtml(goal,level,t,rec)).join(''):'<div class="empty">Nothing due today for this level.</div>')
+      +'</div>';
+  }
+  if(level.recoveryEvents&&level.recoveryEvents.length){
+    html+='<div class="card"><h3>Recovery history for this level</h3>'+level.recoveryEvents.map(e=>'<div class="history-item"><span>'+e.note+'</span><small>'+e.date+'</small></div>').join('')+'</div>';
+  }
+  $('mission').innerHTML=html;
+}
+function taskRowHtml(goal,level,task,rec){
+  const done=rec.doneTaskIds.includes(task.id);
+  return '<div class="task-row'+(done?' all-done':'')+'"><button type="button" class="chk'+(done?' done':'')+'" onclick="toggleTask(\''+goal.id+'\',\''+level.id+'\',\''+task.id+'\')">'+(done?'✓':'')+'</button><div style="flex:1"><div class="task-label">'+esc(task.title)+'</div><div class="task-sub">'+esc(task.detail||'')+'</div><div class="task-tags"><span class="tag-pill">+'+task.xp+' XP</span>'+(task.peer?'<span class="tag-pill peer">Peer: '+esc(task.peer)+'</span>':'')+(task.requiresPhoto?'<span class="tag-pill">📷 photo</span>':'')+(task.frequency!=='daily'?'<span class="tag-pill">'+task.frequency+'</span>':'')+'</div></div><button class="btn ghost sm" onclick="openFocus(\''+goal.id+'\',\''+level.id+'\',\''+task.id+'\')">Focus</button></div>';
+}
+
+/* ===================== WAR ROOM ===================== */
+function renderWar(){
+  const mine=myGoals();
+  if(!mine.length){$('war').innerHTML='<div class="empty">No active operations yet.</div>';return}
+  const totalXp=mine.reduce((s,g)=>s+(g.xpBank||0),0),totalGrace=mine.reduce((s,g)=>s+(g.graceTokens||0),0);
+  let html='<div class="cards"><div class="metric"><span>Active operations</span><b>'+mine.length+'</b></div><div class="metric"><span>Combined XP bank</span><b>'+totalXp+'</b></div><div class="metric"><span>Combined grace tokens</span><b>🛡️ '+totalGrace+'</b></div></div>';
+  html+='<div class="pledge-grid">'+mine.map(g=>{
+    const level=currentLevel(g),pct=levelProgress(level);
+    return '<div class="war-card"><div class="war-row"><div><b>'+esc(g.title)+'</b><div class="sub">'+esc(level.title)+' · '+level.status+'</div></div><span class="streak-chip">'+pct+'%</span></div><div class="bar" style="margin:9px 0"><i style="width:'+pct+'%"></i></div>'+deadlineHtml(g)+'<div class="modal-actions" style="margin-top:9px"><button class="btn soft sm" onclick="switchGoal(\''+g.id+'\');go(\'mission\')">Open today’s order</button></div></div>';
+  }).join('')+'</div>';
+  $('war').innerHTML=html;
+}
+
+/* ===================== VAULT ===================== */
+function renderVault(){
+  const goal=activeGoal();
+  if(!goal){$('vault').innerHTML='<div class="empty">Create an operation first.</div>';return}
+  let html='<div class="head"><h2 style="margin:0">Rewards for '+esc(goal.title)+'</h2></div><div class="vault-grid">'
+    +goal.levels.map((l,i)=>'<div class="vault-item"><div class="vault-image" style="'+(l.reward.image?'background-image:url(\''+l.reward.image+'\')':'')+'"></div><div class="vault-copy"><small>Level '+(i+1)+' · '+rewardStatusLabel(l.reward.status)+'</small><h3 style="font-size:16px;margin:4px 0">'+esc(l.reward.name)+'</h3><p class="sub">$'+(l.reward.price||0)+(l.reward.url?' · link saved':'')+'</p></div></div>').join('')
+    +'</div>';
+  html+='<div class="head" style="margin-top:20px"><h2 style="margin:0">Bonus rewards — unlocked by XP bank ('+(goal.xpBank||0)+' banked)</h2><button class="btn soft sm" onclick="addBonusReward(\''+goal.id+'\')">+ Add bonus reward</button></div>';
+  html+=(goal.bonusRewards&&goal.bonusRewards.length)?'<div class="pledge-grid">'+goal.bonusRewards.map(b=>'<div class="war-card"><b>'+esc(b.name)+'</b><div class="sub">Needs '+b.xpRequired+' XP</div><div class="bar" style="margin:8px 0"><i style="width:'+Math.min(100,Math.round((goal.xpBank||0)/b.xpRequired*100))+'%"></i></div>'+(b.claimed?'<span class="reward-status-chip" style="background:var(--green2);color:var(--green)">CLAIMED</span>':'<button class="btn gold sm" onclick="claimBonus(\''+goal.id+'\',\''+b.id+'\')" '+((goal.xpBank||0)<b.xpRequired?'disabled':'')+'>Claim</button>')+'</div>').join('')+'</div>':'<div class="empty">No bonus rewards yet — add one so banked XP is never wasted, even through a recovery.</div>';
+  $('vault').innerHTML=html;
+}
+
+/* ===================== REVIEW ===================== */
+function renderReview(){
+  const goal=activeGoal();
+  if(!goal){$('review').innerHTML='<div class="empty">Create an operation first.</div>';return}
+  const level=currentLevel(goal),pct=levelProgress(level),events=state.history.filter(e=>e.goalId===goal.id),reviews=state.reviews[goal.id]||[];
+  let html='<div class="cards"><div class="metric"><span>This level</span><b>'+pct+'%</b></div><div class="metric"><span>Recorded action days</span><b>'+(new Set(events.map(e=>e.date.slice(0,10))).size)+'</b></div><div class="metric"><span>Reward position</span><b>'+rewardStatusLabel(level.reward.status)+'</b></div></div>';
+  html+='<div class="card"><div class="head"><h2 style="margin:0">After-action questions</h2><span class="sub">'+goal.reviewDay+' is your review day</span></div>'
+    +'<div class="label">What worked?</div><textarea class="input" id="reviewWorked" rows="2"></textarea>'
+    +'<div class="label" style="margin-top:9px">What failed or created friction?</div><textarea class="input" id="reviewFriction" rows="2"></textarea>'
+    +'<div class="label" style="margin-top:9px">What changes next week?</div><textarea class="input" id="reviewChanges" rows="2"></textarea>'
+    +'<button class="btn gold sm" style="margin-top:10px" onclick="saveReview(\''+goal.id+'\')">Save after-action review</button></div>';
+  html+='<div class="card"><h3>Past reviews</h3>'+(reviews.length?reviews.map(r=>'<div class="history-item" style="display:block"><small>'+new Date(r.savedAt).toLocaleString()+'</small><div><b>Worked:</b> '+esc(r.worked||'—')+'</div><div><b>Friction:</b> '+esc(r.friction||'—')+'</div><div><b>Changes:</b> '+esc(r.changes||'—')+'</div></div>').join(''):'<div class="empty">No reviews saved yet.</div>')+'</div>';
+  html+='<div class="card"><div class="head"><h3 style="margin:0">Permanent history</h3><span class="sub">'+events.length+' records</span></div><div class="modal-actions" style="justify-content:flex-start;margin-bottom:10px"><button class="btn ghost sm" onclick="printReport()">Print report</button></div>'
+    +(events.length?events.slice(0,40).map(e=>'<div class="history-item"><span>'+esc(e.action)+(e.detail?' · '+esc(e.detail):'')+'</span><small>'+new Date(e.date).toLocaleString()+'</small></div>').join(''):'<div class="empty">No actions recorded yet.</div>')+'</div>';
+  $('review').innerHTML=html;
+}
+
+/* ===================== profile ===================== */
+function setProfile(name){
+  state.activeProfile=name;
+  if(!myGoals().some(g=>g.id===state.activeGoalId))state.activeGoalId=myGoals()[0]?myGoals()[0].id:null;
+  save();
+  $('profileBhargav').classList.toggle('active',name==='Bhargav');$('profileAnusha').classList.toggle('active',name==='Anusha');
+  if(window.HubTheme)HubTheme.applyHubTheme(name,{base:'--green'}).catch(()=>{});
+  renderGoalSelect();go(document.querySelector('.page.active').id);
+}
+function wire(){
+  $('profileBhargav').classList.toggle('active',state.activeProfile==='Bhargav');
+  $('profileAnusha').classList.toggle('active',state.activeProfile==='Anusha');
+}
+auth.onAuthStateChanged(async u=>{if(!u){if(window.self!==window.top)return;location.href='../index.html';return}user=u;try{await load();wire();$('shell').style.visibility='visible';$('loading').style.display='none';$('syncLabel').textContent='Saved to cloud';$('syncDot').classList.add('on');go('home');if(window.HubTheme)HubTheme.applyHubTheme(state.activeProfile,{base:'--green'}).catch(()=>{})}catch(e){$('loadingText').textContent='Your commitments could not load. Refresh to try again.';console.error(e)}})
+}
+</script>
+</body></html>
