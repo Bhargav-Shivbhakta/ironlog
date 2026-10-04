@@ -112,6 +112,18 @@ html.wallpaper-live{background-size:250% 250%;animation:wallpaper-drift 24s ease
 .widget-card-link:hover{color:var(--text)}
 .widget-card-link svg{width:12px;height:12px}
 .widget-board-empty{grid-column:1/-1;padding:44px 20px;text-align:center;color:var(--muted);border:1.5px dashed var(--line);border-radius:var(--radius)}
+/* Task order map widget — a compact, read-only echo of the To-Do app's
+   own Map view (apps/todo.html .task-map-*). Just the level columns and
+   nodes, no SVG connector lines or click-to-link here (that stays in the
+   full app); this is a glance, not an editor. */
+.taskmap-widget-scroll{overflow-x:auto;padding-bottom:4px;margin:0 0 4px}
+.taskmap-widget-cols{display:flex;gap:10px;min-width:max-content}
+.taskmap-widget-col{display:flex;flex-direction:column;gap:6px;min-width:140px}
+.taskmap-widget-col-label{font-size:10px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--muted)}
+.taskmap-widget-node{background:var(--surface-2,rgba(127,127,127,.08));border:1px solid var(--line);border-radius:10px;padding:7px 9px}
+.taskmap-widget-node.blocked{opacity:.75;border-style:dashed}
+.taskmap-widget-node-title{font-size:12px;font-weight:600;line-height:1.3}
+.taskmap-widget-node-lock{font-size:10.5px;color:var(--muted);margin-top:3px;line-height:1.3}
 /* Photo widget — "bare" (see .widget-card-bare below): no card border, no
    title bar, no padding, so the photo itself fills the whole tile edge to
    edge instead of sitting in a bordered box. Controls float as a small

@@ -763,6 +763,60 @@ const WIDGET_TYPES={
         updateProfileLinks();if(window.lucide)lucide.createIcons();
       }catch(e){el.innerHTML='<div class="empty-state"><strong>Unavailable</strong>Could not load your budget.</div>'}
     }},
+  taskmap:{title:'Task order map',icon:'git-branch',desc:"The same level-by-level order map from the To-Do app's Map view — see what's next and what's still waiting on something else, right from Today.",defaultSize:'lg',
+    async render(el){
+      el.innerHTML='<div class="empty-state"><strong>Loading…</strong></div>';
+      try{
+        const uid=state.user.uid;
+        const [pt,st]=await Promise.all([
+          db.collection('users').doc(uid).collection('todo-profiles').doc(state.profile).collection('data').doc('tasks').get().catch(()=>null),
+          db.collection('users').doc(uid).collection('todo-shared').doc('tasks').get().catch(()=>null)
+        ]);
+        const personalTasks=(pt&&pt.exists&&pt.data().json)?safeJson(pt.data().json,[]):[];
+        const sharedTasks=(st&&st.exists&&st.data().json)?safeJson(st.data().json,[]):[];
+        const all=personalTasks.concat(sharedTasks);
+        const findById=id=>all.find(t=>t.id===id);
+        const isBlocked=t=>(t.dependsOn||[]).some(depId=>{const d=findById(depId);return d&&!d.done});
+        const blockerNames=t=>(t.dependsOn||[]).map(depId=>findById(depId)).filter(d=>d&&!d.done).map(d=>d.title);
+        const levelMemo={};
+        const level=(id,visiting)=>{
+          visiting=visiting||{};
+          if(levelMemo.hasOwnProperty(id))return levelMemo[id];
+          if(visiting[id])return 0;
+          visiting[id]=true;
+          const found=findById(id);
+          const deps=(found&&found.dependsOn)||[];
+          let lvl=0;
+          deps.forEach(depId=>{if(findById(depId))lvl=Math.max(lvl,level(depId,visiting)+1)});
+          levelMemo[id]=lvl;
+          return lvl;
+        };
+        // Only not-yet-done tasks — this is a glanceable "what's next" view,
+        // not the full editable map (that's still the To-Do app's own Map
+        // view, which this widget links out to).
+        const active=all.filter(t=>!t.done);
+        if(!active.length){
+          el.innerHTML='<div class="empty-state"><strong>All clear</strong>No open tasks to map right now.</div>';
+          return;
+        }
+        const byLevel={};
+        active.forEach(t=>{(byLevel[level(t.id)]=byLevel[level(t.id)]||[]).push(t)});
+        const levels=Object.keys(byLevel).map(Number).sort((a,b)=>a-b);
+        el.innerHTML='<div class="taskmap-widget-scroll"><div class="taskmap-widget-cols">'+
+          levels.map(lvl=>'<div class="taskmap-widget-col"><div class="taskmap-widget-col-label">Level '+(lvl+1)+'</div>'+
+            byLevel[lvl].map(t=>{
+              const blocked=isBlocked(t);
+              return '<div class="taskmap-widget-node'+(blocked?' blocked':'')+'">'+
+                '<div class="taskmap-widget-node-title">'+esc(t.title)+'</div>'+
+                (blocked?'<div class="taskmap-widget-node-lock">🔒 '+esc(blockerNames(t).join(', '))+'</div>':'')+
+              '</div>';
+            }).join('')+
+          '</div>').join('')+
+        '</div></div>'+
+        '<a class="widget-card-link" href="apps/todo.html" data-profile-link>Open full Map <i data-lucide="arrow-up-right"></i></a>';
+        updateProfileLinks();if(window.lucide)lucide.createIcons();
+      }catch(e){el.innerHTML='<div class="empty-state"><strong>Unavailable</strong>Could not load the task map.</div>'}
+    }},
   photos:{title:'Photo widget',icon:'image',desc:'Your own little rotating gallery — add a batch of photos, shuffle them, or let it play on its own. Add as many of these as you like.',defaultSize:'lg',bare:true,multiple:true,
     render(el,w){renderPhotoWidgetInto(el,w.id)}},
   notes:{title:'Sticky notes',icon:'sticky-note',desc:'The same sticky notes as your To-Do app — write one here or there and it stays in sync both ways.',defaultSize:'md',

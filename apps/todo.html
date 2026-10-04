@@ -143,6 +143,7 @@
      each row expanding in place ===== */
   .task-split{display:grid;grid-template-columns:minmax(0,1fr);gap:16px;align-items:start;}
   .task-split.has-detail{grid-template-columns:minmax(0,0.85fr) minmax(0,1fr);}
+  .task-split.has-map{grid-template-columns:minmax(0,1fr) minmax(0,1fr);}
   .task-work-area{min-width:0;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:18px;box-shadow:var(--shadow);}
   .task-work-head{display:flex;justify-content:space-between;align-items:flex-start;gap:14px;margin-bottom:6px;}
   .task-work-head h2{font-size:18px;margin:0 0 3px;}
@@ -152,6 +153,32 @@
   .task-detail-panel{position:sticky;top:74px;min-width:0;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:18px;box-shadow:var(--shadow);max-height:calc(100vh - 90px);overflow-y:auto;}
   .task-detail-panel[hidden]{display:none;}
   .task-detail-panel-close{float:right;border:0;background:var(--surface-2);border-radius:8px;width:26px;height:26px;color:var(--text-soft);cursor:pointer;}
+
+  /* ===== ORDER MAP — dependency graph beside the task list, see the
+     task-map-panel markup for how it's built ===== */
+  .task-map-panel{position:sticky;top:74px;min-width:0;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:18px;box-shadow:var(--shadow);max-height:calc(100vh - 90px);display:flex;flex-direction:column;}
+  .task-map-panel[hidden]{display:none;}
+  .task-map-head{display:flex;justify-content:space-between;align-items:flex-start;gap:10px;margin-bottom:10px;}
+  .task-map-head h3{font-size:15px;margin:0 0 3px;}
+  .task-map-head p{font-size:11.5px;color:var(--text-soft);margin:0;}
+  .task-map-scroll{overflow:auto;flex:1;min-height:200px;border-radius:10px;}
+  .task-map-inner{position:relative;}
+  .task-map-svg{position:absolute;top:0;left:0;pointer-events:none;overflow:visible;}
+  .task-map-columns{display:flex;gap:30px;align-items:flex-start;position:relative;padding:4px;}
+  .task-map-col{display:flex;flex-direction:column;gap:14px;width:170px;flex:none;}
+  .task-map-col-label{font-size:9.5px;color:var(--text-faint);font-weight:700;text-transform:uppercase;letter-spacing:0.05em;text-align:center;}
+  .task-map-node{background:var(--surface-2);border:1.5px solid var(--border);border-radius:10px;padding:9px 10px;cursor:pointer;position:relative;transition:border-color .15s,box-shadow .15s;}
+  .task-map-node:hover{border-color:var(--accent);}
+  .task-map-node.selecting{border-color:var(--accent);box-shadow:0 0 0 2px var(--accent-soft);}
+  .task-map-node.done{opacity:0.5;}
+  .task-map-node.blocked{border-style:dashed;}
+  .task-map-node-title{font-size:12px;font-weight:700;line-height:1.3;}
+  .task-map-node-title.strike{text-decoration:line-through;color:var(--text-faint);}
+  .task-map-lock{font-size:10px;color:var(--overdue-grey);margin-top:3px;}
+  .task-map-deps{display:flex;flex-wrap:wrap;gap:3px;margin-top:5px;}
+  .task-map-dep-chip{font-size:9.5px;background:var(--surface);border:1px solid var(--border);border-radius:20px;padding:1px 6px;display:flex;align-items:center;gap:3px;color:var(--text-soft);}
+  .task-map-dep-chip button{border:0;background:none;color:var(--text-faint);cursor:pointer;padding:0;font-size:10px;line-height:1;}
+  .task-map-empty{color:var(--text-soft);font-size:12.5px;padding:20px;text-align:center;}
 
   /* ===== SCHEDULE QUICK-BUTTON — on a pending task row, jump straight to
      "make it due today / tomorrow / pick a date" without opening the full
@@ -196,7 +223,9 @@
     .control-bar .smart-tabs{display:none;}
     .control-bar .list-chips{overflow-x:auto;}
     .task-split.has-detail{grid-template-columns:minmax(0,1fr);}
+    .task-split.has-map{grid-template-columns:minmax(0,1fr);}
     .task-detail-panel{position:static;max-height:none;}
+    .task-map-panel{position:static;max-height:none;}
     .task-work-area{padding:14px;border-radius:14px;}
     body{padding-bottom:78px;}
     .mobile-task-nav{position:fixed;z-index:130;left:0;right:0;bottom:0;padding:6px 8px calc(6px + env(safe-area-inset-bottom));background:var(--surface);border-top:1px solid var(--border);display:grid;grid-template-columns:repeat(4,1fr);}
@@ -369,6 +398,8 @@
   .task-row.p3{border-left-color:var(--p3);}
   .task-row.overdue-row{background:var(--overdue-grey-soft);border-left-color:var(--overdue-grey);}
   .task-row.overdue-row .task-text{color:var(--overdue-grey);}
+  .task-row.blocked-row{opacity:0.68;}
+  .task-row.blocked-row .task-chk{cursor:not-allowed;}
   .task-row.done{opacity:0.55;}
   .task-row.dragging{opacity:0.3;}
   .task-text{transition:color .3s ease;}
@@ -388,6 +419,7 @@
   .task-meta{display:flex;gap:6px;align-items:center;margin-top:6px;flex-wrap:wrap;}
   .meta-chip{font-size:11px;font-weight:600;border-radius:20px;padding:2px 8px;background:var(--surface-2);color:var(--text-soft);display:flex;align-items:center;gap:4px;}
   .meta-chip.overdue{background:var(--overdue-grey-soft);color:var(--overdue-grey);font-weight:700;}
+  .meta-chip.blocked-chip{background:var(--overdue-grey-soft);color:var(--overdue-grey);font-weight:700;}
   .meta-chip.no-due{background:none;color:var(--text-faint);font-style:italic;font-weight:500;padding-left:0;}
   .meta-chip.today{background:var(--p2-soft);color:var(--p2);}
   .meta-chip.repeat{background:var(--surface-2);}
@@ -566,6 +598,7 @@
           <button class="tool-btn" id="templates-toggle-btn">📋 Templates</button>
           <button class="tool-btn" id="bulk-toggle-btn">☑ Select</button>
           <button class="tool-btn" id="manage-tags-btn">🏷 Tags</button>
+          <button class="tool-btn" id="map-toggle-btn">🗺 Map</button>
         </div>
       </div>
     </div>
@@ -609,6 +642,26 @@
     <aside class="task-detail-panel" id="task-detail-panel" hidden>
       <button type="button" class="task-detail-panel-close" id="task-detail-panel-close">✕</button>
       <div class="task-detail-panel-inner" id="task-detail-panel-inner"></div>
+    </aside>
+
+    <!-- Dependency map — same tasks as the list on the left (whichever
+         View tab is active), laid out in columns by "level": anything with
+         no prerequisites in column 1, anything that only depends on column-1
+         tasks in column 2, and so on. Click one task then another to link
+         them (first must finish before second); click a chip's ✕ to unlink.
+         Mutually exclusive with the detail panel — opening one closes the
+         other, so the split grid never has to juggle three columns. -->
+    <aside class="task-map-panel" id="task-map-panel" hidden>
+      <div class="task-map-head">
+        <div><h3>Order map</h3><p id="task-map-hint">Click a task, then the one that should come after it, to link them.</p></div>
+        <button type="button" class="task-detail-panel-close" id="task-map-close">✕</button>
+      </div>
+      <div class="task-map-scroll" id="task-map-scroll">
+        <div class="task-map-inner" id="task-map-inner">
+          <svg class="task-map-svg" id="task-map-svg"></svg>
+          <div class="task-map-columns" id="task-map-columns"></div>
+        </div>
+      </div>
     </aside>
   </div>
 
@@ -1264,6 +1317,79 @@ function findTaskAnywhere(id){
   if(t) return {arr:sharedTasks, t:t, isShared:true};
   return null;
 }
+
+/* =====================================================================
+   ORDER MAP — a task can list other tasks it "depends on" (t.dependsOn,
+   an array of task ids) meaning those must be checked off first. This
+   section is the shared logic behind both the Map view (task-map-panel)
+   and the normal list (blocked styling + sort order) — see render(),
+   taskRowHtml(), attachTaskHandlers() and sortTasks() for where it's used.
+===================================================================== */
+function taskIsBlocked(t){
+  return (t.dependsOn||[]).some(function(depId){
+    const found = findTaskAnywhere(depId);
+    return found && !found.t.done; // a dependency that's been deleted can't block anything
+  });
+}
+function blockingTaskNames(t){
+  return (t.dependsOn||[]).map(function(depId){ const f=findTaskAnywhere(depId); return f?f.t:null; })
+    .filter(function(dep){ return dep && !dep.done; })
+    .map(function(dep){ return dep.title; });
+}
+// Longest-path level: 0 = no prerequisites, otherwise one more than the
+// deepest prerequisite's level — this is what produces the "level by
+// level" column layout in the map, and it's computed from the full
+// dependency graph (not just whatever's currently filtered into view) so
+// the layering stays correct no matter which list/tag filter is active.
+let taskLevelMemo = {};
+function taskLevel(id, visiting){
+  visiting = visiting || {};
+  if(taskLevelMemo.hasOwnProperty(id)) return taskLevelMemo[id];
+  if(visiting[id]) return 0; // cycle guard — creation is blocked below, but never trust old data blindly
+  visiting[id]=true;
+  const found = findTaskAnywhere(id);
+  const deps = (found && found.t.dependsOn) || [];
+  let level=0;
+  deps.forEach(function(depId){
+    if(findTaskAnywhere(depId)) level = Math.max(level, taskLevel(depId,visiting)+1);
+  });
+  taskLevelMemo[id]=level;
+  return level;
+}
+// Would "toId depends on fromId" close a loop? True if toId is already
+// somewhere in fromId's own prerequisite chain — walking backwards from
+// fromId through its dependsOn links and finding toId means fromId can
+// only finish after toId, so toId can't also wait on fromId.
+function wouldCreateCycle(fromId, toId){
+  if(fromId===toId) return true;
+  const stack=[fromId], seen={};
+  while(stack.length){
+    const cur = stack.pop();
+    if(cur===toId) return true;
+    if(seen[cur]) continue;
+    seen[cur]=true;
+    const found = findTaskAnywhere(cur);
+    ((found && found.t.dependsOn) || []).forEach(function(d){ stack.push(d); });
+  }
+  return false;
+}
+async function addDependency(taskId, dependsOnId){
+  const found = findTaskAnywhere(taskId);
+  if(!found) return false;
+  const t = found.t;
+  t.dependsOn = t.dependsOn || [];
+  if(t.dependsOn.indexOf(dependsOnId)!==-1) return true; // already linked
+  if(wouldCreateCycle(dependsOnId, taskId)){ alert('That would create a loop — these two are already linked the other way around.'); return false; }
+  t.dependsOn.push(dependsOnId);
+  await saveByShared(found.isShared);
+  return true;
+}
+async function removeDependency(taskId, dependsOnId){
+  const found = findTaskAnywhere(taskId);
+  if(!found) return;
+  found.t.dependsOn = (found.t.dependsOn||[]).filter(function(id){ return id!==dependsOnId; });
+  await saveByShared(found.isShared);
+}
 async function saveByShared(isShared){ return isShared ? saveSharedTasks() : savePersonalTasks(); }
 async function toggleTask(id, listId){
   let arr = tasksArrFor(listId);
@@ -1349,6 +1475,12 @@ function filterBySmartView(list){
 function sortTasks(list){
   const prioRank = function(t){ return t.priority===0 ? 9 : t.priority; };
   return list.slice().sort(function(a,b){
+    // Blocked-by-a-dependency tasks drop to the bottom regardless of due
+    // date/priority — this is the "ordering drives the list" part of the
+    // Order Map: a task you can't actually start yet shouldn't be
+    // competing for your attention at the top of Today.
+    const ab = (!a.done && taskIsBlocked(a)) ? 1 : 0, bb = (!b.done && taskIsBlocked(b)) ? 1 : 0;
+    if(ab!==bb) return ab-bb;
     return (a.due||'9999').localeCompare(b.due||'9999') || prioRank(a)-prioRank(b) || a.order-b.order;
   });
 }
@@ -1357,7 +1489,15 @@ function renderProgressRing(){
   const el = document.getElementById('progress-ring-wrap');
   if(!el) return;
   const scoped = tasksInScope();
-  const todayTasks = scoped.filter(function(t){ return !t.due || t.due<=todayStr(); });
+  // Was filtering by DUE date here while the Today card/tab filters by
+  // START date (see filterBySmartView above) — two different definitions
+  // of "today's tasks" that could disagree with each other. Worse, "no due
+  // date at all" counted as "today" for the ring, so an already-done task
+  // with no due date could make the ring read 100% while the Today card,
+  // which only ever lists undone tasks, correctly showed nothing pending —
+  // a real mismatch, not just a coincidence of wording. Matching the Today
+  // tab's own startDate-based rule here keeps the two in agreement.
+  const todayTasks = scoped.filter(function(t){ return !t.startDate || t.startDate<=todayStr(); });
   const doneToday = todayTasks.filter(function(t){ return t.done; }).length;
   const pct = todayTasks.length ? Math.round(100*doneToday/todayTasks.length) : 0;
   const streak = choreStreakForTasks();
@@ -1549,6 +1689,7 @@ function render(){
 
   if(activeSmartView === 'week'){
     renderWeekView(listEl, scoped);
+    if(mapOpen) renderTaskMap();
     return;
   }
 
@@ -1557,12 +1698,14 @@ function render(){
     const emptyMsgs = { today:'Nothing on your list right now — add something above.', pending:'Nothing overdue — you\'re caught up.', upcoming:'Nothing scheduled for the next week.', all:'Add a task above to get started.', done:'Nothing completed yet.' };
     listEl.innerHTML = '<div class="empty-note">'+emptyMsgs[activeSmartView]+'</div>';
     syncDetailPanel();
+    if(mapOpen) renderTaskMap();
     return;
   }
   listEl.innerHTML = shown.map(taskRowHtml).join('');
   attachTaskHandlers(listEl);
   updateBulkBar();
   syncDetailPanel();
+  if(mapOpen) renderTaskMap();
 }
 
 /* =====================================================================
@@ -1576,6 +1719,7 @@ function render(){
 ===================================================================== */
 let openDetailTaskId = null;
 function openTaskDetailPanel(taskId){
+  closeTaskMap(); // detail panel and map share the split's second column — only one at a time
   openDetailTaskId = (openDetailTaskId===taskId) ? null : taskId;
   syncDetailPanel();
 }
@@ -1610,6 +1754,128 @@ function syncDetailPanel(){
   detail.classList.add('open');
   panel.hidden = false;
   split.classList.add('has-detail');
+}
+
+/* =====================================================================
+   ORDER MAP PANEL — see the task-map-panel markup and the ORDER MAP
+   helpers above findTaskAnywhere for the data side of this. mapOpen
+   tracks whether the panel is showing; mapLinkFromId tracks the "first
+   click" of a click-then-click link gesture.
+===================================================================== */
+let mapOpen = false;
+let mapLinkFromId = null;
+function openTaskMap(){
+  closeTaskDetailPanel(); // shares the split's second column with the detail panel
+  mapOpen = true;
+  mapLinkFromId = null;
+  document.getElementById('task-map-panel').hidden = false;
+  document.getElementById('task-split').classList.add('has-map');
+  renderTaskMap();
+}
+function closeTaskMap(){
+  mapOpen = false;
+  mapLinkFromId = null;
+  const panel = document.getElementById('task-map-panel');
+  if(panel) panel.hidden = true;
+  const split = document.getElementById('task-split');
+  if(split) split.classList.remove('has-map');
+}
+function renderTaskMap(){
+  if(!mapOpen) return;
+  const cols = document.getElementById('task-map-columns');
+  const svg = document.getElementById('task-map-svg');
+  const hint = document.getElementById('task-map-hint');
+  if(!cols || !svg) return;
+  taskLevelMemo = {}; // dependencies may have changed since the last render
+  // Same task set as whichever list view is currently showing (Today,
+  // Upcoming, etc.) — the map is a different presentation of that same
+  // set, not a separate unfiltered universe of every task that ever
+  // existed. Week view has no sensible column layout, so it just shows
+  // "All" worth of tasks instead of nothing.
+  const base = activeSmartView==='week' ? tasksInScope().filter(function(t){ return !t.done; }) : filterBySmartView(tasksInScope());
+  if(!base.length){
+    cols.innerHTML = '<div class="task-map-empty">Nothing to map here yet.</div>';
+    svg.innerHTML=''; svg.setAttribute('width',0); svg.setAttribute('height',0);
+    return;
+  }
+  hint.textContent = mapLinkFromId ? 'Now click the task that should come after "'+ (function(){ const f=findTaskAnywhere(mapLinkFromId); return f?f.t.title:''; })() +'" — or click it again to cancel.' : 'Click a task, then the one that should come after it, to link them.';
+  const byLevel = {};
+  base.forEach(function(t){
+    const lvl = taskLevel(t.id);
+    (byLevel[lvl] = byLevel[lvl] || []).push(t);
+  });
+  const levels = Object.keys(byLevel).map(Number).sort(function(a,b){ return a-b; });
+  cols.innerHTML = levels.map(function(lvl){
+    return '<div class="task-map-col" data-maplevel="'+lvl+'">'+
+      '<div class="task-map-col-label">Level '+(lvl+1)+'</div>'+
+      byLevel[lvl].map(function(t){
+        const blocked = !t.done && taskIsBlocked(t);
+        const deps = (t.dependsOn||[]).map(function(depId){
+          const f=findTaskAnywhere(depId);
+          if(!f) return '';
+          return '<span class="task-map-dep-chip">'+escapeHtml(f.t.title)+' <button type="button" data-mapunlink="'+t.id+':'+depId+'" title="Unlink">✕</button></span>';
+        }).join('');
+        return '<div class="task-map-node'+(t.done?' done':'')+(blocked?' blocked':'')+(mapLinkFromId===t.id?' selecting':'')+'" data-mapnode="'+t.id+'">'+
+          '<div class="task-map-node-title'+(t.done?' strike':'')+'">'+escapeHtml(t.title)+'</div>'+
+          (blocked?'<div class="task-map-lock">🔒 Waiting on: '+escapeHtml(blockingTaskNames(t).join(', '))+'</div>':'')+
+          (deps?'<div class="task-map-deps">'+deps+'</div>':'')+
+        '</div>';
+      }).join('')+
+    '</div>';
+  }).join('');
+
+  // Draw connector lines after layout settles, so getBoundingClientRect
+  // reflects real positions. One rAF is enough since nothing here causes
+  // a second reflow after the first paint.
+  requestAnimationFrame(function(){
+    const inner = document.getElementById('task-map-inner');
+    if(!inner) return;
+    const w = cols.scrollWidth, h = cols.scrollHeight;
+    inner.style.width = w+'px'; inner.style.height = h+'px';
+    svg.setAttribute('width', w); svg.setAttribute('height', h);
+    svg.setAttribute('viewBox','0 0 '+w+' '+h);
+    const innerRect = inner.getBoundingClientRect();
+    const lines = [];
+    base.forEach(function(t){
+      const toEl = cols.querySelector('[data-mapnode="'+t.id+'"]');
+      if(!toEl) return;
+      (t.dependsOn||[]).forEach(function(depId){
+        const fromEl = cols.querySelector('[data-mapnode="'+depId+'"]');
+        if(!fromEl) return; // dependency exists but isn't in this filtered view — nothing to draw to
+        const fr = fromEl.getBoundingClientRect(), tr = toEl.getBoundingClientRect();
+        const x1 = fr.right - innerRect.left, y1 = fr.top + fr.height/2 - innerRect.top;
+        const x2 = tr.left - innerRect.left, y2 = tr.top + tr.height/2 - innerRect.top;
+        const mx = (x1+x2)/2;
+        lines.push('<path d="M'+x1+','+y1+' C'+mx+','+y1+' '+mx+','+y2+' '+x2+','+y2+'" fill="none" stroke="var(--accent)" stroke-width="1.6" opacity="0.55"/>');
+      });
+    });
+    svg.innerHTML = lines.join('');
+  });
+
+  cols.querySelectorAll('[data-mapunlink]').forEach(function(btn){
+    btn.addEventListener('click', async function(e){
+      e.stopPropagation();
+      const parts = btn.dataset.mapunlink.split(':');
+      await removeDependency(parts[0], parts[1]);
+      renderTaskMap();
+      render();
+    });
+  });
+  cols.querySelectorAll('[data-mapnode]').forEach(function(node){
+    node.addEventListener('click', async function(){
+      const id = node.dataset.mapnode;
+      if(!mapLinkFromId){
+        mapLinkFromId = id;
+        renderTaskMap();
+        return;
+      }
+      if(mapLinkFromId===id){ mapLinkFromId=null; renderTaskMap(); return; }
+      const ok = await addDependency(id, mapLinkFromId); // id (second click) depends on mapLinkFromId (first click)
+      mapLinkFromId = null;
+      renderTaskMap();
+      if(ok) render();
+    });
+  });
 }
 
 function renderWeekView(listEl, scoped){
@@ -1676,7 +1942,9 @@ function taskRowHtml(t){
   const dueClass = taskDueClass(t);
   const list = listById(t.listId);
   const subDone = t.subtasks.filter(function(s){ return s.done; }).length;
+  const blocked = !t.done && taskIsBlocked(t);
   const chips = [];
+  if(blocked) chips.push('<span class="meta-chip blocked-chip" title="Blocked by: '+escapeHtml(blockingTaskNames(t).join(', '))+'">🔒 Blocked</span>');
   if(t.due) chips.push('<span class="meta-chip '+dueClass+'">'+fmtDue(t.due)+(t.dueTime?' '+fmt12(t.dueTime):'')+'</span>');
   else chips.push('<span class="meta-chip no-due">No due date</span>');
   if(t.repeat && t.repeat!=='none') chips.push('<span class="meta-chip repeat">repeats '+(t.repeat==='everyNDays' ? 'every '+(t.freqDays||1)+' days' : t.repeat)+'</span>');
@@ -1690,7 +1958,7 @@ function taskRowHtml(t){
 
   const selectChk = bulkMode ? '<input type="checkbox" class="select-chk" data-select="'+t.id+'" '+(selectedTaskIds.has(t.id)?'checked':'')+'>' : '';
 
-  return '<div class="task-row '+(t.done?'done':'')+' '+(!t.done && dueClass==='overdue'?'overdue-row':'')+' '+(t.priority?'p'+t.priority:'')+'" data-taskid="'+t.id+'" data-listid="'+t.listId+'">'+
+  return '<div class="task-row '+(t.done?'done':'')+' '+(!t.done && dueClass==='overdue'?'overdue-row':'')+' '+(blocked?'blocked-row':'')+' '+(t.priority?'p'+t.priority:'')+'" data-taskid="'+t.id+'" data-listid="'+t.listId+'">'+
     '<div class="task-main" draggable="'+(!bulkMode)+'" data-dragid="'+t.id+'">'+
       selectChk+
       '<input type="checkbox" class="task-chk" data-toggle="'+t.id+'" data-listid="'+t.listId+'" '+(t.done?'checked':'')+'>'+
@@ -1728,6 +1996,13 @@ function taskDetailHtml(t){
     '<div class="f" style="grid-column:1/-1;"><label>Tags</label><input type="text" class="td-tags" placeholder="urgent, school (comma separated)" value="'+escapeHtml((t.tags||[]).join(', '))+'"></div>'+
     '<div class="f" style="grid-column:1/-1;"><label>Link</label><input type="text" class="td-link" placeholder="https://…" value="'+escapeHtml(t.link||'')+'"></div>'+
     '<div class="f" style="grid-column:1/-1;"><label>Notes</label><textarea class="td-notes">'+escapeHtml(t.notes||'')+'</textarea></div>'+
+    '<div class="f" style="grid-column:1/-1;"><label>Depends on <small style="font-weight:500;color:var(--text-faint)">— open the Map tool to link tasks</small></label>'+
+      ((t.dependsOn||[]).length ? '<div class="task-map-deps">'+(t.dependsOn||[]).map(function(depId){
+        const f=findTaskAnywhere(depId);
+        if(!f) return '';
+        return '<span class="task-map-dep-chip">'+(f.t.done?'✓ ':'')+escapeHtml(f.t.title)+' <button type="button" data-depremove="'+t.id+':'+depId+'" title="Unlink">✕</button></span>';
+      }).join('') + '</div>' : '<div style="font-size:11.5px;color:var(--text-faint)">Nothing — this task is free to start anytime.</div>')+
+    '</div>'+
     '</div>'+
     '<div class="subtasks">'+
       '<label style="font-size:9.5px;color:var(--text-faint);font-weight:700;text-transform:uppercase;letter-spacing:0.04em;">Subtasks</label>'+
@@ -1754,6 +2029,14 @@ function attachTaskHandlers(wrap){
   wrap.querySelectorAll('.task-chk').forEach(function(cb){
     cb.addEventListener('change', async function(){
       const becomingDone = cb.checked;
+      if(becomingDone){
+        const found = findTaskAnywhere(cb.dataset.toggle);
+        if(found && taskIsBlocked(found.t)){
+          cb.checked = false;
+          alert('This is blocked by: '+blockingTaskNames(found.t).join(', ')+'. Finish that first, or unlink it in the Map tool / task details.');
+          return;
+        }
+      }
       await toggleTask(cb.dataset.toggle, cb.dataset.listid);
       // Show the strikethrough in place first — checking something off should
       // feel satisfying, not make the row vanish instantly.
@@ -1773,6 +2056,14 @@ function attachTaskHandlers(wrap){
   });
   wrap.querySelectorAll('[data-del]').forEach(function(btn){
     btn.addEventListener('click', function(){ deleteTask(btn.dataset.del, btn.dataset.listid); render(); });
+  });
+  wrap.querySelectorAll('[data-depremove]').forEach(function(btn){
+    btn.addEventListener('click', async function(){
+      const parts = btn.dataset.depremove.split(':');
+      await removeDependency(parts[0], parts[1]);
+      render();
+      if(document.getElementById('task-map-panel') && !document.getElementById('task-map-panel').hidden) renderTaskMap();
+    });
   });
   wrap.querySelectorAll('[data-edit]').forEach(function(el){
     el.addEventListener('blur', async function(){
@@ -2383,7 +2674,26 @@ function renderNotifBanner(){
   const installNote = isIOS ? ' On iPhone/iPad, banners outside this tab only work once you\'ve added this page to your Home Screen (Share → Add to Home Screen) — that\'s an Apple restriction, not something this app can bypass.' : '';
   el.innerHTML = '<div class="notif-banner"><span>Get a system notification when a timed task is due soon.'+installNote+' The in-app flash and sound work either way.</span><button id="enable-notif-btn">Enable</button></div>';
   document.getElementById('enable-notif-btn').addEventListener('click', async function(){
-    try{ notifPermission = await Notification.requestPermission(); renderNotifBanner(); }catch(e){}
+    // Browsers permanently remember a "denied" answer — once that's the
+    // state, requestPermission() just silently resolves back to 'denied'
+    // instead of showing the prompt again, so clicking Enable would look
+    // like nothing happened. JS can't re-prompt from here at that point;
+    // the browser's own site settings are the only way back in.
+    if(notifPermission === 'denied'){
+      alert('Notifications are blocked for this site in your browser settings. To turn them on: open your browser\'s site settings for this page (usually the lock/info icon next to the address bar) and allow Notifications, then reload.');
+      return;
+    }
+    try{
+      notifPermission = await Notification.requestPermission();
+      renderNotifBanner();
+      if(notifPermission === 'denied') alert('Notifications were blocked. You can allow them later from your browser\'s site settings for this page.');
+    }catch(e){
+      // Most likely cause when this is embedded in the Home Hub: the
+      // iframe didn't have permission-policy "notifications" allowed yet
+      // (fixed in index.html's <iframe allow="notifications">, but an
+      // older cached Hub page won't have that until it's reloaded).
+      alert('Could not ask for notification permission here. If you opened this inside the Home Hub, try reloading the Hub page once, or open this app\'s own link directly in a new tab.');
+    }
   });
 }
 
@@ -2537,6 +2847,8 @@ function initControls(){
   document.getElementById('quick-add-input').addEventListener('keydown', function(e){ if(e.key==='Enter') submitQuickAdd(); });
   document.getElementById('quick-add-btn').addEventListener('click', submitQuickAdd);
   document.getElementById('manage-tags-btn').addEventListener('click', openTagsPanel);
+  document.getElementById('map-toggle-btn').addEventListener('click', openTaskMap);
+  document.getElementById('task-map-close').addEventListener('click', closeTaskMap);
   document.getElementById('note-add-btn').addEventListener('click', addStickyNote);
   document.getElementById('backup-button').addEventListener('click', openBackupModal);
   document.getElementById('task-detail-panel-close').addEventListener('click', closeTaskDetailPanel);
