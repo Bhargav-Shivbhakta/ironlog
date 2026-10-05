@@ -38,7 +38,24 @@
 .ih-banner.is-playing .ih-stat-strip>div:nth-child(3){animation-delay:.88s}
 @keyframes ih-copy-in{from{opacity:0;transform:translateY(9px)}to{opacity:1;transform:none}}
 @keyframes ih-stat-in{from{opacity:0;transform:translateY(7px)}to{opacity:1;transform:none}}
-@media(max-width:820px){.ih-banner-top{flex-direction:column}.ih-copy{max-width:100%}.ih-banner-actions{align-self:flex-end}.ih-stat-strip{grid-template-columns:1fr}.ih-stat-strip>div+div{border-left:0;border-top:1px solid #262723}}
+/* Phone layout. The greeting block sits on top (~150px), the subject/car
+   stage gets its own band underneath it, and only then does the stat strip
+   start — --stage-h-mobile is set per preset by bannerEngine.mount() so
+   this band is exactly as tall as that preset's image. Before this, the
+   stage was positioned over the greeting and the stat strip, so the car
+   drew across the stats. The replay button moves to the top-right corner
+   so it isn't taking a whole row of its own, and the three stats sit side
+   by side instead of stacked into 3 full-width rows. */
+@media(max-width:820px){
+  .ih-banner-top{flex-direction:column;padding:22px 18px 18px;min-height:max(200px,calc(150px + var(--stage-h-mobile,0px) + 18px))}
+  .ih-copy{max-width:100%;padding-right:52px}
+  .ih-banner-actions{position:absolute;top:18px;right:16px}
+  .ih-stat-strip{grid-template-columns:repeat(3,1fr)}
+  .ih-stat-strip>div{min-height:72px;padding:13px 12px;align-content:start}
+  .ih-stat-strip>div+div{border-left:1px solid #262723;border-top:0}
+  .ih-stat-value{font-size:18px}
+  .ih-stat-label{font-size:9px;letter-spacing:.05em;line-height:1.25;white-space:normal}
+}
 @media(prefers-reduced-motion:reduce){.ih-banner *{animation:none!important;transition:none!important}.ih-copy,.ih-banner-actions,.ih-stat-strip>div{opacity:1!important}}
 
 /* shared keyframes used by several scenes */
@@ -66,7 +83,7 @@
 @keyframes ih-trail{0%{opacity:0;transform:translateX(-75%) skewX(-24deg) scaleX(.25)}35%{opacity:.9}100%{opacity:0;transform:translateX(95%) skewX(-24deg) scaleX(1.25)}}
 @keyframes ih-particle{0%{opacity:0;transform:translateX(-120px) scaleX(.2)}30%{opacity:.85}100%{opacity:0;transform:translateX(390px) scaleX(2)}}
 @keyframes ih-roadPulse{50%{opacity:.35;transform:translateX(18px)}}
-@media(max-width:820px){.scene-porsche .car-rig{top:110px;left:-10%;right:auto;width:120%}}
+@media(max-width:820px){.scene-porsche .car-rig{top:150px;left:-10%;right:auto;width:120%;height:200px}.scene-porsche .road-line{bottom:auto;top:320px}}
 
 /* ---------------- "subject" — generic real-photo drive-in scene used by
    the mafia pack. Same rig as b-porsche, but the entry path (direction)
@@ -99,7 +116,7 @@
 .is-playing .scene-subject .speed-particle{animation:ih-particle 1.05s ease both}
 .is-playing .scene-subject .p1{animation-delay:.28s}.is-playing .scene-subject .p2{animation-delay:.42s}.is-playing .scene-subject .p3{animation-delay:.58s}
 @keyframes ih-subjectIn{0%{opacity:0;transform:translate3d(var(--entry-x,-105%),var(--entry-y,18px),var(--entry-z,-330px)) rotateY(var(--entry-ry,23deg)) rotateZ(var(--entry-rz,-1.4deg)) scale(var(--entry-scale,.58));filter:blur(8px)}48%{opacity:1;transform:translate3d(-8%,2px,25px) rotateY(-5deg) rotateZ(.4deg) scale(1.035);filter:blur(0)}72%{transform:translate3d(2%,0,0) rotateY(1.5deg) scale(.99)}100%{opacity:1;transform:translate3d(0,0,0) rotateY(0) scale(1);filter:blur(0)}}
-@media(max-width:820px){.scene-subject .subject-stage{top:110px;left:auto;right:4%;height:var(--subj-h-mobile,170px);width:auto;aspect-ratio:var(--subj-ratio,1.5)}}
+@media(max-width:820px){.scene-subject .subject-stage{top:150px;left:auto;right:50%;transform:translateX(50%);height:var(--subj-h-mobile,170px);width:auto;max-width:96%;aspect-ratio:var(--subj-ratio,1.5)}}
 
 /* ---------------- b-showroom: Desert Showroom (real photo) ---------------- */
 .scene-showroom .showroom-photo{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:center 58%}

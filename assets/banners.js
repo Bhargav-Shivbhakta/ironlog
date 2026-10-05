@@ -219,9 +219,9 @@ const BANNER_PRESETS_ARCHIVED = [
    accent:'#8fb4ff', accent2:'#e7efff', bg:'#0b0d13', bg2:'#05060a', scene:'thunder'}
 ];
 
-/* ---- Character pack ("Final Eight" #2) — 8 fully self-contained animated
-   banners, not run through SCENE_BUILDERS at all. Each `embed` file already
-   contains its own quote → thought → live-greeting sequence, its own
+/* ---- Character pack ("Final Eight" #2) — 8 characters, 15 fully
+   self-contained animated banners (one per quote), not run through SCENE_BUILDERS at all. Each `embed` file already
+   contains its own quote → live-greeting sequence, its own
    stat strip, and its own replay button, and reads the Hub's live profile/
    task/event data straight out of the parent page (same mechanism as
    stat-tasks/stat-next/stat-focus below) once it's framed in — see
@@ -231,22 +231,43 @@ const BANNER_PRESETS_ARCHIVED = [
    filter on (see bannerGalleryVisibleList) — everything above this point
    is implicitly pack:'original'. ---- */
 const BANNER_CHARACTER_PACK = [
-  {id:'c-don-vito', profile:'Bhargav', title:'Don Vito Corleone', category:'Characters', pack:'characters', glyph:'crown',
-   accent:'#ad7b20', accent2:'#d5ad58', bg:'#090b09', bg2:'#090b09', embed:'assets/banners/custom/01-don-vito.html'},
-  {id:'c-michael-corleone', profile:'Bhargav', title:'Michael Corleone', category:'Characters', pack:'characters', glyph:'briefcase',
-   accent:'#ad7b20', accent2:'#d5ad58', bg:'#090b09', bg2:'#090b09', embed:'assets/banners/custom/02-michael-corleone.html'},
-  {id:'c-thomas-shelby', profile:'Bhargav', title:'Thomas Shelby', category:'Characters', pack:'characters', glyph:'cigarette',
-   accent:'#ad7b20', accent2:'#d5ad58', bg:'#090b09', bg2:'#090b09', embed:'assets/banners/custom/03-thomas-shelby.html'},
-  {id:'c-harvey-specter', profile:'Bhargav', title:'Harvey Specter', category:'Characters', pack:'characters', glyph:'gavel',
+  /* One quote per banner. Each character page used to cycle through the
+     movie quote AND a separate "Thought for today" line inside the same
+     banner; now they're two banners (the -thought one shows only the
+     thought line), picked with ?face=quote / ?face=thought on the embed
+     URL — same file, so no duplicated 2-5MB images. Harvey Specter only
+     has the one line, so he stays a single banner. The original ids keep
+     the movie-quote version, so a saved selection still resolves. */
+  {id:'c-don-vito', profile:'Bhargav', title:'Don Vito Corleone · The Offer', category:'Characters', pack:'characters', glyph:'crown',
+   accent:'#ad7b20', accent2:'#d5ad58', bg:'#090b09', bg2:'#090b09', embed:'assets/banners/custom/01-don-vito.html?face=quote'},
+  {id:'c-don-vito-thought', profile:'Bhargav', title:'Don Vito Corleone · Quiet Power', category:'Characters', pack:'characters', glyph:'crown',
+   accent:'#ad7b20', accent2:'#d5ad58', bg:'#090b09', bg2:'#090b09', embed:'assets/banners/custom/01-don-vito.html?face=thought'},
+  {id:'c-michael-corleone', profile:'Bhargav', title:'Michael Corleone · Enemies Closer', category:'Characters', pack:'characters', glyph:'briefcase',
+   accent:'#ad7b20', accent2:'#d5ad58', bg:'#090b09', bg2:'#090b09', embed:'assets/banners/custom/02-michael-corleone.html?face=quote'},
+  {id:'c-michael-corleone-thought', profile:'Bhargav', title:'Michael Corleone · Stay Close', category:'Characters', pack:'characters', glyph:'briefcase',
+   accent:'#ad7b20', accent2:'#d5ad58', bg:'#090b09', bg2:'#090b09', embed:'assets/banners/custom/02-michael-corleone.html?face=thought'},
+  {id:'c-thomas-shelby', profile:'Bhargav', title:'Thomas Shelby · By Order', category:'Characters', pack:'characters', glyph:'cigarette',
+   accent:'#ad7b20', accent2:'#d5ad58', bg:'#090b09', bg2:'#090b09', embed:'assets/banners/custom/03-thomas-shelby.html?face=quote'},
+  {id:'c-thomas-shelby-thought', profile:'Bhargav', title:'Thomas Shelby · Decision Made', category:'Characters', pack:'characters', glyph:'cigarette',
+   accent:'#ad7b20', accent2:'#d5ad58', bg:'#090b09', bg2:'#090b09', embed:'assets/banners/custom/03-thomas-shelby.html?face=thought'},
+  {id:'c-harvey-specter', profile:'Bhargav', title:'Harvey Specter · Raise the Standard', category:'Characters', pack:'characters', glyph:'gavel',
    accent:'#ad7b20', accent2:'#d5ad58', bg:'#090b09', bg2:'#090b09', embed:'assets/banners/custom/04-harvey-specter.html'},
-  {id:'c-jon-snow', profile:'Bhargav', title:'Jon Snow', category:'Characters', pack:'characters', glyph:'sword',
-   accent:'#ad7b20', accent2:'#d5ad58', bg:'#090b09', bg2:'#090b09', embed:'assets/banners/custom/05-jon-snow.html'},
-  {id:'c-james-bond', profile:'Bhargav', title:'James Bond', category:'Characters', pack:'characters', glyph:'target',
-   accent:'#ad7b20', accent2:'#d5ad58', bg:'#090b09', bg2:'#090b09', embed:'assets/banners/custom/06-james-bond.html'},
-  {id:'c-john-wick', profile:'Bhargav', title:'John Wick', category:'Characters', pack:'characters', glyph:'crosshair',
-   accent:'#ad7b20', accent2:'#d5ad58', bg:'#090b09', bg2:'#090b09', embed:'assets/banners/custom/07-john-wick.html'},
-  {id:'c-rocky-balboa', profile:'Bhargav', title:'Rocky Balboa', category:'Characters', pack:'characters', glyph:'trophy',
-   accent:'#ad7b20', accent2:'#d5ad58', bg:'#090b09', bg2:'#090b09', embed:'assets/banners/custom/08-rocky-balboa.html'}
+  {id:'c-jon-snow', profile:'Bhargav', title:'Jon Snow · Stand Anyway', category:'Characters', pack:'characters', glyph:'sword',
+   accent:'#ad7b20', accent2:'#d5ad58', bg:'#090b09', bg2:'#090b09', embed:'assets/banners/custom/05-jon-snow.html?face=quote'},
+  {id:'c-jon-snow-thought', profile:'Bhargav', title:'Jon Snow · The Odds', category:'Characters', pack:'characters', glyph:'sword',
+   accent:'#ad7b20', accent2:'#d5ad58', bg:'#090b09', bg2:'#090b09', embed:'assets/banners/custom/05-jon-snow.html?face=thought'},
+  {id:'c-james-bond', profile:'Bhargav', title:'James Bond · Another Day', category:'Characters', pack:'characters', glyph:'target',
+   accent:'#ad7b20', accent2:'#d5ad58', bg:'#090b09', bg2:'#090b09', embed:'assets/banners/custom/06-james-bond.html?face=quote'},
+  {id:'c-james-bond-thought', profile:'Bhargav', title:'James Bond · Complete the Mission', category:'Characters', pack:'characters', glyph:'target',
+   accent:'#ad7b20', accent2:'#d5ad58', bg:'#090b09', bg2:'#090b09', embed:'assets/banners/custom/06-james-bond.html?face=thought'},
+  {id:'c-john-wick', profile:'Bhargav', title:'John Wick · Finished', category:'Characters', pack:'characters', glyph:'crosshair',
+   accent:'#ad7b20', accent2:'#d5ad58', bg:'#090b09', bg2:'#090b09', embed:'assets/banners/custom/07-john-wick.html?face=quote'},
+  {id:'c-john-wick-thought', profile:'Bhargav', title:'John Wick · Discipline', category:'Characters', pack:'characters', glyph:'crosshair',
+   accent:'#ad7b20', accent2:'#d5ad58', bg:'#090b09', bg2:'#090b09', embed:'assets/banners/custom/07-john-wick.html?face=thought'},
+  {id:'c-rocky-balboa', profile:'Bhargav', title:'Rocky Balboa · Not Finished', category:'Characters', pack:'characters', glyph:'trophy',
+   accent:'#ad7b20', accent2:'#d5ad58', bg:'#090b09', bg2:'#090b09', embed:'assets/banners/custom/08-rocky-balboa.html?face=quote'},
+  {id:'c-rocky-balboa-thought', profile:'Bhargav', title:'Rocky Balboa · One More Round', category:'Characters', pack:'characters', glyph:'trophy',
+   accent:'#ad7b20', accent2:'#d5ad58', bg:'#090b09', bg2:'#090b09', embed:'assets/banners/custom/08-rocky-balboa.html?face=thought'}
 ];
 
 function allBannerPresets(){ return BANNER_PRESETS.concat(BANNER_CHARACTER_PACK); }
@@ -254,6 +275,36 @@ function allBannerPresets(){ return BANNER_PRESETS.concat(BANNER_CHARACTER_PACK)
 function bannerPresetsFor(profile){ return allBannerPresets().filter(p=>p.profile===profile); }
 function bannerFind(id){ return allBannerPresets().find(p=>p.id===id); }
 function bannerDefaultFor(profile){ return bannerPresetsFor(profile)[0]; }
+
+/* Sizes the host banner to the framed character page's real height. The
+   page is same-origin, so its #banner element can be measured directly.
+   Re-measured on resize (rotating a phone changes the layout, and so the
+   height) via ResizeObserver where available, plus a window resize
+   fallback for browsers that won't observe an element inside an iframe. */
+let bannerFitResizeWired = false;
+function bannerFitEmbed(root, frame){
+  const measure = ()=>{
+    try{
+      const doc = frame.contentDocument;
+      const b = doc && doc.getElementById('banner');
+      if(!b || frame.hidden) return;
+      const h = Math.ceil(b.getBoundingClientRect().height);
+      if(h >= 200 && h < 1400) root.style.height = h+'px';
+    }catch(e){ /* cross-origin or not loaded yet — keep the current height */ }
+  };
+  measure();
+  try{
+    if(window.ResizeObserver){
+      if(frame._fitRO) frame._fitRO.disconnect();
+      const b = frame.contentDocument && frame.contentDocument.getElementById('banner');
+      if(b){ frame._fitRO = new ResizeObserver(measure); frame._fitRO.observe(b); }
+    }
+  }catch(e){}
+  if(!bannerFitResizeWired){
+    bannerFitResizeWired = true;
+    window.addEventListener('resize', ()=>{ const f=document.getElementById('today-banner-embed'); const r=document.getElementById('today-banner'); if(f&&r&&!f.hidden) setTimeout(()=>bannerFitEmbed(r,f),120); });
+  }
+}
 
 /* ---------------------------------------------------------------------
    Engine — mounts into #today-banner, renders the active preset's scene,
@@ -272,6 +323,13 @@ const bannerEngine = {
     root.style.setProperty('--accent2', preset.accent2);
     root.style.setProperty('--ihbg', preset.bg);
     root.style.setProperty('--ihbg2', preset.bg2);
+    // Height of the image band on phones (see the max-width:820px block in
+    // banners.css) so the stat strip starts below the picture instead of
+    // being drawn over by it. 0 for scenes that fill the whole banner.
+    let stageHMobile = 0;
+    if(preset.scene==='subject') stageHMobile = (preset.ratio||1.5) < 1.8 ? 195 : 170;
+    else if(preset.scene==='porsche') stageHMobile = 200;
+    root.style.setProperty('--stage-h-mobile', stageHMobile+'px');
     if(preset.embed){
       // Character-pack banner: a fully self-contained animated page with
       // its own header/stat-strip/replay button baked in — swap in an
@@ -285,16 +343,25 @@ const bannerEngine = {
       if(moodEl){ moodEl.hidden = true; moodEl.textContent=''; }
       if(embedFrame){
         embedFrame.hidden = false;
+        // A character banner is a fixed 330px tall on desktop, but its own
+        // phone layout (portrait + greeting + stat strip) is taller. Start
+        // at a close guess so there's no big jump, then bannerFitEmbed()
+        // below measures the framed page once it loads and matches it.
+        root.style.height = window.matchMedia('(max-width:820px)').matches ? '524px' : '';
+        embedFrame.onload = ()=>bannerFitEmbed(root, embedFrame);
         // Cache-bust so replay() (which just calls mount() again) forces
         // the iframe to reload and restart its animation from 0%, not
-        // just re-show whatever frame it happened to be paused on.
-        embedFrame.src = preset.embed+'?t='+Date.now();
+        // just re-show whatever frame it happened to be paused on. An embed
+        // path can already carry a query (?face=thought picks which quote
+        // that file shows), hence the ?/& check.
+        embedFrame.src = preset.embed+(preset.embed.indexOf('?')===-1?'?':'&')+'t='+Date.now();
       }
       if(window.lucide) lucide.createIcons();
       return;
     }
     root.classList.remove('is-embed');
-    if(embedFrame){ embedFrame.hidden = true; embedFrame.removeAttribute('src'); }
+    root.style.height = ''; // back to natural height after leaving a character banner
+    if(embedFrame){ embedFrame.hidden = true; embedFrame.removeAttribute('src'); embedFrame.onload = null; }
     if(!scene) return;
     scene.className = 'ih-banner-scene scene-'+preset.scene;
     const build = SCENE_BUILDERS[preset.scene];
