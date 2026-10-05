@@ -246,25 +246,18 @@ scheduleSequence();
   const cfg={"id": "bhargav-rocky-not-finished", "character": "Rocky Balboa", "eyebrow": "ROCKY BALBOA · ONE MORE ROUND", "lineA": "You are not finished", "lineB": "until you decide.", "thought": "Get hit. Get up. Take one more round.", "timing": "standard", "layout": "compact-long"};
   const host=document.querySelector('.banner,.today-banner');
   if(!host)return;
+  // One quote per banner: ?face=thought shows the "thought for today" line,
+  // anything else shows the character's movie quote. The old version cycled
+  // quote -> thought -> greeting inside a single banner; those are now two
+  // separate banners (see BANNER_CHARACTER_PACK in assets/banners.js).
+  const view=(new URLSearchParams(location.search).get('face')==='thought'&&cfg.thought)?'thought':'quote';
+  const timingMode=cfg.timing==='after-shot'?'after-shot':'quote-only';
   const layer=document.createElement('div');
-  layer.className='ironlog-final-copy'+(cfg.timing==='after-shot'?' ironlog-after-shot':cfg.timing==='quote-only'?' ironlog-quote-only':'')+(cfg.layout?` ironlog-${cfg.layout}`:'');
-  const standardFaces=`
-    <div class="ironlog-final-face ironlog-final-quote">
-      <p class="ironlog-final-eyebrow">${cfg.eyebrow}</p>
-      <h1>${cfg.lineA}<span>${cfg.lineB}</span></h1>
-    </div>
-    <div class="ironlog-final-face ironlog-final-thought-face">
-      <p class="ironlog-final-eyebrow">THOUGHT FOR TODAY</p>
-      <p class="ironlog-final-thought-main">${cfg.thought}</p>
-    </div>`;
-  const wickFaces=`
-    <div class="ironlog-final-face ironlog-final-quote">
-      <p class="ironlog-final-eyebrow">${cfg.eyebrow}</p>
-      <h1>${cfg.lineA}<span>${cfg.lineB}</span></h1>
-      <p class="ironlog-final-thought">${cfg.thought}</p>
-    </div>`;
-  const openingFaces=cfg.timing==='after-shot'?wickFaces:cfg.timing==='quote-only'?standardFaces.split('<div class="ironlog-final-face ironlog-final-thought-face">')[0]:standardFaces;
-  layer.innerHTML=openingFaces+`
+  layer.className='ironlog-final-copy'+(timingMode==='after-shot'?' ironlog-after-shot':' ironlog-quote-only')+(cfg.layout?` ironlog-${cfg.layout}`:'');
+  const openingFace=`<div class="ironlog-final-face ironlog-final-quote">`+(view==='thought'
+    ?`<p class="ironlog-final-eyebrow">THOUGHT FOR TODAY</p><p class="ironlog-final-thought-main">${cfg.thought}</p>`
+    :`<p class="ironlog-final-eyebrow">${cfg.eyebrow}</p><h1>${cfg.lineA}<span>${cfg.lineB}</span></h1>`)+`</div>`;
+  layer.innerHTML=openingFace+`
     <div class="ironlog-final-face ironlog-final-today">
       <p class="ironlog-final-date" data-final-date>Today</p>
       <h2><span data-final-greeting>Good morning,</span><span data-final-profile>Bhargav</span></h2>
@@ -308,5 +301,32 @@ scheduleSequence();
 })();
 </script>
 
+
+<style id="ironlog-embed-fit">
+/* Framed inside the Hub's own rounded banner, so the standalone-page
+   padding/border/radius would show as a second frame with the bottom of
+   the banner cut off. (.demo-shell/.today-banner = Don + Michael,
+   .shell/.banner = the other six.) */
+.demo-shell,.shell{padding:0!important;min-height:0!important;display:block!important}
+.today-banner,.banner{width:100%!important;max-width:none!important;border:0!important;border-radius:0!important;box-shadow:none!important}
+@media(max-width:820px){
+  /* Long thought lines are set smaller so they stay above the portrait. */
+  .ironlog-final-quote .ironlog-final-thought-main{font-size:clamp(24px,7vw,34px);line-height:1.08}
+  /* Don + Michael: natural height instead of 100vh (inside the frame that
+     would just mean "as tall as the frame"), and the three stats side by side
+     instead of three stacked rows, so portrait + greeting + stats fit in about
+     one phone screen. Scoped to .today-banner — the other six already lay
+     their stats out in three columns and have sentence-length labels that a
+     narrow single-line cell would cut off. */
+  .today-banner{min-height:0!important}
+  .today-banner .status-strip{grid-template-columns:repeat(3,1fr)!important}
+  .today-banner .stat{min-height:78px!important;padding:13px 12px!important;min-width:0;align-content:start!important}
+  .today-banner .stat+.stat{border-left:1px solid var(--line)!important;border-top:0!important}
+  .today-banner .stat strong{font-size:20px!important;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .today-banner .stat span{font-size:9px!important;letter-spacing:.06em!important;line-height:1.25}
+  /* The other six: the replay button sat in the top-right corner right where the quote runs; park it just above the stat strip instead. */
+  .banner .replay{top:auto!important;bottom:88px!important;right:14px!important}
+}
+</style>
 </body>
 </html>
