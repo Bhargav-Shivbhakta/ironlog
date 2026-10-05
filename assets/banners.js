@@ -267,7 +267,11 @@ const BANNER_CHARACTER_PACK = [
   {id:'c-rocky-balboa', profile:'Bhargav', title:'Rocky Balboa · Not Finished', category:'Characters', pack:'characters', glyph:'trophy',
    accent:'#ad7b20', accent2:'#d5ad58', bg:'#090b09', bg2:'#090b09', embed:'assets/banners/custom/08-rocky-balboa.html?face=quote'},
   {id:'c-rocky-balboa-thought', profile:'Bhargav', title:'Rocky Balboa · One More Round', category:'Characters', pack:'characters', glyph:'trophy',
-   accent:'#ad7b20', accent2:'#d5ad58', bg:'#090b09', bg2:'#090b09', embed:'assets/banners/custom/08-rocky-balboa.html?face=thought'}
+   accent:'#ad7b20', accent2:'#d5ad58', bg:'#090b09', bg2:'#090b09', embed:'assets/banners/custom/08-rocky-balboa.html?face=thought'},
+  {id:'c-frank-underwood', profile:'Bhargav', title:'Frank Underwood · Turn the Table', category:'Characters', pack:'characters', glyph:'landmark',
+   accent:'#ad7b20', accent2:'#d5ad58', bg:'#090b09', bg2:'#090b09', embed:'assets/banners/custom/09-frank-underwood.html?face=quote'},
+  {id:'c-frank-underwood-thought', profile:'Bhargav', title:'Frank Underwood · Change the Conditions', category:'Characters', pack:'characters', glyph:'landmark',
+   accent:'#ad7b20', accent2:'#d5ad58', bg:'#090b09', bg2:'#090b09', embed:'assets/banners/custom/09-frank-underwood.html?face=thought'}
 ];
 
 function allBannerPresets(){ return BANNER_PRESETS.concat(BANNER_CHARACTER_PACK); }

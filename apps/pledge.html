@@ -10,125 +10,203 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
-/* Pledge — campaign-dossier dark reskin. --green/--green2 stay the live
-   theme hooks: --green is overridden per profile by HubTheme.applyHubTheme
-   (Bhargav's gold, Anusha's rose, or whatever the Hub's accent picker has
-   stored), and every "accent" tint below (--green2, --line-accent, chip
-   backgrounds, the gold-foil feel) is derived from var(--green) with
-   color-mix() rather than hardcoded, so the war-room shell still follows
-   the Hub's per-profile theme instead of fighting it. */
-:root{--bg:#0d1113;--panel:#161b1d;--panel2:#1b2123;--line:#2c3436;--ink:#e9ece7;--muted:#8d9794;
---green:#c9a96b;--green2:color-mix(in srgb,var(--green) 20%,var(--panel));
---line-accent:color-mix(in srgb,var(--green) 45%,var(--line));
---ink-on-accent:#14181a;
---lime:var(--green);--gold:var(--green);
---ok:#7fa98c;--ok2:color-mix(in srgb,var(--ok) 20%,var(--panel));
---oxblood:#8a3a3f;--oxblood2:color-mix(in srgb,var(--oxblood) 22%,var(--panel));
---violet:#6f9fc9;--violet2:color-mix(in srgb,var(--violet) 20%,var(--panel));
---coral:#c97b4e;--orange:#c97b4e;--red:var(--oxblood);--blue:var(--violet);
---shadow:0 20px 50px rgba(0,0,0,.55)}
+/* Pledge — built entirely on the Hub's theme tokens (--bg --surface
+   --surface-soft --line --text --muted --faint --ink --shadow + --accent),
+   which HubTheme.applyHubAppearance / applyHubTheme set at runtime. So it
+   follows the Hub's mode, palette, wallpaper and each person's accent. */
+:root{--bg:#f4f4f0;--surface:#fff;--surface-soft:#f8f8f5;--line:#e3e3dc;--text:#20211e;--muted:#74766f;--faint:#9c9e97;--ink:#171714;
+--accent:#ad7b20;--on-accent:#fff;--radius:16px;--shadow:0 18px 50px rgba(37,38,32,.08);
+--green:var(--accent);--lime:var(--accent);--gold:var(--accent);
+--panel:var(--surface);--panel2:var(--surface-soft);
+--green2:color-mix(in srgb,var(--accent) 14%,var(--surface));
+--line-accent:color-mix(in srgb,var(--accent) 40%,var(--line));
+--ok:#2f9d6b;--ok2:color-mix(in srgb,var(--ok) 14%,var(--surface));
+--warn:#d9822b;--warn2:color-mix(in srgb,var(--warn) 14%,var(--surface));
+--bad:#c4493f;--bad2:color-mix(in srgb,var(--bad) 12%,var(--surface));
+--info:#4a78c9;--info2:color-mix(in srgb,var(--info) 12%,var(--surface))}
+:root[data-theme="dark"],:root[data-theme="dark"] body{color-scheme:dark}
+:root[data-theme="dark"]{--ok:#4cc58d;--warn:#f0a050;--bad:#ef7a70;--info:#7ea7ee}
 body.embedded .topbar-wrap{display:none}
-*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font:14px/1.45 Inter,ui-sans-serif,system-ui,-apple-system,Segoe UI,sans-serif}
-h1,h2,h3,h4{font-family:Georgia,'Times New Roman',serif;letter-spacing:.01em}
+*{box-sizing:border-box}html{background:var(--bg)}
+body{margin:0;background:transparent;color:var(--text);font:14.5px/1.5 Inter,ui-sans-serif,system-ui,-apple-system,Segoe UI,sans-serif;-webkit-font-smoothing:antialiased}
+html{background-attachment:fixed;background-size:300% 300%}
+html.wallpaper-live{animation:wp-drift 40s ease-in-out infinite alternate}
+@keyframes wp-drift{from{background-position:0% 50%}to{background-position:100% 50%}}
+h1,h2,h3,h4{font-family:Manrope,Inter,system-ui,sans-serif;letter-spacing:-.01em;margin:0}
 button,input,select,textarea{font:inherit}button{cursor:pointer}.app{min-height:100vh;display:flex;flex-direction:column}
-.topbar-wrap{background:var(--panel2);color:#F2EFE6;padding:14px 20px;border-bottom:1px solid var(--line)}.topbar-inner{max-width:min(96vw,1800px);margin:0 auto;display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap}.brand-cluster{display:flex;align-items:center;gap:14px;flex-wrap:wrap}
-.brand{display:flex;align-items:center;gap:10px;font-size:17px;font-weight:800;flex:none;font-family:Georgia,serif}.mark{width:30px;height:30px;border-radius:3px;display:grid;place-items:center;background:var(--lime);color:var(--ink-on-accent);font-size:16px;font-weight:850;box-shadow:0 0 0 1px color-mix(in srgb,var(--green) 55%,black)}
-.hub-link{color:#9aa3a0;text-decoration:none;font-size:12px}
-.profile-box{display:flex;align-items:center;gap:8px}.profile-buttons{display:flex;gap:4px;background:var(--bg);border:1px solid var(--line);border-radius:4px;padding:4px}.profile-buttons button{border:0;border-radius:3px;background:transparent;color:#9aa3a0;padding:7px 12px;font-weight:750;font-size:12.5px}.profile-buttons button.active{background:var(--lime);color:var(--ink-on-accent)}
-.sync-box{display:flex;align-items:center;gap:8px}.sync-box b{color:#F2EFE6;font-size:12px;font-weight:700}.sync-dot{width:7px;height:7px;border-radius:50%;background:#55605f;display:inline-block;margin-right:5px}.sync-dot.on{background:var(--ok);box-shadow:0 0 0 4px color-mix(in srgb,var(--ok) 25%,transparent)}
-.navbar-wrap{position:sticky;top:0;z-index:60;background:var(--bg);padding:14px 20px 0}.nav-row{max-width:min(96vw,1800px);margin:0 auto;display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap}.nav{display:flex;gap:3px;background:var(--panel);border:1px solid var(--line);border-radius:4px;padding:4px;flex-wrap:wrap}.nav button{border:0;background:transparent;color:var(--muted);border-radius:3px;padding:9px 14px;font-weight:700;white-space:nowrap;font-size:12.5px;text-transform:uppercase;letter-spacing:.04em}.nav button.active{background:var(--green);color:var(--ink-on-accent)}.nav button:hover{color:var(--ink)}
-.goal-switch{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
-.main{width:100%;max-width:min(96vw,1800px);margin:auto;padding:28px 34px 60px}.top{display:flex;justify-content:space-between;align-items:center;margin-bottom:22px;flex-wrap:wrap;gap:10px}.eyebrow{text-transform:uppercase;letter-spacing:.17em;color:var(--green);font-size:10px;font-weight:850}.top h1{font-size:29px;line-height:1.1;margin:4px 0}.top .sub{color:var(--muted);font-size:13px}
+.topbar-wrap{padding:14px 20px 4px}
+.topbar-inner{max-width:1100px;margin:0 auto;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.brand-cluster{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.brand{display:flex;align-items:center;gap:9px;font-size:18px;font-weight:800;font-family:Manrope,sans-serif}
+.mark{width:32px;height:32px;border-radius:10px;display:grid;place-items:center;background:var(--accent);color:var(--on-accent);font-size:16px;font-weight:800}
+.hub-link{color:var(--muted);text-decoration:none;font-size:12.5px;font-weight:600}.hub-link:hover{color:var(--text)}
+.profile-buttons{display:flex;gap:3px;background:var(--surface);border:1px solid var(--line);border-radius:999px;padding:3px}
+.profile-buttons button{border:0;border-radius:999px;background:transparent;color:var(--muted);padding:6px 13px;font-weight:700;font-size:12.5px}
+.profile-buttons button.active{background:var(--accent);color:var(--on-accent)}
+.sync-box{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--muted)}.sync-box b{font-weight:600}
+.sync-dot{width:8px;height:8px;border-radius:50%;background:var(--faint);display:inline-block}.sync-dot.on{background:var(--ok);box-shadow:0 0 0 4px color-mix(in srgb,var(--ok) 22%,transparent)}
+.navbar-wrap{position:sticky;top:0;z-index:60;padding:10px 20px;backdrop-filter:blur(10px);background:color-mix(in srgb,var(--bg) 78%,transparent)}
+.nav-row{max-width:1100px;margin:0 auto;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.nav{display:flex;gap:4px;background:var(--surface);border:1px solid var(--line);border-radius:999px;padding:4px}
+.nav button{border:0;background:transparent;color:var(--muted);border-radius:999px;padding:9px 16px;font-weight:700;white-space:nowrap;font-size:13.5px;display:flex;align-items:center;gap:7px}
+.nav button .ni{font-size:15px;line-height:1}
+.nav button.active{background:var(--accent);color:var(--on-accent)}.nav button:not(.active):hover{color:var(--text)}
+.goal-switch{display:flex;align-items:center;gap:8px}
+.goal-switch select{min-width:150px;max-width:230px}
+.main{width:100%;max-width:1100px;margin:auto;padding:18px 20px 70px}
+.top{margin-bottom:18px}.eyebrow{text-transform:uppercase;letter-spacing:.14em;color:var(--accent);font-size:10.5px;font-weight:800}
+.top h1{font-size:28px;line-height:1.15;margin:4px 0}.top .sub{color:var(--muted);font-size:13.5px}
 .page{display:none}.page.active{display:block}
-.cards{display:grid;grid-template-columns:repeat(3,1fr);gap:11px;margin-bottom:17px}.metric{background:var(--panel);border:1px solid var(--line);box-shadow:0 5px 20px rgba(0,0,0,.25);border-radius:4px;padding:15px;position:relative;overflow:hidden}.metric:before{content:"";position:absolute;left:0;right:0;top:0;height:3px;background:var(--green)}.metric:nth-child(2):before{background:var(--violet)}.metric:nth-child(3):before{background:var(--ok)}.metric span{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em}.metric b{font-size:22px;display:block;margin-top:5px;color:var(--ink)}
-.btn{border:0;border-radius:4px;background:var(--green);box-shadow:0 6px 16px rgba(0,0,0,.3);color:var(--ink-on-accent);padding:9px 13px;font-weight:750;text-decoration:none;display:inline-flex;align-items:center;justify-content:center;gap:6px}.btn.soft{background:var(--green2);box-shadow:none;color:var(--green)}.btn.ghost{background:var(--panel);box-shadow:none;border:1px solid var(--line);color:var(--ink)}.btn.danger{background:var(--oxblood2);box-shadow:none;color:#e9b3b0;border:1px solid color-mix(in srgb,var(--oxblood) 45%,var(--line))}.btn.gold{background:var(--lime);color:var(--ink-on-accent);box-shadow:0 6px 16px color-mix(in srgb,var(--green) 35%,transparent)}.btn.sm{padding:6px 9px;font-size:11px}.btn:disabled{opacity:.5;cursor:default}
-.input,select,textarea{width:100%;background:var(--bg);color:var(--ink);border:1px solid var(--line);border-radius:4px;padding:9px 10px;outline:none}.input:focus,select:focus,textarea:focus{border-color:var(--green);box-shadow:0 0 0 3px color-mix(in srgb,var(--green) 20%,transparent)}
-.label{font-size:10px;color:var(--muted);font-weight:750;margin-bottom:3px;text-transform:uppercase;letter-spacing:.08em}
-.grid-2{display:grid;grid-template-columns:1fr 1fr;gap:10px}.grid-3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px}
-.card{background:var(--panel);border:1px solid var(--line);border-radius:4px;padding:17px;box-shadow:0 5px 20px rgba(0,0,0,.25);margin-bottom:14px}
-.card h2,.card h3{margin:0 0 4px}
-.head{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:13px;flex-wrap:wrap}
-.hero{border-radius:4px;overflow:hidden;position:relative;min-height:190px;background:linear-gradient(120deg,var(--panel2),#0d1113);margin-bottom:16px;background-size:cover;background-position:center;border:1px solid var(--line-accent)}
-.hero:after{content:"";position:absolute;inset:0;background:linear-gradient(100deg,#0d1113f5 0%,#0d1113bb 55%,#0d111322 100%)}
-.hero:before{content:"CONFIDENTIAL \2022 PERSONAL ORDER";position:absolute;z-index:3;right:22px;top:18px;font-family:Georgia,serif;font-size:10px;letter-spacing:.14em;color:color-mix(in srgb,var(--green) 70%,#9aa3a0);border:1px solid color-mix(in srgb,var(--green) 55%,var(--line));padding:4px 9px;border-radius:2px;transform:rotate(2deg);opacity:.75}
-.hero-content{position:relative;z-index:2;padding:26px 28px;max-width:640px;color:#F2EFE6}
-.hero-content .eyebrow2{color:var(--lime);text-transform:uppercase;letter-spacing:.17em;font-size:10px;font-weight:800}
-.hero-content h1{font-size:33px;margin:8px 0 6px;color:#fff}
-.hero-content p{color:#b9c0bd;font-size:12.5px;margin:0 0 14px;line-height:1.5}
-.deadline-pill{display:inline-flex;align-items:center;gap:5px;background:#ffffff0f;border:1px solid #ffffff22;color:#F2EFE6;border-radius:3px;padding:5px 11px;font-size:11px;font-weight:700;margin-top:4px}
-.deadline-pill.danger{background:color-mix(in srgb,var(--oxblood) 30%,transparent);color:#f3c9c6;border-color:color-mix(in srgb,var(--oxblood) 55%,transparent)}
-.ladder{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px;margin:14px 0}
-.rung{border:1px solid var(--line);border-radius:4px;padding:14px;background:var(--panel);cursor:pointer;position:relative;border-top:3px solid var(--line)}
-.rung.current{border-color:var(--line-accent);border-top-color:var(--lime);background:var(--green2)}
-.rung.done{border-color:color-mix(in srgb,var(--ok) 40%,var(--line));border-top-color:var(--ok);background:var(--ok2)}
-.rung.recovery{border-color:color-mix(in srgb,var(--oxblood) 45%,var(--line));border-top-color:var(--oxblood);background:var(--oxblood2)}
-.rung.paused{border-color:var(--line);border-top-color:var(--muted);background:var(--panel2)}
-.rung.upcoming{opacity:.55}
-.rung .rung-index{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.1em;font-weight:800;font-family:Georgia,serif}
-.rung h3{font-size:16px;margin:8px 0 4px}
-.rung .rung-meta{font-size:11px;color:var(--muted)}
-.reward-banner{background:linear-gradient(135deg,var(--panel2) 0%,#0d1113 55%,var(--panel2) 100%);color:#F2EFE6;border-radius:4px;padding:14px 16px;border:1px solid color-mix(in srgb,var(--lime) 40%,var(--line));display:grid;grid-template-columns:72px 1fr;gap:14px;align-items:center}
-.reward-banner.no-image{grid-template-columns:1fr}
-.reward-thumb{width:72px;height:72px;border-radius:3px;background:#ffffff0f;background-size:cover;background-position:center;display:grid;place-items:center;font-size:22px;border:1px solid #ffffff1a}
-.reward-banner span.tag{color:#9aa3a0;font-size:10px;text-transform:uppercase;letter-spacing:.1em;font-weight:800}
-.reward-title{font-size:16px;font-weight:800;margin:3px 0 0;color:var(--lime);font-family:Georgia,serif}
-.reward-detail{color:#b9c0bd;font-size:12px;margin-top:3px}
-.reward-status-chip{display:inline-block;margin-top:6px;font-size:10px;font-weight:800;padding:3px 8px;border-radius:3px;background:#ffffff14;color:#F2EFE6;letter-spacing:.05em}
-.progress-wrap{display:flex;align-items:center;justify-content:space-between;gap:10px;font-size:12px;color:var(--muted);margin-top:10px}
-.bar{height:8px;background:var(--bg);border:1px solid var(--line);border-radius:2px;overflow:hidden}.bar i{display:block;height:100%;background:var(--green);border-radius:2px;transition:width .3s}
-.streak-chip{display:inline-flex;align-items:center;gap:4px;background:var(--green2);color:var(--green);border:1px solid var(--line-accent);border-radius:3px;padding:4px 10px;font-weight:800;font-size:12px;white-space:nowrap}
-.xp-chip{display:inline-flex;align-items:center;gap:4px;background:var(--violet2);color:var(--violet);border:1px solid color-mix(in srgb,var(--violet) 40%,var(--line));border-radius:3px;padding:4px 10px;font-weight:800;font-size:12px;white-space:nowrap}
-.grace-chip{display:inline-flex;align-items:center;gap:4px;background:var(--ok2);color:var(--ok);border:1px solid color-mix(in srgb,var(--ok) 40%,var(--line));border-radius:3px;padding:4px 10px;font-weight:800;font-size:12px;white-space:nowrap}
-.task-row{display:flex;align-items:flex-start;gap:10px;padding:10px 0;border-bottom:1px solid var(--line)}.task-row:last-child{border:0}
-.chk{width:24px;height:24px;flex:none;border-radius:3px;border:2px solid var(--line);background:var(--bg);color:transparent;font-size:14px;display:grid;place-items:center;margin-top:1px}
-.chk.done{background:var(--green);border-color:var(--green);color:var(--ink-on-accent)}
+.cards{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:16px}
+.metric{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:15px}
+.metric span{font-size:12px;color:var(--muted);font-weight:600}.metric b{font-size:24px;display:block;margin-top:3px;font-family:Manrope,sans-serif}
+.btn{white-space:nowrap;border:0;border-radius:12px;background:var(--accent);color:var(--on-accent);padding:10px 15px;font-weight:700;text-decoration:none;display:inline-flex;align-items:center;justify-content:center;gap:6px}
+.btn.soft{background:var(--green2);color:var(--accent);color:color-mix(in srgb,var(--accent) 70%,var(--text))}
+.btn.ghost{background:var(--surface);border:1px solid var(--line);color:var(--text)}
+.btn.danger{background:var(--bad2);color:var(--bad);border:1px solid color-mix(in srgb,var(--bad) 30%,var(--line))}
+.btn.gold{background:var(--accent);color:var(--on-accent)}.btn.big{padding:13px 20px;font-size:15px;border-radius:14px}
+.btn.sm{padding:7px 11px;font-size:12.5px;border-radius:10px}.btn:disabled{opacity:.45;cursor:default}
+.input,select,textarea{width:100%;background:var(--surface);color:var(--text);border:1px solid var(--line);border-radius:12px;padding:10px 12px;outline:none}
+.input:focus,select:focus,textarea:focus{border-color:var(--accent);box-shadow:0 0 0 3px color-mix(in srgb,var(--accent) 20%,transparent)}
+.label{font-size:12px;color:var(--muted);font-weight:700;margin-bottom:4px}
+.hint{font-size:12px;color:var(--faint);margin-top:4px}
+.grid-2{display:grid;grid-template-columns:1fr 1fr;gap:12px}.grid-3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:18px;margin-bottom:14px;box-shadow:var(--shadow)}
+.card h2,.card h3{margin:0 0 4px}.card>h3:first-child{font-size:16px}
+.head{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:12px;flex-wrap:wrap}
+.sub{color:var(--muted);font-size:13px}
+/* ---- reward hero: the thing you are working toward ---- */
+.prize{position:relative;overflow:hidden;border-radius:22px;margin-bottom:16px;color:#fff;background:linear-gradient(135deg,color-mix(in srgb,var(--accent) 80%,#000),color-mix(in srgb,var(--accent) 45%,#000));box-shadow:var(--shadow)}
+.prize-img{position:absolute;inset:0;background-size:cover;background-position:center;transition:filter .6s,transform .6s}
+.prize:after{content:"";position:absolute;inset:0;background:linear-gradient(180deg,rgba(0,0,0,.15) 0%,rgba(0,0,0,.72) 100%)}
+.prize-body{position:relative;z-index:2;padding:22px;display:grid;grid-template-columns:1fr auto;gap:18px;align-items:end;min-height:250px}
+.prize-kicker{font-size:11px;letter-spacing:.14em;text-transform:uppercase;font-weight:800;opacity:.9;display:flex;align-items:center;gap:6px}
+.prize h1{font-size:30px;line-height:1.1;margin:8px 0 6px;color:#fff}
+.prize-sub{font-size:13.5px;opacity:.92;max-width:460px}
+.prize-chips{display:flex;gap:7px;flex-wrap:wrap;margin-top:12px}
+.pchip{background:rgba(255,255,255,.18);backdrop-filter:blur(6px);border:1px solid rgba(255,255,255,.28);border-radius:999px;padding:5px 11px;font-size:12px;font-weight:700}
+.ring{width:132px;height:132px;position:relative;flex:none}.ring svg{width:100%;height:100%;transform:rotate(-90deg)}
+.ring .rt{stroke:rgba(255,255,255,.25)}.ring .rf{stroke:#fff;transition:stroke-dashoffset .8s}
+.ring-c{position:absolute;inset:0;display:grid;place-items:center;text-align:center;line-height:1.1}
+.ring-c b{font-size:30px;font-family:Manrope,sans-serif}.ring-c small{font-size:11px;opacity:.9;display:block;margin-top:2px}
+.prize-empty{font-size:64px;position:absolute;right:26px;top:18px;z-index:2;filter:drop-shadow(0 6px 16px rgba(0,0,0,.35))}
+.fund{margin-top:12px;max-width:420px}.fund .bar{background:rgba(255,255,255,.22);border:0;height:8px}.fund .bar i{background:#fff}.fund small{font-size:12px;opacity:.92;display:flex;justify-content:space-between;margin-bottom:5px}
+.prize .btn.ghost{background:rgba(255,255,255,.16);border-color:rgba(255,255,255,.3);color:#fff}
+.prize .btn.gold{background:#fff;color:#1c1a14}
+.prize-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
+.earned-glow{animation:glow 2.2s ease-in-out infinite alternate}@keyframes glow{from{box-shadow:0 0 0 0 color-mix(in srgb,var(--accent) 45%,transparent),var(--shadow)}to{box-shadow:0 0 0 10px transparent,var(--shadow)}}
+/* ---- player strip ---- */
+.player{display:flex;align-items:center;gap:14px;flex-wrap:wrap;background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:13px 16px;margin-bottom:14px}
+.rank-badge{width:46px;height:46px;border-radius:14px;background:var(--accent);color:var(--on-accent);display:grid;place-items:center;font-family:Manrope,sans-serif;font-weight:800;font-size:19px;flex:none}
+.player-main{flex:1;min-width:180px}.player-main b{font-size:15px}.player-main .bar{margin-top:6px}
+.stat-chips{display:flex;gap:7px;flex-wrap:wrap}
+.chip{display:inline-flex;align-items:center;gap:5px;border-radius:999px;padding:5px 11px;font-weight:700;font-size:12.5px;white-space:nowrap;background:var(--green2);color:color-mix(in srgb,var(--accent) 70%,var(--text))}
+.chip.ok{background:var(--ok2);color:var(--ok)}.chip.info{background:var(--info2);color:var(--info)}.chip.warn{background:var(--warn2);color:var(--warn)}
+.streak-chip{display:inline-flex;align-items:center;gap:4px;background:var(--green2);color:color-mix(in srgb,var(--accent) 70%,var(--text));border-radius:999px;padding:4px 10px;font-weight:800;font-size:12px;white-space:nowrap}
+/* ---- checklist ---- */
+.today-head{display:flex;justify-content:space-between;align-items:baseline;gap:10px;flex-wrap:wrap;margin-bottom:6px}
+.today-head h2{font-size:19px}.today-head span{font-size:13px;color:var(--muted);font-weight:600}
+.task-row{display:flex;align-items:center;gap:12px;padding:13px 4px;border-bottom:1px solid var(--line)}.task-row:last-child{border:0}
+.chk{width:32px;height:32px;flex:none;border-radius:50%;border:2px solid var(--line);background:var(--surface);color:transparent;font-size:17px;display:grid;place-items:center;transition:transform .2s cubic-bezier(.34,1.56,.64,1),background .15s}
+.chk:hover{border-color:var(--accent)}.chk.done{background:var(--accent);border-color:var(--accent);color:var(--on-accent);transform:scale(1.06)}
 .task-row.all-done .task-label{text-decoration:line-through;color:var(--muted)}
-.task-label{font-weight:700;font-size:13px}
-.task-sub{font-size:11px;color:var(--muted);margin-top:2px}
+.task-label{font-weight:700;font-size:15px}.task-sub{font-size:12.5px;color:var(--muted);margin-top:1px}
 .task-tags{display:flex;gap:5px;flex-wrap:wrap;margin-top:5px}
-.tag-pill{font-size:9.5px;font-weight:800;padding:2px 7px;border-radius:3px;background:var(--green2);color:var(--green);text-transform:uppercase;letter-spacing:.05em}
-.tag-pill.peer{background:var(--violet2);color:var(--violet)}
-.recovery-banner{background:var(--oxblood2);border:1px solid color-mix(in srgb,var(--oxblood) 45%,var(--line));border-radius:4px;padding:16px;margin:14px 0}
-.recovery-banner h3{margin:0 0 6px;color:#f0b9b5;font-family:Georgia,serif}
-.recovery-actions{display:flex;gap:7px;flex-wrap:wrap;margin-top:10px}
-.checkpoint-banner{background:var(--violet2);border:1px solid color-mix(in srgb,var(--violet) 40%,var(--line));border-radius:4px;padding:15px;margin:14px 0}
-.commit-note{background:var(--green2);border:1px solid var(--line-accent);border-radius:4px;padding:12px 14px;font-size:12.5px;color:color-mix(in srgb,var(--green) 70%,var(--ink));font-style:italic;margin:12px 0;font-family:Georgia,serif}
-.pledge-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(330px,1fr));gap:14px}
-.war-card{background:var(--panel);border:1px solid var(--line);border-radius:4px;padding:15px}
-.vault-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px}
-.vault-item{border:1px solid var(--line);border-radius:4px;overflow:hidden;background:var(--panel)}
-.vault-image{height:110px;background:linear-gradient(135deg,var(--panel2),#0d1113);background-size:cover;background-position:center}
-.vault-copy{padding:12px}
+.tag-pill{font-size:11px;font-weight:700;padding:2px 8px;border-radius:999px;background:var(--green2);color:color-mix(in srgb,var(--accent) 70%,var(--text))}
+.tag-pill.peer{background:var(--info2);color:var(--info)}.tag-pill.proof{background:var(--warn2);color:var(--warn)}
+.alldone{text-align:center;padding:16px 8px 6px;font-weight:700}.alldone big{display:block;font-size:34px}
+/* ---- banners ---- */
+.recovery-banner{background:var(--bad2);border:1px solid color-mix(in srgb,var(--bad) 35%,var(--line));border-radius:var(--radius);padding:16px;margin:0 0 14px}
+.recovery-banner h3{margin:0 0 4px;color:var(--bad)}
+.recovery-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
+.checkpoint-banner{background:var(--info2);border:1px solid color-mix(in srgb,var(--info) 35%,var(--line));border-radius:var(--radius);padding:15px;margin:0 0 14px}
+.win-banner{background:var(--ok2);border:1px solid color-mix(in srgb,var(--ok) 35%,var(--line));border-radius:var(--radius);padding:15px;margin:0 0 14px}
+.stake-banner{background:var(--warn2);border:1px solid color-mix(in srgb,var(--warn) 40%,var(--line));border-radius:var(--radius);padding:13px 15px;margin:0 0 14px;font-size:13.5px}
+.commit-note{background:var(--green2);border-left:4px solid var(--accent);border-radius:12px;padding:12px 15px;font-size:14px;font-style:italic;margin:0 0 14px}
+.commit-note small{display:block;font-style:normal;font-weight:700;color:var(--muted);font-size:11px;margin-bottom:2px;letter-spacing:.06em;text-transform:uppercase}
+.deadline-pill{display:inline-flex;align-items:center;gap:5px;background:var(--surface-soft);border:1px solid var(--line);border-radius:999px;padding:5px 12px;font-size:12.5px;font-weight:600;color:var(--muted)}
+.deadline-pill.danger{background:var(--bad2);color:var(--bad);border-color:color-mix(in srgb,var(--bad) 30%,var(--line))}
+/* ---- stage path ---- */
+.ladder{display:flex;gap:10px;overflow-x:auto;padding:4px 2px 8px;margin:0 0 14px;scroll-snap-type:x proximity}
+.rung{flex:0 0 168px;scroll-snap-align:start;border:1px solid var(--line);border-radius:14px;padding:13px;background:var(--surface);cursor:pointer;position:relative}
+.rung.current{border-color:var(--accent);background:var(--green2)}
+.rung.done{border-color:color-mix(in srgb,var(--ok) 45%,var(--line));background:var(--ok2)}
+.rung.recovery{border-color:color-mix(in srgb,var(--bad) 45%,var(--line));background:var(--bad2)}
+.rung.upcoming{opacity:.7}
+.rung .rung-index{font-size:11px;color:var(--muted);font-weight:800}.rung h3{font-size:15px;margin:5px 0 3px}.rung .rung-meta{font-size:12px;color:var(--muted)}
+.rung .rg{position:absolute;right:10px;top:9px;font-size:18px}
+/* ---- road chart / badges ---- */
+.road svg{width:100%;height:auto;display:block}
+.road-legend{display:flex;gap:14px;flex-wrap:wrap;font-size:12px;color:var(--muted);margin-top:6px}
+.road-legend i{display:inline-block;width:18px;height:3px;border-radius:2px;vertical-align:middle;margin-right:5px}
+.badges{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px}
+.badge{border:1px solid var(--line);border-radius:14px;padding:12px;text-align:center;background:var(--surface-soft)}
+.badge .bi{font-size:28px;filter:grayscale(1);opacity:.35}.badge b{display:block;font-size:13px;margin-top:4px}.badge small{color:var(--muted);font-size:11.5px;display:block}
+.badge.got{background:var(--green2);border-color:var(--line-accent)}.badge.got .bi{filter:none;opacity:1}
+.bar{height:9px;background:var(--surface-soft);border:1px solid var(--line);border-radius:999px;overflow:hidden}.bar i{display:block;height:100%;background:var(--accent);border-radius:999px;transition:width .4s}
+/* ---- goals / rewards ---- */
+.pledge-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:14px}
+.war-card{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:16px}
+.war-row{display:grid;grid-template-columns:1fr auto;gap:8px;align-items:start}
+.war-card.active{border-color:var(--accent)}
+.vault-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:14px}
+.vault-item{border:1px solid var(--line);border-radius:var(--radius);overflow:hidden;background:var(--surface)}
+.vault-image{height:130px;background:linear-gradient(135deg,color-mix(in srgb,var(--accent) 60%,#000),color-mix(in srgb,var(--accent) 30%,#000));background-size:cover;background-position:center;display:grid;place-items:center;font-size:40px;position:relative}
+.vault-image.locked{filter:grayscale(.85) blur(1.5px)}
+.vault-copy{padding:13px}.vault-copy small{color:var(--muted);font-weight:700;font-size:11.5px}
+.reward-status-chip{display:inline-block;font-size:11px;font-weight:800;padding:3px 9px;border-radius:999px;background:var(--green2);color:color-mix(in srgb,var(--accent) 70%,var(--text));letter-spacing:.04em}
+.reward-status-chip.earned,.reward-status-chip.claimed,.reward-status-chip.purchased{background:var(--ok2);color:var(--ok)}
 .timeline-strip{display:flex;gap:8px;overflow-x:auto;padding:4px 0}
-.timeline-thumb{width:64px;height:64px;border-radius:3px;background-size:cover;background-position:center;border:1px solid var(--line);flex:none}
-.history-item{display:flex;justify-content:space-between;gap:12px;padding:9px 0;border-bottom:1px solid var(--line);font-size:12px}.history-item:last-child{border:0}
-.history-item small{color:var(--muted)}
-.modal-wrap{position:fixed;inset:0;background:rgba(0,0,0,.65);z-index:70;display:grid;place-items:center;padding:18px;overflow:auto}
-.modal{width:min(680px,100%);max-height:88vh;overflow:auto;background:var(--panel);border:1px solid var(--line);border-radius:4px;padding:21px;box-shadow:var(--shadow);margin:auto}
-.modal.wide{width:min(900px,100%)}
-.modal h2{margin:0}.modal-actions{display:flex;justify-content:flex-end;gap:8px;margin-top:17px;flex-wrap:wrap}
-.task-editor{border:1px solid var(--line);border-radius:4px;padding:13px;margin-bottom:10px;background:var(--panel2)}
-.toast{position:fixed;right:22px;bottom:22px;background:var(--panel2);border:1px solid var(--line-accent);color:#F2EFE6;border-radius:4px;padding:11px 15px;z-index:80;opacity:0;transform:translateY(10px);transition:.2s;pointer-events:none;box-shadow:var(--shadow);max-width:320px}.toast.show{opacity:1;transform:none}
-.loading{position:fixed;inset:0;background:var(--bg);z-index:100;display:grid;place-items:center;text-align:center}.loading div{background:var(--panel);border:1px solid var(--line);border-radius:4px;padding:25px;box-shadow:var(--shadow)}
-.empty{text-align:center;color:var(--muted);padding:34px 12px}
+.timeline-thumb{width:72px;height:72px;border-radius:12px;background-size:cover;background-position:center;border:1px solid var(--line);flex:none}
+.history-item{display:flex;justify-content:space-between;gap:12px;padding:9px 0;border-bottom:1px solid var(--line);font-size:13px}.history-item:last-child{border:0}.history-item small{color:var(--muted)}
+/* ---- modal / forms ---- */
+.modal-wrap{position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:70;display:grid;place-items:center;padding:16px;overflow:auto}
+.modal{width:min(620px,100%);max-height:92vh;overflow:auto;background:var(--surface);border:1px solid var(--line);border-radius:20px;padding:22px;box-shadow:var(--shadow);margin:auto}
+.modal h2{margin:0}.modal-actions{display:flex;justify-content:flex-end;gap:8px;margin-top:16px;flex-wrap:wrap}
+.steps{display:flex;gap:6px;margin:14px 0 16px}.steps i{flex:1;height:5px;border-radius:99px;background:var(--line)}.steps i.on{background:var(--accent)}
+.chips-row{display:flex;gap:7px;flex-wrap:wrap;margin:8px 0}
+.pick{border:1px solid var(--line);background:var(--surface);color:var(--text);border-radius:999px;padding:7px 13px;font-weight:600;font-size:13px}.pick:hover,.pick.on{border-color:var(--accent);background:var(--green2)}
+.stack{display:grid;gap:12px}
+details.sec{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);margin-bottom:12px;overflow:hidden}
+details.sec>summary{list-style:none;cursor:pointer;padding:15px 18px;font-weight:800;font-family:Manrope,sans-serif;font-size:15.5px;display:flex;justify-content:space-between;align-items:center;gap:10px}
+details.sec>summary::-webkit-details-marker{display:none}details.sec>summary:after{content:"＋";color:var(--muted);font-weight:400}details.sec[open]>summary:after{content:"–"}
+details.sec>summary small{font-weight:500;color:var(--muted);font-size:12.5px;font-family:Inter,sans-serif;margin-left:8px;margin-right:auto}
+details.sec>.sec-body{padding:2px 18px 18px}
+details.more{margin-top:8px}details.more>summary{cursor:pointer;color:var(--muted);font-size:12.5px;font-weight:700;padding:4px 0}
+.task-editor{border:1px solid var(--line);border-radius:14px;padding:13px;margin-bottom:10px;background:var(--surface-soft)}
+.reward-edit{border:1px dashed var(--line-accent);border-radius:14px;padding:13px;background:var(--green2);display:grid;gap:10px}
+.toast{position:fixed;left:50%;bottom:24px;transform:translate(-50%,12px);background:var(--ink);color:#fff;border-radius:12px;padding:11px 16px;z-index:80;opacity:0;transition:.2s;pointer-events:none;box-shadow:var(--shadow);max-width:min(340px,92vw);font-weight:600;font-size:13.5px}.toast.show{opacity:1;transform:translate(-50%,0)}
+.loading{position:fixed;inset:0;background:var(--bg);z-index:100;display:grid;place-items:center;text-align:center}.loading div{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:25px}
+.empty{text-align:center;color:var(--muted);padding:30px 14px}
+.welcome{text-align:center;padding:38px 18px;background:var(--surface);border:1px solid var(--line);border-radius:22px}
+.welcome .big-i{font-size:54px}.welcome h2{font-size:23px;margin:8px 0}.welcome p{color:var(--muted);max-width:420px;margin:0 auto 16px}
 .template-row{display:flex;gap:7px;flex-wrap:wrap;margin-top:10px}
-.focus-overlay{position:fixed;inset:0;background:#000000d9;z-index:90;display:grid;place-items:center;padding:20px}
-.focus-dialog{width:min(440px,100%);background:var(--panel2);border:1px solid var(--line-accent);color:#F2EFE6;border-radius:4px;padding:30px;text-align:center;position:relative}
-.focus-dialog .eyebrow2{color:var(--lime);text-transform:uppercase;letter-spacing:.17em;font-size:10px;font-weight:800}
-.focus-timer{font-size:52px;font-weight:800;color:var(--lime);margin:16px 0;font-family:Georgia,serif}
-.focus-close{position:absolute;top:10px;right:14px;background:none;border:0;color:#9aa3a0;font-size:22px}
-.spot-check-wrap{background:var(--green2);border:1px solid var(--line-accent);border-radius:4px;padding:10px;margin-top:8px}
-.war-row{display:grid;grid-template-columns:1fr auto;gap:6px}
-button,.btn{transition:transform .12s cubic-bezier(.34,1.56,.64,1),box-shadow .15s ease}button:active,.btn:active{transform:scale(.96)}
-.card,.rung,.war-card,.vault-item{transition:transform .18s cubic-bezier(.16,1,.3,1),box-shadow .18s ease;animation:life-fade-in .38s cubic-bezier(.16,1,.3,1) both}
-.card:hover,.rung:hover,.war-card:hover{transform:translateY(-2px);box-shadow:0 10px 28px rgba(0,0,0,.4)}
-@keyframes life-fade-in{from{opacity:0;transform:translateY(8px)}}
-@media(max-width:900px){.nav-row{flex-direction:column;align-items:stretch}.topbar-inner{flex-direction:column;align-items:stretch}.brand-cluster{justify-content:space-between}.main{padding:20px 15px}.cards{grid-template-columns:1fr 1fr}.pledge-grid{grid-template-columns:1fr}.grid-2,.grid-3{grid-template-columns:1fr}.reward-banner{grid-template-columns:1fr}}
+.focus-overlay{position:fixed;inset:0;background:rgba(0,0,0,.82);z-index:90;display:grid;place-items:center;padding:20px}
+.focus-dialog{width:min(440px,100%);background:var(--surface);color:var(--text);border-radius:22px;padding:30px;text-align:center;position:relative}
+.focus-dialog .eyebrow2{color:var(--accent);text-transform:uppercase;letter-spacing:.14em;font-size:11px;font-weight:800}
+.focus-timer{font-size:56px;font-weight:800;color:var(--accent);margin:14px 0;font-family:Manrope,sans-serif}
+.focus-close{position:absolute;top:10px;right:14px;background:none;border:0;color:var(--muted);font-size:24px}
+.spot-check-wrap{background:var(--green2);border-radius:12px;padding:10px;margin-top:8px}
+button,.btn{transition:transform .12s cubic-bezier(.34,1.56,.64,1)}button:active,.btn:active{transform:scale(.96)}
+@keyframes fade-in{from{opacity:0;transform:translateY(8px)}}.page.active>*{animation:fade-in .32s cubic-bezier(.16,1,.3,1) both}
+@media(max-width:760px){
+ .task-editor .grid-3{grid-template-columns:1fr 1fr!important}.task-editor .grid-3>.re-field:first-child{grid-column:1/-1}
+ .topbar-wrap{padding:12px 14px 2px}.main{padding:12px 14px 96px}
+ .navbar-wrap{position:static;background:none;backdrop-filter:none;padding:6px 14px 0}.nav-row{flex-direction:column;align-items:stretch}
+ .nav{position:fixed;left:10px;right:10px;bottom:10px;z-index:65;border-radius:20px;justify-content:space-around;box-shadow:0 10px 36px rgba(0,0,0,.28);padding:5px}
+ .nav button{flex:1;flex-direction:column;gap:2px;padding:8px 4px;font-size:11.5px;border-radius:15px}.nav button .ni{font-size:19px}
+ .goal-switch{width:100%}.goal-switch select{flex:1;max-width:none}
+ .cards{grid-template-columns:1fr 1fr 1fr;gap:8px}.metric{padding:11px}.metric b{font-size:19px}
+ .grid-2,.grid-3{grid-template-columns:1fr}.pledge-grid{grid-template-columns:1fr}
+ .prize-body{grid-template-columns:1fr;min-height:300px;padding:18px}.ring{width:96px;height:96px;position:absolute;right:16px;top:16px}.ring-c b{font-size:22px}.ring-c small{display:none}
+ .prize h1{font-size:25px;margin-top:70px}.prize-empty{font-size:46px;right:20px;top:14px}
+ .top h1{font-size:23px}.toast{bottom:92px}
+}
 </style>
 </head>
 <body>
 <script>try{ if(window.self !== window.top) document.body.classList.add('embedded'); }catch(e){ document.body.classList.add('embedded'); }</script>
-<div class="loading" id="loading"><div><b style="font-size:18px">Opening Pledge</b><p class="sub" id="loadingText">Connecting your commitments…</p></div></div>
+<div class="loading" id="loading"><div><b style="font-size:18px">Opening Pledge</b><p class="sub" id="loadingText">Loading your goals…</p></div></div>
 <div class="app" id="shell" style="visibility:hidden">
 <div class="topbar-wrap"><div class="topbar-inner">
   <div class="brand-cluster">
@@ -140,27 +218,24 @@ button,.btn{transition:transform .12s cubic-bezier(.34,1.56,.64,1),box-shadow .1
 </div></div>
 <div class="navbar-wrap"><div class="nav-row">
   <nav class="nav" id="nav">
-    <button data-page="home" class="active" onclick="go('home')">⌂ Operation</button>
-    <button data-page="editor" onclick="go('editor')">✎ Command desk</button>
-    <button data-page="mission" onclick="go('mission')">◉ Today's order</button>
-    <button data-page="war" onclick="go('war')">▦ War room</button>
-    <button data-page="vault" onclick="go('vault')">◇ Vault</button>
-    <button data-page="review" onclick="go('review')">▣ Review</button>
+    <button data-page="today" class="active" onclick="go('today')"><span class="ni">☀️</span>Today</button>
+    <button data-page="rewards" onclick="go('rewards')"><span class="ni">🎁</span>Rewards</button>
+    <button data-page="progress" onclick="go('progress')"><span class="ni">📈</span>Progress</button>
+    <button data-page="goals" onclick="go('goals')"><span class="ni">🎯</span>My goals</button>
   </nav>
   <div class="goal-switch">
-    <select class="input" id="goalSelect" style="min-width:160px"></select>
+    <select class="input" id="goalSelect" aria-label="Switch goal"></select>
     <button class="btn soft sm" onclick="openNewGoal()">+ New goal</button>
   </div>
 </div></div>
 <main class="main">
-<header class="top"><div><div class="eyebrow" id="eyebrow">Ambition → commitment → reward</div><h1 id="pageTitle">The operation</h1><div class="sub" id="pageSub">Pick the work. Pick the reward. Climb the ladder.</div></div></header>
+<header class="top"><div><div class="eyebrow" id="eyebrow">Today</div><h1 id="pageTitle">Today</h1><div class="sub" id="pageSub"></div></div></header>
 
-<section class="page active" id="home"></section>
-<section class="page" id="editor"></section>
-<section class="page" id="mission"></section>
-<section class="page" id="war"></section>
-<section class="page" id="vault"></section>
-<section class="page" id="review"></section>
+<section class="page active" id="today"></section>
+<section class="page" id="rewards"></section>
+<section class="page" id="progress"></section>
+<section class="page" id="goals"></section>
+<section class="page" id="plan"></section>
 
 </main></div><div id="modal"></div><div class="toast" id="toast"></div><div id="focusHost"></div>
 <script>
@@ -195,12 +270,12 @@ const TEMPLATES={
 /* ===================== model ===================== */
 function freshTask(over){return Object.assign({id:'t-'+Date.now()+'-'+Math.random().toString(36).slice(2,6),title:'New task',detail:'Define the exact requirement',xp:100,time:'',duration:'',priority:'Normal',minimum:'',frequency:'daily',selectedDays:[],peer:'',requiresPhoto:false,doneOnce:false},over||{})}
 function freshReward(over){return Object.assign({name:'Choose the reward',price:0,url:'',image:'',status:'committed',fundSaved:0},over||{})}
-function freshLevel(over){return Object.assign({id:'lv-'+Date.now()+'-'+Math.random().toString(36).slice(2,6),title:'Foundation',days:7,rule:'Complete every requirement honestly. A missed day enters recovery.',status:'upcoming',startedAt:null,shared:false,tasks:[freshTask()],reward:freshReward(),days_log:{},recoveryEvents:[],excusedDates:[],recoveryTriggerDate:null,pausedOn:null,difficultySuggestion:null,sunkCostCheckpoint:{shown:false,decision:null}},over||{})}
+function freshLevel(over){return Object.assign({id:'lv-'+Date.now()+'-'+Math.random().toString(36).slice(2,6),title:'Stage 1',days:7,rule:'Do every task each day, honestly. A missed day starts a recovery.',status:'upcoming',startedAt:null,shared:false,tasks:[freshTask()],reward:freshReward(),days_log:{},recoveryEvents:[],excusedDates:[],recoveryTriggerDate:null,pausedOn:null,difficultySuggestion:null,sunkCostCheckpoint:{shown:false,decision:null}},over||{})}
 function freshGoal(over){
   const lvl=freshLevel({status:'current',startedAt:todayKey()});
   return Object.assign({
     id:'g-'+Date.now()+'-'+Math.random().toString(36).slice(2,6),profileId:state?state.activeProfile:'Bhargav',
-    title:'New operation',description:'Define the result and earn the reward.',type:'Personal',why:'',startingPoint:'',target:'',deadline:'',priority:'High',
+    title:'New goal',description:'',type:'Personal',why:'',startingPoint:'',target:'',deadline:'',priority:'High',
     prepChecklist:'',reminderTime:'',reviewDay:'Sunday',background:'',
     status:'active',currentLevelIndex:0,levels:[lvl],
     milestones:[],commitNote:'',commitNoteSealedAt:null,
@@ -248,7 +323,7 @@ function dueTasksFor(level,dateKey){return level.tasks.filter(t=>taskDueToday(t,
 
 /* ===================== grace tokens ===================== */
 function accrueGrace(goal){
-  if(goal.perfectDayStreak>0&&goal.perfectDayStreak%7===0){goal.graceTokens=(goal.graceTokens||0)+1;logEvent(goal.id,'Grace token earned','7 perfect days in a row');toast('🛡️ Grace token earned — a free pass for one missed day');}
+  if(goal.perfectDayStreak>0&&goal.perfectDayStreak%7===0){goal.graceTokens=(goal.graceTokens||0)+1;logEvent(goal.id,'Grace token earned','7 perfect days in a row');toast('🛡️ Free pass earned — it covers one missed day');}
 }
 
 /* ===================== evaluation / recovery engine =====================
@@ -296,7 +371,7 @@ function computeDifficultySuggestion(level){
 function advanceGoal(goal){
   const next=goal.levels[goal.currentLevelIndex+1];
   if(next){goal.currentLevelIndex++;next.status='current';next.startedAt=todayKey();}
-  else{toast('🏆 '+goal.title+' — the whole ladder is climbed!');logEvent(goal.id,'Ladder complete','Every level finished');}
+  else{toast('🏆 '+goal.title+' — every stage complete!');logEvent(goal.id,'Ladder complete','Every level finished');}
 }
 
 /* ===================== checklist interaction ===================== */
@@ -340,7 +415,7 @@ function recoveryAction(goalId,levelId,action){
   const goal=state.goals.find(g=>g.id===goalId),level=goal.levels.find(l=>l.id===levelId);
   if(!goal||!level)return;
   const date=level.recoveryTriggerDate;
-  if(action==='pause'){level.status='paused';level.pausedOn=todayKey();level.recoveryEvents.push({date,action,note:'Paused intentionally'});logEvent(goal.id,'Recovery: paused',level.title);save();renderPage('mission');toast('Order paused — resume any time, the gap stays visible, never erased');return}
+  if(action==='pause'){level.status='paused';level.pausedOn=todayKey();level.recoveryEvents.push({date,action,note:'Paused intentionally'});logEvent(goal.id,'Recovery: paused',level.title);save();renderPage('mission');toast('Paused — resume any time, nothing is erased');return}
   level.excusedDates=level.excusedDates||[];level.excusedDates.push(date);
   if(action==='extend')level.days=Number(level.days||0)+1;
   level.recoveryEvents.push({date,action,note:action==='repeat'?'Repeated the day':action==='extend'?'Added a recovery day':'Used the minimum-day standard'});
@@ -348,7 +423,7 @@ function recoveryAction(goalId,levelId,action){
   logEvent(goal.id,'Recovery: '+action,level.title+' · '+date);
   evaluateLevel(goal,level);
   save();renderPage('mission');
-  toast('Recovery recorded — the ladder continues');
+  toast('Recovery recorded — you are back on track');
 }
 function resumeLevel(goalId,levelId){
   const goal=state.goals.find(g=>g.id===goalId),level=goal.levels.find(l=>l.id===levelId);
@@ -359,7 +434,7 @@ function resumeLevel(goalId,levelId){
   level.status='current';level.pausedOn=null;
   logEvent(goal.id,'Level resumed',level.title);
   evaluateLevel(goal,level);
-  save();renderPage('mission');toast('Resumed — the paused days are excused, not counted against you');
+  save();renderPage('mission');toast('Resumed — the paused days are excused');
 }
 
 /* ===================== sunk-cost checkpoint ===================== */
@@ -377,8 +452,8 @@ function checkpointRespond(goalId,levelId,decision){
 /* ===================== reward lifecycle ===================== */
 function rewardAction(goalId,levelId,action){
   const goal=state.goals.find(g=>g.id===goalId),level=goal.levels.find(l=>l.id===levelId);
-  if(action!=='abandoned'&&level.reward.status!=='earned'&&level.reward.status!=='purchased'){toast('Finish this level before claiming its reward');return}
-  level.reward.status=action;logEvent(goal.id,'Reward status changed',action);save();renderPage(document.querySelector('.page.active').id);toast('Reward status updated');
+  if(action!=='abandoned'&&level.reward.status!=='earned'&&level.reward.status!=='purchased'){toast('Finish this stage before claiming its reward');return}
+  level.reward.status=action;logEvent(goal.id,'Reward status changed',action);save();renderPage(document.querySelector('.page.active').id);toast('Reward updated');
 }
 function depositToFund(goalId,levelId,amount){
   const goal=state.goals.find(g=>g.id===goalId),level=goal.levels.find(l=>l.id===levelId);
@@ -388,45 +463,76 @@ function depositToFund(goalId,levelId,amount){
 /* ===================== bonus (XP bank) rewards ===================== */
 function addBonusReward(goalId){
   const goal=state.goals.find(g=>g.id===goalId);
-  const name=prompt('Name this bonus reward');if(!name)return;
-  const xpRequired=Number(prompt('XP required to unlock it','500'))||500;
+  const name=prompt('Name this bonus treat');if(!name)return;
+  const xpRequired=Number(prompt('Points needed to unlock it','500'))||500;
   goal.bonusRewards.push({id:'b-'+Date.now(),name,xpRequired,claimed:false});
   save();renderPage('vault');
 }
 function claimBonus(goalId,bonusId){
   const goal=state.goals.find(g=>g.id===goalId),b=goal.bonusRewards.find(x=>x.id===bonusId);
-  if(!b||b.claimed)return;if((goal.xpBank||0)<b.xpRequired){toast('Not enough XP banked yet');return}
-  b.claimed=true;logEvent(goal.id,'Bonus reward claimed',b.name);save();renderPage('vault');toast('🎉 '+b.name+' claimed from the XP bank');
+  if(!b||b.claimed)return;if((goal.xpBank||0)<b.xpRequired){toast('Not enough points yet');return}
+  b.claimed=true;logEvent(goal.id,'Bonus reward claimed',b.name);save();renderPage('vault');toast('🎉 '+b.name+' claimed with your points');
 }
 
-/* ===================== goal CRUD ===================== */
-function switchGoal(id){state.activeGoalId=id;save();renderGoalSelect();go(document.querySelector('.page.active').id)}
-function openNewGoal(){
-  $('modal').innerHTML='<div class="modal-wrap"><div class="modal"><div class="head"><div><h2>New operation</h2><div class="sub">Start blank or load a template, then refine it in the Command desk.</div></div><button class="btn ghost sm" onclick="closeModal()">×</button></div>'
-    +'<div><div class="label">Operation name</div><input class="input" id="ngTitle" placeholder="e.g. Run a half marathon"></div>'
-    +'<div class="template-row">'+Object.entries(TEMPLATES).map(([k,t])=>'<button class="btn soft sm" onclick="createFromTemplate(\''+k+'\')">'+esc(t.type)+' template</button>').join('')+'</div>'
-    +'<div class="modal-actions"><button class="btn ghost" onclick="closeModal()">Cancel</button><button class="btn gold" onclick="createBlankGoal()">Create blank operation</button></div>'
-    +'</div></div>';
+/* ===================== goal CRUD (guided 3-step creator) ===================== */
+function switchGoal(id){state.activeGoalId=id;save();renderGoalSelect();go(document.querySelector('.page.active').id==='plan'?'plan':document.querySelector('.page.active').id)}
+var nd=null;
+function openNewGoal(){nd={step:1,title:'',why:'',type:'Personal',rewardName:'',rewardPrice:'',image:'',taskTitle:'',taskDetail:'',days:7,stakeText:'',stakeAmount:'',referee:''};renderNewGoal()}
+function ndTemplate(key){const t=TEMPLATES[key];nd.title=t.title;nd.why=t.why;nd.type=t.type;nd.taskTitle=t.task;nd.taskDetail=t.detail;nd.days=t.days;nd.target=t.target;renderNewGoal()}
+function ndNext(){
+  if(nd.step===1&&!nd.title.trim())return toast('Give your goal a name first');
+  if(nd.step===2&&!nd.rewardName.trim())return toast('Pick a reward — it is what keeps you going');
+  if(nd.step===3)return createGoalFromDraft();
+  nd.step++;renderNewGoal();
 }
-function createBlankGoal(){
-  const title=$('ngTitle').value.trim()||'New operation';
-  const g=freshGoal({title});state.goals.push(g);state.activeGoalId=g.id;
-  save();closeModal();renderGoalSelect();go('editor');toast('Operation created — define the work in the Command desk');
+function ndImage(input){const f=input.files[0];if(!f)return;const r=new FileReader();r.onload=()=>{nd.image=r.result;renderNewGoal()};r.readAsDataURL(f)}
+function renderNewGoal(){
+  const other=state.activeProfile==='Bhargav'?'Anusha':'Bhargav';
+  const bar='<div class="steps">'+[1,2,3].map(i=>'<i class="'+(i<=nd.step?'on':'')+'"></i>').join('')+'</div>';
+  let body='';
+  if(nd.step===1){
+    body='<h2>What do you want to achieve?</h2><div class="sub">Step 1 of 3 · Start from an idea or type your own.</div>'+bar
+    +'<div class="chips-row">'+Object.entries(TEMPLATES).map(([k,t])=>'<button class="pick'+(nd.type===t.type&&nd.title===t.title?' on':'')+'" onclick="ndTemplate(\''+k+'\')">'+esc(t.type)+'</button>').join('')+'</div>'
+    +'<div class="stack"><div><div class="label">Goal</div><input class="input" id="ndTitle" value="'+esc(nd.title)+'" placeholder="e.g. Run a half marathon" oninput="nd.title=this.value"></div>'
+    +'<div><div class="label">Why does this matter to you?</div><textarea class="input" rows="3" placeholder="We will show this back to you on hard days" oninput="nd.why=this.value">'+esc(nd.why)+'</textarea></div></div>';
+  }else if(nd.step===2){
+    body='<h2>Choose your reward</h2><div class="sub">Step 2 of 3 · Something you really want. You only get it by finishing.</div>'+bar
+    +'<div class="stack"><div><div class="label">Reward</div><input class="input" value="'+esc(nd.rewardName)+'" placeholder="e.g. New running shoes" oninput="nd.rewardName=this.value"></div>'
+    +'<div class="grid-2"><div><div class="label">Price (optional)</div><input class="input" type="number" min="0" value="'+esc(nd.rewardPrice)+'" placeholder="0" oninput="nd.rewardPrice=this.value"></div>'
+    +'<div><div class="label">Picture (optional)</div><label class="btn ghost" style="cursor:pointer;width:100%">'+(nd.image?'✓ Picture added':'Add a picture')+'<input type="file" accept="image/*" style="display:none" onchange="ndImage(this)"></label></div></div>'
+    +(nd.image?'<div style="height:120px;border-radius:14px;background:url(\''+nd.image+'\') center/cover"></div>':'')
+    +'<div class="hint">A picture makes it real: it starts blurred and sharpens as you progress.</div></div>';
+  }else{
+    body='<h2>Make a daily plan</h2><div class="sub">Step 3 of 3 · What will you do each day, and for how many days?</div>'+bar
+    +'<div class="stack"><div><div class="label">Daily task</div><input class="input" value="'+esc(nd.taskTitle)+'" placeholder="e.g. Run 3 km" oninput="nd.taskTitle=this.value"></div>'
+    +'<div class="grid-2"><div><div class="label">Details (optional)</div><input class="input" value="'+esc(nd.taskDetail)+'" oninput="nd.taskDetail=this.value"></div>'
+    +'<div><div class="label">Days to complete</div><input class="input" type="number" min="1" value="'+esc(nd.days)+'" oninput="nd.days=this.value"></div></div>'
+    +'<details class="more"><summary>Add a stake and a referee (optional, makes it stick)</summary><div class="stack" style="margin-top:8px"><div class="grid-2"><div><div class="label">What do you lose if you quit?</div><input class="input" value="'+esc(nd.stakeText)+'" placeholder="e.g. Donate to a charity I dislike" oninput="nd.stakeText=this.value"></div>'
+    +'<div><div class="label">Amount ($)</div><input class="input" type="number" min="0" value="'+esc(nd.stakeAmount)+'" oninput="nd.stakeAmount=this.value"></div></div>'
+    +'<div><div class="label">Referee (approves before you claim your reward)</div><select class="input" onchange="nd.referee=this.value"><option value="">No referee</option><option value="'+other+'"'+(nd.referee===other?' selected':'')+'>'+other+'</option></select></div></div></details></div>';
+  }
+  $('modal').innerHTML='<div class="modal-wrap"><div class="modal">'+body+'<div class="modal-actions">'
+    +(nd.step>1?'<button class="btn ghost" onclick="nd.step--;renderNewGoal()">Back</button>':'<button class="btn ghost" onclick="closeModal()">Cancel</button>')
+    +'<button class="btn big" onclick="ndNext()">'+(nd.step===3?'Start my goal 🚀':'Next')+'</button></div></div></div>';
 }
-function createFromTemplate(key){
-  const t=TEMPLATES[key];
-  const g=freshGoal({title:t.title,description:t.description,type:t.type,why:t.why,target:t.target});
-  g.levels=[freshLevel({title:'Foundation',days:t.days,status:'current',startedAt:todayKey(),tasks:[freshTask({title:t.task,detail:t.detail})]})];
-  state.goals.push(g);state.activeGoalId=g.id;
-  save();closeModal();renderGoalSelect();go('home');toast(t.type+' template loaded');
+function createGoalFromDraft(){
+  const d=nd;
+  const days=Math.max(1,Number(d.days)||7);
+  const g=freshGoal({title:d.title.trim()||'My goal',why:d.why.trim(),type:d.type||'Personal',target:d.target||'',description:''});
+  g.levels=[freshLevel({title:'Stage 1',days,status:'current',startedAt:todayKey(),
+    tasks:[freshTask({title:d.taskTitle.trim()||'Do the daily work',detail:d.taskDetail.trim()})],
+    reward:freshReward({name:d.rewardName.trim()||'My reward',price:Number(d.rewardPrice)||0,image:d.image||''})})];
+  if(d.stakeText.trim()||Number(d.stakeAmount)||d.referee)g.stake={text:d.stakeText.trim(),amount:Number(d.stakeAmount)||0,referee:d.referee||''};
+  state.goals.push(g);state.activeGoalId=g.id;logEvent(g.id,'Goal created',g.title);
+  nd=null;save();closeModal();renderGoalSelect();go('today');toast('Goal started — your first day begins now');
 }
+function createBlankGoal(){openNewGoal()}
 function archiveGoal(goalId){
-  if(!confirm('Archive this operation? Its history and levels stay, just out of the active list.'))return;
+  if(!confirm('Archive this goal? Its history and stages stay saved, just out of the active list.'))return;
   const idx=state.goals.findIndex(g=>g.id===goalId),g=state.goals[idx];
   g.status='archived';state.archivedGoals.push(g);state.goals.splice(idx,1);
-  if(!myGoals().length){const fresh2=freshGoal({});state.goals.push(fresh2);state.activeGoalId=fresh2.id}
-  else state.activeGoalId=myGoals()[0].id;
-  save();renderGoalSelect();go('home');toast('Operation archived');
+  state.activeGoalId=myGoals()[0]?myGoals()[0].id:null;
+  save();renderGoalSelect();go('goals');toast('Goal archived');
 }
 
 /* ===================== milestones ===================== */
@@ -530,161 +636,366 @@ function saveReview(goalId){
 }
 
 /* ===================== nav / render dispatch ===================== */
+const PAGE_ALIAS={home:'today',mission:'today',editor:'plan',war:'goals',vault:'rewards',review:'progress'};
+const PAGE_INFO={
+  today:['Today','Today','Do today’s tasks and watch your reward get closer.'],
+  rewards:['Rewards','Your rewards','Everything you are earning, and what is already yours.'],
+  progress:['Progress','How you’re doing','Your rank, your road to the reward, and what you have earned so far.'],
+  goals:['My goals','My goals','All your goals in one place.'],
+  plan:['My goals','Edit plan','Change anything about this goal. It saves as you type.']
+};
 function go(page){
+  page=PAGE_ALIAS[page]||page;
   document.querySelectorAll('.page').forEach(p=>p.classList.toggle('active',p.id===page));
-  document.querySelectorAll('#nav button').forEach(b=>b.classList.toggle('active',b.dataset.page===page));
-  const titles={home:'The operation',editor:'The command desk',mission:"Today's order",war:'The war room',vault:'The vault',review:'After-action review'};
-  const subs={home:'Pick the work. Pick the reward. Climb the ladder.',editor:'Every field is saved automatically and can be changed later.',mission:'Complete every requirement honestly.',war:'Every active operation, side by side.',vault:'Every reward, tied to the level that earns it.',review:'Improve the system using what actually happened.'};
-  $('pageTitle').textContent=titles[page];$('pageSub').textContent=subs[page];
-  renderPage(page);
+  const navKey=page==='plan'?'goals':page;
+  document.querySelectorAll('#nav button').forEach(b=>b.classList.toggle('active',b.dataset.page===navKey));
+  const info=PAGE_INFO[page];$('eyebrow').textContent=info[0];$('pageTitle').textContent=info[1];$('pageSub').textContent=info[2];
+  renderPage(page);window.scrollTo({top:0});
 }
-function renderPage(page){state.goals.forEach(g=>evaluateGoal(g));renderGoalSelect();
-  if(page==='home')renderHome();else if(page==='editor')renderEditor();else if(page==='mission')renderMission();else if(page==='war')renderWar();else if(page==='vault')renderVault();else if(page==='review')renderReview();
+function renderPage(page){page=PAGE_ALIAS[page]||page;state.goals.forEach(g=>evaluateGoal(g));renderGoalSelect();
+  if(page==='today')renderToday();else if(page==='plan')renderEditor();else if(page==='goals')renderGoals();else if(page==='rewards')renderRewards();else if(page==='progress')renderProgress();
 }
 function renderGoalSelect(){
   const sel=$('goalSelect');const mine=myGoals();
-  sel.innerHTML=mine.map(g=>'<option value="'+g.id+'" '+(g.id===state.activeGoalId?'selected':'')+'>'+esc(g.title)+'</option>').join('')||'<option>No operations yet</option>';
+  sel.innerHTML=mine.map(g=>'<option value="'+g.id+'" '+(g.id===state.activeGoalId?'selected':'')+'>'+esc(g.title)+'</option>').join('')||'<option>No goals yet</option>';
   sel.onchange=()=>switchGoal(sel.value);
 }
 function closeModal(){$('modal').innerHTML=''}
 
-/* ===================== HOME ===================== */
-function rewardStatusLabel(s){return{committed:'COMMITTED',locked:'LOCKED','in-progress':'IN PROGRESS',earned:'EARNED',purchased:'PURCHASED',claimed:'CLAIMED',abandoned:'ABANDONED'}[s]||s.toUpperCase()}
+/* ===================== motivation helpers ===================== */
+const RANKS=['Rookie','Starter','Climber','Grinder','Achiever','Champion','Legend'];
+function lifetimeXp(){return myGoals().concat(state.archivedGoals.filter(g=>g.profileId===state.activeProfile)).reduce((s,g)=>s+(g.xpBank||0),0)}
+function rankInfo(xp){
+  const n=Math.floor(Math.sqrt(xp/150))+1,lo=150*(n-1)*(n-1),hi=150*n*n;
+  return{n,name:RANKS[Math.min(n-1,RANKS.length-1)],xp,lo,hi,pct:Math.round((xp-lo)/(hi-lo)*100),toNext:hi-xp};
+}
+function daySatisfied(level,d){const rec=level.days_log[d];return !!((rec&&rec.complete)||(level.excusedDates||[]).includes(d))}
+function currentStreak(level){
+  if(!level.startedAt)return 0;const today=todayKey();let d=daySatisfied(level,today)?today:addDays(today,-1),n=0;
+  while(d>=level.startedAt&&daySatisfied(level,d)){n++;d=addDays(d,-1)}return n;
+}
+function longestStreak(goals){
+  let best=0;
+  goals.forEach(g=>g.levels.forEach(l=>{if(!l.startedAt)return;const end=addDays(l.startedAt,l.days-1),stop=end<todayKey()?end:todayKey();let run=0,d=l.startedAt;
+    while(d<=stop){const rec=l.days_log[d];if(rec&&rec.complete){run++;best=Math.max(best,run)}else run=0;d=addDays(d,1)}}));
+  return best;
+}
+function satisfiedDays(level){if(!level.startedAt)return 0;const end=addDays(level.startedAt,level.days-1);let d=level.startedAt,n=0;while(d<=end){if(daySatisfied(level,d))n++;d=addDays(d,1)}return n}
+function paceInfo(level){
+  // Beeminder-style: where you should be vs where you are.
+  if(level.status==='done')return{state:'done',text:'Stage complete'};
+  if(level.status==='recovery')return{state:'off',text:'Off track — pick a recovery option'};
+  if(level.status==='paused')return{state:'pause',text:'Paused'};
+  const elapsedBefore=Math.max(0,daysElapsedIn(level)-1);
+  let doneBefore=0,d=level.startedAt;while(d<todayKey()&&d<=addDays(level.startedAt,level.days-1)){if(daySatisfied(level,d))doneBefore++;d=addDays(d,1)}
+  const behind=elapsedBefore-doneBefore;
+  return behind<=0?{state:'on',text:'On track'}:{state:'behind',text:behind+' day'+(behind>1?'s':'')+' behind'};
+}
+function badgesFor(goals){
+  const all=goals.concat(state.archivedGoals.filter(g=>g.profileId===state.activeProfile));
+  const ev=state.history.filter(e=>all.some(g=>g.id===e.goalId));
+  const has=a=>ev.some(e=>e.action===a);
+  const best=longestStreak(all);
+  const levels=all.flatMap(g=>g.levels);
+  return[
+    {i:'🌱',n:'First step',d:'Check off your first task',got:has('Task completed')},
+    {i:'🔥',n:'3-day streak',d:'3 perfect days in a row',got:best>=3},
+    {i:'⚡',n:'7-day streak',d:'A full perfect week',got:best>=7},
+    {i:'💪',n:'14-day streak',d:'Two weeks without a miss',got:best>=14},
+    {i:'👑',n:'30-day streak',d:'A whole month',got:best>=30},
+    {i:'🛡️',n:'Free pass',d:'Earn a free pass',got:all.some(g=>(g.graceTokens||0)>0)||has('Grace token earned')},
+    {i:'🔁',n:'Comeback',d:'Recover from a missed day and keep going',got:levels.some(l=>(l.recoveryEvents||[]).length>0)},
+    {i:'🏁',n:'Stage cleared',d:'Finish a whole stage',got:levels.some(l=>l.status==='done')},
+    {i:'📷',n:'Proof',d:'Add a photo check-in',got:all.some(g=>(g.photoCheckins||[]).length>0)},
+    {i:'🎁',n:'Reward earned',d:'Earn a reward',got:levels.some(l=>['earned','purchased','claimed'].includes(l.reward.status))},
+    {i:'🏆',n:'Goal complete',d:'Finish every stage of a goal',got:all.some(g=>g.levels.length&&g.levels.every(l=>l.status==='done'))}
+  ];
+}
+function rewardIsSet(r){return !!(r&&r.name&&r.name!=='Choose the reward')}
+function rewardStatusLabel(s){return{committed:'Locked in',locked:'Locked','in-progress':'In progress',earned:'Earned!',purchased:'Purchased',claimed:'Claimed',abandoned:'Given up'}[s]||s}
 function deadlineHtml(goal){
-  if(!goal.deadline)return '<div class="deadline-pill">No deadline set — add one in the Command desk</div>';
+  if(!goal.deadline)return '';
   const days=Math.ceil((new Date(goal.deadline+'T23:59:59')-new Date())/86400000);
-  const txt=days<0?'Deadline passed — choose a recovery action':days===0?'Deadline is today':days+' days remaining until '+formatDate(goal.deadline);
-  return '<div class="deadline-pill'+(days<=2?' danger':'')+'">⏰ '+txt+'</div>';
+  const txt=days<0?'Target date passed':days===0?'Target date is today':days+' days until '+formatDate(goal.deadline);
+  return '<span class="deadline-pill'+(days<=2?' danger':'')+'">⏰ '+txt+'</span>';
 }
-function renderHome(){
-  const mine=myGoals();
-  if(!mine.length){$('home').innerHTML='<div class="empty">No operations yet. Click "+ New goal" to turn an ambition into a ladder you can climb.</div>';return}
-  const goal=activeGoal();if(!goal){$('home').innerHTML='<div class="empty">Pick an operation from the dropdown above.</div>';return}
-  const level=currentLevel(goal),pct=levelProgress(level);
-  const heroStyle=goal.background?' style="background-image:url('+"'"+goal.background+"'"+')"':'';
-  let html='<div class="hero"'+heroStyle+'><div class="hero-content"><div class="eyebrow2">Active operation · '+esc(goal.profileId)+'</div><h1>'+esc(goal.title)+'</h1><p>'+esc(goal.description||'')+'</p>'+deadlineHtml(goal)
-    +'<div class="modal-actions" style="justify-content:flex-start;margin-top:14px"><button class="btn gold sm" onclick="go(\'mission\')">Open today’s order</button><button class="btn ghost sm" onclick="go(\'editor\')">Edit operation</button><label class="btn ghost sm" style="cursor:pointer">Change backdrop<input type="file" accept="image/*" class="input" style="display:none" onchange="changeBackground(\''+goal.id+'\',this)"></label><button class="btn danger sm" onclick="archiveGoal(\''+goal.id+'\')">Archive</button></div>'
-    +'</div></div>';
-  if(goal.commitNote)html+='<div class="commit-note">“'+esc(goal.commitNote)+'”</div>';
-  html+=rewardBannerHtml(goal,level,'home');
-  html+='<div class="head" style="margin-top:18px"><h2 style="margin:0">The climb</h2><span class="sub">'+goal.levels.length+' levels · current: '+esc(level.title)+'</span></div>';
-  html+='<div class="ladder">'+goal.levels.map((l,i)=>'<div class="rung '+l.status+'" onclick="go(\'editor\')"><div class="rung-index">Level '+pad2(i+1)+'</div><h3>'+esc(l.title)+'</h3><div class="rung-meta">'+l.days+' days · '+levelProgress(l)+'%</div></div>').join('')+'</div>';
-  html+='<div class="grid-3">'
-    +'<div class="card"><h3>Standing</h3><div style="font-size:26px;font-weight:800">'+pct+'%</div><div class="bar"><i style="width:'+pct+'%"></i></div><p class="sub" style="margin:8px 0 0">'+level.title+' · '+(level.status==='recovery'?'In recovery':level.status==='paused'?'Paused':level.status==='done'?'Complete':'Active')+'</p></div>'
-    +'<div class="card"><h3>XP bank</h3><div style="font-size:26px;font-weight:800">'+(goal.xpBank||0)+'</div><p class="sub" style="margin:8px 0 0">Never lost, even through a recovery</p></div>'
-    +'<div class="card"><h3>Grace tokens</h3><div style="font-size:26px;font-weight:800">🛡️ '+(goal.graceTokens||0)+'</div><p class="sub" style="margin:8px 0 0">Earned every 7 perfect days in a row</p></div>'
-    +'</div>';
-  if(goal.photoCheckins&&goal.photoCheckins.length){html+='<div class="card"><h3>Timeline</h3><div class="timeline-strip">'+goal.photoCheckins.slice().reverse().map(p=>'<div class="timeline-thumb" style="background-image:url('+"'"+p.dataUrl+"'"+')" title="'+p.date+'"></div>').join('')+'</div></div>'}
-  $('home').innerHTML=html;
+function refereeFor(goal){return goal.stake&&goal.stake.referee&&goal.stake.referee!==goal.profileId?goal.stake.referee:''}
+
+/* ===================== TODAY ===================== */
+function welcomeHtml(){
+  return '<div class="welcome"><div class="big-i">🎯</div><h2>Pick a goal. Pick a reward. Earn it.</h2><p>Tell Pledge what you want to achieve and what you will treat yourself with when you do. It takes about a minute.</p><button class="btn big" onclick="openNewGoal()">Start my first goal</button></div>';
 }
-function changeBackground(goalId,input){
-  const f=input.files[0];if(!f)return;const r=new FileReader();r.onload=()=>{const goal=state.goals.find(g=>g.id===goalId);goal.background=r.result;save();renderHome();toast('Backdrop updated')};r.readAsDataURL(f);
+function ringHtml(pct,label){
+  const r=56,c=2*Math.PI*r;
+  return '<div class="ring"><svg viewBox="0 0 132 132"><circle class="rt" cx="66" cy="66" r="'+r+'" fill="none" stroke-width="11"/><circle class="rf" cx="66" cy="66" r="'+r+'" fill="none" stroke-width="11" stroke-linecap="round" stroke-dasharray="'+c.toFixed(1)+'" stroke-dashoffset="'+(c*(1-pct/100)).toFixed(1)+'"/></svg><div class="ring-c"><div><b>'+pct+'%</b><small>'+label+'</small></div></div></div>';
 }
-function rewardBannerHtml(goal,level,prefix){
-  const r=level.reward,fundPct=r.price>0?Math.min(100,Math.round((r.fundSaved||0)/r.price*100)):0;
-  return '<div class="reward-banner'+(r.image?'':' no-image')+'">'
-    +(r.image?'<div class="reward-thumb" style="background-image:url(\''+r.image+'\')"></div>':'')
-    +'<div><span class="tag">Reward waiting · Level '+(goal.levels.indexOf(level)+1)+'</span><div class="reward-title">🎁 '+esc(r.name)+'</div>'+(r.price?'<div class="reward-detail">$'+r.price+(r.url?' · <a href="'+esc(r.url)+'" target="_blank" rel="noopener" style="color:#C9C7D6">product link →</a>':'')+'</div>':'')
-    +'<span class="reward-status-chip">'+rewardStatusLabel(r.status)+'</span>'
-    +(r.price?'<div class="progress-wrap" style="color:#C9C7D6"><span>Saved $'+(r.fundSaved||0)+' / $'+r.price+'</span></div><div class="bar" style="background:#ffffff1f"><i style="width:'+fundPct+'%;background:var(--lime)"></i></div><div class="modal-actions" style="justify-content:flex-start;margin-top:8px"><button class="btn ghost sm" onclick="promptDeposit(\''+goal.id+'\',\''+level.id+'\')">+ Log savings</button></div>':'')
-    +rewardActionsHtml(goal,level)
-    +'</div></div>';
+function prizeHtml(goal,level){
+  const r=level.reward,pct=levelProgress(level),set=rewardIsSet(r),won=['earned','purchased','claimed'].includes(r.status)||level.status==='done';
+  const img=r.image||goal.background||'';
+  const blur=won?0:Math.round((100-pct)/100*12),gray=won?0:((100-pct)/100*0.85).toFixed(2);
+  const left=Math.max(0,level.days-satisfiedDays(level)),pace=paceInfo(level),fundPct=r.price>0?Math.min(100,Math.round((r.fundSaved||0)/r.price*100)):0;
+  const kicker=won?'🎉 You earned it':set?'You are working for':'Pick your reward';
+  const title=set?r.name:'What will you treat yourself with?';
+  const chips=[];
+  if(!won&&level.status!=='recovery'&&level.status!=='paused')chips.push('<span class="pchip">'+left+' day'+(left===1?'':'s')+' of work to go</span>');
+  chips.push('<span class="pchip">'+esc(pace.text)+'</span>');
+  if(r.price)chips.push('<span class="pchip">$'+r.price+(r.url?' · <a href="'+esc(r.url)+'" target="_blank" rel="noopener" style="color:#fff">link</a>':'')+'</span>');
+  chips.push('<span class="pchip">'+esc(rewardStatusLabel(r.status))+'</span>');
+  let actions='';
+  if(!set)actions='<button class="btn gold" onclick="go(\'plan\')">Choose a reward</button>';
+  else if(won)actions=rewardActionsHtml(goal,level);
+  else if(r.price)actions='<button class="btn ghost sm" onclick="promptDeposit(\''+goal.id+'\',\''+level.id+'\')">+ Put money aside</button>';
+  return '<div class="prize'+(won&&r.status==='earned'?' earned-glow':'')+'"><div class="prize-img" style="'+(img?'background-image:url(\''+img.replace(/'/g,"%27")+'\');filter:blur('+blur+'px) grayscale('+gray+');transform:scale(1.08)':'')+'"></div>'
+    +(set?'':'<div class="prize-empty">🎁</div>')
+    +'<div class="prize-body"><div><div class="prize-kicker">'+kicker+'</div><h1>'+esc(title)+'</h1><div class="prize-sub">'+esc(goal.title)+' · '+esc(level.title)+(set&&!won&&!img?'':'')+'</div>'
+    +'<div class="prize-chips">'+chips.join('')+'</div>'
+    +(set&&r.price&&!won?'<div class="fund"><small><span>Saved $'+(r.fundSaved||0)+' of $'+r.price+'</span><span>'+fundPct+'%</span></small><div class="bar"><i style="width:'+fundPct+'%"></i></div></div>':'')
+    +(actions?'<div class="prize-actions">'+actions+'</div>':'')
+    +'</div>'+ringHtml(pct,'earned')+'</div></div>';
 }
 function rewardActionsHtml(goal,level){
   if(level.status!=='done'&&level.reward.status!=='earned'&&level.reward.status!=='purchased'&&level.reward.status!=='claimed')return '';
-  return '<div class="modal-actions" style="justify-content:flex-start;margin-top:8px">'
-    +'<button class="btn ghost sm" onclick="rewardAction(\''+goal.id+'\',\''+level.id+'\',\'purchased\')">Mark purchased</button>'
-    +'<button class="btn gold sm" onclick="rewardAction(\''+goal.id+'\',\''+level.id+'\',\'claimed\')">Claim reward</button>'
-    +'<button class="btn danger sm" onclick="rewardAction(\''+goal.id+'\',\''+level.id+'\',\'abandoned\')">Abandon reward</button>'
-    +'</div>';
+  const ref=refereeFor(goal);
+  if(ref&&!level.approvedBy&&level.reward.status==='earned')return '<span class="pchip">⏳ Waiting for '+esc(ref)+' to approve</span>';
+  if(level.reward.status==='claimed'||level.reward.status==='abandoned')return '';
+  return '<button class="btn gold" onclick="rewardAction(\''+goal.id+'\',\''+level.id+'\',\'claimed\')">🎉 Claim reward</button>'
+    +'<button class="btn ghost sm" onclick="rewardAction(\''+goal.id+'\',\''+level.id+'\',\'purchased\')">Mark bought</button>'
+    +'<button class="btn ghost sm" onclick="rewardAction(\''+goal.id+'\',\''+level.id+'\',\'abandoned\')">Give up reward</button>';
 }
-function promptDeposit(goalId,levelId){const v=Number(prompt('How much are you putting toward this reward?','10'));if(v)depositToFund(goalId,levelId,v)}
+function promptDeposit(goalId,levelId){const v=Number(prompt('How much are you putting aside for this reward?','10'));if(v)depositToFund(goalId,levelId,v)}
+function playerHtml(goal){
+  const rk=rankInfo(lifetimeXp()),lvl=currentLevel(goal),streak=currentStreak(lvl);
+  return '<div class="player"><div class="rank-badge" title="Rank">'+rk.n+'</div><div class="player-main"><b>'+rk.name+'</b> <span class="sub">· '+rk.xp+' points · '+rk.toNext+' to next rank</span><div class="bar"><i style="width:'+rk.pct+'%"></i></div></div>'
+    +'<div class="stat-chips"><span class="chip">🔥 '+streak+'-day streak</span><span class="chip ok" title="Skip a day without breaking your streak. Earn one every 7 perfect days.">🛡️ '+(goal.graceTokens||0)+' free pass'+((goal.graceTokens||0)===1?'':'es')+'</span></div></div>';
+}
+function approvalsHtml(){
+  let h='';
+  state.goals.filter(g=>g.profileId!==state.activeProfile&&refereeFor(g)===state.activeProfile).forEach(g=>g.levels.forEach(l=>{
+    if(l.status==='done'&&!l.approvedBy){
+      const proofs=(g.photoCheckins||[]).filter(p=>p.levelId===l.id).length;
+      h+='<div class="stake-banner"><b>'+esc(g.profileId)+'</b> finished <b>'+esc(l.title)+'</b> of “'+esc(g.title)+'” and named you as referee. '+(proofs?proofs+' photo proof'+(proofs>1?'s':'')+' attached. ':'')+'Approve so they can claim their reward.<div class="prize-actions"><button class="btn sm" onclick="approveLevel(\''+g.id+'\',\''+l.id+'\')">✓ Approve</button></div></div>';
+    }
+  }));
+  return h;
+}
+function approveLevel(goalId,levelId){
+  const g=state.goals.find(x=>x.id===goalId),l=g&&g.levels.find(x=>x.id===levelId);if(!l)return;
+  l.approvedBy=state.activeProfile;l.approvedAt=Date.now();logEvent(g.id,'Referee approved',l.title+' · by '+state.activeProfile);
+  save();renderPage('today');toast('Approved — '+g.profileId+' can claim the reward');
+}
+function stakeHonored(goalId){logEvent(goalId,'Stake honored','Paid up after a missed day');save();toast('Logged. Honesty keeps the system working.')}
+function stakeHtml(goal,level){
+  const s=goal.stake;if(!s||(!s.text&&!s.amount))return '';
+  const ref=refereeFor(goal);
+  let h='<div class="stake-banner">💰 <b>Your stake:</b> '+(s.amount?'$'+s.amount+' ':'')+esc(s.text||'')+(ref?' · Referee: '+esc(ref):'');
+  if(level.status==='recovery')h+='<div style="margin-top:6px">You missed a day. Use a recovery option below, or own it:</div><div class="prize-actions"><button class="btn sm" onclick="stakeHonored(\''+goal.id+'\')">I honored my stake</button></div>';
+  return h+'</div>';
+}
+function renderToday(){
+  const mine=myGoals();
+  let html=approvalsHtml();
+  if(!mine.length){$('today').innerHTML=html+welcomeHtml();return}
+  const goal=activeGoal();if(!goal){$('today').innerHTML=html+'<div class="empty">Pick a goal from the dropdown above.</div>';return}
+  const level=currentLevel(goal),today=todayKey();
+  html+=playerHtml(goal)+prizeHtml(goal,level);
+  const why=goal.commitNote||goal.why;
+  if(why)html+='<div class="commit-note"><small>Your why</small>“'+esc(why)+'”</div>';
+  html+=stakeHtml(goal,level);
 
-/* ===================== EDITOR (command desk) ===================== */
+  if(level.status==='recovery'){
+    html+='<div class="recovery-banner"><h3>You missed '+formatDate(level.recoveryTriggerDate)+'. It happens.</h3><p class="sub" style="margin:0">Nothing is erased. Choose how to get back on track:</p>'
+      +'<div class="recovery-actions"><button class="btn soft sm" onclick="recoveryAction(\''+goal.id+'\',\''+level.id+'\',\'repeat\')">Redo that day</button><button class="btn soft sm" onclick="recoveryAction(\''+goal.id+'\',\''+level.id+'\',\'extend\')">Add one extra day</button><button class="btn soft sm" onclick="recoveryAction(\''+goal.id+'\',\''+level.id+'\',\'minimum\')">Count my small version</button><button class="btn danger sm" onclick="recoveryAction(\''+goal.id+'\',\''+level.id+'\',\'pause\')">Pause</button></div></div>';
+  }else if(level.status==='paused'){
+    html+='<div class="recovery-banner"><h3>Paused since '+formatDate(level.pausedOn)+'</h3><p class="sub">The paused days will be excused, not counted against you.</p><button class="btn" onclick="resumeLevel(\''+goal.id+'\',\''+level.id+'\')">Resume</button></div>';
+  }else if(level.status==='done'){
+    const nextLv=goal.levels[goal.currentLevelIndex+1];
+    html+='<div class="win-banner"><h3 style="margin:0 0 4px">Stage complete 🏆</h3><p class="sub" style="margin:0 0 10px">'+(level.difficultySuggestion?esc(level.difficultySuggestion.note)+' ':'')+(nextLv?'':'Add a next stage to keep climbing.')+'</p>'+(nextLv?'':'<button class="btn sm" onclick="go(\'plan\')">Plan the next stage</button>')+'</div>';
+  }else{
+    if(checkpointDue(level))html+='<div class="checkpoint-banner"><h3 style="margin:0 0 4px">Halfway there. Still worth it?</h3><p class="sub" style="margin:0 0 10px">Recommit to the full plan, or deliberately make it smaller. Either way it is logged, not quietly dropped.</p><div class="prize-actions" style="margin-top:0"><button class="btn sm" onclick="checkpointRespond(\''+goal.id+'\',\''+level.id+'\',\'recommit\')">Recommit fully</button><button class="btn ghost sm" onclick="checkpointRespond(\''+goal.id+'\',\''+level.id+'\',\'downgrade\')">Make it smaller</button></div></div>';
+    const due=dueTasksFor(level,today),rec=level.days_log[today]||{doneTaskIds:[]};
+    const done=due.filter(t=>rec.doneTaskIds.includes(t.id)).length,left=due.length-done;
+    const r=level.reward,rname=rewardIsSet(r)?r.name:'your reward';
+    html+='<div class="card"><div class="today-head"><h2>Today’s tasks</h2><span>'+done+' of '+due.length+' done</span></div>'
+      +(due.length?due.map(t=>taskRowHtml(goal,level,t,rec)).join(''):'<div class="empty">Nothing due today. Enjoy the rest day.</div>')
+      +(due.length&&!left?'<div class="alldone"><big>🎉</big>All done today. You are one day closer to '+esc(rname)+'.</div>':(due.length?'<div class="sub" style="margin-top:10px">Finish '+(left===1?'the last task':left+' more')+' to move closer to '+esc(rname)+'.</div>':''))
+      +'<div class="prize-actions" style="margin-top:12px"><button class="btn ghost sm" onclick="exportCalendar(activeGoal(),currentLevel(activeGoal()))">📅 Add to calendar</button><button class="btn ghost sm" onclick="requestReminder()">🔔 Remind me</button></div></div>';
+  }
+  html+='<div class="head"><h3>Your path</h3><span class="sub">'+goal.levels.length+' stage'+(goal.levels.length>1?'s':'')+(goal.deadline?' · '+deadlineHtml(goal).replace(/<[^>]+>/g,''):'')+'</span></div>';
+  html+='<div class="ladder">'+goal.levels.map((l,i)=>'<div class="rung '+l.status+'" onclick="go(\'rewards\')"><span class="rg">'+(l.status==='done'?'✅':l.status==='current'?'📍':l.status==='recovery'?'⚠️':'🔒')+'</span><div class="rung-index">Stage '+(i+1)+'</div><h3>'+esc(l.title)+'</h3><div class="rung-meta">'+l.days+' days · '+levelProgress(l)+'%</div><div class="rung-meta" style="margin-top:4px">🎁 '+esc(rewardIsSet(l.reward)?l.reward.name:'No reward yet')+'</div></div>').join('')+'</div>';
+  if(level.recoveryEvents&&level.recoveryEvents.length)html+='<div class="card"><h3>Recoveries in this stage</h3>'+level.recoveryEvents.map(e=>'<div class="history-item"><span>'+esc(e.note)+'</span><small>'+e.date+'</small></div>').join('')+'</div>';
+  $('today').innerHTML=html;
+}
+function taskRowHtml(goal,level,task,rec){
+  const done=rec.doneTaskIds.includes(task.id);
+  return '<div class="task-row'+(done?' all-done':'')+'"><button type="button" class="chk'+(done?' done':'')+'" aria-label="Mark done" onclick="toggleTask(\''+goal.id+'\',\''+level.id+'\',\''+task.id+'\')">'+(done?'✓':'')+'</button><div style="flex:1;min-width:0"><div class="task-label">'+esc(task.title)+'</div>'+(task.detail?'<div class="task-sub">'+esc(task.detail)+'</div>':'')+'<div class="task-tags"><span class="tag-pill">+'+task.xp+' pts</span>'+(task.peer?'<span class="tag-pill peer">Approved by '+esc(task.peer)+'</span>':'')+(task.requiresPhoto?'<span class="tag-pill proof">📷 photo proof</span>':'')+(task.frequency!=='daily'?'<span class="tag-pill">'+({weekdays:'weekdays',selected:'chosen days',once:'one time'}[task.frequency]||task.frequency)+'</span>':'')+(task.time?'<span class="tag-pill">'+esc(task.time)+'</span>':'')+'</div></div><button class="btn ghost sm" onclick="openFocus(\''+goal.id+'\',\''+level.id+'\',\''+task.id+'\')">⏱ Focus</button></div>';
+}
+function changeBackground(goalId,input){
+  const f=input.files[0];if(!f)return;const r=new FileReader();r.onload=()=>{const goal=state.goals.find(g=>g.id===goalId);goal.background=r.result;save();renderPage(document.querySelector('.page.active').id);toast('Picture updated')};r.readAsDataURL(f);
+}
+
+/* ===================== MY GOALS ===================== */
+function renderGoals(){
+  const mine=myGoals();
+  let html='';
+  if(!mine.length)html=welcomeHtml();
+  else{
+    html+='<div class="head"><span class="sub">'+mine.length+' active goal'+(mine.length>1?'s':'')+'</span><button class="btn" onclick="openNewGoal()">+ New goal</button></div>';
+    html+='<div class="pledge-grid">'+mine.map(g=>{
+      const level=currentLevel(g),pct=levelProgress(level),pace=paceInfo(level);
+      return '<div class="war-card'+(g.id===state.activeGoalId?' active':'')+'"><div class="war-row"><div><b style="font-size:16px">'+esc(g.title)+'</b><div class="sub">'+esc(level.title)+' · '+esc(pace.text)+'</div></div><span class="streak-chip">'+pct+'%</span></div>'
+        +'<div class="bar" style="margin:10px 0"><i style="width:'+pct+'%"></i></div><div class="sub" style="margin-bottom:8px">🎁 '+esc(rewardIsSet(level.reward)?level.reward.name:'No reward chosen yet')+'</div>'+deadlineHtml(g)
+        +'<div class="prize-actions"><button class="btn sm" onclick="switchGoal(\''+g.id+'\');go(\'today\')">Open today</button><button class="btn ghost sm" onclick="switchGoal(\''+g.id+'\');go(\'plan\')">Edit plan</button>'
+        +'<label class="btn ghost sm" style="cursor:pointer">Change picture<input type="file" accept="image/*" style="display:none" onchange="changeBackground(\''+g.id+'\',this)"></label><button class="btn danger sm" onclick="archiveGoal(\''+g.id+'\')">Archive</button></div></div>';
+    }).join('')+'</div>';
+  }
+  html+='<details class="sec" style="margin-top:16px"><summary>Backup & import</summary><div class="sec-body"><p class="sub">Save a copy of everything in Pledge, or restore one.</p><div class="prize-actions"><button class="btn ghost sm" onclick="exportBackup()">Export backup</button><label class="btn ghost sm" style="cursor:pointer">Import backup<input type="file" accept="application/json" style="display:none" onchange="importBackup(this)"></label></div></div></details>';
+  $('goals').innerHTML=html;
+}
+
+/* ===================== REWARDS ===================== */
+function renderRewards(){
+  const goal=activeGoal();
+  if(!goal){$('rewards').innerHTML=welcomeHtml();return}
+  const ref=refereeFor(goal);
+  let html='<div class="head"><h3>Stage rewards · '+esc(goal.title)+'</h3><button class="btn ghost sm" onclick="go(\'plan\')">Edit rewards</button></div><div class="vault-grid">'
+    +goal.levels.map((l,i)=>{
+      const r=l.reward,set=rewardIsSet(r),won=['earned','purchased','claimed'].includes(r.status),pct=levelProgress(l);
+      return '<div class="vault-item"><div class="vault-image'+(won||l.status==='current'?'':' locked')+'" style="'+(r.image?'background-image:url(\''+r.image.replace(/\'/g,'%27')+'\');'+(won?'':'filter:blur('+(l.status==='current'?Math.round((100-pct)/100*8):8)+'px) grayscale(.6)'):'')+'">'+(r.image?'':(won?'🎁':'🔒'))+'</div><div class="vault-copy"><small>Stage '+(i+1)+' · '+esc(l.title)+'</small><h3 style="font-size:16px;margin:4px 0">'+esc(set?r.name:'Not chosen yet')+'</h3><p class="sub" style="margin:0 0 8px">'+(r.price?'$'+r.price+' · ':'')+'<span class="reward-status-chip '+r.status+'">'+esc(rewardStatusLabel(r.status))+'</span></p>'
+        +(l.status==='current'?'<div class="bar"><i style="width:'+pct+'%"></i></div><div class="hint">'+pct+'% of the way there</div>':'')
+        +(won&&r.status==='earned'&&ref&&!l.approvedBy?'<div class="hint">⏳ Waiting for '+esc(ref)+' to approve</div>':'')
+        +(won||l.status==='done'?'<div class="prize-actions" style="margin-top:8px">'+rewardActionsHtml(goal,l).replace(/class="btn gold"/g,'class="btn sm"')+'</div>':'')
+        +'</div></div>';
+    }).join('')+'</div>';
+  html+='<div class="head" style="margin-top:22px"><div><h3>Bonus rewards</h3><span class="sub">Unlocked by points ('+(goal.xpBank||0)+' banked). Points are never lost, even after a missed day.</span></div><button class="btn soft sm" onclick="addBonusReward(\''+goal.id+'\')">+ Add bonus</button></div>';
+  html+=(goal.bonusRewards&&goal.bonusRewards.length)?'<div class="pledge-grid">'+goal.bonusRewards.map(b=>'<div class="war-card"><b>🎉 '+esc(b.name)+'</b><div class="sub">Needs '+b.xpRequired+' points</div><div class="bar" style="margin:8px 0"><i style="width:'+Math.min(100,Math.round((goal.xpBank||0)/b.xpRequired*100))+'%"></i></div>'+(b.claimed?'<span class="reward-status-chip claimed">CLAIMED</span>':'<button class="btn sm" onclick="claimBonus(\''+goal.id+'\',\''+b.id+'\')" '+((goal.xpBank||0)<b.xpRequired?'disabled':'')+'>Claim</button>')+'</div>').join('')+'</div>':'<div class="empty">No bonus rewards yet. Add a small treat so every point you earn counts toward something.</div>';
+  $('rewards').innerHTML=html;
+}
+
+/* ===================== PROGRESS ===================== */
+function roadHtml(level){
+  const N=Math.max(1,level.days),W=600,H=230,L=34,R=574,T=18,B=200,px=i=>L+(R-L)*i/N,py=v=>B-(B-T)*v/N;
+  const elapsed=Math.min(N,daysElapsedIn(level)),today=todayKey();
+  let pts=[[0,0]],cum=0;
+  for(let i=0;i<elapsed;i++){const d=addDays(level.startedAt,i);if(daySatisfied(level,d))cum++;if(d===today&&!daySatisfied(level,d))break;pts.push([i+1,cum])}
+  const path=pts.map((p,i)=>(i?'L':'M')+px(p[0]).toFixed(1)+' '+py(p[1]).toFixed(1)).join(' ');
+  const last=pts[pts.length-1];
+  let grid='';for(let i=0;i<=N;i+=Math.max(1,Math.ceil(N/7)))grid+='<text x="'+px(i)+'" y="'+(B+16)+'" font-size="10" fill="var(--faint)" text-anchor="middle">'+i+'</text>';
+  return '<svg viewBox="0 0 '+W+' '+H+'" role="img" aria-label="Road to reward"><line x1="'+L+'" y1="'+B+'" x2="'+R+'" y2="'+B+'" stroke="var(--line)"/><line x1="'+L+'" y1="'+T+'" x2="'+L+'" y2="'+B+'" stroke="var(--line)"/>'
+    +'<line x1="'+px(0)+'" y1="'+py(0)+'" x2="'+px(N)+'" y2="'+py(N)+'" stroke="var(--faint)" stroke-width="2" stroke-dasharray="6 6"/>'
+    +'<path d="'+path+'" fill="none" stroke="var(--accent)" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>'
+    +'<circle cx="'+px(last[0]).toFixed(1)+'" cy="'+py(last[1]).toFixed(1)+'" r="6" fill="var(--accent)" stroke="var(--surface)" stroke-width="3"/>'
+    +'<text x="'+px(N)+'" y="'+(py(N)-8)+'" font-size="20" text-anchor="end">🎁</text>'+grid
+    +'<text x="'+(L-6)+'" y="'+(T+4)+'" font-size="10" fill="var(--faint)" text-anchor="end">'+N+'</text><text x="'+(L-6)+'" y="'+(B+4)+'" font-size="10" fill="var(--faint)" text-anchor="end">0</text></svg>';
+}
+function renderProgress(){
+  const goal=activeGoal();
+  if(!goal){$('progress').innerHTML=welcomeHtml();return}
+  const level=currentLevel(goal),pct=levelProgress(level),events=state.history.filter(e=>e.goalId===goal.id),reviews=state.reviews[goal.id]||[],pace=paceInfo(level),rk=rankInfo(lifetimeXp());
+  let html=playerHtml(goal);
+  html+='<div class="cards"><div class="metric"><span>This stage</span><b>'+pct+'%</b></div><div class="metric"><span>Best streak</span><b>🔥 '+longestStreak(myGoals())+'</b></div><div class="metric"><span>Points</span><b>'+(goal.xpBank||0)+'</b></div></div>';
+  html+='<div class="card road"><div class="head" style="margin-bottom:6px"><div><h3>Road to your reward</h3><span class="sub">Stay on the dotted line to earn it on time.</span></div><span class="chip '+(pace.state==='on'||pace.state==='done'?'ok':'warn')+'">'+esc(pace.text)+'</span></div>'+roadHtml(level)
+    +'<div class="road-legend"><span><i style="background:var(--faint)"></i>Where you should be</span><span><i style="background:var(--accent)"></i>Where you are</span><span>Days in stage →</span></div></div>';
+  const badges=badgesFor(myGoals()),got=badges.filter(b=>b.got).length;
+  html+='<div class="card"><div class="head"><h3>Badges</h3><span class="sub">'+got+' of '+badges.length+' earned · rank '+rk.n+' '+rk.name+'</span></div><div class="badges">'+badges.map(b=>'<div class="badge'+(b.got?' got':'')+'"><div class="bi">'+b.i+'</div><b>'+b.n+'</b><small>'+b.d+'</small></div>').join('')+'</div></div>';
+  const proofs=(goal.photoCheckins||[]);
+  html+='<div class="card"><h3>Proof of effort</h3>'+(proofs.length?'<div class="timeline-strip">'+proofs.slice().reverse().map(p=>'<div class="timeline-thumb" style="background-image:url(\''+p.dataUrl+'\')" title="'+p.date+'"></div>').join('')+'</div>':'<p class="sub" style="margin:0">Photo check-ins show up here. Turn on “photo proof” for a task in Edit plan to build a visual timeline.</p>')+'</div>';
+  html+='<details class="sec"><summary>Weekly check-in <small>'+esc(goal.reviewDay||'Sunday')+' is your review day</small></summary><div class="sec-body">'
+    +'<div class="label">What worked?</div><textarea class="input" id="reviewWorked" rows="2"></textarea>'
+    +'<div class="label" style="margin-top:9px">What got in the way?</div><textarea class="input" id="reviewFriction" rows="2"></textarea>'
+    +'<div class="label" style="margin-top:9px">What will you change next week?</div><textarea class="input" id="reviewChanges" rows="2"></textarea>'
+    +'<button class="btn sm" style="margin-top:10px" onclick="saveReview(\''+goal.id+'\')">Save check-in</button>'
+    +(reviews.length?'<div style="margin-top:14px">'+reviews.map(r=>'<div class="history-item" style="display:block"><small>'+new Date(r.savedAt).toLocaleString()+'</small><div><b>Worked:</b> '+esc(r.worked||'—')+'</div><div><b>In the way:</b> '+esc(r.friction||'—')+'</div><div><b>Change:</b> '+esc(r.changes||'—')+'</div></div>').join('')+'</div>':'')
+    +'</div></details>';
+  html+='<details class="sec"><summary>History <small>'+events.length+' records</small></summary><div class="sec-body"><div class="prize-actions" style="margin:0 0 8px"><button class="btn ghost sm" onclick="printReport()">Print report</button></div>'
+    +(events.length?events.slice(0,40).map(e=>'<div class="history-item"><span>'+esc(e.action)+(e.detail?' · '+esc(e.detail):'')+'</span><small>'+new Date(e.date).toLocaleString()+'</small></div>').join(''):'<div class="empty">Nothing recorded yet.</div>')+'</div></details>';
+  $('progress').innerHTML=html;
+}
+
+/* ===================== PLAN (edit everything) ===================== */
+const openSecs=new Set(['goal','stages']);
+function sec(key,title,sub,body){return '<details class="sec" data-k="'+key+'" '+(openSecs.has(key)?'open':'')+'><summary><span>'+title+(sub?'<small>'+sub+'</small>':'')+'</span></summary><div class="sec-body">'+body+'</div></details>'}
+function field(label,id,value,type,hint){return '<div class="re-field"><div class="label">'+label+'</div><input class="input" id="'+id+'" type="'+(type||'text')+'" value="'+esc(value==null?'':value)+'">'+(hint?'<div class="hint">'+hint+'</div>':'')+'</div>'}
+function selectField(label,id,opts,value){return '<div class="re-field"><div class="label">'+label+'</div><select class="input" id="'+id+'">'+opts.map(o=>{const v=Array.isArray(o)?o[0]:o,t=Array.isArray(o)?o[1]:o;return '<option value="'+esc(v)+'" '+(v===value?'selected':'')+'>'+esc(t)+'</option>'}).join('')+'</select></div>'}
 function renderEditor(){
   const goal=activeGoal();
-  if(!goal){$('editor').innerHTML='<div class="empty">Create an operation first.</div>';return}
-  let html='<div class="head"><div><h2 style="margin:0">'+esc(goal.title)+'</h2><p class="sub">Every field below is saved locally and synced to the cloud.</p></div><div class="modal-actions"><button class="btn ghost sm" onclick="exportBackup()">Export backup</button><label class="btn ghost sm" style="cursor:pointer">Import backup<input type="file" accept="application/json" style="display:none" onchange="importBackup(this)"></label></div></div>';
-
-  html+='<div class="card"><h3>Goal file</h3><div class="grid-2">'
-    +field('Operation name','gTitle',goal.title)
-    +selectField('Goal type','gType',['Personal','Fitness','Education','Career','Financial','Project','Employee development','Student plan'],goal.type)
-    +field('Briefing','gDescription',goal.description)
-    +field('Why this matters','gWhy',goal.why)
-    +field('Starting point','gStarting',goal.startingPoint)
-    +field('Target result','gTarget',goal.target)
+  if(!goal){$('plan').innerHTML=welcomeHtml();return}
+  const cur=currentLevel(goal),other=goal.profileId==='Bhargav'?'Anusha':'Bhargav',st=goal.stake||{text:'',amount:0,referee:''};
+  let html='<div class="head"><div><h2 style="font-size:20px">'+esc(goal.title)+'</h2></div><button class="btn ghost sm" onclick="go(\'goals\')">← All goals</button></div>';
+  html+=sec('goal','The goal','name, why, target date','<div class="grid-2">'
+    +field('Goal name','gTitle',goal.title)
+    +selectField('Type','gType',['Personal','Fitness','Education','Career','Financial','Project','Employee development','Student plan'],goal.type)
+    +field('Short description','gDescription',goal.description)
+    +field('Why this matters to you','gWhy',goal.why,'text','Shown back to you on Today.')
+    +field('Where you are now','gStarting',goal.startingPoint)
+    +field('Result you want','gTarget',goal.target)
     +field('Target date','gDeadline',goal.deadline,'date')
-    +selectField('Priority','gPriority',['Critical','High','Normal','Low'],goal.priority)
-    +'</div><div class="template-row">'+Object.entries(TEMPLATES).map(([k,t])=>'<button class="btn ghost sm" onclick="createFromTemplate(\''+k+'\')">Load '+esc(t.type)+' template</button>').join('')+'</div></div>';
-
-  html+='<div class="card"><h3>Environment preparation</h3><div class="grid-2">'
-    +'<div class="label" style="grid-column:1/-1">Preparation checklist</div><textarea class="input" id="gPrep" style="grid-column:1/-1" rows="3">'+esc(goal.prepChecklist)+'</textarea>'
-    +field('Daily reminder time','gReminder',goal.reminderTime,'time')
-    +selectField('Weekly review day','gReviewDay',['Sunday','Monday','Friday','Saturday'],goal.reviewDay)
-    +'</div></div>';
-
-  html+='<div class="card"><h3>Sealed commit note</h3>'+(goal.commitNoteSealedAt
-    ?('<div class="commit-note">“'+esc(goal.commitNote)+'”</div><p class="sub">Sealed '+new Date(goal.commitNoteSealedAt).toLocaleString()+'. Shown back to you during any recovery moment.</p><button class="btn soft sm" onclick="resealCommitNote(\''+goal.id+'\')">Reseal with a new note</button>')
-    :('<p class="sub">Write why you will not fail this time. Once sealed it becomes read-only — a reminder for the hard moments.</p><textarea class="input" id="commitNoteInput" rows="3" placeholder="Why this matters, written to your future self"></textarea><button class="btn gold sm" style="margin-top:8px" onclick="sealCommitNote(\''+goal.id+'\')">Seal this note</button>'))
-    +'</div>';
-
-  html+='<div class="card"><h3>Milestones</h3><div class="sub" style="margin-bottom:8px">Big markers, lighter than the daily grind.</div>'
-    +goal.milestones.map(m=>'<div class="grid-3" style="margin-bottom:7px"><input class="input" value="'+esc(m.title)+'" onchange="updateMilestone(\''+goal.id+'\',\''+m.id+'\',\'title\',this.value)"><input class="input" value="'+esc(m.criteria)+'" onchange="updateMilestone(\''+goal.id+'\',\''+m.id+'\',\'criteria\',this.value)"><div style="display:flex;gap:6px"><select class="input" onchange="updateMilestone(\''+goal.id+'\',\''+m.id+'\',\'status\',this.value)">'+['upcoming','active','complete'].map(s=>'<option '+(m.status===s?'selected':'')+'>'+s+'</option>').join('')+'</select><button class="btn danger sm" onclick="deleteMilestone(\''+goal.id+'\',\''+m.id+'\')">×</button></div></div>').join('')
-    +'<button class="btn soft sm" onclick="addMilestone(\''+goal.id+'\')">+ Add milestone</button></div>';
-
-  html+='<div class="head"><h2 style="margin:0">Levels (the ladder)</h2><button class="btn gold sm" onclick="addLevel(\''+goal.id+'\')">+ Add level</button></div>';
-  html+=goal.levels.map((l,i)=>levelEditorCard(goal,l,i)).join('');
-
-  $('editor').innerHTML=html;
+    +selectField('Importance','gPriority',['Critical','High','Normal','Low'],goal.priority)
+    +'</div><div class="template-row">'+Object.entries(TEMPLATES).map(([k,t])=>'<button class="btn ghost sm" onclick="createFromTemplate(\''+k+'\')">New from '+esc(t.type)+' idea</button>').join('')+'</div>');
+  html+=sec('stages','Stages, daily tasks & rewards',goal.levels.length+' stage'+(goal.levels.length>1?'s':''),
+    '<p class="sub" style="margin-top:0">Each stage has its own daily tasks and its own reward. Finish the days to unlock it.</p>'
+    +goal.levels.map((l,i)=>levelEditorCard(goal,l,i)).join('')+'<button class="btn" onclick="addLevel(\''+goal.id+'\')">+ Add a stage</button>');
+  html+=sec('stake','Stake & referee','optional accountability',
+    '<p class="sub" style="margin-top:0">Put something on the line and name someone to confirm you really did it. Honor-based: Pledge reminds you, you follow through.</p><div class="grid-3">'
+    +field('What you lose if you quit','gStakeText',st.text)+field('Amount ($)','gStakeAmt',st.amount||'','number')
+    +selectField('Referee','gReferee',[['','No referee'],[other,other]],st.referee||'')+'</div>');
+  html+=sec('why','Letter to your future self',goal.commitNoteSealedAt?'sealed':'',goal.commitNoteSealedAt
+    ?'<div class="commit-note">“'+esc(goal.commitNote)+'”</div><p class="sub">Sealed '+new Date(goal.commitNoteSealedAt).toLocaleString()+'. Shown back to you whenever you slip.</p><button class="btn soft sm" onclick="resealCommitNote(\''+goal.id+'\')">Write a new one</button>'
+    :'<p class="sub" style="margin-top:0">Write why you will not give up. Once sealed it cannot be edited, so it stays honest.</p><textarea class="input" id="commitNoteInput" rows="3" placeholder="Dear me, on a day you want to quit, remember…"></textarea><button class="btn sm" style="margin-top:8px" onclick="sealCommitNote(\''+goal.id+'\')">Seal this note</button>');
+  html+=sec('miles','Milestones','big markers along the way',
+    goal.milestones.map(m=>'<div class="grid-3" style="margin-bottom:8px"><input class="input" value="'+esc(m.title)+'" onchange="updateMilestone(\''+goal.id+'\',\''+m.id+'\',\'title\',this.value)"><input class="input" value="'+esc(m.criteria)+'" onchange="updateMilestone(\''+goal.id+'\',\''+m.id+'\',\'criteria\',this.value)"><div style="display:flex;gap:6px"><select class="input" onchange="updateMilestone(\''+goal.id+'\',\''+m.id+'\',\'status\',this.value)">'+['upcoming','active','complete'].map(s=>'<option '+(m.status===s?'selected':'')+'>'+s+'</option>').join('')+'</select><button class="btn danger sm" onclick="deleteMilestone(\''+goal.id+'\',\''+m.id+'\')">×</button></div></div>').join('')
+    +'<button class="btn soft sm" onclick="addMilestone(\''+goal.id+'\')">+ Add milestone</button>');
+  html+=sec('prep','Reminders & preparation','',
+    '<div class="grid-2"><div style="grid-column:1/-1"><div class="label">Get ready checklist</div><textarea class="input" id="gPrep" rows="3">'+esc(goal.prepChecklist)+'</textarea></div>'
+    +field('Daily reminder time','gReminder',goal.reminderTime,'time')+selectField('Weekly check-in day','gReviewDay',['Sunday','Monday','Friday','Saturday'],goal.reviewDay)+'</div>');
+  $('plan').innerHTML=html;
+  $('plan').querySelectorAll('details.sec').forEach(d=>d.addEventListener('toggle',()=>{d.open?openSecs.add(d.dataset.k):openSecs.delete(d.dataset.k)}));
   wireEditorInputs(goal);
 }
-function field(label,id,value,type){return '<div class="re-field"><div class="label">'+label+'</div><input class="input" id="'+id+'" type="'+(type||'text')+'" value="'+esc(value||'')+'"></div>'}
-function selectField(label,id,opts,value){return '<div class="re-field"><div class="label">'+label+'</div><select class="input" id="'+id+'">'+opts.map(o=>'<option '+(o===value?'selected':'')+'>'+o+'</option>').join('')+'</select></div>'}
 function levelEditorCard(goal,level,i){
-  const suggestion=level.difficultySuggestion;
-  return '<div class="card" style="border-color:'+(level.id===currentLevel(goal).id?'var(--lime)':'var(--line)')+'">'
-    +'<div class="head"><div><div class="eyebrow">Level '+(i+1)+(level.id===currentLevel(goal).id?' · current':'')+'</div><h3 style="margin:4px 0">'+esc(level.title)+'</h3><p class="sub">'+level.days+' days · '+level.tasks.length+' tasks · '+levelProgress(level)+'% · status: '+level.status+'</p></div><div class="modal-actions">'+(goal.levels.length>1?'<button class="btn danger sm" onclick="deleteLevel(\''+goal.id+'\',\''+level.id+'\')">Delete</button>':'')+'</div></div>'
-    +(suggestion?'<div class="checkpoint-banner"><b>Suggested next level:</b> '+suggestion.note+' ('+suggestion.days+' days)</div>':'')
-    +'<div class="grid-2">'+field('Level name','lvTitle-'+level.id,level.title)+field('Required days','lvDays-'+level.id,level.days,'number')
-    +'<div class="re-field" style="grid-column:1/-1"><div class="label">Completion & failure rule</div><textarea class="input" id="lvRule-'+level.id+'" rows="2">'+esc(level.rule)+'</textarea></div>'
-    +'<label style="display:flex;align-items:center;gap:7px;font-size:12px;color:var(--muted)"><input type="checkbox" id="lvShared-'+level.id+'" '+(level.shared?'checked':'')+'> Shared level — both profiles must complete their own tasks each day</label>'
-    +'</div>'
-    +'<div class="head" style="margin-top:12px"><h3 style="margin:0;font-size:14px">Tasks</h3><button class="btn soft sm" onclick="addTask(\''+goal.id+'\',\''+level.id+'\')">+ Add task</button></div>'
+  const suggestion=level.difficultySuggestion,isCur=level.id===currentLevel(goal).id;
+  return '<div class="card" style="'+(isCur?'border-color:var(--accent)':'')+'">'
+    +'<div class="head"><div><div class="eyebrow">Stage '+(i+1)+(isCur?' · now':'')+'</div><h3 style="margin:4px 0">'+esc(level.title)+'</h3><p class="sub" style="margin:0">'+level.days+' days · '+level.tasks.length+' task'+(level.tasks.length>1?'s':'')+' · '+levelProgress(level)+'% · '+({current:'active',done:'complete',recovery:'needs recovery',paused:'paused',upcoming:'not started'}[level.status]||level.status)+'</p></div>'+(goal.levels.length>1?'<button class="btn danger sm" onclick="deleteLevel(\''+goal.id+'\',\''+level.id+'\')">Delete stage</button>':'')+'</div>'
+    +(suggestion?'<div class="checkpoint-banner"><b>Tip for the next stage:</b> '+esc(suggestion.note)+' ('+suggestion.days+' days)</div>':'')
+    +'<div class="grid-2">'+field('Stage name','lvTitle-'+level.id,level.title)+field('Days to complete','lvDays-'+level.id,level.days,'number')
+    +'<div class="re-field" style="grid-column:1/-1"><div class="label">The rule</div><textarea class="input" id="lvRule-'+level.id+'" rows="2">'+esc(level.rule)+'</textarea></div>'
+    +'<label style="display:flex;align-items:center;gap:8px;font-size:13px;color:var(--muted);grid-column:1/-1"><input type="checkbox" id="lvShared-'+level.id+'" '+(level.shared?'checked':'')+'> Shared stage — both of you complete your own tasks each day</label></div>'
+    +'<div class="head" style="margin-top:14px"><h3 style="font-size:15px">Daily tasks</h3><button class="btn soft sm" onclick="addTask(\''+goal.id+'\',\''+level.id+'\')">+ Add task</button></div>'
     +level.tasks.map(t=>taskEditorHtml(goal,level,t)).join('')
-    +'<div class="head" style="margin-top:12px"><h3 style="margin:0;font-size:14px">Reward</h3></div>'
-    +rewardEditorHtml(goal,level)
-    +'</div>';
+    +'<div class="head" style="margin-top:14px"><h3 style="font-size:15px">🎁 Reward for this stage</h3></div>'+rewardEditorHtml(goal,level)+'</div>';
 }
 function taskEditorHtml(goal,level,t){
-  return '<div class="task-editor" data-task="'+t.id+'">'
-    +'<div class="grid-3">'+field('Task name','tt-'+t.id,t.title)+field('XP','tx-'+t.id,t.xp,'number')+'<button class="btn danger sm" onclick="deleteTask(\''+goal.id+'\',\''+level.id+'\',\''+t.id+'\')">Delete task</button>'
-    +field('Detail / exact requirement','td-'+t.id,t.detail)+field('Time','tm-'+t.id,t.time)+field('Duration (min)','tu-'+t.id,t.duration,'number')
-    +selectField('Priority','tp-'+t.id,['Critical','High','Normal','Low'],t.priority)
-    +selectField('Frequency','tf-'+t.id,['daily','weekdays','selected','once'],t.frequency)
-    +selectField('Peer approval','tr-'+t.id,['','Bhargav','Anusha'],t.peer)
-    +'</div>'
-    +field('Minimum-day version (for recovery)','tn-'+t.id,t.minimum)
-    +'<label style="display:flex;align-items:center;gap:7px;font-size:12px;color:var(--muted);margin-top:6px"><input type="checkbox" id="tphoto-'+t.id+'" '+(t.requiresPhoto?'checked':'')+'> Requires a photo check-in when completed</label>'
-    +'<button class="btn ghost sm" style="margin-top:8px" onclick="openFocus(\''+goal.id+'\',\''+level.id+'\',\''+t.id+'\')">Define focus task</button>'
-    +'</div>';
+  const dayBtns=t.frequency==='selected'?'<div class="chips-row" style="grid-column:1/-1">'+['Sun','Mon','Tue','Wed','Thu','Fri','Sat'].map((n,d)=>'<label class="pick'+((t.selectedDays||[]).includes(d)?' on':'')+'" style="cursor:pointer"><input type="checkbox" style="display:none" data-sd="'+t.id+'" data-d="'+d+'" '+((t.selectedDays||[]).includes(d)?'checked':'')+'>'+n+'</label>').join('')+'</div>':'';
+  return '<div class="task-editor" data-task="'+t.id+'"><div class="grid-3" style="grid-template-columns:2fr 1fr auto;align-items:end">'+field('Task','tt-'+t.id,t.title)+field('Points','tx-'+t.id,t.xp,'number')+'<button class="btn danger sm" onclick="deleteTask(\''+goal.id+'\',\''+level.id+'\',\''+t.id+'\')">Delete</button></div>'
+    +'<div style="margin-top:10px">'+field('Details (what counts as done)','td-'+t.id,t.detail)+'</div>'
+    +'<details class="more"><summary>More options</summary><div class="grid-2" style="margin-top:8px">'
+    +field('Time of day','tm-'+t.id,t.time)+field('Minutes','tu-'+t.id,t.duration,'number')
+    +selectField('Importance','tp-'+t.id,['Critical','High','Normal','Low'],t.priority)
+    +selectField('How often','tf-'+t.id,[['daily','Every day'],['weekdays','Weekdays'],['selected','Chosen days'],['once','One time']],t.frequency)+dayBtns
+    +selectField('Needs approval from','tr-'+t.id,[['','Nobody'],['Bhargav','Bhargav'],['Anusha','Anusha']],t.peer)
+    +field('Small version for a hard day','tn-'+t.id,t.minimum)
+    +'<label style="display:flex;align-items:center;gap:8px;font-size:13px;color:var(--muted);grid-column:1/-1"><input type="checkbox" id="tphoto-'+t.id+'" '+(t.requiresPhoto?'checked':'')+'> Ask for a photo as proof when done</label></div>'
+    +'<button class="btn ghost sm" style="margin-top:8px" onclick="openFocus(\''+goal.id+'\',\''+level.id+'\',\''+t.id+'\')">⏱ Try the focus timer</button></details></div>';
 }
 function rewardEditorHtml(goal,level){
   const r=level.reward;
-  return '<div class="reward-banner" style="background:#FAFAF7;color:var(--ink);border-color:var(--line)"><div style="display:grid;gap:8px;grid-column:1/-1">'
-    +'<div class="grid-2">'+field('Reward name','rn-'+level.id,r.name)+field('Price ($)','rp-'+level.id,r.price,'number')
-    +'<div class="re-field" style="grid-column:1/-1">'+field('Product link','ru-'+level.id,r.url)+'</div>'
-    +'</div><label class="btn ghost sm" style="cursor:pointer;width:max-content">Upload reward image<input type="file" accept="image/*" style="display:none" onchange="uploadRewardImage(\''+goal.id+'\',\''+level.id+'\',this)"></label>'
-    +'</div></div>';
+  return '<div class="reward-edit"><div class="grid-2">'+field('Reward','rn-'+level.id,rewardIsSet(r)?r.name:'')+field('Price ($)','rp-'+level.id,r.price||'','number')
+    +'<div style="grid-column:1/-1">'+field('Link to it (optional)','ru-'+level.id,r.url)+'</div></div>'
+    +'<div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">'+(r.image?'<div style="width:64px;height:64px;border-radius:12px;background:url(\''+r.image.replace(/\'/g,'%27')+'\') center/cover"></div>':'')
+    +'<label class="btn ghost sm" style="cursor:pointer">'+(r.image?'Change picture':'Add a picture')+'<input type="file" accept="image/*" style="display:none" onchange="uploadRewardImage(\''+goal.id+'\',\''+level.id+'\',this)"></label><span class="hint">A clear picture makes you want it more.</span></div></div>';
 }
 function wireEditorInputs(goal){
   const bind=(id,obj,key,num)=>{const el=$(id);if(!el)return;el.addEventListener('input',()=>{obj[key]=num?Number(el.value)||0:el.value;save()})};
   bind('gTitle',goal,'title');bind('gType',goal,'type');bind('gDescription',goal,'description');bind('gWhy',goal,'why');bind('gStarting',goal,'startingPoint');bind('gTarget',goal,'target');bind('gDeadline',goal,'deadline');bind('gPriority',goal,'priority');bind('gPrep',goal,'prepChecklist');bind('gReminder',goal,'reminderTime');bind('gReviewDay',goal,'reviewDay');
-  ['gTitle','gDescription'].forEach(id=>{const el=$(id);if(el)el.addEventListener('input',()=>renderGoalSelect())});
+  ['gTitle'].forEach(id=>{const el=$(id);if(el)el.addEventListener('input',()=>renderGoalSelect())});
+  goal.stake=goal.stake||{text:'',amount:0,referee:''};
+  bind('gStakeText',goal.stake,'text');bind('gStakeAmt',goal.stake,'amount',true);bind('gReferee',goal.stake,'referee');
   goal.levels.forEach(level=>{
     bind('lvTitle-'+level.id,level,'title');bind('lvDays-'+level.id,level,'days',true);bind('lvRule-'+level.id,level,'rule');
     const sh=$('lvShared-'+level.id);if(sh)sh.addEventListener('change',()=>{level.shared=sh.checked;save()});
     level.tasks.forEach(t=>{
-      bind('tt-'+t.id,t,'title');bind('tx-'+t.id,t,'xp',true);bind('td-'+t.id,t,'detail');bind('tm-'+t.id,t,'time');bind('tu-'+t.id,t,'duration',true);bind('tp-'+t.id,t,'priority');bind('tf-'+t.id,t,'frequency');bind('tr-'+t.id,t,'peer');bind('tn-'+t.id,t,'minimum');
+      bind('tt-'+t.id,t,'title');bind('tx-'+t.id,t,'xp',true);bind('td-'+t.id,t,'detail');bind('tm-'+t.id,t,'time');bind('tu-'+t.id,t,'duration',true);bind('tp-'+t.id,t,'priority');bind('tr-'+t.id,t,'peer');bind('tn-'+t.id,t,'minimum');
+      const tf=$('tf-'+t.id);if(tf)tf.addEventListener('change',()=>{t.frequency=tf.value;if(t.frequency==='selected'&&!(t.selectedDays||[]).length)t.selectedDays=[1,2,3,4,5];save();renderEditor();const m=$('plan').querySelector('[data-task="'+t.id+'"] details.more');if(m)m.open=true});
+      document.querySelectorAll('[data-sd="'+t.id+'"]').forEach(cb=>cb.addEventListener('change',()=>{const d=Number(cb.dataset.d),set=new Set(t.selectedDays||[]);cb.checked?set.add(d):set.delete(d);t.selectedDays=[...set].sort();cb.parentElement.classList.toggle('on',cb.checked);save()}));
       const ph=$('tphoto-'+t.id);if(ph)ph.addEventListener('change',()=>{t.requiresPhoto=ph.checked;save()});
     });
     bind('rn-'+level.id,level.reward,'name');bind('rp-'+level.id,level.reward,'price',true);bind('ru-'+level.id,level.reward,'url');
@@ -692,114 +1003,58 @@ function wireEditorInputs(goal){
 }
 function addTask(goalId,levelId){const goal=state.goals.find(g=>g.id===goalId),level=goal.levels.find(l=>l.id===levelId);level.tasks.push(freshTask());save();renderEditor();toast('Task added')}
 function deleteTask(goalId,levelId,taskId){const goal=state.goals.find(g=>g.id===goalId),level=goal.levels.find(l=>l.id===levelId);level.tasks=level.tasks.filter(t=>t.id!==taskId);save();renderEditor();toast('Task deleted')}
-function uploadRewardImage(goalId,levelId,input){const f=input.files[0];if(!f)return;const r=new FileReader();r.onload=()=>{const goal=state.goals.find(g=>g.id===goalId),level=goal.levels.find(l=>l.id===levelId);level.reward.image=r.result;save();renderEditor();toast('Reward image saved')};r.readAsDataURL(f)}
+function uploadRewardImage(goalId,levelId,input){const f=input.files[0];if(!f)return;const r=new FileReader();r.onload=()=>{const goal=state.goals.find(g=>g.id===goalId),level=goal.levels.find(l=>l.id===levelId);level.reward.image=r.result;save();renderEditor();toast('Picture saved')};r.readAsDataURL(f)}
 function addLevel(goalId){
   const goal=state.goals.find(g=>g.id===goalId),prev=goal.levels[goal.levels.length-1];
   const suggestion=prev&&prev.difficultySuggestion;
   const carried=prev?prev.tasks.map(t=>freshTask({title:t.title,detail:t.detail,xp:t.xp,frequency:t.frequency,priority:t.priority})):[];
-  const nl=freshLevel({title:'New level',days:suggestion?suggestion.days:7,tasks:carried.length?carried:[freshTask()]});
-  goal.levels.push(nl);save();renderEditor();toast(suggestion?'New level added using the suggested length':'New level added with previous tasks carried forward');
+  const nl=freshLevel({title:'Stage '+(goal.levels.length+1),days:suggestion?suggestion.days:7,tasks:carried.length?carried:[freshTask()]});
+  goal.levels.push(nl);save();renderEditor();toast(suggestion?'Stage added using the suggested length':'Stage added with your tasks carried forward');
 }
 function deleteLevel(goalId,levelId){
-  if(!confirm('Delete this level and its reward?'))return;
+  if(!confirm('Delete this stage and its reward?'))return;
   const goal=state.goals.find(g=>g.id===goalId),idx=goal.levels.findIndex(l=>l.id===levelId);
   goal.levels.splice(idx,1);goal.currentLevelIndex=Math.min(goal.currentLevelIndex,goal.levels.length-1);
   if(!goal.levels.some(l=>l.status==='current')&&goal.levels[goal.currentLevelIndex]){goal.levels[goal.currentLevelIndex].status='current';goal.levels[goal.currentLevelIndex].startedAt=goal.levels[goal.currentLevelIndex].startedAt||todayKey()}
-  save();renderEditor();toast('Level deleted');
+  save();renderEditor();toast('Stage deleted');
+}
+function createFromTemplate(key){
+  const t=TEMPLATES[key];
+  const g=freshGoal({title:t.title,description:t.description,type:t.type,why:t.why,target:t.target});
+  g.levels=[freshLevel({title:'Stage 1',days:t.days,status:'current',startedAt:todayKey(),tasks:[freshTask({title:t.task,detail:t.detail})]})];
+  state.goals.push(g);state.activeGoalId=g.id;
+  save();closeModal();renderGoalSelect();go('plan');toast(t.type+' idea loaded. Add your reward below.');
 }
 
-/* ===================== MISSION (today's order) ===================== */
-function renderMission(){
-  const goal=activeGoal();
-  if(!goal){$('mission').innerHTML='<div class="empty">Create an operation first.</div>';return}
-  const level=currentLevel(goal),today=todayKey();
-  let html='<div class="card"><div class="eyebrow">Level '+(goal.levels.indexOf(level)+1)+' · '+level.days+'-day commitment</div><h2 style="margin:6px 0">'+esc(level.title)+'</h2><p class="sub">'+level.rule+'</p>'+deadlineHtml(goal)+'</div>';
-  html+=rewardBannerHtml(goal,level,'mission');
-
-  if(level.status==='recovery'){
-    html+='<div class="recovery-banner"><h3>Missed '+formatDate(level.recoveryTriggerDate)+'</h3><p>Nothing is silently erased — choose a deliberate recovery action.</p>'
-      +(goal.commitNote?'<div class="commit-note">Remember why: “'+esc(goal.commitNote)+'”</div>':'')
-      +'<div class="recovery-actions"><button class="btn soft sm" onclick="recoveryAction(\''+goal.id+'\',\''+level.id+'\',\'repeat\')">Repeat that day</button><button class="btn soft sm" onclick="recoveryAction(\''+goal.id+'\',\''+level.id+'\',\'extend\')">Add a recovery day</button><button class="btn soft sm" onclick="recoveryAction(\''+goal.id+'\',\''+level.id+'\',\'minimum\')">Use the minimum-day standard</button><button class="btn danger sm" onclick="recoveryAction(\''+goal.id+'\',\''+level.id+'\',\'pause\')">Pause intentionally</button></div></div>';
-  }else if(level.status==='paused'){
-    html+='<div class="recovery-banner"><h3>Paused since '+formatDate(level.pausedOn)+'</h3><p>The paused days will be excused, not counted against you, once you resume.</p><button class="btn gold sm" onclick="resumeLevel(\''+goal.id+'\',\''+level.id+'\')">Resume order</button></div>';
-  }else if(level.status==='done'){
-    html+='<div class="checkpoint-banner"><h3 style="margin:0 0 4px">Level complete 🏆</h3><p class="sub" style="margin:0">Head to the Command desk to add the next level'+(level.difficultySuggestion?' — a suggested length is waiting for you there.':'.')+'</p></div>';
-  }else{
-    if(checkpointDue(level)){
-      html+='<div class="checkpoint-banner"><h3 style="margin:0 0 4px">Still worth it?</h3><p class="sub" style="margin:0 0 10px">You’re past the midpoint of '+esc(level.title)+'. Recommit to the full scope, or deliberately downgrade it — either way it’s logged, not abandoned silently.</p><div class="modal-actions" style="justify-content:flex-start"><button class="btn gold sm" onclick="checkpointRespond(\''+goal.id+'\',\''+level.id+'\',\'recommit\')">Recommit to full scope</button><button class="btn ghost sm" onclick="checkpointRespond(\''+goal.id+'\',\''+level.id+'\',\'downgrade\')">Downgrade scope</button></div></div>';
-    }
-    const due=dueTasksFor(level,today);
-    const rec=level.days_log[today]||{doneTaskIds:[]};
-    html+='<div class="card"><div class="head"><h3 style="margin:0">Today’s requirements</h3><div class="modal-actions"><button class="btn ghost sm" onclick="exportCalendar(activeGoal(),currentLevel(activeGoal()))">Add to calendar</button><button class="btn ghost sm" onclick="requestReminder()">Enable reminder</button></div></div>'
-      +(due.length?due.map(t=>taskRowHtml(goal,level,t,rec)).join(''):'<div class="empty">Nothing due today for this level.</div>')
-      +'</div>';
-  }
-  if(level.recoveryEvents&&level.recoveryEvents.length){
-    html+='<div class="card"><h3>Recovery history for this level</h3>'+level.recoveryEvents.map(e=>'<div class="history-item"><span>'+e.note+'</span><small>'+e.date+'</small></div>').join('')+'</div>';
-  }
-  $('mission').innerHTML=html;
+/* ===================== profile + live Hub look ===================== */
+let lookUnsubs=[];
+function applyLook(name){
+  if(!window.HubTheme)return;
+  HubTheme.applyHubTheme(name,{base:'--accent',deep:'--accent-deep',soft:'--accent-soft'}).then(sh=>{document.documentElement.style.setProperty('--on-accent',HubTheme.readableOn(sh.accent))}).catch(()=>{});
+  HubTheme.applyHubAppearance(name).catch(()=>{});
 }
-function taskRowHtml(goal,level,task,rec){
-  const done=rec.doneTaskIds.includes(task.id);
-  return '<div class="task-row'+(done?' all-done':'')+'"><button type="button" class="chk'+(done?' done':'')+'" onclick="toggleTask(\''+goal.id+'\',\''+level.id+'\',\''+task.id+'\')">'+(done?'✓':'')+'</button><div style="flex:1"><div class="task-label">'+esc(task.title)+'</div><div class="task-sub">'+esc(task.detail||'')+'</div><div class="task-tags"><span class="tag-pill">+'+task.xp+' XP</span>'+(task.peer?'<span class="tag-pill peer">Peer: '+esc(task.peer)+'</span>':'')+(task.requiresPhoto?'<span class="tag-pill">📷 photo</span>':'')+(task.frequency!=='daily'?'<span class="tag-pill">'+task.frequency+'</span>':'')+'</div></div><button class="btn ghost sm" onclick="openFocus(\''+goal.id+'\',\''+level.id+'\',\''+task.id+'\')">Focus</button></div>';
+function watchLook(name){
+  lookUnsubs.forEach(f=>{try{f()}catch(e){}});lookUnsubs=[];applyLook(name);
+  try{
+    const u=firebase.auth().currentUser;if(!u)return;const fs=firebase.firestore();
+    const refs=[fs.collection('users').doc(u.uid).collection('hub-profiles').doc(name).collection('data').doc('appearance'),fs.collection('users').doc(u.uid).collection('apps').doc('hub').collection('data').doc('theme-accents')];
+    refs.forEach(r=>{let first=true;lookUnsubs.push(r.onSnapshot(()=>{if(first){first=false;return}applyLook(name)},()=>{}))});
+  }catch(e){}
 }
-
-/* ===================== WAR ROOM ===================== */
-function renderWar(){
-  const mine=myGoals();
-  if(!mine.length){$('war').innerHTML='<div class="empty">No active operations yet.</div>';return}
-  const totalXp=mine.reduce((s,g)=>s+(g.xpBank||0),0),totalGrace=mine.reduce((s,g)=>s+(g.graceTokens||0),0);
-  let html='<div class="cards"><div class="metric"><span>Active operations</span><b>'+mine.length+'</b></div><div class="metric"><span>Combined XP bank</span><b>'+totalXp+'</b></div><div class="metric"><span>Combined grace tokens</span><b>🛡️ '+totalGrace+'</b></div></div>';
-  html+='<div class="pledge-grid">'+mine.map(g=>{
-    const level=currentLevel(g),pct=levelProgress(level);
-    return '<div class="war-card"><div class="war-row"><div><b>'+esc(g.title)+'</b><div class="sub">'+esc(level.title)+' · '+level.status+'</div></div><span class="streak-chip">'+pct+'%</span></div><div class="bar" style="margin:9px 0"><i style="width:'+pct+'%"></i></div>'+deadlineHtml(g)+'<div class="modal-actions" style="margin-top:9px"><button class="btn soft sm" onclick="switchGoal(\''+g.id+'\');go(\'mission\')">Open today’s order</button></div></div>';
-  }).join('')+'</div>';
-  $('war').innerHTML=html;
-}
-
-/* ===================== VAULT ===================== */
-function renderVault(){
-  const goal=activeGoal();
-  if(!goal){$('vault').innerHTML='<div class="empty">Create an operation first.</div>';return}
-  let html='<div class="head"><h2 style="margin:0">Rewards for '+esc(goal.title)+'</h2></div><div class="vault-grid">'
-    +goal.levels.map((l,i)=>'<div class="vault-item"><div class="vault-image" style="'+(l.reward.image?'background-image:url(\''+l.reward.image+'\')':'')+'"></div><div class="vault-copy"><small>Level '+(i+1)+' · '+rewardStatusLabel(l.reward.status)+'</small><h3 style="font-size:16px;margin:4px 0">'+esc(l.reward.name)+'</h3><p class="sub">$'+(l.reward.price||0)+(l.reward.url?' · link saved':'')+'</p></div></div>').join('')
-    +'</div>';
-  html+='<div class="head" style="margin-top:20px"><h2 style="margin:0">Bonus rewards — unlocked by XP bank ('+(goal.xpBank||0)+' banked)</h2><button class="btn soft sm" onclick="addBonusReward(\''+goal.id+'\')">+ Add bonus reward</button></div>';
-  html+=(goal.bonusRewards&&goal.bonusRewards.length)?'<div class="pledge-grid">'+goal.bonusRewards.map(b=>'<div class="war-card"><b>'+esc(b.name)+'</b><div class="sub">Needs '+b.xpRequired+' XP</div><div class="bar" style="margin:8px 0"><i style="width:'+Math.min(100,Math.round((goal.xpBank||0)/b.xpRequired*100))+'%"></i></div>'+(b.claimed?'<span class="reward-status-chip" style="background:var(--green2);color:var(--green)">CLAIMED</span>':'<button class="btn gold sm" onclick="claimBonus(\''+goal.id+'\',\''+b.id+'\')" '+((goal.xpBank||0)<b.xpRequired?'disabled':'')+'>Claim</button>')+'</div>').join('')+'</div>':'<div class="empty">No bonus rewards yet — add one so banked XP is never wasted, even through a recovery.</div>';
-  $('vault').innerHTML=html;
-}
-
-/* ===================== REVIEW ===================== */
-function renderReview(){
-  const goal=activeGoal();
-  if(!goal){$('review').innerHTML='<div class="empty">Create an operation first.</div>';return}
-  const level=currentLevel(goal),pct=levelProgress(level),events=state.history.filter(e=>e.goalId===goal.id),reviews=state.reviews[goal.id]||[];
-  let html='<div class="cards"><div class="metric"><span>This level</span><b>'+pct+'%</b></div><div class="metric"><span>Recorded action days</span><b>'+(new Set(events.map(e=>e.date.slice(0,10))).size)+'</b></div><div class="metric"><span>Reward position</span><b>'+rewardStatusLabel(level.reward.status)+'</b></div></div>';
-  html+='<div class="card"><div class="head"><h2 style="margin:0">After-action questions</h2><span class="sub">'+goal.reviewDay+' is your review day</span></div>'
-    +'<div class="label">What worked?</div><textarea class="input" id="reviewWorked" rows="2"></textarea>'
-    +'<div class="label" style="margin-top:9px">What failed or created friction?</div><textarea class="input" id="reviewFriction" rows="2"></textarea>'
-    +'<div class="label" style="margin-top:9px">What changes next week?</div><textarea class="input" id="reviewChanges" rows="2"></textarea>'
-    +'<button class="btn gold sm" style="margin-top:10px" onclick="saveReview(\''+goal.id+'\')">Save after-action review</button></div>';
-  html+='<div class="card"><h3>Past reviews</h3>'+(reviews.length?reviews.map(r=>'<div class="history-item" style="display:block"><small>'+new Date(r.savedAt).toLocaleString()+'</small><div><b>Worked:</b> '+esc(r.worked||'—')+'</div><div><b>Friction:</b> '+esc(r.friction||'—')+'</div><div><b>Changes:</b> '+esc(r.changes||'—')+'</div></div>').join(''):'<div class="empty">No reviews saved yet.</div>')+'</div>';
-  html+='<div class="card"><div class="head"><h3 style="margin:0">Permanent history</h3><span class="sub">'+events.length+' records</span></div><div class="modal-actions" style="justify-content:flex-start;margin-bottom:10px"><button class="btn ghost sm" onclick="printReport()">Print report</button></div>'
-    +(events.length?events.slice(0,40).map(e=>'<div class="history-item"><span>'+esc(e.action)+(e.detail?' · '+esc(e.detail):'')+'</span><small>'+new Date(e.date).toLocaleString()+'</small></div>').join(''):'<div class="empty">No actions recorded yet.</div>')+'</div>';
-  $('review').innerHTML=html;
-}
-
-/* ===================== profile ===================== */
+document.addEventListener('visibilitychange',()=>{if(!document.hidden&&state)applyLook(state.activeProfile)});
 function setProfile(name){
   state.activeProfile=name;
   if(!myGoals().some(g=>g.id===state.activeGoalId))state.activeGoalId=myGoals()[0]?myGoals()[0].id:null;
   save();
   $('profileBhargav').classList.toggle('active',name==='Bhargav');$('profileAnusha').classList.toggle('active',name==='Anusha');
-  if(window.HubTheme)HubTheme.applyHubTheme(name,{base:'--green'}).catch(()=>{});
+  watchLook(name);
   renderGoalSelect();go(document.querySelector('.page.active').id);
 }
 function wire(){
   $('profileBhargav').classList.toggle('active',state.activeProfile==='Bhargav');
   $('profileAnusha').classList.toggle('active',state.activeProfile==='Anusha');
 }
-auth.onAuthStateChanged(async u=>{if(!u){if(window.self!==window.top)return;location.href='../index.html';return}user=u;try{await load();wire();$('shell').style.visibility='visible';$('loading').style.display='none';$('syncLabel').textContent='Saved to cloud';$('syncDot').classList.add('on');go('home');if(window.HubTheme)HubTheme.applyHubTheme(state.activeProfile,{base:'--green'}).catch(()=>{})}catch(e){$('loadingText').textContent='Your commitments could not load. Refresh to try again.';console.error(e)}})
+auth.onAuthStateChanged(async u=>{if(!u){if(window.self!==window.top)return;location.href='../index.html';return}user=u;try{await load();wire();$('shell').style.visibility='visible';$('loading').style.display='none';$('syncLabel').textContent='Saved to cloud';$('syncDot').classList.add('on');go('today');watchLook(state.activeProfile)}catch(e){$('loadingText').textContent='Your goals could not load. Refresh to try again.';console.error(e)}})
 }
 </script>
 </body></html>

@@ -10,6 +10,7 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
 <script src="../assets/theme.js"></script>
+<script src="../assets/schedcats.js"></script>
 <style>
   /* These match the Hub shell's own tokens exactly (assets/app.css's
      :root), same as the Calendar/Todo restyle — Schedule was previously
@@ -1094,13 +1095,19 @@ async function enterProfile(profileId){
   document.getElementById('app-wrap').style.display = 'block';
   document.getElementById('who-badge').innerHTML = '<span class="who-avatar av-'+(profileId==='Bhargav'?'b':'a')+'">'+profileId[0]+'</span><span class="who-name">'+profileId+'</span>';
   document.getElementById('who-badge').onclick = function(){ enterProfile(otherProfile(profileId)); };
+  SchedCats.init({
+    filterKey:'sched-cat-hidden',
+    save:function(obj){ return profileDoc(activeProfile,'categories').set({json: JSON.stringify(obj)}); },
+    getActivities:allRoutineActivities,
+    onChange:rerenderForCategories
+  });
   initControls();
   // Ten independent Firestore reads used to go one at a time — ten
   // round trips back to back before the page could show anything. None
   // of them depend on each other, so running them together cuts the
   // wait down to whichever single one is slowest.
   await Promise.all([
-    loadEvents(), loadChores(), loadChoreLog(), loadAutoConfig(),
+    loadEvents(), loadChores(), loadChoreLog(), loadAutoConfig(), loadCategories(),
     loadDayTemplates(), loadTemplateLog(), loadTodoTasks(),
     loadHouseholdChores(), loadHouseholdChoreHistory(), loadFocusData(),
     preloadSkinSyncData(), preloadDietSyncData()
@@ -1416,36 +1423,9 @@ function templateSeedForProfile(){
   if(activeProfile === 'Anusha') return DAY_TEMPLATE_SEED_ANUSHA;
   return null;
 }
-const CATEGORY_META = {
-  sleep:  {label:'Sleep',    color:'#6D28D9', soft:'#EEE9FB'},
-  fitness:{label:'Gym',      color:'#16A34A', soft:'#E7F6EC'},
-  code:   {label:'LeetCode', color:'#EA580C', soft:'#FDEEE3'},
-  meal:   {label:'Meal',     color:'#B45309', soft:'#FEF3E2'},
-  class:  {label:'Class',    color:'#DB2777', soft:'#FCE4F0'},
-  teach:  {label:'Teaching', color:'#0F766E', soft:'#E1F3F1'},
-  chore:  {label:'Chore',    color:'#7C6A2E', soft:'#F1EDD9'},
-  routine:{label:'Routine',  color:'#57606A', soft:'#EFF0F2'},
-  study:  {label:'Study',    color:'#2563EB', soft:'#EAF1FE'},
-  admin:  {label:'Admin',    color:'#52525B', soft:'#EEEEF0'},
-  free:   {label:'Free',     color:'#A8A29E', soft:'#F4F3F1'},
-  other:  {label:'Other',    color:'#78716C', soft:'#F0EEEC'}
-};
-function categorize(activity){
-  const a = activity.toLowerCase();
-  if(a === 'sleep') return 'sleep';
-  if(/free \/ flexible|flexible time|open\/reset/.test(a)) return 'free';
-  if(/github|linkedin|plan the next day|final review|check assignments|prepare for sleep/.test(a)) return 'admin';
-  if(/leetcode/.test(a)) return 'code';
-  if(/gym|home workout|travel to gym|travel home/.test(a)) return 'fitness';
-  if(/breakfast|lunch|dinner|snack|social break/.test(a)) return 'meal';
-  if(/daily break/.test(a)) return 'routine';
-  if(/\bcs \d|\bmath \d|\bcomp \d/.test(a)) return 'class';
-  if(/teaching/.test(a)) return 'teach';
-  if(/laundry|trash|costco|trader joe|groceries|washer|dryer|clothes|dishwashing|house cleaning/.test(a)) return 'chore';
-  if(/bath|get ready|food preparation/.test(a)) return 'routine';
-  if(/study|review/.test(a)) return 'study';
-  return 'other';
-}
+// Categories are defined (and editable) in assets/schedcats.js, shared with the Calendar app.
+const CATEGORY_META = new Proxy({}, {get:function(_,k){ return SchedCats.meta(k); }});
+function categorize(activity){ return SchedCats.categorize(activity); }
 function fmt12(hhmm){
   const [h,m] = hhmm.split(':').map(Number);
   const period = h<12 ? 'AM' : 'PM';
@@ -1458,18 +1438,25 @@ let events = [];
 let chores = [];
 let choreLog = {};
 let dayTemplates = {};
-let activeCategoryFilter = null; // null = show everything; a category key (e.g. 'study') = show only that category's blocks, across the whole day
 let expandedBlockKey = null; // templateBlockKey(dateStr, idx) of whichever block is currently expanded to show its linked chores/todos/skincare/diet, or null
-// One delegated listener handles the filter chips wherever they render —
-// Today view or Week view — rather than re-wiring after every render.
-document.addEventListener('click', function(e){
-  const chip = e.target.closest('[data-filtercat]');
-  if(!chip) return;
-  const cat = chip.dataset.filtercat;
-  activeCategoryFilter = (activeCategoryFilter === cat) ? null : cat; // click again to clear
+// Category show/hide + editing lives in SchedCats (chips, Filters button, editor).
+// Whenever it changes, redraw whichever views are on screen.
+function rerenderForCategories(){
   if(activeView === 'today') renderToday();
   if(weeklyModalOpen) renderWeek();
+}
+document.addEventListener('click', function(e){
+  if(e.target.closest('#filters-btn')) SchedCats.openEditor();
 });
+function allRoutineActivities(){
+  const out = [];
+  Object.values(dayTemplates||{}).forEach(function(blocks){ (blocks||[]).forEach(function(b){ if(b && b.activity) out.push(b.activity); }); });
+  return out;
+}
+async function loadCategories(){
+  try{ const doc = await profileDoc(activeProfile,'categories').get(); SchedCats.hydrate(doc.exists && doc.data().json ? JSON.parse(doc.data().json) : null); }
+  catch(e){ SchedCats.hydrate(null); }
+}
 let templateLog = {};
 let autoConfig = { workoutsOn:true, groceryOn:true, groceryWeekday:6 };
 let activeView = 'today';
@@ -1966,11 +1953,8 @@ function renderDailyRoutineHtml(dateStr){
   const isToday = dateStr === todayStr();
   const curIdx = isToday ? currentBlockIndex(blocks) : -1;
 
-  const legend = [...new Set(blocks.map(b=>categorize(b.activity)))].map(cat=>{
-    const m = CATEGORY_META[cat];
-    const isActive = activeCategoryFilter === cat;
-    return '<button type="button" class="cat-chip '+(isActive?'cat-chip-active':'')+'" data-filtercat="'+cat+'" style="background:'+(isActive?m.color:m.soft)+';color:'+(isActive?'#fff':m.color)+';">'+m.label+'</button>';
-  }).join('');
+  const presentCats = [...new Set(blocks.map(b=>categorize(b.activity)))];
+  const legend = SchedCats.chipsHtml(presentCats);
 
   const nowMinutes = new Date().getHours()*60+new Date().getMinutes();
   // Same "before 4:30am is still a continuation of the prior day" rule
@@ -1988,7 +1972,7 @@ function renderDailyRoutineHtml(dateStr){
     const isNow = i === curIdx;
     const isPast = isToday && !isNow && toMinutes(b.end) < nowMinutesForPast;
     const tKey = todaysTemplateKey(dateStr);
-    const hiddenByFilter = activeCategoryFilter && cat !== activeCategoryFilter;
+    const hiddenByFilter = !SchedCats.isVisible(cat);
     const statusBadge = isDone ? '<span class="rb-status done" title="Done">✓</span>' : (isPast ? '<span class="rb-status missed" title="Time passed, not checked off">✗</span>' : '');
     const linkedTasks = linkedTasksForBlock(tKey, b.activity);
     const linkedTasksHtml = linkedTasks.length ? '<div class="rb-linked-tasks">'+linkedTasks.map(lt=>'<a class="rb-linked-task" href="todo.html?task='+encodeURIComponent(lt.id)+'&profile='+encodeURIComponent(activeProfile)+'" title="Open in To-Do" onclick="event.stopPropagation()">📋 '+escapeHtml(lt.title)+'</a>').join('')+'</div>' : '';
@@ -2033,7 +2017,7 @@ function renderDailyRoutineHtml(dateStr){
         <div class="rs-sub">${TEMPLATE_LABELS[todaysTemplateKey(dateStr)]} routine</div>
       </div>
     </div>
-    <div class="cat-legend">${legend}</div>
+    <div class="cat-legend" data-scpresent="${presentCats.join(',')}">${legend}</div>
     <div id="routine-blocks">${rows}</div>
   `;
 }
@@ -2811,7 +2795,7 @@ function renderToday(){
         '<div class="cb-group cb-nav"><button id="day-prev" aria-label="Previous day">‹</button><input id="day-picker" type="date" value="'+today+'" aria-label="Selected date"><button id="day-next" aria-label="Next day">›</button></div>'+
         '<div class="cb-group cb-actions">'+(isActualToday?'':'<button class="cb-pill cb-today" id="day-today">Today</button>')+'<button class="cb-pill cb-add" id="quick-add-today">+ Add</button><button class="cb-pill cb-weekly" id="open-weekly-btn">Weekly</button></div>'+
       '</div>'+
-      '<div class="cb-group cb-tools cb-right"><button class="cb-pill cb-tool" id="find-time-btn">🔎 Find time</button><button class="cb-pill cb-tool" id="open-focus-btn">⏱ Focus</button></div>'+
+      '<div class="cb-group cb-tools cb-right"><button class="cb-pill cb-tool" id="filters-btn" title="Show/hide and edit categories: Routine, Gym, Meal, LeetCode, Study, Teaching, Admin, Sleep…">🏷 Filters</button><button class="cb-pill cb-tool" id="find-time-btn">🔎 Find time</button><button class="cb-pill cb-tool" id="open-focus-btn">⏱ Focus</button></div>'+
       '<section class="free-time-panel" id="free-time-panel" hidden>'+renderFreeTimePanelHtml(today,freeWindows,rankedFreeTasks)+'</section>'+
     '</div>'+
     '<div class="today-layout">'+
@@ -2885,12 +2869,14 @@ function renderWeek(){
       '</div></div>';
   }
 
+  const weekPresentCats = [...new Set(Array.from({length:7},function(_,i){ return todaysBlocksFor(addDays(start,i)).map(function(b){ return categorize(b.activity); }); }).reduce(function(a,b){ return a.concat(b); },[]))];
   el.innerHTML = '<div class="inline-form" style="margin-bottom:10px;"><h3>Auto blocks</h3>'+
     '<label style="display:flex;align-items:center;gap:6px;font-size:14px;margin-bottom:5px;"><input type="checkbox" id="toggle-workouts" '+(autoConfig.workoutsOn?'checked':'')+'> Show workout days</label>'+
     '<label style="display:flex;align-items:center;gap:6px;font-size:14px;"><input type="checkbox" id="toggle-grocery" '+(autoConfig.groceryOn?'checked':'')+'> Show grocery run on '+
       '<select id="grocery-weekday" style="font-size:13.5px;padding:3px 5px;border-radius:6px;border:1px solid var(--border);">'+
         DAY_NAMES.map(function(n,i){ return '<option value="'+i+'" '+(autoConfig.groceryWeekday===i?'selected':'')+'>'+n+'</option>'; }).join('')+
       '</select></label></div>'+
+    '<div class="week-cats" data-scpresent="'+weekPresentCats.join(',')+'" style="margin:0 0 10px;">'+SchedCats.chipsHtml(weekPresentCats)+'</div>'+
     '<div id="event-form-mount-week"></div>'+
     '<div class="view-toggle-mini"><button data-wvmode="list" class="'+(weekViewMode==='list'?'active':'')+'">List</button><button data-wvmode="grid" class="'+(weekViewMode==='grid'?'active':'')+'">Grid</button></div>'+
     '<div id="week-list-wrap" style="'+(weekViewMode==='list'?'':'display:none;')+'">'+daysHtml+'</div>'+
@@ -2965,7 +2951,9 @@ function renderCalendarGrid(wrap, weekStart, today){
       if(startMin > totalHours*60 || endMin < 0) return;
       const top = Math.max(0,(startMin/60))*GRID_HOUR_PX;
       const height = Math.max(18, ((endMin-startMin)/60)*GRID_HOUR_PX);
-      const meta = CATEGORY_META[categorize(b.activity)];
+      const catKey = categorize(b.activity);
+      if(!SchedCats.isVisible(catKey)) return;
+      const meta = CATEGORY_META[catKey];
       const key = templateBlockKey(d, bi);
       const isDone = !!templateLog[key];
       blocksHtml += '<div class="cal-block '+(isDone?'done':'')+'" style="top:'+top+'px;height:'+height+'px;border-left-color:'+meta.color+';background:'+meta.soft+';color:'+meta.color+';" data-blockkey="'+key+'"><div class="cb-title">'+escapeHtml(b.activity)+'</div></div>';

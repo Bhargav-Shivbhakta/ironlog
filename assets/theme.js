@@ -92,5 +92,52 @@
     if(softVar)document.documentElement.style.setProperty(softVar,sh.soft);
     return sh;
   }
-  global.HubTheme={applyHubTheme,deriveShades,hexToRgb,rgbToHsl,hslToHex};
+  /* ---- Full-appearance follower (mode + palette + wallpaper) ----------
+     Opt-in: only apps whose CSS is built entirely on the Hub's surface
+     tokens (--bg --surface --surface-soft --line --text --muted --faint
+     --ink --shadow) should call this. It mirrors app.js applyTheme(): reads
+     the profile's own appearance doc and sets data-theme plus inline
+     tokens, so the app changes whenever the Hub look changes. */
+  const MODES={
+    light:{bg:'#f4f4f0',surface:'#fff',soft:'#f8f8f5',line:'#e3e3dc',text:'#20211e',muted:'#74766f',faint:'#9c9e97',ink:'#171714',shadow:'0 18px 50px rgba(37,38,32,.08)',dark:false},
+    dark:{bg:'#121212',surface:'#1b1b1a',soft:'#232322',line:'#323230',text:'#f2f1ed',muted:'#a7a59d',faint:'#79776f',ink:'#0a0a09',shadow:'0 18px 50px rgba(0,0,0,.4)',dark:true},
+    midnight:{bg:'#0b0e1a',surface:'#131829',soft:'#1a2036',line:'#262e4a',text:'#eef0f8',muted:'#9298b3',faint:'#636a87',ink:'#070912',shadow:'0 18px 50px rgba(0,0,10,.45)',dark:true},
+    sepia:{bg:'#f6ecd9',surface:'#fbf5e8',soft:'#f1e5cd',line:'#e1cfa8',text:'#3a2f1e',muted:'#7a6a4d',faint:'#a39370',ink:'#2c2413',shadow:'0 18px 50px rgba(90,70,20,.12)',dark:false}
+  };
+  const HUES={crimson:0,coral:15,amber:30,gold:45,olive:60,lime:75,sage:90,fern:105,emerald:120,jade:135,mint:150,teal:165,cyan:180,sky:195,azure:210,cobalt:225,indigo:240,violet:255,purple:270,orchid:285,magenta:300,rose:315,blush:330,ruby:345,mono:0};
+  const hsl=(h,s,l)=>'hsl('+Math.round(h)+' '+Math.round(s)+'% '+Math.round(l)+'%)';
+  function paletteVars(id){
+    const m=/^palette-([a-z]+)-(light|dark)$/.exec(id||'');
+    if(!m||!(m[1] in HUES))return null;
+    const h=HUES[m[1]],s=m[1]==='mono'?0:1;
+    return m[2]==='dark'
+      ?{bg:hsl(h,18*s,8),surface:hsl(h,16*s,12),soft:hsl(h,15*s,16),line:hsl(h,15*s,22),text:hsl(h,14*s,94),muted:hsl(h,10*s,66),faint:hsl(h,8*s,46),ink:hsl(h,24*s,6),shadow:'0 18px 50px rgba(0,0,0,.4)',dark:true}
+      :{bg:hsl(h,26*s,95),surface:hsl(h,32*s,99),soft:hsl(h,24*s,96),line:hsl(h,18*s,88),text:hsl(h,20*s,15),muted:hsl(h,10*s,43),faint:hsl(h,8*s,60),ink:hsl(h,24*s,9),shadow:'0 18px 50px hsla('+Math.round(h)+',30%,25%,.12)',dark:false};
+  }
+  function readableOn(hex){
+    const[r,g,b]=hexToRgb(hex);
+    return(0.299*r+0.587*g+0.114*b)>150?'#16130c':'#ffffff';
+  }
+  async function applyHubAppearance(profileRaw){
+    const canon=canonProfile(profileRaw)||'Bhargav';
+    let ap=null;
+    try{
+      const user=firebase.auth&&firebase.auth().currentUser;
+      if(user){
+        const snap=await firebase.firestore().collection('users').doc(user.uid).collection('hub-profiles').doc(canon).collection('data').doc('appearance').get();
+        if(snap.exists)ap=JSON.parse(snap.data().json||'{}');
+      }
+    }catch(e){}
+    ap=ap||{};
+    const v=(ap.mode&&ap.mode.indexOf('palette-')===0?paletteVars(ap.mode):MODES[ap.mode])||MODES.light;
+    const root=document.documentElement,set=(k,x)=>root.style.setProperty(k,x);
+    root.dataset.theme=v.dark?'dark':'light';
+    set('--bg',v.bg);set('--surface',v.surface);set('--surface-soft',v.soft);set('--line',v.line);
+    set('--text',v.text);set('--muted',v.muted);set('--faint',v.faint);set('--ink',v.ink);set('--shadow',v.shadow);
+    const wp=ap.wallpaper&&ap.wallpaper.css;
+    if(wp)set('--bg',wp);
+    root.classList.toggle('wallpaper-live',!!(ap.wallpaper&&/^(aurora|ember|tide)$/.test(ap.wallpaper.id||'')));
+    return v;
+  }
+  global.HubTheme={applyHubTheme,applyHubAppearance,readableOn,deriveShades,hexToRgb,rgbToHsl,hslToHex};
 })(window);

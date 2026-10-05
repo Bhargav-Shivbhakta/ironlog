@@ -10,6 +10,7 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
 <script src="../assets/theme.js"></script>
+<script src="../assets/schedcats.js"></script>
 <style>
   /* These match the Hub shell's own tokens exactly (assets/app.css's
      :root), same as the Todo restyle — Calendar was previously running an
@@ -307,6 +308,7 @@
     </div>
 
     <div class="legend" id="filter-toggles"></div>
+    <div id="cat-filter-bar" style="margin:-4px 0 12px;"></div>
     <div class="toolbar-row">
       <button type="button" class="new-event-btn" id="new-event-btn">+ Schedule a meeting</button>
     </div>
@@ -805,6 +807,14 @@ function loadFilters(){
   }catch(e){}
 }
 function saveFilters(){ try{ localStorage.setItem(FILTER_KEY, JSON.stringify([...activeFilters])); }catch(e){} }
+function renderCatBars(){
+  const keys = SchedCats.list().map(function(c){ return c.key; });
+  const html = '<div class="cat-bar-label" style="font-size:11px;font-weight:700;color:var(--text-faint);margin:0 0 5px;text-align:center;">Schedule categories</div><div data-scpresent="'+keys.join(',')+'" style="display:flex;justify-content:center;">'+SchedCats.chipsHtml(keys)+'</div>';
+  const bar = document.getElementById('cat-filter-bar');
+  if(bar) bar.innerHTML = activeFilters.has('schedule') ? html : '';
+  const sb = document.getElementById('sb-cat-mount');
+  if(sb) sb.innerHTML = '<div data-scpresent="'+keys.join(',')+'">'+SchedCats.chipsHtml(keys)+'</div>';
+}
 function renderFilterToggles(){
   const mount = document.getElementById('filter-toggles');
   const allOn = activeFilters.size === FILTER_DEFS.length;
@@ -826,6 +836,7 @@ function renderFilterToggles(){
     else FILTER_DEFS.forEach(function(f){ activeFilters.add(f.key); });
     saveFilters(); renderFilterToggles(); render();
   });
+  renderCatBars();
 }
 
 /* =====================================================================
@@ -905,6 +916,10 @@ async function loadScheduleEvents(){
       window.scheduleTemplates[p] = (doc.exists && doc.data().json) ? JSON.parse(doc.data().json) : {};
     }catch(e){ window.scheduleTemplates[p] = {}; }
   }
+  try{
+    const cdoc = await jdoc('users/'+currentUser.uid+'/schedule-profiles/'+activeCalendarProfile+'/data/categories').get();
+    SchedCats.hydrate(cdoc.exists && cdoc.data().json ? JSON.parse(cdoc.data().json) : null);
+  }catch(e){ SchedCats.hydrate(null); }
 }
 function fmtScheduleTime(t){
   if(!t) return '';
@@ -935,7 +950,10 @@ function eventsForRecurringWeekday(dateStr){
       // "4:00 AM – 4:15 AM" is NaN), which is why every routine block
       // used to pile up at the same spot.
       const linkedTasks = todoTasksLinkedToBlock(wd, label);
-      out.push({title:label, source:'Schedule', color:'var(--schedule)', person:activeCalendarProfile, time:item.start||'', endTime:item.end||'', displayTime:timeRange, sortKey:item.start||'', linkedTasks:linkedTasks});
+      const catKey = SchedCats.categorize(label);
+      if(!SchedCats.isVisible(catKey)) return;
+      const catMeta = SchedCats.meta(catKey);
+      out.push({title:label, source:'Schedule', category:catKey, categoryLabel:catMeta.label, color:catMeta.color, person:activeCalendarProfile, time:item.start||'', endTime:item.end||'', displayTime:timeRange, sortKey:item.start||'', linkedTasks:linkedTasks});
     });
   }
   return out;
@@ -1654,8 +1672,10 @@ function renderGridSidebar(){
       '<div class="sidebar-section-label">My calendars</div>'+
       '<div class="sidebar-filter-list">'+renderSidebarFilterListHtml()+'</div>'+
     '</div>'+
+    '<div class="grid-sidebar-card"><div class="sidebar-section-label">Schedule categories</div><div id="sb-cat-mount"></div></div>'+
     '<button type="button" class="grid-manage-link" id="sb-manage-birthdays-btn">🔔 Manage reminders</button>';
 
+  renderCatBars();
   sidebar.querySelector('#sb-new-event-btn').onclick = function(){ openEventModal(null, activeDate); };
   sidebar.querySelector('#sb-manage-birthdays-btn').onclick = openBirthdaysPanel;
   sidebar.querySelector('#mini-prev').onclick = function(){ const ym = currentMiniYM(); let m=ym.m-1,y=ym.y; if(m<0){m=11;y--;} miniCalYM={y:y,m:m}; renderGridSidebar(); };
@@ -1682,6 +1702,12 @@ auth.onAuthStateChanged(async function(user){
   if(!user){ if(window.self!==window.top) return; window.location.href = '../index.html'; return; }
   detectActiveProfile();
   loadFilters();
+  SchedCats.init({
+    filterKey:'cal-cat-hidden',
+    save:function(obj){ return jdoc('users/'+currentUser.uid+'/schedule-profiles/'+activeCalendarProfile+'/data/categories').set({json: JSON.stringify(obj)}); },
+    getActivities:function(){ const d=((window.scheduleTemplates||{})[activeCalendarProfile])||{}; const out=[]; Object.keys(d).forEach(function(k){ (d[k]||[]).forEach(function(b){ const l=b&&(b.activity||b.title||b.name||b.label); if(l) out.push(l); }); }); return out; },
+    onChange:function(){ renderCatBars(); render(); }
+  });
   await loadAllEvents();
   await loadReminders();
   renderBirthdayBanner();
