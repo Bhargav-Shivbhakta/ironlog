@@ -814,6 +814,8 @@ function renderCatBars(){
   if(bar) bar.innerHTML = activeFilters.has('schedule') ? html : '';
   const sb = document.getElementById('sb-cat-mount');
   if(sb) sb.innerHTML = '<div data-scpresent="'+keys.join(',')+'">'+SchedCats.chipsHtml(keys)+'</div>';
+  const sbCard = document.getElementById('sb-cat-card');
+  if(sbCard) sbCard.style.display = activeFilters.has('schedule') ? '' : 'none';
 }
 function renderFilterToggles(){
   const mount = document.getElementById('filter-toggles');
@@ -1672,7 +1674,7 @@ function renderGridSidebar(){
       '<div class="sidebar-section-label">My calendars</div>'+
       '<div class="sidebar-filter-list">'+renderSidebarFilterListHtml()+'</div>'+
     '</div>'+
-    '<div class="grid-sidebar-card"><div class="sidebar-section-label">Schedule categories</div><div id="sb-cat-mount"></div></div>'+
+    '<div class="grid-sidebar-card" id="sb-cat-card"><div class="sidebar-section-label">Schedule categories</div><div id="sb-cat-mount"></div></div>'+
     '<button type="button" class="grid-manage-link" id="sb-manage-birthdays-btn">🔔 Manage reminders</button>';
 
   renderCatBars();

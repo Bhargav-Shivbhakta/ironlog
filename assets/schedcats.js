@@ -30,6 +30,7 @@
   // Display order in chips/panels: the eight the user asked for first.
   const DISPLAY_ORDER = ['routine','fitness','meal','code','study','teach','admin','sleep','class','chore','free','other'];
 
+  let pins = {};             // activity (lowercase) -> category key: a block you filed by hand
   let saved = {};            // key -> {label,color,words} overrides, plus customs
   let customOrder = [];      // keys of user-made categories, in creation order
   let hidden = new Set();    // category keys currently hidden in this app's views
@@ -75,6 +76,7 @@
   function categorize(activity){
     const a = String(activity||'').trim().toLowerCase();
     if(!a) return 'other';
+    if(pins[a] && all().some(function(c){ return c.key===pins[a]; })) return pins[a];
     const cats = all();
     // 1) exact matches ("=sleep"), 2) your own categories, 3) built-ins in order
     for(const c of cats){ if(c.words.some(function(w){ return w.charAt(0)==='=' && w.slice(1).trim().toLowerCase()===a; })) return c.key; }
@@ -137,11 +139,12 @@
   });
 
   /* ---------- persistence ---------- */
-  function serialize(){ return {v:1, saved:saved, customOrder:customOrder}; }
+  function serialize(){ return {v:2, saved:saved, customOrder:customOrder, pins:pins}; }
   function hydrate(obj){
-    saved = {}; customOrder = []; rxCache = {};
+    saved = {}; customOrder = []; pins = {}; rxCache = {};
     if(obj && typeof obj==='object'){
       if(obj.saved && typeof obj.saved==='object') saved = obj.saved;
+      if(obj.pins && typeof obj.pins==='object') pins = obj.pins;
       if(Array.isArray(obj.customOrder)) customOrder = obj.customOrder.filter(function(k){ return saved[k]; });
     }
   }
@@ -174,21 +177,28 @@
       '.sc-edit-row input[type=text],.sc-unsorted select{width:100%;padding:8px 10px;border:1px solid var(--border,#e3e3dc);border-radius:9px;font:inherit;background:var(--surface,#fff);color:inherit}'+
       '.sc-edit-row .sc-kw{grid-column:2}.sc-edit-row .sc-actions{grid-column:2;display:flex;gap:6px;justify-content:space-between;align-items:center}'+
       '.sc-hint{font-size:11.5px;color:var(--text-faint,#9c9e97)}'+
+      '.sc-search{width:100%;padding:8px 10px;border:1px solid var(--border,#e3e3dc);border-radius:9px;font:inherit;margin:8px 0 4px;background:var(--surface,#fff);color:inherit}.sc-blocks{max-height:360px;overflow:auto}'+
       '.sc-unsorted{display:grid;grid-template-columns:1fr 150px;gap:8px;align-items:center;padding:6px 0}'+
       '.sc-primary{border:0;background:var(--accent,#ad7b20);color:#fff;border-radius:11px;padding:9px 14px;font-weight:700;cursor:pointer;font:inherit;font-weight:700}'+
       '.sc-foot{display:flex;justify-content:flex-end;gap:8px;margin-top:14px}'+
       '@media(max-width:560px){.sc-wrap{padding:0}.sc-modal{border-radius:0;min-height:100%}.sc-unsorted{grid-template-columns:1fr}}';
     document.head.appendChild(s);
   }
-  function unsortedActivities(){
+  function blockList(){
     let acts = [];
     try{ acts = (cfg.getActivities && cfg.getActivities()) || []; }catch(e){}
     const seen = {}, out = [];
-    acts.forEach(function(a){ const k = String(a||'').trim(); if(!k) return; const lk = k.toLowerCase(); if(seen[lk]) return; seen[lk]=1; if(categorize(k)==='other') out.push(k); });
-    return out.sort();
+    acts.forEach(function(a){ const k = String(a||'').trim(); if(!k) return; const lk = k.toLowerCase(); if(seen[lk]) return; seen[lk]=1; out.push({name:k, cat:categorize(k), pinned:pins[lk]||''}); });
+    const order = list().map(function(c){ return c.key; });
+    // Unsorted ("Other") first so they are the first thing you see, then by category, then A–Z.
+    return out.sort(function(x,y){
+      const ox = x.cat==='other'?-1:order.indexOf(x.cat), oy = y.cat==='other'?-1:order.indexOf(y.cat);
+      return ox-oy || x.name.localeCompare(y.name);
+    });
   }
   function openEditor(){
     ensureStyle();
+    let blockSearch = '';
     let host = document.getElementById('sc-host');
     if(!host){ host = document.createElement('div'); host.id = 'sc-host'; document.body.appendChild(host); }
     const render = function(){
@@ -206,11 +216,15 @@
           '<div class="sc-kw"><input type="text" data-f="words" value="'+esc(c.words.join(', '))+'" placeholder="Keywords, comma separated"><div class="sc-hint">A block goes here if its name contains one of these. Use # for a digit, and = for an exact name.</div></div>')+
           '<div class="sc-actions"><span class="sc-hint">'+(c.builtin?'Built in':'Your category')+'</span>'+(c.builtin?'<button type="button" class="sc-mini" data-reset="'+esc(c.key)+'">Reset</button>':'<button type="button" class="sc-mini" data-del="'+esc(c.key)+'">Delete</button>')+'</div></div>';
       }).join('');
-      const unsorted = unsortedActivities();
-      const unsortedHtml = unsorted.length ?
-        '<h3>Not sorted yet</h3><p class="sc-sub">These blocks only match “Other”. Pick a category to file each one.</p>'+unsorted.map(function(a,i){
-          return '<div class="sc-unsorted"><span>'+esc(a)+'</span><select data-assign="'+i+'"><option value="">Choose…</option>'+cats.filter(function(c){ return c.key!=='other'; }).map(function(c){ return '<option value="'+esc(c.key)+'">'+esc(c.label)+'</option>'; }).join('')+'</select></div>';
-        }).join('') : '<h3>Not sorted yet</h3><p class="sc-sub">Every block in your schedule is in a category. ✓</p>';
+      const blocks = blockList();
+      const unsortedCount = blocks.filter(function(b){ return b.cat==='other'; }).length;
+      const opts = function(sel){ return '<option value="__auto"'+(sel?'':' selected')+'>Automatic (by keywords)</option>'+cats.map(function(c){ return '<option value="'+esc(c.key)+'"'+(sel===c.key?' selected':'')+'>'+esc(c.label)+'</option>'; }).join(''); };
+      const unsortedHtml = '<h3>Your schedule blocks</h3><p class="sc-sub">'+(unsortedCount?unsortedCount+' block'+(unsortedCount===1?' is':'s are')+' not sorted yet (shown first). ':'Every block is in a category. ✓ ')+'Pick a category to file any block by hand; it overrides the keywords.</p>'+
+        (blocks.length?'<input type="text" id="sc-blocksearch" class="sc-search" placeholder="Search your blocks…" value="'+esc(blockSearch)+'">'+
+        '<div class="sc-blocks">'+blocks.map(function(b,i){
+          const m = meta(b.cat);
+          return '<div class="sc-unsorted" data-bname="'+esc(b.name.toLowerCase())+'" style="'+(blockSearch && b.name.toLowerCase().indexOf(blockSearch.toLowerCase())<0?'display:none':'')+'"><span><i class="sc-dot" style="background:'+m.color+'"></i>'+esc(b.name)+(b.pinned?' <span class="sc-hint">· set by you</span>':'')+'</span><select data-assign="'+i+'">'+opts(b.pinned)+'</select></div>';
+        }).join('')+'</div>':'<p class="sc-sub">No schedule blocks found yet.</p>');
       host.innerHTML = '<div class="sc-wrap" id="sc-wrap"><div class="sc-modal" role="dialog" aria-label="Schedule categories">'+
         '<div class="sc-head"><div><h2>Categories & filters</h2><p class="sc-sub">Choose what to show, and edit how blocks are sorted.</p></div><button type="button" class="sc-x" id="sc-close" aria-label="Close">×</button></div>'+
         '<h3>Show on the schedule</h3><div style="display:flex;gap:8px;margin-bottom:4px"><button type="button" class="sc-mini" id="sc-showall">Show all</button></div>'+rows+
@@ -218,9 +232,9 @@
         '<div style="margin-top:10px"><button type="button" class="sc-mini" id="sc-add">+ Add a category</button></div>'+
         unsortedHtml+
         '<div class="sc-foot"><button type="button" class="sc-primary" id="sc-done">Done</button></div></div></div>';
-      wire(unsorted);
+      wire(blocks);
     };
-    const wire = function(unsorted){
+    const wire = function(blocks){
       const q = function(s){ return host.querySelector(s); };
       const close = function(){ host.innerHTML = ''; };
       q('#sc-close').onclick = close; q('#sc-done').onclick = close;
@@ -244,7 +258,7 @@
       host.querySelectorAll('[data-reset]').forEach(function(b){ b.onclick = async function(){ delete saved[b.dataset.reset]; await persist(); changed(); render(); }; });
       host.querySelectorAll('[data-del]').forEach(function(b){ b.onclick = async function(){
         const k = b.dataset.del; if(!confirm('Delete this category? Its blocks go back to their built-in category.')) return;
-        delete saved[k]; customOrder = customOrder.filter(function(x){ return x!==k; }); hidden.delete(k); saveHidden(); await persist(); changed(); render();
+        delete saved[k]; customOrder = customOrder.filter(function(x){ return x!==k; }); Object.keys(pins).forEach(function(a){ if(pins[a]===k) delete pins[a]; }); hidden.delete(k); saveHidden(); await persist(); changed(); render();
       }; });
       q('#sc-add').onclick = async function(){
         const k = 'custom-'+Date.now().toString(36);
@@ -252,11 +266,17 @@
       };
       host.querySelectorAll('[data-assign]').forEach(function(sel){
         sel.onchange = async function(){
-          if(!sel.value) return; const act = unsorted[Number(sel.dataset.assign)]; const c = all().find(function(x){ return x.key===sel.value; });
-          const o = saved[c.key] = Object.assign({label:c.label,color:c.color,words:c.words.slice()}, saved[c.key]||{});
-          o.words = o.words.concat([act.toLowerCase()]); await persist(); changed(); render();
+          const b = blocks[Number(sel.dataset.assign)]; if(!b) return;
+          const k = b.name.toLowerCase();
+          if(sel.value==='__auto') delete pins[k]; else pins[k] = sel.value;
+          await persist(); changed(); render();
         };
       });
+      const bs = q('#sc-blocksearch');
+      if(bs) bs.oninput = function(){
+        blockSearch = bs.value; const needle = blockSearch.toLowerCase();
+        host.querySelectorAll('.sc-unsorted[data-bname]').forEach(function(r){ r.style.display = (!needle || r.dataset.bname.indexOf(needle)>=0) ? '' : 'none'; });
+      };
     };
     render();
   }
