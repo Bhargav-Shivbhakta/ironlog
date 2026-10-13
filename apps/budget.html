@@ -255,6 +255,7 @@
 
   .toast{position:fixed;bottom:18px;left:50%;transform:translateX(-50%);background:#20211E;color:#fff;padding:9px 16px;border-radius:10px;font-size:12.5px;z-index:300;box-shadow:0 10px 30px rgba(0,0,0,.25);opacity:0;pointer-events:none;transition:opacity .2s;}
   .toast.show{opacity:1;}
+.cat-tools{display:flex;gap:12px;margin-top:5px}.link-btn{background:none;border:0;padding:0;color:var(--accent);font-size:12px;font-weight:700;cursor:pointer}
 </style>
 </head>
 <body>
@@ -341,10 +342,22 @@
       </div>
       <div class="form-grid">
         <label>Amount<input type="number" id="txn-amount" min="0" step="0.01" placeholder="0.00"></label>
-        <label>Category<select id="txn-category"></select></label>
+        <label>Category<select id="txn-category"></select><span class="cat-tools"><button type="button" class="link-btn" id="txn-addcat">+ New category</button><button type="button" class="link-btn" id="txn-managecats">Manage</button></span></label>
         <label id="txn-who-label">Who paid<select id="txn-who"><option value="Bhargav">Bhargav</option><option value="Anusha">Anusha</option></select></label>
         <label>Date<input type="date" id="txn-date"></label>
         <label style="grid-column:1/-1">Note<input type="text" id="txn-note" placeholder="Optional"></label>
+      </div>
+      <!-- Repeat: turns this entry into a series that logs itself on a fixed schedule, starting on the Date above. -->
+      <div id="txn-repeat-wrap" class="form-grid" style="margin-top:10px">
+        <label>Repeat<select id="txn-repeat">
+          <option value="none">Does not repeat</option>
+          <option value="weekly">Every week</option>
+          <option value="biweekly">Every 2 weeks</option>
+          <option value="monthly">Every month</option>
+          <option value="yearly">Every year</option>
+        </select></label>
+        <label id="txn-repeat-end-label" style="display:none">Until (optional)<input type="date" id="txn-repeat-end"></label>
+        <div id="txn-repeat-hint" style="grid-column:1/-1;font-size:12px;color:var(--text-soft);display:none"></div>
       </div>
       <!-- Only shown for a Shared expense — this is what feeds the Settle-up
            flow on the Shared tab: 50/50 splits the amount automatically,
@@ -369,6 +382,10 @@
       <select id="txn-filter-category"><option value="">All categories</option></select>
       <input type="search" id="txn-search" placeholder="Search notes…">
     </div>
+    <div id="recurring-section" style="display:none;margin-bottom:14px">
+      <h3 style="margin:0 0 8px;font-size:15px">Recurring</h3>
+      <div id="recurring-list"></div>
+    </div>
     <div id="transactions-list"></div>
   </section>
 
@@ -384,7 +401,7 @@
       <div class="form-grid">
         <label>Name<input type="text" id="bill-name" placeholder="e.g. Rent"></label>
         <label>Amount<input type="number" id="bill-amount" min="0" step="0.01" placeholder="0.00"></label>
-        <label>Category<select id="bill-category"></select></label>
+        <label>Category<select id="bill-category"></select><span class="cat-tools"><button type="button" class="link-btn" id="bill-addcat">+ New category</button><button type="button" class="link-btn" id="bill-managecats">Manage</button></span></label>
         <label>Due day of month<input type="number" id="bill-dueday" min="1" max="31" placeholder="1–31"></label>
       </div>
       <div class="form-actions">
@@ -620,7 +637,7 @@ let toastTimer=null;
 function toast(msg){ const t=document.getElementById('toast'); t.textContent=msg; t.classList.add('show'); clearTimeout(toastTimer); toastTimer=setTimeout(function(){t.classList.remove('show')},2200); }
 
 const CATEGORY_COLORS=['#AD7B20','#2A78D6','#A8517A','#2F7C5A','#B8493F','#7A5817','#5C8A6E','#4A5ED6','#C9922E','#B25C78'];
-const DEFAULT_PERSONAL_CATEGORIES=['Groceries','Dining out','Transport','Subscriptions','Fun','Shopping','Health','Misc'];
+const DEFAULT_PERSONAL_CATEGORIES=['Rent / Mortgage','Utilities','Groceries','Dining out','Transport','Subscriptions','Fun','Shopping','Health','Misc'];
 const DEFAULT_SHARED_CATEGORIES=['Rent / Mortgage','Utilities','Shared groceries','Household','Shared subscriptions','Misc'];
 function seedCategories(names){
   return names.map(function(name,i){ return {id:uid(),name:name,budget:0,color:CATEGORY_COLORS[i%CATEGORY_COLORS.length]}; });
@@ -642,7 +659,9 @@ let editingDebtId=null, editingDebtScope=null;
 let editingAccountId=null, editingAccountScope=null;
 let editingInvestmentId=null, editingInvestmentScope=null;
 let editingIncomeId=null, editingIncomeScope=null;
-let catsModalScope='personal';
+let catsModalScope='personal', catsModalKind='expense';
+function modalCats(){ return catsModalKind==='income' ? incomeCatsFor(catsModalScope) : catsFor(catsModalScope); }
+function saveModalCats(){ return catsModalKind==='income' ? saveIncomeCats(catsModalScope) : saveCats(catsModalScope); }
 
 async function loadBudgetData(){
   const [pt,st,pc,sc,pb,sb,pd,sd,pa,sa,pi,si,pn,sn,ptx,stx]=await Promise.all([
@@ -691,6 +710,18 @@ async function loadBudgetData(){
   if(sharedCategories===null){ sharedCategories=seedCategories(DEFAULT_SHARED_CATEGORIES); needSaveSharedCats=true; }
   if(needSavePersonalCats) await saveCats('personal');
   if(needSaveSharedCats) await saveCats('shared');
+  // Profiles created before Rent/Utilities were in the personal list: add them once (never again if you delete them).
+  try{
+    const mk='budget-rent-added-'+activeProfile;
+    if(!localStorage.getItem(mk)){
+      localStorage.setItem(mk,'1');
+      const has=function(re){ return personalCategories.some(function(c){ return re.test(c.name); }); };
+      let added=false;
+      if(!has(/rent|mortgage/i)){ personalCategories.push({id:uid(),name:'Rent / Mortgage',budget:0,color:CATEGORY_COLORS[personalCategories.length%CATEGORY_COLORS.length]}); added=true; }
+      if(!has(/utilit/i)){ personalCategories.push({id:uid(),name:'Utilities',budget:0,color:CATEGORY_COLORS[personalCategories.length%CATEGORY_COLORS.length]}); added=true; }
+      if(added) await saveCats('personal');
+    }
+  }catch(e){}
 }
 /* Both of you can have Budget open (or one of you on two devices). Saving a whole list blindly would wipe
    anything the other side added since this page loaded, so before each write we fold in entries that appeared
@@ -715,6 +746,182 @@ async function mergedSave(scope,key,arr){
   await ref.set({json:JSON.stringify(arr)});
   savedIds[sk]=idsOf(arr);
   if(pulled){ toast('Pulled in '+pulled+' new '+(pulled===1?'entry':'entries')+' from '+otherProfile(activeProfile)+"'s device"); showTab(activeTab); }
+}
+
+/* =====================================================================
+   RECURRING TRANSACTIONS — a series is a template stored per scope under the
+   key "recurring". It logs a real transaction on each fixed date (start date +
+   weekly / every 2 weeks / monthly / yearly). Monthly and yearly keep the
+   original day and clamp short months (the 31st lands on Feb 28/29, Apr 30).
+   nextIndex counts occurrences already logged, so deleting a logged entry
+   never brings it back, and missed days are caught up when Budget opens.
+===================================================================== */
+let personalRecurring=[], sharedRecurring=[];
+let personalIncomeCats=null, sharedIncomeCats=null;
+function incomeCatsFor(scope){ if(scope==='shared'){ if(!sharedIncomeCats) sharedIncomeCats=INCOME_CATS.map(function(c){return Object.assign({},c);}); return sharedIncomeCats; } if(!personalIncomeCats) personalIncomeCats=INCOME_CATS.map(function(c){return Object.assign({},c);}); return personalIncomeCats; }
+async function saveIncomeCats(scope){ try{ await mergedSave(scope,'incomeCats',incomeCatsFor(scope)); }catch(e){ toast('Could not save — try again'); } }
+let editingRecurId=null, editingRecurScope=null;
+const RECUR_LABEL={weekly:'Every week',biweekly:'Every 2 weeks',monthly:'Every month',yearly:'Every year'};
+function recurFor(scope){ return scope==='personal'?personalRecurring:sharedRecurring; }
+function recurDate(start,freq,k){
+  const m=/^(\d{4})-(\d{2})-(\d{2})$/.exec(start||''); if(!m) return null;
+  const y=+m[1], mo=+m[2]-1, d=+m[3];
+  if(freq==='weekly'||freq==='biweekly'){
+    const dt=new Date(y,mo,d+k*(freq==='weekly'?7:14));
+    return dt.getFullYear()+'-'+pad2(dt.getMonth()+1)+'-'+pad2(dt.getDate());
+  }
+  const add=k*(freq==='yearly'?12:1);
+  const tm=mo+add, ty=y+Math.floor(tm/12), tmo=((tm%12)+12)%12;
+  const dim=new Date(ty,tmo+1,0).getDate();
+  return ty+'-'+pad2(tmo+1)+'-'+pad2(Math.min(d,dim));
+}
+function recurNext(r){
+  const d=recurDate(r.startDate,r.freq,r.nextIndex||0);
+  if(!d) return null;
+  if(r.endDate && d>r.endDate) return null;
+  return d;
+}
+async function loadRecurring(){
+  const [p,sh,pic,sic]=await Promise.all([
+    profileDoc(activeProfile,'recurring').get().catch(function(){return null;}),
+    sharedDoc('recurring').get().catch(function(){return null;}),
+    profileDoc(activeProfile,'incomeCats').get().catch(function(){return null;}),
+    sharedDoc('incomeCats').get().catch(function(){return null;})
+  ]);
+  try{ personalIncomeCats=(pic&&pic.exists&&pic.data().json)?JSON.parse(pic.data().json):null; }catch(e){ personalIncomeCats=null; }
+  try{ sharedIncomeCats=(sic&&sic.exists&&sic.data().json)?JSON.parse(sic.data().json):null; }catch(e){ sharedIncomeCats=null; }
+  if(Array.isArray(personalIncomeCats)) savedIds['personal:incomeCats']=idsOf(personalIncomeCats);
+  if(Array.isArray(sharedIncomeCats)) savedIds['shared:incomeCats']=idsOf(sharedIncomeCats);
+  try{ personalRecurring=(p&&p.exists&&p.data().json)?JSON.parse(p.data().json):[]; }catch(e){ personalRecurring=[]; }
+  try{ sharedRecurring=(sh&&sh.exists&&sh.data().json)?JSON.parse(sh.data().json):[]; }catch(e){ sharedRecurring=[]; }
+  savedIds['personal:recurring']=idsOf(personalRecurring);
+  savedIds['shared:recurring']=idsOf(sharedRecurring);
+}
+async function saveRecurring(scope){
+  try{ await mergedSave(scope,'recurring',recurFor(scope)); }
+  catch(e){ toast('Could not save — try again'); }
+}
+/* Log every occurrence that has come due (date <= today). Returns how many were logged. */
+async function materializeRecurring(){
+  const today=todayStr();
+  let made=0;
+  for(const scope of ['personal','shared']){
+    let changed=false, txnChanged=false;
+    const txns=txnsFor(scope);
+    recurFor(scope).forEach(function(r){
+      if(r.paused) return;
+      let guard=0;
+      while(guard++<500){
+        const d=recurNext(r);
+        if(!d || d>today) break;
+        r.nextIndex=(r.nextIndex||0)+1; changed=true;
+        if(txns.some(function(t){ return t.recurId===r.id && t.date===d; })) continue; // another device already logged it
+        const shExp=scope==='shared' && r.type==='expense';
+        const owed=shExp ? (r.splitMethod==='exact' ? (Number(r.owedAmount)||0) : Math.round(Number(r.amount)/2*100)/100) : null;
+        txns.unshift({id:uid(),amount:r.amount,type:r.type,categoryId:r.categoryId,who:scope==='shared'?(r.who||null):null,date:d,note:r.note||'',createdAt:Date.now(),splitMethod:shExp?(r.splitMethod||'half'):null,owedAmount:owed,settled:shExp?false:undefined,recurId:r.id});
+        txnChanged=true; made++;
+      }
+    });
+    if(txnChanged) await saveTxns(scope);
+    if(changed) await saveRecurring(scope);
+  }
+  return made;
+}
+async function runRecurringCheck(){
+  if(!activeProfile) return;
+  try{
+    const n=await materializeRecurring();
+    if(n){ toast(n===1?'Logged 1 recurring transaction':'Logged '+n+' recurring transactions'); showTab(activeTab); }
+  }catch(e){}
+}
+function recurSummary(r){
+  let s=RECUR_LABEL[r.freq]||'';
+  const m=/-(\d{2})$/.exec(r.startDate||'');
+  if(r.freq==='monthly'&&m) s+=' on the '+ordinal(+m[1]);
+  if(r.freq==='weekly'||r.freq==='biweekly'){ const [y,mo,d]=r.startDate.split('-').map(Number); s+=' on '+['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][new Date(y,mo-1,d).getDay()]; }
+  if(r.freq==='yearly'&&r.startDate) s+=' on '+r.startDate.slice(5);
+  return s;
+}
+function ordinal(n){ const v=n%100; return n+((v>=11&&v<=13)?'th':({1:'st',2:'nd',3:'rd'}[n%10]||'th')); }
+function refreshRepeatUI(){
+  const f=document.getElementById('txn-repeat').value;
+  document.getElementById('txn-repeat-end-label').style.display = f==='none' ? 'none' : '';
+  const hint=document.getElementById('txn-repeat-hint');
+  const date=document.getElementById('txn-date').value||todayStr();
+  if(f==='none'){ hint.style.display='none'; return; }
+  const tmp={freq:f,startDate:date};
+  let t=recurSummary(tmp);
+  if(f==='monthly'&&+date.slice(8)>28) t+=' (short months use their last day)';
+  hint.textContent=t+', starting '+date+'. Each one is logged automatically on its date.';
+  hint.style.display='block';
+}
+function renderRecurring(){
+  const rows=[];
+  ['personal','shared'].forEach(function(sc){ recurFor(sc).forEach(function(r){ rows.push({r:r,sc:sc}); }); });
+  document.getElementById('recurring-section').style.display = rows.length ? '' : 'none';
+  rows.sort(function(a,b){ return (recurNext(a.r)||'9999').localeCompare(recurNext(b.r)||'9999'); });
+  const el=document.getElementById('recurring-list');
+  el.innerHTML=rows.map(function(x){
+    const r=x.r, sc=x.sc, nx=recurNext(r);
+    const status = r.paused ? 'Paused' : (nx ? 'Next: '+nx : 'Ended');
+    const key=sc+':'+r.id;
+    return '<div class="txn-row '+r.type+'">'+
+      '<div class="txn-body"><div class="txn-title">'+escapeHtml(r.note||catName(sc,r.categoryId))+'</div>'+
+      '<div class="txn-meta">'+(sc==='shared'?'<span class="person-pill shared">Shared</span>':'')+'<span class="cat-chip">'+escapeHtml(recurSummary(r))+'</span><span class="cat-chip">'+escapeHtml(status)+'</span>'+(r.endDate?'<span class="cat-chip">Until '+escapeHtml(r.endDate)+'</span>':'')+'</div></div>'+
+      '<div class="txn-amount '+r.type+'">'+(r.type==='income'?'+':'−')+fmtMoney(r.amount)+'</div>'+
+      '<div class="row-actions"><button type="button" data-recpause="'+key+'" title="'+(r.paused?'Resume':'Pause')+'"><i data-lucide="'+(r.paused?'play':'pause')+'"></i></button>'+
+      '<button type="button" data-recedit="'+key+'" title="Edit"><i data-lucide="pencil"></i></button>'+
+      '<button type="button" data-recdel="'+key+'" title="Delete"><i data-lucide="trash-2"></i></button></div></div>';
+  }).join('');
+  if(window.lucide) lucide.createIcons();
+  el.querySelectorAll('[data-recpause]').forEach(function(b){ b.addEventListener('click',function(){ const p=b.dataset.recpause.split(':'); toggleRecurPause(p[0],p[1]); }); });
+  el.querySelectorAll('[data-recedit]').forEach(function(b){ b.addEventListener('click',function(){ const p=b.dataset.recedit.split(':'); editRecur(p[0],p[1]); }); });
+  el.querySelectorAll('[data-recdel]').forEach(function(b){ b.addEventListener('click',function(){ const p=b.dataset.recdel.split(':'); if(confirm('Delete this recurring series? Transactions it already logged stay.')) deleteRecur(p[0],p[1]); }); });
+}
+async function toggleRecurPause(scope,id){
+  const r=recurFor(scope).find(function(x){return x.id===id;}); if(!r) return;
+  if(r.paused){
+    // Resuming skips the dates missed while paused instead of logging them all at once.
+    const today=todayStr(); let g=0;
+    while(g++<2000){ const d=recurNext(r); if(!d||d>=today) break; r.nextIndex=(r.nextIndex||0)+1; }
+    r.paused=false;
+  }else r.paused=true;
+  await saveRecurring(scope);
+  if(!r.paused) await runRecurringCheck();
+  renderRecurring(); renderOverview();
+  toast(r.paused?'Paused':'Resumed');
+}
+async function deleteRecur(scope,id){
+  const arr=recurFor(scope); const i=arr.findIndex(function(x){return x.id===id;}); if(i===-1) return;
+  arr.splice(i,1);
+  if(editingRecurId===id) resetTxnForm();
+  await saveRecurring(scope);
+  renderRecurring(); renderTransactions(); renderOverview();
+  toast('Series deleted');
+}
+function editRecur(scope,id){
+  const r=recurFor(scope).find(function(x){return x.id===id;}); if(!r) return;
+  pendingBillPay=null;
+  editingTxnId=null; editingTxnScope=null;
+  editingRecurId=id; editingRecurScope=scope;
+  document.querySelectorAll('#txn-scope-toggle button').forEach(function(b){ b.classList.toggle('active', b.dataset.scope===scope); });
+  document.querySelectorAll('#txn-type-toggle button').forEach(function(b){ b.classList.toggle('active', b.dataset.type===r.type); });
+  refreshTxnForm();
+  document.getElementById('txn-amount').value=r.amount;
+  document.getElementById('txn-category').value=r.categoryId||'';
+  if(r.who) document.getElementById('txn-who').value=r.who;
+  document.getElementById('txn-date').value=recurNext(r)||r.startDate;
+  document.getElementById('txn-note').value=r.note||'';
+  document.querySelectorAll('#txn-split-toggle button').forEach(function(b){ b.classList.toggle('active', b.dataset.split===(r.splitMethod||'half')); });
+  document.getElementById('txn-owed').value=r.owedAmount||'';
+  document.getElementById('txn-repeat').value=r.freq;
+  document.getElementById('txn-repeat-end').value=r.endDate||'';
+  refreshTxnSplitUI(); refreshRepeatUI();
+  document.getElementById('txn-submit').innerHTML='<i data-lucide="check"></i>Save series';
+  document.getElementById('txn-cancel-edit').hidden=false;
+  if(window.lucide) lucide.createIcons();
+  showTab('transactions');
+  document.querySelector('.card-form').scrollIntoView({behavior:'smooth',block:'start'});
 }
 async function saveTxns(scope){
   try{
@@ -768,7 +975,7 @@ const INCOME_CATS=[
   {id:'inc-paycheck',name:'Paycheck',color:'#2E7D5B'},{id:'inc-freelance',name:'Freelance',color:'#3F6FA3'},
   {id:'inc-interest',name:'Interest & dividends',color:'#7C5C9E'},{id:'inc-refund',name:'Refund',color:'#B07D1E'},
   {id:'inc-gift',name:'Gift',color:'#A8517A'},{id:'inc-other',name:'Other income',color:'#7A7A72'}];
-function findCat(scope,id){ return catsFor(scope).find(function(x){return x.id===id;}) || INCOME_CATS.find(function(x){return x.id===id;}); }
+function findCat(scope,id){ const f=function(x){return x.id===id;}; return catsFor(scope).find(f) || incomeCatsFor(scope).find(f) || incomeCatsFor(scope==='shared'?'personal':'shared').find(f) || INCOME_CATS.find(f); }
 function catName(scope,id){ const c=findCat(scope,id); return c?c.name:'Uncategorized'; }
 function catColor(scope,id){ const c=findCat(scope,id); return c?c.color:'#999'; }
 
@@ -880,10 +1087,10 @@ function renderOverview(){
 ===================================================================== */
 function populateCategorySelect(sel, scope, includeAll, kind){
   const opt=function(c){ return '<option value="'+c.id+'">'+escapeHtml(c.name)+'</option>'; };
-  if(kind==='income'){ sel.innerHTML=INCOME_CATS.map(opt).join(''); return; }
+  if(kind==='income'){ sel.innerHTML=incomeCatsFor(scope).map(opt).join(''); return; }
   const cats=catsFor(scope);
   sel.innerHTML=(includeAll?'<option value="">All categories</option>':'')+cats.map(opt).join('')
-    +(includeAll?'<optgroup label="Income">'+INCOME_CATS.map(opt).join('')+'</optgroup>':'');
+    +(includeAll?'<optgroup label="Income">'+incomeCatsFor('personal').concat(incomeCatsFor('shared').filter(function(c){return !incomeCatsFor('personal').some(function(p){return p.id===c.id;});})).map(opt).join('')+'</optgroup>':'');
 }
 function currentTxnScope(){ return document.querySelector('#txn-scope-toggle button.active').dataset.scope; }
 function currentTxnType(){ return document.querySelector('#txn-type-toggle button.active').dataset.type; }
@@ -902,7 +1109,11 @@ function refreshTxnSplitUI(){
   document.getElementById('txn-owed-label').style.display = split==='exact' ? '' : 'none';
 }
 function resetTxnForm(){
-  editingTxnId=null; editingTxnScope=null;
+  editingTxnId=null; editingTxnScope=null; editingRecurId=null; editingRecurScope=null;
+  document.getElementById('txn-repeat').value='none';
+  document.getElementById('txn-repeat-end').value='';
+  document.getElementById('txn-repeat-wrap').style.display='';
+  refreshRepeatUI();
   document.getElementById('txn-amount').value='';
   document.getElementById('txn-note').value='';
   document.getElementById('txn-date').value=todayStr();
@@ -925,6 +1136,35 @@ async function submitTxnForm(){
   const isSharedExpense = scope==='shared' && type==='expense';
   const splitMethod = isSharedExpense ? currentTxnSplit() : null;
   const owedAmount = isSharedExpense ? (splitMethod==='exact' ? (parseFloat(document.getElementById('txn-owed').value)||0) : Math.round(amount/2*100)/100) : null;
+  const repeat=document.getElementById('txn-repeat').value;
+  const repeatEnd=document.getElementById('txn-repeat-end').value;
+  if(repeat!=='none' && repeatEnd && repeatEnd<date){ toast('"Until" is before the start date'); return; }
+  if(editingRecurId){
+    const old=recurFor(editingRecurScope).find(function(x){return x.id===editingRecurId;});
+    if(old){
+      if(repeat==='none'){ toast('Pick how often it repeats, or delete the series'); return; }
+      const sameScope = editingRecurScope===scope;
+      if(!sameScope){ const oa=recurFor(editingRecurScope); oa.splice(oa.indexOf(old),1); await saveRecurring(editingRecurScope); }
+      // Changing the schedule restarts it from the date in the form (past entries are untouched).
+      const reschedule = old.freq!==repeat || (recurNext(old)||'')!==date || !sameScope;
+      Object.assign(old,{amount:amount,type:type,categoryId:categoryId,who:scope==='shared'?who:null,note:note,splitMethod:splitMethod,owedAmount:owedAmount,freq:repeat,endDate:repeatEnd||''});
+      if(reschedule){ old.startDate=date; old.nextIndex=0; }
+      if(!sameScope) recurFor(scope).push(old);
+      await saveRecurring(scope);
+      await materializeRecurring();
+      resetTxnForm(); renderRecurring(); renderOverview(); renderTransactions();
+      toast('Series saved');
+      return;
+    }
+  }
+  if(repeat!=='none' && !editingTxnId){
+    recurFor(scope).push({id:uid(),amount:amount,type:type,categoryId:categoryId,who:scope==='shared'?who:null,note:note,splitMethod:splitMethod,owedAmount:owedAmount,freq:repeat,startDate:date,endDate:repeatEnd||'',nextIndex:0,paused:false,createdAt:Date.now()});
+    await saveRecurring(scope);
+    const made=await materializeRecurring();
+    resetTxnForm(); renderRecurring(); renderOverview(); renderTransactions();
+    toast(made?'Recurring saved · '+made+' logged':'Recurring saved · first one on '+date);
+    return;
+  }
   const arr=txnsFor(scope);
   if(editingTxnId && editingTxnScope===scope){
     const t=arr.find(function(x){return x.id===editingTxnId;});
@@ -948,7 +1188,9 @@ function editTxn(scope,id){
   pendingBillPay=null;
   const t=txnsFor(scope).find(function(x){return x.id===id;});
   if(!t) return;
-  editingTxnId=id; editingTxnScope=scope;
+  editingTxnId=id; editingTxnScope=scope; editingRecurId=null; editingRecurScope=null;
+  document.getElementById('txn-repeat').value='none'; refreshRepeatUI();
+  document.getElementById('txn-repeat-wrap').style.display='none';
   document.querySelectorAll('#txn-scope-toggle button').forEach(function(b){ b.classList.toggle('active', b.dataset.scope===scope); });
   document.querySelectorAll('#txn-type-toggle button').forEach(function(b){ b.classList.toggle('active', b.dataset.type===t.type); });
   refreshTxnForm();
@@ -976,6 +1218,7 @@ async function deleteTxn(scope,id){
   toast('Deleted');
 }
 function renderTransactions(){
+  renderRecurring();
   const scopeFilter=document.getElementById('txn-filter-scope').value;
   const catFilter=document.getElementById('txn-filter-category').value;
   const q=document.getElementById('txn-search').value.trim().toLowerCase();
@@ -998,7 +1241,7 @@ function renderTransactions(){
     }
     return '<div class="txn-row '+t.type+'" data-txnwrap="'+t._scope+':'+t.id+'">'+
       '<div class="txn-body"><div class="txn-title">'+escapeHtml(t.note||catName(t._scope,t.categoryId))+'</div>'+
-      '<div class="txn-meta">'+whoPill+'<span class="cat-chip">'+escapeHtml(catName(t._scope,t.categoryId))+'</span><span class="cat-chip">'+escapeHtml(t.date)+'</span>'+owedChip+'</div></div>'+
+      '<div class="txn-meta">'+whoPill+'<span class="cat-chip">'+escapeHtml(catName(t._scope,t.categoryId))+'</span><span class="cat-chip">'+escapeHtml(t.date)+'</span>'+(t.recurId?'<span class="cat-chip">Recurring</span>':'')+owedChip+'</div></div>'+
       '<div class="txn-amount '+t.type+'">'+(t.type==='income'?'+':'−')+fmtMoney(t.amount).replace('$','$')+'</div>'+
       '<div class="row-actions"><button type="button" data-txnedit="'+t._scope+':'+t.id+'" title="Edit"><i data-lucide="pencil"></i></button>'+
       '<button type="button" data-txndel="'+t._scope+':'+t.id+'" title="Delete"><i data-lucide="trash-2"></i></button></div>'+
@@ -1701,10 +1944,21 @@ function occurrencesByDueDay(dueDay, days){
 }
 function computeForecast(days){
   const totalBalance=allAccounts().reduce(function(s,a){return s+(Number(a.balance)||0);},0);
-  const incomeTotal=allIncome().reduce(function(s,n){ return s+occurrencesWithin(n.nextDate,n.frequency,days)*(Number(n.amount)||0); },0);
+  let incomeTotal=allIncome().reduce(function(s,n){ return s+occurrencesWithin(n.nextDate,n.frequency,days)*(Number(n.amount)||0); },0);
   const billsTotal=personalBills.concat(sharedBills).reduce(function(s,b){ return s+occurrencesByDueDay(b.dueDay,days)*(Number(b.amount)||0); },0);
   const debtMinTotal=allDebts().reduce(function(s,d){ return s+occurrencesByDueDay(d.dueDay,days)*(Number(d.min)||0); },0);
-  return {totalBalance:totalBalance,incomeTotal:incomeTotal,billsTotal:billsTotal,debtMinTotal:debtMinTotal,projected:totalBalance+incomeTotal-billsTotal-debtMinTotal};
+  let recurIn=0, recurOut=0;
+  const horizon=(function(){ const d=new Date(); d.setDate(d.getDate()+days); return d.getFullYear()+'-'+pad2(d.getMonth()+1)+'-'+pad2(d.getDate()); })();
+  personalRecurring.concat(sharedRecurring).forEach(function(r){
+    if(r.paused) return;
+    for(let k=r.nextIndex||0, g=0; g<500; k++, g++){
+      const d=recurDate(r.startDate,r.freq,k);
+      if(!d || d>horizon || (r.endDate && d>r.endDate)) break;
+      if(r.type==='income') recurIn+=Number(r.amount)||0; else recurOut+=Number(r.amount)||0;
+    }
+  });
+  incomeTotal+=recurIn;
+  return {totalBalance:totalBalance,incomeTotal:incomeTotal,billsTotal:billsTotal+recurOut,debtMinTotal:debtMinTotal,projected:totalBalance+incomeTotal-(billsTotal+recurOut)-debtMinTotal};
 }
 function renderForecast(){
   const f30=computeForecast(30), f90=computeForecast(90);
@@ -1713,8 +1967,8 @@ function renderForecast(){
     '<div class="fh-sub">From '+fmtMoney(f30.totalBalance)+' today, plus income actually scheduled to land, minus bills and debt minimums actually due in that window.</div></div>';
   function lines(f){
     return '<div class="forecast-line"><span>Current balances</span><b>'+fmtMoney(f.totalBalance)+'</b></div>'+
-      '<div class="forecast-line"><span>Scheduled income</span><b>+'+fmtMoney(f.incomeTotal)+'</b></div>'+
-      '<div class="forecast-line"><span>Bills due</span><b>−'+fmtMoney(f.billsTotal)+'</b></div>'+
+      '<div class="forecast-line"><span>Scheduled &amp; recurring income</span><b>+'+fmtMoney(f.incomeTotal)+'</b></div>'+
+      '<div class="forecast-line"><span>Bills &amp; recurring expenses due</span><b>−'+fmtMoney(f.billsTotal)+'</b></div>'+
       '<div class="forecast-line"><span>Debt minimum payments due</span><b>−'+fmtMoney(f.debtMinTotal)+'</b></div>'+
       '<div class="forecast-line"><span>Projected balance</span><b>'+fmtMoney(f.projected)+'</b></div>';
   }
@@ -1956,27 +2210,27 @@ function exportTaxSummary(){
 /* =====================================================================
    CATEGORIES MODAL
 ===================================================================== */
-function openCatsModal(scope){
-  catsModalScope=scope;
-  document.getElementById('cats-modal-title').textContent=(scope==='shared'?'Shared':'Your')+' categories';
+function openCatsModal(scope,kind){
+  catsModalScope=scope; catsModalKind=kind||'expense';
+  document.getElementById('cats-modal-title').textContent=(scope==='shared'?'Shared':'Your')+(catsModalKind==='income'?' income':' expense')+' categories';
   renderCatsModal();
   document.getElementById('cats-modal-overlay').hidden=false;
 }
 function closeCatsModal(){ document.getElementById('cats-modal-overlay').hidden=true; }
 function renderCatsModal(){
-  const cats=catsFor(catsModalScope);
+  const cats=modalCats();
   const el=document.getElementById('cats-modal-list');
   el.innerHTML=cats.map(function(c){
     return '<div class="mini-cat-row" data-catrow="'+c.id+'">'+
       '<span class="cat-dot" style="background:'+c.color+'"></span>'+
       '<input type="text" value="'+escapeHtml(c.name)+'" data-catname="'+c.id+'">'+
-      '<input type="number" min="0" step="1" value="'+(c.budget||'')+'" placeholder="Budget" data-catbudget="'+c.id+'">'+
+      (catsModalKind==='income'?'':'<input type="number" min="0" step="1" value="'+(c.budget||'')+'" placeholder="Budget" data-catbudget="'+c.id+'">')+
       '<button type="button" data-catdel="'+c.id+'" title="Delete"><i data-lucide="trash-2"></i></button>'+
     '</div>';
   }).join('');
   if(window.lucide) lucide.createIcons();
   let debounce;
-  function scheduleSave(){ clearTimeout(debounce); debounce=setTimeout(function(){ saveCats(catsModalScope); renderOverview(); refreshTxnForm(); refreshBillForm(); }, 400); }
+  function scheduleSave(){ clearTimeout(debounce); debounce=setTimeout(function(){ saveModalCats(); renderOverview(); refreshTxnForm(); refreshBillForm(); renderTransactions(); }, 400); }
   el.querySelectorAll('[data-catname]').forEach(function(inp){
     inp.addEventListener('input', function(){
       const c=cats.find(function(x){return x.id===inp.dataset.catname;});
@@ -1993,18 +2247,40 @@ function renderCatsModal(){
     btn.addEventListener('click', function(){
       if(!confirm('Delete this category? Past transactions keep showing it as "Uncategorized".')) return;
       const idx=cats.findIndex(function(x){return x.id===btn.dataset.catdel;});
-      if(idx!==-1){ cats.splice(idx,1); saveCats(catsModalScope).then(function(){ renderCatsModal(); renderOverview(); refreshTxnForm(); refreshBillForm(); }); }
+      if(idx!==-1){ cats.splice(idx,1); saveModalCats().then(function(){ renderCatsModal(); renderOverview(); refreshTxnForm(); refreshBillForm(); renderTransactions(); }); }
     });
   });
 }
 document.getElementById('cats-add-new').addEventListener('click', function(){
-  const cats=catsFor(catsModalScope);
+  const cats=modalCats();
   cats.push({id:uid(),name:'New category',budget:0,color:CATEGORY_COLORS[cats.length%CATEGORY_COLORS.length]});
-  saveCats(catsModalScope).then(function(){ renderCatsModal(); renderOverview(); refreshTxnForm(); refreshBillForm(); });
+  saveModalCats().then(function(){ renderCatsModal(); renderOverview(); refreshTxnForm(); refreshBillForm(); });
 });
 document.getElementById('cats-modal-close').addEventListener('click', closeCatsModal);
 document.addEventListener('keydown', function(e){ if(e.key==='Escape'){ document.querySelectorAll('.modal-overlay:not([hidden])').forEach(function(m){ if(m.id==='cats-modal-overlay') closeCatsModal(); else m.hidden=true; }); } });
 document.getElementById('cats-modal-overlay').addEventListener('click', function(e){ if(e.target.id==='cats-modal-overlay') closeCatsModal(); });
+document.getElementById('bill-managecats').addEventListener('click', function(){ openCatsModal(currentBillScope(),'expense'); });
+document.getElementById('bill-addcat').addEventListener('click', async function(){
+  const scope=currentBillScope();
+  const name=(prompt('New category name:')||'').trim(); if(!name) return;
+  const arr=catsFor(scope);
+  let c=arr.find(function(x){return x.name.toLowerCase()===name.toLowerCase();});
+  if(!c){ c={id:uid(),name:name,budget:0,color:CATEGORY_COLORS[arr.length%CATEGORY_COLORS.length]}; arr.push(c); await saveCats(scope); }
+  refreshBillForm(); document.getElementById('bill-category').value=c.id; refreshTxnForm(); renderOverview(); toast('Category added');
+});
+document.getElementById('txn-managecats').addEventListener('click', function(){ openCatsModal(currentTxnScope(), currentTxnType()==='income'?'income':'expense'); });
+document.getElementById('txn-addcat').addEventListener('click', async function(){
+  const scope=currentTxnScope(), kind=currentTxnType()==='income'?'income':'expense';
+  const name=(prompt('New '+kind+' category name:')||'').trim();
+  if(!name) return;
+  const arr=kind==='income'?incomeCatsFor(scope):catsFor(scope);
+  const dup=arr.find(function(c){return c.name.toLowerCase()===name.toLowerCase();});
+  let id;
+  if(dup){ id=dup.id; }
+  else{ id=uid(); arr.push({id:id,name:name,budget:0,color:CATEGORY_COLORS[arr.length%CATEGORY_COLORS.length]}); if(kind==='income') await saveIncomeCats(scope); else await saveCats(scope); }
+  refreshTxnForm(); document.getElementById('txn-category').value=id;
+  renderOverview(); toast(dup?'Already exists — selected':'Category added');
+});
 document.querySelectorAll('[data-opencats]').forEach(function(btn){ btn.addEventListener('click', function(){ openCatsModal(btn.dataset.opencats); }); });
 
 /* =====================================================================
@@ -2124,12 +2400,18 @@ async function enterProfile(profileId){
   document.getElementById('who-badge').innerHTML='<span class="who-avatar av-'+(profileId==='Bhargav'?'b':'a')+'">'+profileId[0]+'</span><span class="who-name">'+profileId+'</span>';
   document.getElementById('who-badge').onclick=function(){ enterProfile(otherProfile(activeProfile)); };
   await loadBudgetData();
+  await loadRecurring();
+  await materializeRecurring().catch(function(){});
   document.getElementById('txn-date').value=todayStr();
   document.getElementById('income-nextdate').value=todayStr();
   document.getElementById('tax-year').value=new Date().getFullYear();
   populateCategorySelect(document.getElementById('txn-filter-category'), 'personal', true);
   refreshTxnForm();
   refreshTxnSplitUI();
+  refreshRepeatUI();
+  document.getElementById('txn-repeat').onchange=refreshRepeatUI;
+  document.getElementById('txn-date').addEventListener('change',refreshRepeatUI);
+  if(!window.__recurTimer){ window.__recurTimer=setInterval(runRecurringCheck,60000); document.addEventListener('visibilitychange',function(){ if(!document.hidden) runRecurringCheck(); }); }
   refreshBillForm();
   accountInterestPreview();
   showTab('today');

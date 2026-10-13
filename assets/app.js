@@ -1833,23 +1833,85 @@ function insightsNext(m){
   if(!m.todayActive) out.push({icon:'👉',text:'Log one thing today',sub:m.currentStreak>0?'Keeps your '+m.currentStreak+'-day streak alive':'Starts a new streak'});
   return out.slice(0,4);
 }
+/* ---- "Your move": a ranked list of things to actually do, each with a button ---- */
+function insightsPushes(m){
+  const out=[], d=today(), ins=state.insights, hr=new Date().getHours();
+  const tasks=dueTasks().slice().sort((a,b)=>((a.due&&a.due<d)?0:1)-((b.due&&b.due<d)?0:1)||(b.priority||0)-(a.priority||0));
+  tasks.slice(0,3).forEach(t=>{
+    const late=t.due&&t.due<d, days=late?daysBetween(t.due,d):0;
+    out.push({pri:late?1:3,icon:'✅',title:t.title,why:late?(days+' day'+(days===1?'':'s')+' overdue — every day it sits, it gets harder to start'):(t.due===d?'Due today':'On today’s priority list'),btn:'Done',act:{type:'task',id:t.id}});
+  });
+  if(tasks.length>3) out.push({pri:5,icon:'📋',title:(tasks.length-3)+' more on your list',why:'Clear them in one sitting',btn:'Open',href:'apps/todo.html'});
+  choresDueToday().slice(0,3).forEach(c=>out.push({pri:c.overdue?2:4,icon:'🧺',title:c.name,why:c.overdue?'Overdue chore — the longer it waits, the bigger it gets':'Due today',btn:'Done',act:{type:'chore',id:c.id}}));
+  if(!state.dailyLog && !ins.gymDates.has(d)) out.push({pri:2,icon:'🏋️',title:'Train today',why:m.thisWeekGymDays?('You’ve trained '+m.thisWeekGymDays+' day'+(m.thisWeekGymDays===1?'':'s')+' this week — add one more'):'No training logged this week yet',btn:'Start workout',href:'gym/index.html'});
+  const s=insightsSkinInfo(m);
+  if(s&&!s.before&&!(ins.skinTouchedDates.has(d)||ins.skinCheckedDates.has(d))) out.push({pri:3,icon:'✨',title:'Skin routine',why:s.last7+' of the last 7 days done — skipping breaks the program’s momentum',btn:'Do routine',href:'apps/skin.html'});
+  const f=insightsFoodInfo();
+  if(f && hr>=12 && !(ins.diet.byDate[d])) out.push({pri:3,icon:'🥗',title:'Log your food',why:'Nothing logged today — unlogged days are the ones that drift',btn:'Log meals',href:'apps/diet.html'});
+  const w=insightsWeightInfo();
+  if(w && !w.empty){ const gap=daysBetween(w.asOf,d); if(gap>=4) out.push({pri:3,icon:'⚖️',title:'Weigh in',why:'Last weigh-in was '+gap+' days ago — you can’t steer what you don’t measure',btn:'Log weight',href:'gym/index.html'}); }
+  else if(w && w.empty) out.push({pri:3,icon:'⚖️',title:'Log your first weigh-in',why:'Your pace and projection start the moment there is a number',btn:'Log weight',href:'gym/index.html'});
+  const p=insightsPledgeInfo();
+  if(p && !p.none){ const lg=p.lvl.days_log||{}; if(!(lg[d]&&lg[d].complete)) out.push({pri:2,icon:'🚩',title:'Pledge: '+p.goal.title,why:p.streak>0?('Today keeps your '+p.streak+'-day run alive'):'Today restarts your run',btn:'Check in',href:'apps/pledge.html'}); }
+  return out.sort((a,b)=>a.pri-b.pri);
+}
+function insightsTimeLeft(){ const n=new Date(), end=new Date(n.getFullYear(),n.getMonth(),n.getDate()+1); const mins=Math.max(0,Math.round((end-n)/60000)); return {h:Math.floor(mins/60),m:mins%60}; }
+function insightsBtn(x){
+  if(x.href) return '<a class="prog-act" href="'+x.href+'" data-profile-link>'+esc(x.btn)+' <i data-lucide="arrow-up-right"></i></a>';
+  return '<button type="button" class="prog-act" data-push-type="'+x.act.type+'" data-push-id="'+esc(x.act.id)+'">'+esc(x.btn)+'</button>';
+}
 function renderProgHero(m){
-  const w=insightsWeightInfo(), wins=insightsWins(m);
-  let headline, sub;
-  if(w&&!w.empty&&w.done>0&&w.status!=='done'){
-    headline=w.pct+'% of the way to '+w.goal.target+' kg';
-    sub=kgFmt(w.done)+' kg down, '+kgFmt(w.toGo)+' kg to go. '+(w.status==='ahead'||w.status==='on'?'You’re on pace — keep doing what you’re doing.':w.status==='close'?'Slightly behind the pace you need — a couple of solid weeks closes it.':w.status==='behind'?'Behind the pace you need — this week is a good one to tighten up.':'Keep logging weigh-ins so the pace gets clearer.');
-  }else if(w&&w.status==='done'){ headline='Goal weight reached'; sub='You hit '+w.goal.target+' kg. Hold it — that’s the next goal.'; }
-  else{ const msg=heroMessage(m); headline=msg.headline; sub=msg.sub; }
-  const earned=insightsBadges(m).filter(b=>b.unlocked).length, nb=insightsBadges(m).length;
-  $('prog-hero').innerHTML='<div class="prog-hero-main"><p class="prog-kicker">Right now</p><h2>'+esc(headline)+'</h2><p>'+esc(sub)+'</p></div>'+
-    '<div class="prog-hero-stats"><div><b>'+m.currentStreak+'</b><span>day streak</span></div><div><b>'+m.activeDaysThisWeek+'<small>/7</small></b><span>active days this week</span></div><div><b>'+earned+'<small>/'+nb+'</small></b><span>badges earned</span></div></div>'+
-    '<div class="prog-wins"><h3>Going well</h3>'+(wins.length?wins.map(x=>'<div class="prog-win"><span>'+x.icon+'</span>'+esc(x.text)+'</div>').join(''):'<div class="prog-win muted">Nothing logged yet this week. One small thing today puts the first win here.</div>')+'</div>';
+  const pushes=insightsPushes(m), top=pushes[0], tl=insightsTimeLeft();
+  let kicker, headline, sub, cta='';
+  if(!m.todayActive){
+    kicker=m.currentStreak>0?'⏳ '+m.currentStreak+'-day streak ends in '+tl.h+'h '+tl.m+'m':'⏳ '+tl.h+'h '+tl.m+'m left today';
+    headline=top?'Next: '+top.title:'Log one thing — anything';
+    sub=top?top.why+'. One action counts and saves the day.':'Complete a task, a chore, a workout or your routine. One is enough.';
+    if(top) cta=insightsBtn(top);
+  }else if(top){
+    kicker='✓ Today is on the board'+(m.currentStreak>1?' · '+m.currentStreak+'-day streak':'');
+    headline='Don’t stop at one: '+top.title;
+    sub=top.why+'.';
+    cta=insightsBtn(top);
+  }else{
+    kicker='✓ Everything done for today';
+    headline='Get ahead of tomorrow';
+    sub='Nothing is due. Add tomorrow’s first task now so you start moving the second you open the app.';
+    cta='<a class="prog-act" href="apps/todo.html" data-profile-link>Plan tomorrow <i data-lucide="arrow-up-right"></i></a>';
+  }
+  $('prog-hero').innerHTML='<div class="prog-hero-main"><p class="prog-kicker" id="prog-kicker" data-late="'+(m.todayActive?0:1)+'" data-streak="'+m.currentStreak+'">'+esc(kicker)+'</p><h2>'+esc(headline)+'</h2><p>'+esc(sub)+'</p>'+(cta?'<div class="prog-hero-cta">'+cta+'</div>':'')+'</div>'+
+    '<div class="prog-hero-stats"><div><b>'+m.currentStreak+'</b><span>day streak</span></div><div><b>'+m.activeDaysThisWeek+'<small>/7</small></b><span>active days this week</span></div><div><b>'+pushes.length+'</b><span>to do now</span></div></div>';
 }
-function renderProgNext(m){
-  const items=insightsNext(m);
-  $('prog-next').innerHTML=items.length?items.map(x=>'<div class="prog-next-row"><span class="prog-next-icon">'+x.icon+'</span><div><b>'+esc(x.text)+'</b><small>'+esc(x.sub)+'</small></div></div>').join(''):'<div class="empty-state"><strong>You’re all caught up</strong></div>';
+function renderProgPush(m){
+  const pushes=insightsPushes(m);
+  const el=$('prog-push');
+  if(!pushes.length){ el.innerHTML='<div class="prog-clear"><b>All clear.</b> Nothing overdue, nothing waiting. Use the time to get ahead: plan tomorrow, or stretch toward the challenges below.</div>'; return; }
+  el.innerHTML=pushes.map(x=>'<div class="prog-push-row p'+Math.min(x.pri,4)+'"><span class="prog-push-icon">'+x.icon+'</span><div class="prog-push-body"><b>'+esc(x.title)+'</b><small>'+esc(x.why)+'</small></div>'+insightsBtn(x)+'</div>').join('');
 }
+/* concrete targets with a number to hit, not a vague "keep going" */
+function renderProgChallenges(m){
+  const rows=[], d=today();
+  const nextStreak=[3,7,14,21,30,60].find(n=>n>m.currentStreak);
+  if(nextStreak){ const days=nextStreak-m.currentStreak;
+    rows.push({icon:'🔥',title:nextStreak+'-day streak',sub:days+' more day'+(days===1?'':'s')+' in a row — lands on '+insightsDateLabel(addDays(d,m.todayActive?days:days-1))+(m.todayActive?'':' if you act today'),pct:Math.round(m.currentStreak/nextStreak*100)}); }
+  if(m.bestWeekTotal>0){ const gap=m.bestWeekTotal-m.thisWeekTotal;
+    rows.push({icon:'🏆',title:gap>0?'Beat your best week':'You’re at your best week',sub:gap>0?gap+' more thing'+(gap===1?'':'s')+' in the last 7 days to set a new record ('+m.thisWeekTotal+' vs '+m.bestWeekTotal+')':'Keep going: '+m.thisWeekTotal+' vs previous best '+m.bestWeekTotal,pct:Math.min(100,Math.round(m.thisWeekTotal/Math.max(1,m.bestWeekTotal)*100))}); }
+  else rows.push({icon:'🎯',title:'Set your first benchmark',sub:'Finish 3 things this week so there is a best week to beat',pct:Math.min(100,Math.round(m.thisWeekTotal/3*100))});
+  const tgt=Math.min(7,Math.max(5,m.activeDaysThisWeek+1));
+  rows.push({icon:'📅',title:'Be active '+tgt+' of 7 days',sub:m.activeDaysThisWeek>=7?'Perfect week — every day counted':m.activeDaysThisWeek>=tgt?'Target hit — one more day makes it '+(m.activeDaysThisWeek+1):(tgt-m.activeDaysThisWeek)+' more active day'+(tgt-m.activeDaysThisWeek===1?'':'s')+' needed (last week: '+m.totals.slice(-14,-7).filter(t=>t.total>0).length+')',pct:Math.round(Math.min(m.activeDaysThisWeek,tgt)/tgt*100)});
+  const w=insightsWeightInfo();
+  if(w&&!w.empty&&w.toGo>0&&w.status!=='done'){
+    const behind=w.pace==null||w.pace>w.needed; 
+    rows.push({icon:'⚖️',title:behind?'Get back on weight pace':'Hold your weight pace',sub:'Plan needs '+kgFmt(Math.abs(w.needed))+' kg/week down'+(w.pace!=null?'; you’re at '+kgFmt(Math.abs(w.pace))+' kg/week '+(w.pace<0?'down':'up'):'; log 3+ weigh-ins over 7+ days to see your pace'),pct:w.pct});
+  }
+  $('prog-challenges').innerHTML=rows.map(r=>'<div class="prog-next-row"><span class="prog-next-icon">'+r.icon+'</span><div class="prog-ch-body"><b>'+esc(r.title)+'</b><small>'+esc(r.sub)+'</small>'+progBar(r.pct)+'</div></div>').join('');
+}
+function insightsTickCountdown(){
+  const k=$('prog-kicker'); if(!k||k.dataset.late!=='1'||!$('page-insights').classList.contains('active')) return;
+  const tl=insightsTimeLeft(), st=Number(k.dataset.streak)||0;
+  k.textContent='⏳ '+(st>0?st+'-day streak ends in ':'')+tl.h+'h '+tl.m+'m'+(st>0?'':' left today');
+}
+setInterval(insightsTickCountdown,30000);
 function renderProgGrid(m){
   const dates=m.last60Dates, first=new Date(dates[0]+'T00:00:00'); const pad=(first.getDay()+6)%7; // Monday first
   const maxT=Math.max(3,...m.totals.map(t=>t.total)); let html='';
@@ -1874,6 +1936,13 @@ function renderProgBadges(m){
 }
 function wireInsightsInteractions(){
   if(wireInsightsInteractions._wired) return; wireInsightsInteractions._wired=true;
+  $('page-insights').addEventListener('click',async e=>{
+    const b=e.target.closest('button[data-push-type]'); if(!b) return;
+    b.disabled=true; b.textContent='…';
+    const again=()=>renderInsightsPage().catch(()=>{});
+    if(b.dataset.pushType==='task') await completeTask(b.dataset.pushId).then(again);
+    else if(b.dataset.pushType==='chore') await completeChoreFromWidget(b.dataset.pushId,null,again);
+  });
   $('prog-grid').addEventListener('click',e=>{ const c=e.target.closest('.prog-cell[data-day-idx]'); if(c&&insightsCurrentM) showProgDay(insightsCurrentM,Number(c.dataset.dayIdx)); });
   $('insights-thread-btn').addEventListener('click',()=>{ $('insights-recovery').hidden=false; });
   $('insights-close-reset').addEventListener('click',()=>{ $('insights-recovery').hidden=true; });
@@ -1887,7 +1956,7 @@ async function renderInsightsPage(){
   const m=computeInsights();
   insightsCurrentM=m;
   wireInsightsInteractions();
-  renderProgHero(m); renderProgGoals(m); renderProgWeek(m); renderProgNext(m); renderProgGrid(m); renderProgBadges(m);
+  renderProgHero(m); renderProgPush(m); renderProgChallenges(m); renderProgGoals(m); renderProgWeek(m); renderProgGrid(m); renderProgBadges(m);
   $('insights-thread-body').textContent=m.currentStreak>0
     ? 'You’re '+m.currentStreak+' day'+(m.currentStreak===1?'':'s')+' in. On a day it feels pointless, do one small thing before it ends.'
     : 'No streak right now — that’s a fact, not a verdict. Do one small thing today and a new one starts.';

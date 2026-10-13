@@ -237,35 +237,36 @@
 
       <section class="page" id="page-insights" data-page="insights">
         <header class="page-header">
-          <div><p class="eyebrow">Your progress</p><h1>Insights</h1><p class="page-subtitle">How you’re doing against what you set out to do.</p></div>
+          <div><p class="eyebrow">Your move</p><h1>Insights</h1><p class="page-subtitle">What to do next, and what it takes to hit your goals.</p></div>
         </header>
 
         <div class="prog" id="prog">
           <section class="prog-hero" id="prog-hero"></section>
 
-          <div class="prog-section-head"><h2>Your goals</h2><p>Where each one stands today</p></div>
+          <div class="prog-section-head"><h2>Do these now</h2><p>Ranked by what costs you most if you skip it. Tap to finish it.</p></div>
+          <section class="prog-card prog-push" id="prog-push"></section>
+
+          <div class="prog-section-head"><h2>Targets to hit</h2><p>Numbers to chase, based on your own history</p></div>
+          <section class="prog-card" id="prog-challenges"></section>
+
+          <div class="prog-section-head"><h2>Your goals</h2><p>Where each one stands, and what it takes</p></div>
           <div class="prog-goals" id="prog-goals"></div>
 
-          <div class="prog-two">
-            <div>
-              <div class="prog-section-head"><h2>This week</h2><p>Days active out of 7, compared with last week</p></div>
-              <section class="prog-card" id="prog-week"></section>
-            </div>
-            <div>
-              <div class="prog-section-head"><h2>Next up</h2><p>The closest things to aim for</p></div>
-              <section class="prog-card" id="prog-next"></section>
-            </div>
-          </div>
+          <details class="prog-more">
+            <summary>History, last 60 days &amp; badges</summary>
+            <div class="prog-section-head"><h2>This week</h2><p>Days active out of 7, compared with last week</p></div>
+            <section class="prog-card" id="prog-week"></section>
 
-          <div class="prog-section-head"><h2>Last 60 days</h2><p>Darker = more done that day. Tap a day.</p></div>
-          <section class="prog-card">
-            <div class="prog-grid-scroll"><div class="prog-grid" id="prog-grid"></div></div>
-            <div class="prog-legend"><span>Less</span><i class="prog-cell l0"></i><i class="prog-cell l1"></i><i class="prog-cell l2"></i><i class="prog-cell l3"></i><span>More</span></div>
-            <div class="prog-day-detail" id="prog-day-detail"></div>
-          </section>
+            <div class="prog-section-head"><h2>Last 60 days</h2><p>Darker = more done that day. Tap a day.</p></div>
+            <section class="prog-card">
+              <div class="prog-grid-scroll"><div class="prog-grid" id="prog-grid"></div></div>
+              <div class="prog-legend"><span>Less</span><i class="prog-cell l0"></i><i class="prog-cell l1"></i><i class="prog-cell l2"></i><i class="prog-cell l3"></i><span>More</span></div>
+              <div class="prog-day-detail" id="prog-day-detail"></div>
+            </section>
 
-          <div class="prog-section-head"><h2>Badges</h2><p>Earned from real days, not given</p></div>
-          <section class="prog-card prog-badges" id="prog-badges"></section>
+            <div class="prog-section-head"><h2>Badges</h2><p>Earned from real days, not given</p></div>
+            <section class="prog-card prog-badges" id="prog-badges"></section>
+          </details>
 
           <section class="prog-card prog-thread">
             <div><h3>Hard day?</h3><p id="insights-thread-body">Do one small thing before the day ends.</p></div>
