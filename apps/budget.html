@@ -51,28 +51,27 @@
      880px rather than a bottom bar, since there are too many destinations
      for a 4-5 slot bottom nav to make sense here. ===== */
   :root{ --side-bg:#20211E; --side-panel:#2B2C26; --side-border:#3A3B33; --side-text:#BDC0B2; --side-text-dim:#86897D; }
-  .app-shell{display:grid;grid-template-columns:230px 1fr;min-height:100vh;align-items:start;}
-  .side{background:var(--side-bg);color:#FBF5E8;padding:18px 12px;display:flex;flex-direction:column;position:sticky;top:0;height:100vh;overflow-y:auto;}
-  .side-logo{display:flex;align-items:center;gap:9px;font-size:15px;font-weight:800;font-family:'Manrope',sans-serif;padding:2px 9px 18px;}
-  .side-mark{width:27px;height:27px;border-radius:9px;background:var(--gold);color:#20211E;display:grid;place-items:center;font-weight:850;font-size:14px;flex:none;}
-  .side-space{background:var(--side-panel);border:1px solid var(--side-border);border-radius:10px;padding:11px 12px;margin:0 0 16px;}
-  .side-space small{color:var(--side-text-dim);font-size:9.5px;text-transform:uppercase;letter-spacing:1px;}
-  .side-space b{display:block;font-size:12px;margin-top:5px;color:#FBF5E8;}
-  .side-group{color:var(--side-text-dim);font-size:9.5px;font-weight:700;text-transform:uppercase;letter-spacing:1px;margin:14px 9px 5px;}
-  .side-nav{display:flex;flex-direction:column;gap:1px;}
-  .side-nav button{display:flex;align-items:center;gap:10px;width:100%;background:none;border:0;color:var(--side-text);text-align:left;padding:9px 10px;border-radius:8px;cursor:pointer;font-size:12.5px;font-weight:650;font-family:inherit;}
-  .side-nav button svg{width:15px;height:15px;flex:none;}
-  .side-nav button:hover{background:var(--side-panel);color:#fff;}
-  .side-nav button.active{background:var(--side-panel);color:#fff;box-shadow:inset 3px 0 var(--gold);}
-  .side-hub-link{margin-top:auto;display:flex;align-items:center;gap:8px;color:var(--side-text-dim);text-decoration:none;font-size:11.5px;padding:10px 10px 2px;}
-  .side-hub-link:hover{color:#fff;}
+  .app-shell{display:block;min-height:100vh;}
+  .topnav{position:sticky;top:0;z-index:20;background:var(--surface);border-bottom:1px solid var(--border);}
+  .tn-inner{max-width:1100px;margin:0 auto;}
+  .tn-row{display:flex;align-items:center;gap:12px;padding:10px 22px 4px;}
+  .side-logo{display:flex;align-items:center;gap:9px;font-size:16px;font-weight:800;font-family:'Manrope',sans-serif;}
+  .side-mark{width:28px;height:28px;border-radius:9px;background:var(--gold);color:#20211E;display:grid;place-items:center;font-weight:850;font-size:14px;flex:none;}
+  .tn-space{color:var(--text-soft);font-size:12px;}
+  .tn-spacer{flex:1;}
+  .side-hub-link{display:flex;align-items:center;gap:6px;color:var(--text-soft);text-decoration:none;font-size:12px;font-weight:650;padding:6px 10px;border-radius:8px;}
+  .side-hub-link:hover{background:var(--surface-alt);color:var(--text);}
   .side-hub-link svg{width:14px;height:14px;}
-  body.embedded .side-logo,body.embedded .side-hub-link{display:none;}
-
+  .side-nav{display:flex;align-items:center;gap:4px;overflow-x:auto;padding:4px 22px 8px;scrollbar-width:none;-webkit-overflow-scrolling:touch;}
+  .side-nav::-webkit-scrollbar{display:none;}
+  .side-nav button{display:flex;align-items:center;gap:7px;flex:none;white-space:nowrap;background:none;border:0;color:var(--text-soft);padding:8px 12px;border-radius:999px;cursor:pointer;font-size:12.5px;font-weight:650;font-family:inherit;}
+  .side-nav button svg{width:15px;height:15px;flex:none;}
+  .side-nav button:hover{background:var(--surface-alt);color:var(--text);}
+  .side-nav button.active{background:var(--text);color:var(--surface);}
+  .tn-sep{width:1px;height:18px;background:var(--border);margin:0 6px;flex:none;}
+  body.embedded .tn-row{display:none;}
+  body.embedded .side-nav{padding-top:8px;}
   .side-main{min-width:0;}
-  .side-top{height:60px;background:var(--surface);border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;padding:0 26px;position:sticky;top:0;z-index:5;}
-  .side-crumb{color:var(--text-soft);font-size:12px;}
-  .side-crumb b{color:var(--text);}
   .side-content{max-width:960px;margin:0 auto;padding:24px 22px 60px;}
 
   .page-head{margin-bottom:18px;}
@@ -80,14 +79,11 @@
   .page-head p{margin:0;color:var(--text-soft);font-size:12.5px;max-width:580px;line-height:1.5;}
 
   @media(max-width:880px){
-    .app-shell{grid-template-columns:62px 1fr;}
-    .side{padding:14px 6px;}
-    .side-logo span.lbl,.side-space,.side-group,.side-nav button span,.side-hub-link span{display:none;}
-    .side-logo{justify-content:center;padding-bottom:12px;}
-    .side-nav button{justify-content:center;padding:10px 2px;}
-    .side-hub-link{justify-content:center;}
+    .tn-row{padding:10px 14px 2px;}
+    .tn-space{display:none;}
+    .side-nav{padding:4px 14px 8px;}
+    .side-hub-link span{display:none;}
     .side-content{padding:16px 14px 60px;}
-    .side-top{padding:0 14px;}
     .page-head h1{font-size:21px;}
   }
 
@@ -255,7 +251,7 @@
 
   .toast{position:fixed;bottom:18px;left:50%;transform:translateX(-50%);background:#20211E;color:#fff;padding:9px 16px;border-radius:10px;font-size:12.5px;z-index:300;box-shadow:0 10px 30px rgba(0,0,0,.25);opacity:0;pointer-events:none;transition:opacity .2s;}
   .toast.show{opacity:1;}
-.cat-tools{display:flex;gap:12px;margin-top:5px}.link-btn{background:none;border:0;padding:0;color:var(--accent);font-size:12px;font-weight:700;cursor:pointer}
+.cat-tools{display:flex;gap:12px;margin-top:5px}.link-btn{white-space:nowrap;background:none;border:0;padding:0;color:var(--accent);font-size:12px;font-weight:700;cursor:pointer}
 </style>
 </head>
 <body>
@@ -271,34 +267,35 @@
 </div>
 
 <div class="app-shell" id="app-wrap" style="display:none">
-  <aside class="side">
-    <div class="side-logo"><span class="side-mark">$</span><span class="lbl">Budget</span></div>
-    <div class="side-space"><small>Household space</small><b>Bhargav + Anusha</b></div>
-    <nav class="side-nav" id="side-nav">
-      <div class="side-group">Core</div>
-      <button type="button" data-tab="today" class="active"><i data-lucide="sun"></i><span>Today</span></button>
-      <button type="button" data-tab="overview"><i data-lucide="layout-dashboard"></i><span>Overview</span></button>
-      <button type="button" data-tab="transactions"><i data-lucide="list"></i><span>Transactions</span></button>
-      <button type="button" data-tab="bills"><i data-lucide="receipt"></i><span>Bills</span></button>
-      <div class="side-group">Build wealth</div>
-      <button type="button" data-tab="accounts"><i data-lucide="landmark"></i><span>Accounts &amp; CDs</span></button>
-      <button type="button" data-tab="investments"><i data-lucide="trending-up"></i><span>Investments</span></button>
-      <button type="button" data-tab="income"><i data-lucide="calendar-clock"></i><span>Income</span></button>
-      <button type="button" data-tab="debt"><i data-lucide="credit-card"></i><span>Debt</span></button>
-      <div class="side-group">Household</div>
-      <button type="button" data-tab="shared"><i data-lucide="users"></i><span>Shared money</span></button>
-      <div class="side-group">Reports</div>
-      <button type="button" data-tab="forecast"><i data-lucide="activity"></i><span>Forecast</span></button>
-      <button type="button" data-tab="tax"><i data-lucide="file-text"></i><span>Tax calculator</span></button>
-    </nav>
-    <a class="side-hub-link" href="../index.html"><i data-lucide="arrow-left"></i><span>Home Hub</span></a>
-  </aside>
+  <header class="topnav">
+    <div class="tn-inner">
+      <div class="tn-row">
+        <div class="side-logo"><span class="side-mark">$</span><span class="lbl">Budget</span></div>
+        <span class="tn-space">Bhargav + Anusha</span>
+        <span class="tn-spacer"></span>
+        <div class="who-badge" id="who-badge"></div>
+        <a class="side-hub-link" href="../index.html"><i data-lucide="arrow-left"></i><span>Home Hub</span></a>
+      </div>
+      <nav class="side-nav" id="side-nav">
+        <button type="button" data-tab="today" class="active"><i data-lucide="sun"></i><span>Today</span></button>
+        <button type="button" data-tab="overview"><i data-lucide="layout-dashboard"></i><span>Overview</span></button>
+        <button type="button" data-tab="transactions"><i data-lucide="list"></i><span>Transactions</span></button>
+        <button type="button" data-tab="bills"><i data-lucide="receipt"></i><span>Bills</span></button>
+        <span class="tn-sep"></span>
+        <button type="button" data-tab="accounts"><i data-lucide="landmark"></i><span>Accounts &amp; CDs</span></button>
+        <button type="button" data-tab="investments"><i data-lucide="trending-up"></i><span>Investments</span></button>
+        <button type="button" data-tab="income"><i data-lucide="calendar-clock"></i><span>Income</span></button>
+        <button type="button" data-tab="debt"><i data-lucide="credit-card"></i><span>Debt</span></button>
+        <span class="tn-sep"></span>
+        <button type="button" data-tab="shared"><i data-lucide="users"></i><span>Shared money</span></button>
+        <button type="button" data-tab="forecast"><i data-lucide="activity"></i><span>Forecast</span></button>
+        <button type="button" data-tab="tax"><i data-lucide="file-text"></i><span>Tax calculator</span></button>
+      </nav>
+    </div>
+  </header>
 
   <main class="side-main">
-    <header class="side-top">
-      <div class="side-crumb">Budget / <b id="page-crumb">Today</b></div>
-      <div class="who-badge" id="who-badge"></div>
-    </header>
+    <span id="page-crumb" hidden>Today</span>
 
     <div class="side-content">
 
@@ -2396,7 +2393,7 @@ async function enterProfile(profileId){
   try{ localStorage.setItem(LAST_PROFILE_KEY, profileId); }catch(e){}
   document.getElementById('loading-gate').style.display='none';
   document.getElementById('profile-overlay').style.display='none';
-  document.getElementById('app-wrap').style.display='grid';
+  document.getElementById('app-wrap').style.display='block';
   document.getElementById('who-badge').innerHTML='<span class="who-avatar av-'+(profileId==='Bhargav'?'b':'a')+'">'+profileId[0]+'</span><span class="who-name">'+profileId+'</span>';
   document.getElementById('who-badge').onclick=function(){ enterProfile(otherProfile(activeProfile)); };
   await loadBudgetData();
