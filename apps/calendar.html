@@ -1015,10 +1015,12 @@ function eventOccursOn(ev, dateStr){
   const repeat = ev.repeat || {type:'weekly', until:null};
   if(repeat.until && dateStr > repeat.until) return false;
   if(repeat.type==='daily') return true;
-  if(repeat.type==='monthly') return new Date(dateStr+'T00:00:00').getDate() === new Date(ev.startDate+'T00:00:00').getDate();
+  // Monthly/yearly on the 29th–31st land on the last day of shorter months (Feb 29 → Feb 28 in non-leap years) instead of silently skipping them.
+  const dimOf = d => new Date(d.getFullYear(), d.getMonth()+1, 0).getDate();
+  if(repeat.type==='monthly'){ const d=new Date(dateStr+'T00:00:00'); return d.getDate() === Math.min(new Date(ev.startDate+'T00:00:00').getDate(), dimOf(d)); }
   if(repeat.type==='yearly'){
     const d=new Date(dateStr+'T00:00:00'), s=new Date(ev.startDate+'T00:00:00');
-    return d.getMonth()===s.getMonth() && d.getDate()===s.getDate();
+    return d.getMonth()===s.getMonth() && d.getDate()===Math.min(s.getDate(), dimOf(d));
   }
   return weekdayOf(dateStr) === (ev.weekday!=null ? ev.weekday : weekdayOf(ev.startDate));
 }
@@ -1184,6 +1186,14 @@ function openEventModal(existing, defaultDate, defaultTime){
       const end2 = document.getElementById('evt-end').value;
       const repeatType = document.getElementById('evt-repeat').value;
       const until2 = document.getElementById('evt-until').value;
+      if(repeatType !== 'none' && until2 && until2 < date2){
+        const uEl = document.getElementById('evt-until');
+        uEl.style.outline='2px solid var(--danger,#F0596B)';
+        uEl.setCustomValidity('"Repeat until" is before the first date, so the event would never show.');
+        uEl.reportValidity();
+        uEl.addEventListener('input', function(){ uEl.setCustomValidity(''); uEl.style.outline=''; }, {once:true});
+        return;
+      }
       const colorBtn = mount.querySelector('[data-color].on');
       const color2 = colorBtn ? colorBtn.dataset.color : EVT_COLORS[0];
       const shared2 = document.getElementById('evt-shared').checked;
@@ -1842,16 +1852,25 @@ async function saveReminders(){ try{ await remindersDoc('reminders').set({json: 
 async function saveReminderCategories(){ try{ await remindersDoc('reminderCategories').set({json: JSON.stringify(reminderCategories)}); }catch(e){} }
 function categoryName(id){ const c = reminderCategories.find(function(x){ return x.id===id; }); return c ? c.name : 'Reminder'; }
 function categoryIcon(id){ const n = categoryName(id).toLowerCase(); if(n==='birthday') return '🎂'; if(n==='anniversary') return '💍'; return '🔔'; }
-function reminderEventsFor(dateStr){
+// A Feb 29 birthday/anniversary is celebrated on Feb 28 in years that have no Feb 29, instead of vanishing for three years out of four.
+function reminderHitsDate(r, dateStr){
   const mm = dateStr.slice(5,7), dd = dateStr.slice(8,10);
-  return reminders.filter(function(r){ return r.month===mm && r.day===dd; })
+  if(r.month===mm && r.day===dd) return true;
+  if(r.month==='02' && r.day==='29' && mm==='02' && dd==='28'){
+    const y = Number(dateStr.slice(0,4));
+    return !((y%4===0 && y%100!==0) || y%400===0);
+  }
+  return false;
+}
+function reminderEventsFor(dateStr){
+  return reminders.filter(function(r){ return reminderHitsDate(r, dateStr); })
     .map(function(r){ return { title: r.name+(categoryName(r.categoryId)==='Birthday'?"'s Birthday":' — '+categoryName(r.categoryId))+' '+categoryIcon(r.categoryId), source:'Birthdays', color:'#E0567E', person:'', time:'' }; });
 }
 // All-day banner — shown regardless of which view/date you're looking at,
 // for as long as today matches a reminder.
 function renderBirthdayBanner(){
   const el = document.getElementById('birthday-banner');
-  const todays = reminders.filter(function(r){ const t=todayStr(); return r.month===t.slice(5,7) && r.day===t.slice(8,10); });
+  const todays = reminders.filter(function(r){ return reminderHitsDate(r, todayStr()); });
   if(!todays.length){ el.style.display = 'none'; el.innerHTML=''; return; }
   const lines = todays.map(function(r){
     const cat = categoryName(r.categoryId);
@@ -1862,6 +1881,8 @@ function renderBirthdayBanner(){
   el.innerHTML = lines.join(' · ');
   el.style.display = 'block';
 }
+// Days in a month for yearly reminders (Feb counts 29 — leap-day birthdays are allowed).
+function reminderDaysInMonth(m){ return [31,29,31,30,31,30,31,31,30,31,30,31][m-1]||31; }
 let editingReminderId = null;
 function openBirthdaysPanel(){
   const mount = document.getElementById('modal-mount') || (function(){ const m = document.createElement('div'); m.id='modal-mount'; document.body.appendChild(m); return m; })();
@@ -1917,6 +1938,7 @@ function openBirthdaysPanel(){
       const day = parseInt(document.getElementById('bday-day-input').value,10);
       const categoryId = document.getElementById('bday-cat-select').value;
       if(!name || !month || !day || month<1 || month>12 || day<1 || day>31) return;
+      if(day>reminderDaysInMonth(month)){ alert('Month '+month+' only has '+reminderDaysInMonth(month)+' days.'); return; }
       reminders.push({ id:'rem-'+Date.now(), name:name, month:String(month).padStart(2,'0'), day:String(day).padStart(2,'0'), categoryId:categoryId });
       await saveReminders();
       draw(); render(); renderBirthdayBanner();
@@ -1943,6 +1965,7 @@ function openBirthdaysPanel(){
         const day = parseInt(row.querySelector('.be-day').value,10);
         const categoryId = row.querySelector('.be-cat').value;
         if(!name || !month || !day || month<1 || month>12 || day<1 || day>31) return;
+      if(day>reminderDaysInMonth(month)){ alert('Month '+month+' only has '+reminderDaysInMonth(month)+' days.'); return; }
         r.name = name; r.month = String(month).padStart(2,'0'); r.day = String(day).padStart(2,'0'); r.categoryId = categoryId;
         editingReminderId = null;
         await saveReminders();

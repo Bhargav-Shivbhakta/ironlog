@@ -20,7 +20,7 @@
     --gold:#E8B84B; --gold-soft:#FBF1DC;
     --danger:#B8493F; --danger-soft:#F8E5E2;
     --good:#2F7C5A; --good-soft:#E3F1EA;
-    --b:#D6402C; --a:#A8517A;
+    --b:#3F6FA3; --a:#7C5C9E;
     --radius-lg:16px; --radius-md:11px; --radius-sm:8px;
     --shadow:0 5px 20px rgba(32,33,30,.06);
   }
@@ -199,6 +199,11 @@
   .txn-body,.bill-body{flex:1;min-width:0;}
   .txn-title,.bill-title{font-size:13.5px;font-weight:700;}
   .txn-meta,.bill-meta{display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-top:4px;}
+  .sc-sub{font-size:11px;color:var(--text-faint);margin-top:2px;font-weight:600;}
+  .cat-idle{margin-top:6px;}
+  .cat-idle summary{cursor:pointer;font-size:12.5px;font-weight:650;color:var(--text-muted,var(--text-faint));padding:8px 4px;list-style:none;}
+  .cat-idle summary::before{content:'+ ';}
+  .cat-idle[open] summary::before{content:'\u2212 ';}
   .person-pill{font-size:10px;font-weight:700;border-radius:20px;padding:2px 8px;color:#fff;}
   .person-pill.b{background:var(--b);} .person-pill.a{background:var(--a);} .person-pill.shared{background:var(--text-faint);}
   .status-pill{font-size:10px;font-weight:700;border-radius:20px;padding:2px 8px;}
@@ -317,7 +322,7 @@
     <div class="section-title"><span>Spending by category — this month</span></div>
     <div id="overview-chart-category" class="chart-bars"></div>
 
-    <div class="section-title"><span>Last 6 months</span></div>
+    <div class="section-title"><span>Your spending, last 6 months</span></div>
     <div id="overview-chart-trend" class="chart-bars"></div>
   </section>
 
@@ -523,7 +528,7 @@
   <!-- TAX CALCULATOR -->
   <section class="tab-page" id="page-tax">
     <div class="page-head"><h1>Tax calculator</h1><p>A federal planning estimate, laid out like a 1040 — not a tax return, not tax advice.</p></div>
-    <div class="tax-disclaimer"><strong>Rough estimate only.</strong> Uses 2025 federal bracket and standard-deduction figures as a stand-in for planning purposes (final 2026 figures aren't something I can confirm reliably here), a simplified flat self-employment tax, a flat state-rate approximation instead of your actual state's real brackets, and a simplified Child Tax Credit phase-out. Confirm real numbers with a CPA or filing software at tax time.</div>
+    <div class="tax-disclaimer"><strong>Rough estimate only.</strong> Uses 2025 federal bracket and standard-deduction figures as a stand-in for planning purposes (final 2026 figures weren't published when this was written), a simplified flat self-employment tax, a flat state-rate approximation instead of your actual state's real brackets, and a simplified Child Tax Credit phase-out. Confirm real numbers with a CPA or filing software at tax time.</div>
     <div class="card-form">
       <div class="scope-toggle" id="tax-scope-toggle" style="margin-bottom:10px;max-width:220px;">
         <button type="button" data-scope="personal" class="active">Mine</button>
@@ -532,16 +537,16 @@
       <div class="form-grid">
         <label>Tax year<input type="number" id="tax-year" step="1" placeholder="2025"></label>
         <label>Filing status<select id="tax-filing"><option>Single</option><option>Married filing jointly</option><option>Married filing separately</option><option>Head of household</option></select></label>
-        <label>W-2 wages<input type="number" id="tax-wages" min="0" step="0.01" value="0"></label>
-        <label>Freelance / self-employment income<input type="number" id="tax-freelance" min="0" step="0.01" value="0"></label>
-        <label>Interest income<input type="number" id="tax-interest" min="0" step="0.01" value="0"></label>
-        <label>Ordinary dividends<input type="number" id="tax-dividends" min="0" step="0.01" value="0"></label>
-        <label>Long-term capital gains<input type="number" id="tax-gains" min="0" step="0.01" value="0"></label>
-        <label>Itemized deductions<input type="number" id="tax-itemized" min="0" step="0.01" value="0" placeholder="0 to use the standard deduction"></label>
-        <label>Dependents under 17<input type="number" id="tax-dependents" min="0" step="1" value="0"></label>
-        <label>Other credits ($)<input type="number" id="tax-othercredits" min="0" step="0.01" value="0"></label>
-        <label>State flat tax rate %<input type="number" id="tax-staterate" min="0" step="0.1" value="0" placeholder="0 for no state tax"></label>
-        <label>Federal tax withheld<input type="number" id="tax-withheld" min="0" step="0.01" value="0"></label>
+        <label>W-2 wages<input type="number" id="tax-wages" min="0" step="0.01" placeholder="0"></label>
+        <label>Freelance / self-employment income<input type="number" id="tax-freelance" min="0" step="0.01" placeholder="0"></label>
+        <label>Interest income<input type="number" id="tax-interest" min="0" step="0.01" placeholder="0"></label>
+        <label>Ordinary dividends<input type="number" id="tax-dividends" min="0" step="0.01" placeholder="0"></label>
+        <label>Long-term capital gains<input type="number" id="tax-gains" min="0" step="0.01" placeholder="0"></label>
+        <label>Itemized deductions<input type="number" id="tax-itemized" min="0" step="0.01" placeholder="Leave blank for standard deduction"></label>
+        <label>Dependents under 17<input type="number" id="tax-dependents" min="0" step="1" placeholder="0"></label>
+        <label>Other credits ($)<input type="number" id="tax-othercredits" min="0" step="0.01" placeholder="0"></label>
+        <label>State flat tax rate %<input type="number" id="tax-staterate" min="0" step="0.1" placeholder="0 for no state tax"></label>
+        <label>Federal tax withheld<input type="number" id="tax-withheld" min="0" step="0.01" placeholder="0"></label>
       </div>
       <div class="form-actions">
         <button type="button" class="button secondary" id="tax-export-btn"><i data-lucide="download"></i>Download summary</button>
@@ -608,7 +613,7 @@ function todayStr(){ const d=new Date(); return d.getFullYear()+'-'+pad2(d.getMo
 function monthKey(dateStr){ return (dateStr||'').slice(0,7); }
 function thisMonthKey(){ return monthKey(todayStr()); }
 function monthLabel(key){ const [y,m]=key.split('-'); return new Date(Number(y),Number(m)-1,1).toLocaleDateString(undefined,{month:'short'}); }
-function fmtMoney(n){ n=Number(n)||0; return '$'+n.toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2}); }
+function fmtMoney(n){ n=Number(n)||0; const s='$'+Math.abs(n).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2}); return (n<0&&Math.round(Math.abs(n)*100)>0?'\u2212':'')+s; }
 function escapeHtml(s){ return String(s==null?'':s).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];}); }
 function uid(){ return 'id-'+Date.now()+'-'+Math.random().toString(36).slice(2,8); }
 let toastTimer=null;
@@ -674,6 +679,10 @@ async function loadBudgetData(){
   sharedIncome = (sn && sn.exists && sn.data().json) ? JSON.parse(sn.data().json) : [];
   personalTaxReturns = (ptx && ptx.exists && ptx.data().json) ? JSON.parse(ptx.data().json) : [];
   sharedTaxReturns = (stx && stx.exists && stx.data().json) ? JSON.parse(stx.data().json) : [];
+  [['transactions',personalTransactions,sharedTransactions],['categories',personalCategories,sharedCategories],['bills',personalBills,sharedBills],['debts',personalDebts,sharedDebts],['accounts',personalAccounts,sharedAccounts],['investments',personalInvestments,sharedInvestments],['income',personalIncome,sharedIncome],['taxReturns',personalTaxReturns,sharedTaxReturns]].forEach(function(r){
+    if(Array.isArray(r[1])) savedIds['personal:'+r[0]]=idsOf(r[1]);
+    if(Array.isArray(r[2])) savedIds['shared:'+r[0]]=idsOf(r[2]);
+  });
   // First time this profile opens Budget: seed a starter category set so
   // the app isn't an empty shell. Shared categories are seeded once per
   // household (whoever gets here first), not per profile.
@@ -683,46 +692,63 @@ async function loadBudgetData(){
   if(needSavePersonalCats) await saveCats('personal');
   if(needSaveSharedCats) await saveCats('shared');
 }
+/* Both of you can have Budget open (or one of you on two devices). Saving a whole list blindly would wipe
+   anything the other side added since this page loaded, so before each write we fold in entries that appeared
+   in the cloud copy and that we have never seen (items we deleted on purpose are not resurrected). */
+const savedIds={};
+function idsOf(arr){ return new Set((arr||[]).map(function(x){ return x&&x.id; })); }
+async function mergedSave(scope,key,arr){
+  const sk=scope+':'+key;
+  const ref=scope==='personal'?profileDoc(activeProfile,key):sharedDoc(key);
+  const base=savedIds[sk];
+  let pulled=0;
+  if(base&&Array.isArray(arr)){
+    try{
+      const snap=await ref.get();
+      const cloud=(snap&&snap.exists&&snap.data().json)?JSON.parse(snap.data().json):null;
+      if(Array.isArray(cloud)){
+        const have=idsOf(arr);
+        cloud.forEach(function(x){ if(x&&x.id&&!have.has(x.id)&&!base.has(x.id)){ arr.push(x); pulled++; } });
+      }
+    }catch(e){ /* offline: just save what we have */ }
+  }
+  await ref.set({json:JSON.stringify(arr)});
+  savedIds[sk]=idsOf(arr);
+  if(pulled){ toast('Pulled in '+pulled+' new '+(pulled===1?'entry':'entries')+' from '+otherProfile(activeProfile)+"'s device"); showTab(activeTab); }
+}
 async function saveTxns(scope){
   try{
-    if(scope==='personal') await profileDoc(activeProfile,'transactions').set({json:JSON.stringify(personalTransactions)});
-    else await sharedDoc('transactions').set({json:JSON.stringify(sharedTransactions)});
+    await mergedSave(scope,'transactions',scope==='personal'?personalTransactions:sharedTransactions);
   }catch(e){ toast('Could not save — try again'); }
 }
 async function saveCats(scope){
   try{
-    if(scope==='personal') await profileDoc(activeProfile,'categories').set({json:JSON.stringify(personalCategories)});
-    else await sharedDoc('categories').set({json:JSON.stringify(sharedCategories)});
+    await mergedSave(scope,'categories',scope==='personal'?personalCategories:sharedCategories);
   }catch(e){ toast('Could not save — try again'); }
 }
 async function saveBills(scope){
   try{
-    if(scope==='personal') await profileDoc(activeProfile,'bills').set({json:JSON.stringify(personalBills)});
-    else await sharedDoc('bills').set({json:JSON.stringify(sharedBills)});
+    await mergedSave(scope,'bills',scope==='personal'?personalBills:sharedBills);
   }catch(e){ toast('Could not save — try again'); }
 }
 async function saveDebts(scope){
   try{
-    if(scope==='personal') await profileDoc(activeProfile,'debts').set({json:JSON.stringify(personalDebts)});
-    else await sharedDoc('debts').set({json:JSON.stringify(sharedDebts)});
+    await mergedSave(scope,'debts',scope==='personal'?personalDebts:sharedDebts);
   }catch(e){ toast('Could not save — try again'); }
 }
 async function saveAccounts(scope){
   try{
-    if(scope==='personal') await profileDoc(activeProfile,'accounts').set({json:JSON.stringify(personalAccounts)});
-    else await sharedDoc('accounts').set({json:JSON.stringify(sharedAccounts)});
+    await mergedSave(scope,'accounts',scope==='personal'?personalAccounts:sharedAccounts);
   }catch(e){ toast('Could not save — try again'); }
 }
 async function saveInvestments(scope){
   try{
-    if(scope==='personal') await profileDoc(activeProfile,'investments').set({json:JSON.stringify(personalInvestments)});
-    else await sharedDoc('investments').set({json:JSON.stringify(sharedInvestments)});
+    await mergedSave(scope,'investments',scope==='personal'?personalInvestments:sharedInvestments);
   }catch(e){ toast('Could not save — try again'); }
 }
 async function saveIncome(scope){
   try{
-    if(scope==='personal') await profileDoc(activeProfile,'income').set({json:JSON.stringify(personalIncome)});
-    else await sharedDoc('income').set({json:JSON.stringify(sharedIncome)});
+    await mergedSave(scope,'income',scope==='personal'?personalIncome:sharedIncome);
   }catch(e){ toast('Could not save — try again'); }
 }
 
@@ -738,8 +764,13 @@ function allDebts(){ return personalDebts.map(function(d){return Object.assign({
 function allAccounts(){ return personalAccounts.map(function(a){return Object.assign({_scope:'personal'},a);}).concat(sharedAccounts.map(function(a){return Object.assign({_scope:'shared'},a);})); }
 function allInvestments(){ return personalInvestments.map(function(a){return Object.assign({_scope:'personal'},a);}).concat(sharedInvestments.map(function(a){return Object.assign({_scope:'shared'},a);})); }
 function allIncome(){ return personalIncome.map(function(a){return Object.assign({_scope:'personal'},a);}).concat(sharedIncome.map(function(a){return Object.assign({_scope:'shared'},a);})); }
-function catName(scope,id){ const c=catsFor(scope).find(function(x){return x.id===id;}); return c?c.name:'Uncategorized'; }
-function catColor(scope,id){ const c=catsFor(scope).find(function(x){return x.id===id;}); return c?c.color:'#999'; }
+const INCOME_CATS=[
+  {id:'inc-paycheck',name:'Paycheck',color:'#2E7D5B'},{id:'inc-freelance',name:'Freelance',color:'#3F6FA3'},
+  {id:'inc-interest',name:'Interest & dividends',color:'#7C5C9E'},{id:'inc-refund',name:'Refund',color:'#B07D1E'},
+  {id:'inc-gift',name:'Gift',color:'#A8517A'},{id:'inc-other',name:'Other income',color:'#7A7A72'}];
+function findCat(scope,id){ return catsFor(scope).find(function(x){return x.id===id;}) || INCOME_CATS.find(function(x){return x.id===id;}); }
+function catName(scope,id){ const c=findCat(scope,id); return c?c.name:'Uncategorized'; }
+function catColor(scope,id){ const c=findCat(scope,id); return c?c.color:'#999'; }
 
 /* =====================================================================
    OVERVIEW
@@ -753,24 +784,38 @@ function monthIncome(txns, key){
 function categorySpendThisMonth(scope, catId){
   return txnsFor(scope).filter(function(t){ return t.type==='expense' && t.categoryId===catId && monthKey(t.date)===thisMonthKey(); }).reduce(function(s,t){ return s+Number(t.amount||0); },0);
 }
+// What the current profile actually bears for a shared expense: if they paid,
+// the total minus what the other person owes back; if the other paid, just the owed part.
+function myShareOf(t){
+  const amt=Number(t.amount)||0;
+  const owed=(t.owedAmount!=null&&t.owedAmount!=='')?Number(t.owedAmount):Math.round(amt/2*100)/100;
+  return t.who===activeProfile ? Math.max(0,amt-owed) : Math.min(amt,owed);
+}
+function monthMyShareShared(key){
+  return sharedTransactions.filter(function(t){ return t.type==='expense' && monthKey(t.date)===key; })
+    .reduce(function(s,t){ return s+myShareOf(t); },0);
+}
 function renderOverviewStats(){
   const key=thisMonthKey();
   const mySpent=monthSpend(personalTransactions,key), sharedSpent=monthSpend(sharedTransactions,key);
-  const totalSpent=mySpent+sharedSpent;
-  const totalBudget=personalCategories.concat(sharedCategories).reduce(function(s,c){ return s+(Number(c.budget)||0); },0);
-  const remaining=totalBudget-totalSpent;
+  const totalSpent=mySpent+monthMyShareShared(key);
+  const allCats=personalCategories.map(function(c){return {scope:'personal',c:c};}).concat(sharedCategories.map(function(c){return {scope:'shared',c:c};}));
+  const budgeted=allCats.filter(function(x){ return (Number(x.c.budget)||0)>0; });
+  const totalBudget=budgeted.reduce(function(s,x){ return s+Number(x.c.budget); },0);
+  const budgetedSpent=budgeted.reduce(function(s,x){ return s+categorySpendThisMonth(x.scope,x.c.id); },0);
+  const remaining=totalBudget-budgetedSpent;
   const el=document.getElementById('overview-stats');
   el.innerHTML=
-    '<div class="stat-card"><div class="sc-label">Spent this month</div><div class="sc-value">'+fmtMoney(totalSpent)+'</div></div>'+
+    '<div class="stat-card"><div class="sc-label">Your spending this month</div><div class="sc-value">'+fmtMoney(totalSpent)+'</div><div class="sc-sub">Personal + your share of shared</div></div>'+
     '<div class="stat-card"><div class="sc-label">Budgeted</div><div class="sc-value">'+(totalBudget>0?fmtMoney(totalBudget):'<small>Not set</small>')+'</div></div>'+
-    '<div class="stat-card'+(remaining<0?' over':'')+'"><div class="sc-label">Remaining</div><div class="sc-value">'+(totalBudget>0?fmtMoney(remaining):'<small>—</small>')+'</div></div>'+
-    '<div class="stat-card"><div class="sc-label">Shared spend</div><div class="sc-value">'+fmtMoney(sharedSpent)+'</div></div>';
+    '<div class="stat-card'+(totalBudget>0&&remaining<0?' over':'')+'"><div class="sc-label">Left in budgets</div><div class="sc-value">'+(totalBudget>0?fmtMoney(remaining):'<small>—</small>')+'</div></div>'+
+    '<div class="stat-card"><div class="sc-label">Household shared total</div><div class="sc-value">'+fmtMoney(sharedSpent)+'</div><div class="sc-sub">Full amount, both people</div></div>';
 }
 function renderCatProgress(scope, containerId){
   const cats=catsFor(scope);
   const el=document.getElementById(containerId);
   if(!cats.length){ el.innerHTML='<div class="empty-state">No categories yet.</div>'; return; }
-  el.innerHTML=cats.map(function(c){
+  const rowHtml=function(c){
     const spent=categorySpendThisMonth(scope,c.id);
     const budget=Number(c.budget)||0;
     const pct=budget>0?Math.min(100,Math.round(spent/budget*100)):0;
@@ -780,7 +825,11 @@ function renderCatProgress(scope, containerId){
       '<span class="cat-amounts"><strong>'+fmtMoney(spent)+'</strong>'+(budget>0?' / '+fmtMoney(budget):'')+'</span></div>'+
       (budget>0?'<div class="cat-bar-track"><div class="cat-bar-fill" style="width:'+pct+'%;background:'+(over?'var(--danger)':c.color)+'"></div></div>':'')+
     '</div>';
-  }).join('');
+  };
+  const used=cats.filter(function(c){ return categorySpendThisMonth(scope,c.id)>0 || (Number(c.budget)||0)>0; });
+  const idle=cats.filter(function(c){ return used.indexOf(c)===-1; });
+  el.innerHTML=used.map(rowHtml).join('')+
+    (idle.length?'<details class="cat-idle"><summary>'+idle.length+' categor'+(idle.length===1?'y':'ies')+' with no activity</summary>'+idle.map(rowHtml).join('')+'</details>':'');
 }
 function renderCategoryChart(){
   const key=thisMonthKey();
@@ -809,7 +858,7 @@ function renderTrendChart(){
     const d=new Date(now.getFullYear(),now.getMonth()-i,1);
     months.push(d.getFullYear()+'-'+pad2(d.getMonth()+1));
   }
-  const totals=months.map(function(k){ return monthSpend(personalTransactions,k)+monthSpend(sharedTransactions,k); });
+  const totals=months.map(function(k){ return monthSpend(personalTransactions,k)+monthMyShareShared(k); });
   const max=Math.max.apply(null, totals.concat([1]));
   const el=document.getElementById('overview-chart-trend');
   el.innerHTML=months.map(function(k,i){
@@ -829,16 +878,19 @@ function renderOverview(){
 /* =====================================================================
    TRANSACTIONS
 ===================================================================== */
-function populateCategorySelect(sel, scope, includeAll){
+function populateCategorySelect(sel, scope, includeAll, kind){
+  const opt=function(c){ return '<option value="'+c.id+'">'+escapeHtml(c.name)+'</option>'; };
+  if(kind==='income'){ sel.innerHTML=INCOME_CATS.map(opt).join(''); return; }
   const cats=catsFor(scope);
-  sel.innerHTML=(includeAll?'<option value="">All categories</option>':'')+cats.map(function(c){ return '<option value="'+c.id+'">'+escapeHtml(c.name)+'</option>'; }).join('');
+  sel.innerHTML=(includeAll?'<option value="">All categories</option>':'')+cats.map(opt).join('')
+    +(includeAll?'<optgroup label="Income">'+INCOME_CATS.map(opt).join('')+'</optgroup>':'');
 }
 function currentTxnScope(){ return document.querySelector('#txn-scope-toggle button.active').dataset.scope; }
 function currentTxnType(){ return document.querySelector('#txn-type-toggle button.active').dataset.type; }
 function currentTxnSplit(){ return document.querySelector('#txn-split-toggle button.active').dataset.split; }
 function refreshTxnForm(){
   const scope=currentTxnScope(), type=currentTxnType();
-  populateCategorySelect(document.getElementById('txn-category'), scope, false);
+  populateCategorySelect(document.getElementById('txn-category'), scope, false, type);
   document.getElementById('txn-who-label').style.display = scope==='shared' ? '' : 'none';
   // The settle-up split fields only make sense for a shared expense — a
   // shared *income* (rare, but allowed) or a personal transaction has no
@@ -886,11 +938,14 @@ async function submitTxnForm(){
     arr.unshift({id:uid(),amount:amount,type:type,categoryId:categoryId,who:scope==='shared'?who:null,date:date,note:note,createdAt:Date.now(),splitMethod:splitMethod,owedAmount:owedAmount,settled:isSharedExpense?false:undefined});
   }
   await saveTxns(scope);
+  const wasEditing=!!editingTxnId;
   resetTxnForm();
+  if(pendingBillPay && type==='expense' && !wasEditing){ const pb=pendingBillPay; pendingBillPay=null; await markBillPaid(pb.scope,pb.id); }
   renderOverview(); renderTransactions();
   toast('Saved');
 }
 function editTxn(scope,id){
+  pendingBillPay=null;
   const t=txnsFor(scope).find(function(x){return x.id===id;});
   if(!t) return;
   editingTxnId=id; editingTxnScope=scope;
@@ -936,9 +991,14 @@ function renderTransactions(){
     const whoPill = t._scope==='shared'
       ? '<span class="person-pill '+(t.who==='Bhargav'?'b':t.who==='Anusha'?'a':'shared')+'">'+(t.who||'Shared')+'</span>'
       : '';
+    let owedChip='';
+    if(t._scope==='shared' && t.type==='expense' && (t.who==='Bhargav'||t.who==='Anusha')){
+      const owedAmt=(t.owedAmount!=null&&t.owedAmount!=='')?Number(t.owedAmount):Math.round((Number(t.amount)||0)/2*100)/100;
+      owedChip='<span class="cat-chip">'+(t.settled?'Settled':otherProfile(t.who)+' owes '+fmtMoney(owedAmt))+'</span>';
+    }
     return '<div class="txn-row '+t.type+'" data-txnwrap="'+t._scope+':'+t.id+'">'+
       '<div class="txn-body"><div class="txn-title">'+escapeHtml(t.note||catName(t._scope,t.categoryId))+'</div>'+
-      '<div class="txn-meta">'+whoPill+'<span class="cat-chip">'+escapeHtml(catName(t._scope,t.categoryId))+'</span><span class="cat-chip">'+escapeHtml(t.date)+'</span></div></div>'+
+      '<div class="txn-meta">'+whoPill+'<span class="cat-chip">'+escapeHtml(catName(t._scope,t.categoryId))+'</span><span class="cat-chip">'+escapeHtml(t.date)+'</span>'+owedChip+'</div></div>'+
       '<div class="txn-amount '+t.type+'">'+(t.type==='income'?'+':'−')+fmtMoney(t.amount).replace('$','$')+'</div>'+
       '<div class="row-actions"><button type="button" data-txnedit="'+t._scope+':'+t.id+'" title="Edit"><i data-lucide="pencil"></i></button>'+
       '<button type="button" data-txndel="'+t._scope+':'+t.id+'" title="Delete"><i data-lucide="trash-2"></i></button></div>'+
@@ -959,7 +1019,12 @@ function renderTransactions(){
    still a deliberate, one-click action, never silently created for you.
 ===================================================================== */
 function currentBillScope(){ return document.querySelector('#bill-scope-toggle button.active').dataset.scope; }
-function refreshBillForm(){ populateCategorySelect(document.getElementById('bill-category'), currentBillScope(), false); }
+function refreshBillForm(){
+  const sel=document.getElementById('bill-category');
+  populateCategorySelect(sel, currentBillScope(), false);
+  sel.insertAdjacentHTML('afterbegin','<option value="" selected>Choose a category\u2026</option>');
+  sel.value='';
+}
 function resetBillForm(){
   editingBillId=null; editingBillScope=null;
   document.getElementById('bill-name').value='';
@@ -978,6 +1043,7 @@ async function submitBillForm(){
   if(!dueDay || dueDay<1 || dueDay>31){ toast('Due day should be 1–31'); return; }
   const scope=currentBillScope();
   const categoryId=document.getElementById('bill-category').value;
+  if(!categoryId){ toast('Choose a category for this bill'); return; }
   const arr=billsFor(scope);
   if(editingBillId && editingBillScope===scope){
     const b=arr.find(function(x){return x.id===editingBillId;});
@@ -1015,20 +1081,23 @@ async function deleteBill(scope,id){
   renderBills();
   toast('Deleted');
 }
+// A bill due on the 31st is due on the last day of shorter months (same clamp the forecast uses).
+function billDueDayNow(b){
+  const now=new Date(), last=new Date(now.getFullYear(), now.getMonth()+1, 0).getDate();
+  return Math.min(Number(b.dueDay)||1, last);
+}
 function billStatus(b){
-  const now=new Date(), day=now.getDate();
-  const thisMonth=thisMonthKey();
-  if(b.lastLoggedMonth===thisMonth) return 'paid';
-  if(day>b.dueDay) return 'overdue';
-  if(day===b.dueDay) return 'today';
+  const day=new Date().getDate(), due=billDueDayNow(b);
+  if(b.lastLoggedMonth===thisMonthKey()) return 'paid';
+  if(day>due) return 'overdue';
+  if(day===due) return 'today';
   return 'upcoming';
 }
 function billStatusLabel(status,b){
   if(status==='paid') return 'Paid this month';
   if(status==='overdue') return 'Overdue';
   if(status==='today') return 'Due today';
-  const now=new Date();
-  const daysAway=b.dueDay-now.getDate();
+  const daysAway=billDueDayNow(b)-new Date().getDate();
   return 'Due in '+daysAway+' day'+(daysAway===1?'':'s');
 }
 async function markBillPaid(scope,id){
@@ -1038,6 +1107,7 @@ async function markBillPaid(scope,id){
   await saveBills(scope);
   renderBills();
 }
+let pendingBillPay=null;
 function logBillPayment(scope,id){
   const b=billsFor(scope).find(function(x){return x.id===id;});
   if(!b) return;
@@ -1050,11 +1120,10 @@ function logBillPayment(scope,id){
   document.getElementById('txn-note').value=b.name;
   document.getElementById('txn-date').value=todayStr();
   document.querySelector('.card-form').scrollIntoView({behavior:'smooth',block:'start'});
-  toast('Review and add the transaction below, then it’ll mark as paid');
-  // Marks the bill paid once the matching transaction actually gets added —
-  // simplest reliable way without guessing at a submit hook: just flag it
-  // here since the person is about to submit the pre-filled form anyway.
-  markBillPaid(scope,id);
+  // The bill is marked paid only when this transaction is actually saved
+  // (see submitTxnForm). Leaving the page or cancelling clears it.
+  pendingBillPay={scope:scope,id:id};
+  toast('Review and add the transaction below. The bill is marked paid once you save it.');
 }
 function renderBills(){
   const rows=personalBills.map(function(b){ return Object.assign({_scope:'personal'},b); })
@@ -1156,10 +1225,14 @@ async function deleteDebt(scope,id){
   toast('Deleted');
 }
 function debtsDueSoon(withinDays){
-  const now=new Date(), day=now.getDate();
+  // Days until the next time this due day comes round — carries over into next month (and clamps day 29–31 to short months).
+  const t=new Date(); t.setHours(0,0,0,0);
   return allDebts().filter(function(d){
     if(!d.dueDay) return false;
-    const diff=d.dueDay-day;
+    const at=function(y,m){ return new Date(y,m,Math.min(Number(d.dueDay),new Date(y,m+1,0).getDate())); };
+    let next=at(t.getFullYear(),t.getMonth());
+    if(next<t) next=at(t.getFullYear(),t.getMonth()+1);
+    const diff=Math.round((next-t)/86400000);
     return diff>=0 && diff<=withinDays;
   });
 }
@@ -1288,12 +1361,14 @@ function renderAccountsStats(){
     return s + (p*Math.pow(1+(r/100)/n,n*t) - p);
   },0);
   const debtTotal=allDebts().reduce(function(s,d){return s+(Number(d.balance)||0);},0);
+  const investTotal=allInvestments().reduce(function(s,i){return s+(Number(i.value)||0);},0);
+  const netWorth=total+investTotal-debtTotal;
   const el=document.getElementById('accounts-stats');
   el.innerHTML=
     '<div class="stat-card"><div class="sc-label">Total balances</div><div class="sc-value">'+fmtMoney(total)+'</div></div>'+
     '<div class="stat-card"><div class="sc-label">Liquid (non-CD)</div><div class="sc-value">'+fmtMoney(liquid)+'</div></div>'+
     '<div class="stat-card"><div class="sc-label">Projected interest</div><div class="sc-value">'+fmtMoney(interest)+'</div></div>'+
-    '<div class="stat-card'+(debtTotal>0?' over':'')+'"><div class="sc-label">Net worth</div><div class="sc-value">'+fmtMoney(total-debtTotal)+'</div></div>';
+    '<div class="stat-card'+(netWorth<0?' over':'')+'"><div class="sc-label">Net worth</div><div class="sc-value">'+fmtMoney(netWorth)+'</div><div class="sc-sub">Accounts + investments \u2212 debt</div></div>';
 }
 function renderAccounts(){
   renderAccountsStats();
@@ -1390,6 +1465,7 @@ function renderTodayQueue(){
       const status=billStatus(b);
       if(status==='overdue') items.push({cls:'urgent',icon:'⚠',title:b.name+' is overdue',sub:fmtMoney(b.amount)+(b._scope==='shared'?' · Shared bill':'')+' — due day '+b.dueDay,action:'Log payment',onclick:function(){ logBillPayment(b._scope,b.id); }});
       else if(status==='today') items.push({cls:'notice',icon:'📅',title:b.name+' is due today',sub:fmtMoney(b.amount)+(b._scope==='shared'?' · Shared bill':''),action:'Log payment',onclick:function(){ logBillPayment(b._scope,b.id); }});
+      else if(status==='upcoming' && billDueDayNow(b)-new Date().getDate()<=3){ const n=billDueDayNow(b)-new Date().getDate(); items.push({cls:'info',icon:'📅',title:b.name+' is due in '+n+' day'+(n===1?'':'s'),sub:fmtMoney(b.amount)+(b._scope==='shared'?' · Shared bill':''),action:'Log payment',onclick:function(){ logBillPayment(b._scope,b.id); }}); }
     });
   const bal=sharedBalance();
   if(bal!==0){
@@ -1597,8 +1673,11 @@ function occurrencesWithin(nextDateStr, frequency, days){
   const stepDays = frequency==='Weekly' ? 7 : frequency==='Biweekly' ? 14 : null;
   let count=0;
   if(frequency==='Monthly'){
-    while(d<today) d.setMonth(d.getMonth()+1);
-    while(d<=cutoff){ count++; d.setMonth(d.getMonth()+1); }
+    // Step by whole months from the original day (clamped to short months) so Jan 31 → Feb 28 → Mar 31, not drifting to the 3rd.
+    const y0=d.getFullYear(), m0=d.getMonth(), day0=d.getDate();
+    const at=function(k){ return new Date(y0, m0+k, Math.min(day0, new Date(y0, m0+k+1, 0).getDate())); };
+    let k=0; while(at(k)<today) k++;
+    while(at(k)<=cutoff){ count++; k++; }
     return count;
   }
   if(!stepDays) return 0;
@@ -1607,13 +1686,17 @@ function occurrencesWithin(nextDateStr, frequency, days){
   return count;
 }
 function occurrencesByDueDay(dueDay, days){
-  if(!dueDay) return 0;
+  // No due day set: assume one payment per 30 days instead of silently counting zero.
+  if(!dueDay) return Math.floor(days/30);
   const today=new Date(todayStr()+'T00:00:00');
   const cutoff=new Date(today); cutoff.setDate(cutoff.getDate()+days);
-  let cursor=new Date(today.getFullYear(), today.getMonth(), dueDay);
-  if(cursor<today) cursor=new Date(cursor.getFullYear(), cursor.getMonth()+1, dueDay);
+  // Clamp to the month's last day so day 31 doesn't spill into the next month.
+  const at=function(y,m){ return new Date(y, m, Math.min(dueDay, new Date(y, m+1, 0).getDate())); };
+  let y=today.getFullYear(), m=today.getMonth();
+  let cursor=at(y,m);
+  if(cursor<today){ m++; cursor=at(y,m); }
   let count=0;
-  while(cursor<=cutoff){ count++; cursor=new Date(cursor.getFullYear(), cursor.getMonth()+1, dueDay); }
+  while(cursor<=cutoff){ count++; m++; cursor=at(y,m); }
   return count;
 }
 function computeForecast(days){
@@ -1770,8 +1853,7 @@ function currentTaxScope(){ return document.querySelector('#tax-scope-toggle but
 function taxReturnsFor(scope){ return scope==='shared' ? sharedTaxReturns : personalTaxReturns; }
 async function saveTaxReturns(scope){
   try{
-    if(scope==='personal') await profileDoc(activeProfile,'taxReturns').set({json:JSON.stringify(personalTaxReturns)});
-    else await sharedDoc('taxReturns').set({json:JSON.stringify(sharedTaxReturns)});
+    await mergedSave(scope,'taxReturns',scope==='personal'?personalTaxReturns:sharedTaxReturns);
   }catch(e){ toast('Could not save — try again'); }
 }
 async function saveTaxAsFiled(){
@@ -1921,6 +2003,7 @@ document.getElementById('cats-add-new').addEventListener('click', function(){
   saveCats(catsModalScope).then(function(){ renderCatsModal(); renderOverview(); refreshTxnForm(); refreshBillForm(); });
 });
 document.getElementById('cats-modal-close').addEventListener('click', closeCatsModal);
+document.addEventListener('keydown', function(e){ if(e.key==='Escape'){ document.querySelectorAll('.modal-overlay:not([hidden])').forEach(function(m){ if(m.id==='cats-modal-overlay') closeCatsModal(); else m.hidden=true; }); } });
 document.getElementById('cats-modal-overlay').addEventListener('click', function(e){ if(e.target.id==='cats-modal-overlay') closeCatsModal(); });
 document.querySelectorAll('[data-opencats]').forEach(function(btn){ btn.addEventListener('click', function(){ openCatsModal(btn.dataset.opencats); }); });
 
@@ -1929,6 +2012,7 @@ document.querySelectorAll('[data-opencats]').forEach(function(btn){ btn.addEvent
 ===================================================================== */
 const TAB_LABELS={today:'Today',overview:'Overview',transactions:'Transactions',bills:'Bills',debt:'Debt',accounts:'Accounts & CDs',investments:'Investments',income:'Income',shared:'Shared money',forecast:'Forecast',tax:'Tax calculator'};
 function showTab(tab){
+  if(tab!=='transactions') pendingBillPay=null;
   activeTab=tab;
   document.querySelectorAll('#side-nav button').forEach(function(b){ b.classList.toggle('active', b.dataset.tab===tab); });
   document.querySelectorAll('.tab-page').forEach(function(p){ p.classList.toggle('active', p.id==='page-'+tab); });

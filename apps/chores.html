@@ -66,7 +66,7 @@
   .stat-card.action .sc-value{color:#fff;}
   .stat-card .sc-label{font-size:8.3px;color:var(--text-faint);font-weight:700;text-transform:uppercase;letter-spacing:0.02em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
   .stat-card .sc-value{font-family:'Manrope',sans-serif;font-weight:800;font-size:15px;margin-top:2px;}
-  @media(max-width:460px){.stat-row{grid-template-columns:repeat(3,1fr);}}
+  @media(max-width:460px){.stat-row{grid-template-columns:repeat(2,1fr);margin:8px 0 12px;}.stat-card.action{grid-column:1/-1;}.stat-card .sc-label{font-size:9.5px;}}
   .dashboard-grid{display:grid;grid-template-columns:1fr;gap:10px;}
   @media(min-width:760px){.dashboard-grid{grid-template-columns:1.5fr 1fr;}}
 
@@ -272,7 +272,8 @@
   .history-edit-panel .rating-row{grid-column:1/-1;margin:0;}
   .history-edit-panel .submit-row{grid-column:1/-1;display:flex;gap:8px;}
 
-  .heatmap-wrap{overflow-x:auto;padding-bottom:2px;}
+  .heatmap-wrap{overflow-x:auto;padding-bottom:2px;display:flex;gap:6px;}
+  .heatmap-days{display:grid;grid-template-rows:repeat(7,10px);gap:3px;font-size:8px;color:var(--text-faint);line-height:10px;}
   .heatmap-grid{display:grid;grid-auto-flow:column;grid-template-rows:repeat(7,10px);gap:3px;width:max-content;}
   .heatmap-cell{width:10px;height:10px;border-radius:3px;background:var(--border-soft);}
   .heatmap-cell[data-lvl="1"]{background:var(--accent-soft);}
@@ -295,6 +296,26 @@
   .card:hover,[class*="-card"]:hover{transform:translateY(-2px);box-shadow:0 10px 28px rgba(20,20,17,.09)}
   .card:active,[class*="-card"]:active{transform:translateY(0) scale(.985)}
   @keyframes life-fade-in{from{opacity:0;transform:translateY(8px)}}
+  .form-error{grid-column:1/-1;background:var(--danger-soft,#FCE1E5);color:var(--danger,#B3261E);border-radius:8px;padding:8px 10px;font-size:12px;font-weight:600;}
+  .done-wrap{flex:none;display:flex;flex-direction:column;align-items:flex-end;gap:4px;}
+  .done-badge{background:var(--accent-soft);color:var(--accent-deep);border-radius:8px;padding:7px 11px;font-size:12px;font-weight:700;white-space:nowrap;}
+  .undo-btn{background:none;border:none;color:var(--text-faint);font-size:11px;font-weight:700;cursor:pointer;text-decoration:underline;padding:0;}
+  .chore-row.is-done{opacity:.8;}
+  .status-pill.done{background:var(--accent-soft);color:var(--accent-deep);}
+  .passed-tag{font-size:10px;font-weight:700;border-radius:20px;padding:2px 8px;background:var(--gold-soft);color:var(--text-soft);}
+  .when-row{display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-bottom:10px;}
+  .when-chip{border:1px solid var(--border);background:var(--surface-alt);color:var(--text-soft);border-radius:20px;padding:6px 13px;font-size:11.5px;font-weight:700;cursor:pointer;}
+  .when-chip.on{background:var(--accent-soft);border-color:var(--accent);color:var(--accent-deep);}
+  .rp-date{font-size:12px;padding:6px 8px;border-radius:8px;border:1px solid var(--border);}
+  .fold-box{margin:10px 0;}
+  .fold-box>summary{cursor:pointer;font-size:12px;font-weight:700;color:var(--text-soft);padding:8px 2px;}
+  .people-box{margin-bottom:12px;}
+  .people-list{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px;}
+  .person-chip{display:inline-flex;align-items:center;gap:4px;}
+  .person-chip button{background:none;border:none;color:var(--text-faint);cursor:pointer;font-size:12px;padding:0 2px;}
+  .people-add{display:flex;gap:6px;}
+  .people-add input{flex:1;font-size:12.5px;padding:7px 9px;border-radius:8px;border:1px solid var(--border);}
+  .danger-zone{margin-top:14px;padding-top:12px;border-top:1px dashed var(--danger,#B3261E);}
 </style>
 </head>
 <body>
@@ -310,11 +331,7 @@
   </div>
   <div class="profile-box">
     <small>Checked off as</small>
-    <div class="profile-buttons" id="profile-buttons">
-      <button data-whoami="Bhargav">Bhargav</button>
-      <button data-whoami="Anusha">Anusha</button>
-      <button data-whoami="Arya">Arya</button>
-    </div>
+    <div class="profile-buttons" id="profile-buttons"></div>
   </div>
   <a class="hub-link" href="#" id="backup-btn">⋯ Backup</a>
 </div></div>
@@ -371,7 +388,7 @@
       <button type="button" data-issue-reason="Needs repair first">Needs repair first</button>
       <button type="button" data-issue-reason="Passing to someone else">Passing to someone else</button>
     </div>
-    <div class="rp-label" style="margin-top:10px;">Reassign to</div>
+    <div class="rp-label" style="margin-top:10px;" id="reassign-label">Hand it to someone (optional)</div>
     <div class="reassign-people" id="reassign-people"></div>
     <div class="modal-actions"><button class="btn-mini primary" id="issue-confirm">Confirm</button></div>
   </div>
@@ -379,13 +396,22 @@
 
 <div class="modal-overlay" id="backup-modal">
   <div class="modal-sheet">
-    <div class="modal-sheet-head"><h3>Backup & reset</h3><button class="modal-close" id="backup-close">✕</button></div>
-    <p class="modal-copy">Everyone shares this data through the cloud already — this is just for extra safety or moving it around.</p>
+    <div class="modal-sheet-head"><h3>People, backup & reset</h3><button class="modal-close" id="backup-close">✕</button></div>
+    <div class="people-box">
+      <div class="rp-label">People in the household</div>
+      <div class="people-list" id="people-list"></div>
+      <div class="people-add"><input type="text" id="people-new" maxlength="24" placeholder="Add a person"><button type="button" class="btn-mini primary" id="people-add-btn">Add</button></div>
+    </div>
+    <p class="modal-copy">Everyone shares this data through the cloud already — a backup is just for extra safety or moving it around.</p>
     <div class="backup-actions">
       <button id="export-btn">⬇ Export backup<small>Download chores + history as a JSON file</small></button>
-      <button id="import-btn">⬆ Restore from backup<small>Replace current data with a backup file</small></button>
+      <button id="import-btn">⬆ Restore from backup<small>Replaces all chores and history for everyone (a safety copy is kept)</small></button>
       <input type="file" id="import-file" accept="application/json" style="display:none;">
-      <button id="reset-btn" class="danger">↺ Reset to original data<small>Replaces everything with the starting household list</small></button>
+      <button id="undo-restore-btn" style="display:none;">↩ Undo last restore or reset<small id="undo-restore-note"></small></button>
+    </div>
+    <div class="danger-zone">
+      <div class="rp-label">Danger zone</div>
+      <button id="reset-btn" class="danger">↺ Reset to original demo data<small>Replaces every chore and all history for everyone. You will be asked to type RESET.</small></button>
     </div>
   </div>
 </div>
@@ -450,13 +476,18 @@ auth.onAuthStateChanged(function(user){
   init();
 });
 function setWhoAmI(name){
-  if(['Bhargav','Anusha','Arya'].indexOf(name)===-1) return;
+  if(people.indexOf(name)===-1) return;
   whoAmI = name;
   try{ localStorage.setItem(WHO_KEY, whoAmI); }catch(e){}
   document.body.dataset.profile = whoAmI;
   if(window.HubTheme) HubTheme.applyHubTheme(whoAmI, {base:'--accent',deep:'--accent-deep',soft:'--accent-soft'}).catch(()=>{});
-  document.querySelectorAll('[data-whoami]').forEach(function(b){ b.classList.toggle('active', b.dataset.whoami===whoAmI); });
+  renderWhoami();
   showTab(activeTab);
+}
+function renderWhoami(){
+  const box = document.getElementById('profile-buttons');
+  box.innerHTML = people.map(function(p){ return '<button data-whoami="'+escapeHtml(p)+'" class="'+(p===whoAmI?'active':'')+'">'+escapeHtml(p)+'</button>'; }).join('');
+  box.querySelectorAll('[data-whoami]').forEach(function(b){ b.onclick = function(){ setWhoAmI(b.dataset.whoami); }; });
 }
 function jumpToChore(choreId){
   showTab('all');
@@ -519,6 +550,9 @@ const HISTORY_SEED = [
 ===================================================================== */
 let chores = [];
 let history = [];
+const DEFAULT_PEOPLE = ['Bhargav','Anusha','Arya'];
+let people = DEFAULT_PEOPLE.slice();
+function allPeople(){ return people; }
 let whoAmI = 'Bhargav';
 let activeTab = 'today';
 let showAddForm = false;
@@ -588,10 +622,18 @@ function normalizeChore(c){
 }
 
 async function loadAll(){
-  const [choresDocRes, historyDocRes] = await Promise.all([
+  const [choresDocRes, historyDocRes, peopleDocRes] = await Promise.all([
     choresDoc('chores').get().catch(function(){ return null; }),
-    choresDoc('history').get().catch(function(){ return null; })
+    choresDoc('history').get().catch(function(){ return null; }),
+    choresDoc('people').get().catch(function(){ return null; })
   ]);
+  try{
+    if(peopleDocRes && peopleDocRes.exists && peopleDocRes.data().json){
+      const list = JSON.parse(peopleDocRes.data().json);
+      if(Array.isArray(list) && list.length) people = list.filter(function(x){ return typeof x==='string' && x.trim(); });
+    }
+  }catch(e){}
+  ['Bhargav','Anusha'].forEach(function(n){ if(people.indexOf(n)===-1) people.unshift(n); });
   try{
     if(choresDocRes && choresDocRes.exists && choresDocRes.data().json) chores = JSON.parse(choresDocRes.data().json).map(normalizeChore);
     else { chores = JSON.parse(JSON.stringify(CHORES_SEED)).map(normalizeChore); await saveChores(); }
@@ -608,6 +650,7 @@ async function loadAll(){
   if(neededIdBackfill) await saveHistory();
 }
 async function saveChores(){ try{ await choresDoc('chores').set({json: JSON.stringify(chores)}); }catch(e){ console.error(e); } }
+async function savePeople(){ try{ await choresDoc('people').set({json: JSON.stringify(people)}); }catch(e){ console.error(e); } }
 async function saveHistory(){ try{ await choresDoc('history').set({json: JSON.stringify(history)}); }catch(e){ console.error(e); } }
 
 function escapeHtml(s){
@@ -619,6 +662,12 @@ function addDays(dateStr, n){ const dt = new Date(dateStr+'T00:00:00'); dt.setDa
 function weekdayOf(dateStr){ return new Date(dateStr+'T00:00:00').getDay(); }
 function fmtShort(dateStr){ return new Date(dateStr+'T00:00:00').toLocaleDateString(undefined,{month:'short',day:'numeric'}); }
 function personClass(name){ return name==='Bhargav' ? 'b' : (name==='Anusha' ? 'a' : 'arya'); }
+function isCompletion(h){ return !h.kind; }
+function daysBetween(a,b){ return Math.round((new Date(b+'T00:00:00')-new Date(a+'T00:00:00'))/86400000); }
+function isSnoozed(c){ return !!(c.snoozedUntil && c.snoozedUntil > todayStr()); }
+function doneToday(c){ return c.lastCompleted===todayStr(); }
+function todayEntryFor(c){ return history.find(function(h){ return !h.kind && h.date===todayStr() && (h.choreId ? h.choreId===c.id : h.task===c.name); }) || null; }
+function nowHHMM(){ const n=new Date(); return pad2(n.getHours())+':'+pad2(n.getMinutes()); }
 
 /* =====================================================================
    DUE-DATE / STATUS LOGIC
@@ -645,10 +694,16 @@ function nextDueFor(chore){
     return today;
   }
   if(chore.freqType === 'specificDays'){
+    const days = chore.days || [];
+    if(!days.length) return null; // no weekdays chosen: treat as "as needed" instead of due forever
     const start = chore.lastCompleted ? addDays(chore.lastCompleted,1) : today;
-    for(let i=0;i<14;i++){
+    for(let i=0;i<21;i++){
       const dd = addDays(start,i);
-      if(chore.days.indexOf(weekdayOf(dd)) !== -1) return dd;
+      if(days.indexOf(weekdayOf(dd)) === -1) continue;
+      // Done the day before a scheduled day (e.g. Thursday for a Mon/Fri chore)
+      // counts for that scheduled day instead of coming due again right away.
+      if(i===0 && chore.lastCompleted && days.indexOf(weekdayOf(chore.lastCompleted))===-1) continue;
+      return dd;
     }
   }
   return today;
@@ -675,6 +730,7 @@ function freqLabel(chore){
   if(chore.freqType==='everyNDays') return 'Every '+chore.freqDays+' days'+(chore.startDate && !chore.lastCompleted ? ' from '+fmtShort(chore.startDate) : '');
   if(chore.freqType==='specificDays'){
     const names=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+    if(!(chore.days||[]).length) return 'No days set';
     return chore.days.map(function(w){return names[w];}).join(' & ');
   }
   return '';
@@ -723,7 +779,7 @@ function scheduleHasKeywordOn(templates, weekdayName, keywords){
 function weekParity(dateStr){
   const ref = new Date('2026-01-03T00:00:00');
   const d = new Date(dateStr+'T00:00:00');
-  const weeksSince = Math.floor((d - ref) / (7*86400000));
+  const weeksSince = Math.floor(Math.round((d - ref) / 86400000) / 7);
   return ((weeksSince % 2)+2)%2;
 }
 // Called once at load so the due-date logic below can check synchronously.
@@ -839,16 +895,23 @@ async function syncCompletionToSchedule(chore, dateStr){
 /* =====================================================================
    COMPLETE A CHORE
 ===================================================================== */
-async function completeChore(choreId, doneBy, rating, note){
+async function completeChore(choreId, doneBy, rating, note, dateStr){
   const chore = chores.find(function(c){ return c.id===choreId; });
   if(!chore) return;
-  const today = todayStr();
-  lastUndo = {choreId:chore.id, lastCompleted:chore.lastCompleted, snoozedUntil:chore.snoozedUntil||null, assignedTo:(chore.assignedTo||[]).slice(), rotationIndex:chore.rotationIndex||0};
-  chore.lastCompleted = today;
-  chore.snoozedUntil = null;
-  const entry = {id:'log-'+Date.now(), date: today, task: chore.name, by: doneBy.join(' & '), rating: rating||null, notes: note || null, recordedBy: whoAmI};
+  const today = todayStr(), date = dateStr || today;
+  if(date > today){ showToast('That date is in the future'); return; }
+  if(date===today && chore.lastCompleted===today){ showToast('"'+chore.name+'" is already marked done today'); return; }
+  if(date!==today && history.some(function(h){ return !h.kind && h.date===date && (h.choreId ? h.choreId===chore.id : h.task===chore.name); })){
+    if(!confirm('"'+chore.name+'" is already logged on '+fmtShort(date)+'. Log it again?')) return;
+  }
+  if(!doneBy || !doneBy.length) doneBy = [whoAmI];
+  const entry = {id:'log-'+Date.now(), choreId: chore.id, date: date, task: chore.name, by: doneBy.join(' & '), rating: rating||null, notes: note || null, recordedBy: whoAmI};
+  chore.undo = {lastCompleted:chore.lastCompleted||null, snoozedUntil:chore.snoozedUntil||null, assignedTo:(chore.assignedTo||[]).slice(), rotationIndex:chore.rotationIndex||0, passedBy:chore.passedBy||null, logId:entry.id, date:date};
   history.unshift(entry);
-  lastUndo.historyId = entry.id;
+  history.sort(function(a,b){ return b.date.localeCompare(a.date); });
+  if(!chore.lastCompleted || date > chore.lastCompleted) chore.lastCompleted = date;
+  chore.snoozedUntil = null;
+  chore.passedBy = null;
   if(chore.rotationEnabled && chore.rotationMembers && chore.rotationMembers.length>1){
     const current = Math.max(0, chore.rotationMembers.indexOf(chore.assignedTo[0]));
     chore.rotationIndex = (current+1) % chore.rotationMembers.length;
@@ -856,26 +919,26 @@ async function completeChore(choreId, doneBy, rating, note){
   }
   await saveChores();
   await saveHistory();
-  await syncCompletionToSchedule(chore, today);
+  await syncCompletionToSchedule(chore, date);
   showTab(activeTab);
-  showToast('Marked "'+chore.name+'" done', 'Undo', undoLastCompletion);
+  showToast('Marked "'+chore.name+'" done'+(date!==today?' for '+fmtShort(date):''), 'Undo', function(){ undoCompletion(chore.id); });
 }
-async function undoLastCompletion(){
-  if(!lastUndo) return;
-  const chore = chores.find(function(c){ return c.id===lastUndo.choreId; });
-  if(chore){ chore.lastCompleted=lastUndo.lastCompleted||null; chore.snoozedUntil=lastUndo.snoozedUntil||null; chore.assignedTo=lastUndo.assignedTo.slice(); chore.rotationIndex=lastUndo.rotationIndex; }
-  history = history.filter(function(h){ return h.id!==lastUndo.historyId; });
-  if(chore){
-    for(const link of (chore.links||[])){
-      try{
-        const doc = await scheduleProfileDoc(link.profile,'choreLog').get();
-        const log = (doc.exists && doc.data().json) ? JSON.parse(doc.data().json) : {};
-        delete log[link.scheduleChoreId+':'+todayStr()];
-        await scheduleProfileDoc(link.profile,'choreLog').set({json: JSON.stringify(log)});
-      }catch(e){ console.error('schedule undo failed', e); }
-    }
+async function undoCompletion(choreId){
+  const chore = chores.find(function(c){ return c.id===choreId; });
+  const u = chore && chore.undo;
+  if(!u){ showToast('Nothing to undo'); return; }
+  chore.lastCompleted = u.lastCompleted || null; chore.snoozedUntil = u.snoozedUntil || null;
+  chore.assignedTo = u.assignedTo.slice(); chore.rotationIndex = u.rotationIndex; chore.passedBy = u.passedBy || null;
+  history = history.filter(function(h){ return h.id!==u.logId; });
+  for(const link of (chore.links||[])){
+    try{
+      const doc = await scheduleProfileDoc(link.profile,'choreLog').get();
+      const log = (doc.exists && doc.data().json) ? JSON.parse(doc.data().json) : {};
+      delete log[link.scheduleChoreId+':'+u.date];
+      await scheduleProfileDoc(link.profile,'choreLog').set({json: JSON.stringify(log)});
+    }catch(e){ console.error('schedule undo failed', e); }
   }
-  lastUndo = null;
+  delete chore.undo;
   await saveChores(); await saveHistory();
   showTab(activeTab);
   showToast('Completion undone');
@@ -905,50 +968,69 @@ async function snoozeChore(days){
   await saveChores();
   document.getElementById('snooze-modal').classList.remove('open');
   showTab(activeTab);
-  showToast('Moved to '+fmtShort(chore.snoozedUntil));
+  showToast('Moved to '+fmtShort(chore.snoozedUntil)+' — you can bring it back any time');
+}
+async function unsnoozeChore(choreId){
+  const chore = chores.find(function(c){ return c.id===choreId; });
+  if(!chore) return;
+  chore.snoozedUntil = null;
+  await saveChores();
+  showTab(activeTab);
+  showToast('"'+chore.name+'" is back on the list');
 }
 
 /* =====================================================================
-   CAN'T DO IT — record a reason, or reassign to someone else.
+   CAN'T DO IT — record a reason; handing it to someone is optional,
+   except when the reason is "Passing to someone else".
 ===================================================================== */
+function updateIssueLabel(){
+  const lab = document.getElementById('reassign-label');
+  if(lab) lab.textContent = issueReason==='Passing to someone else' ? 'Who should take it? (required)' : 'Hand it to someone (optional)';
+}
 function openIssue(choreId){
   issueTarget = choreId; issueReason = 'Unavailable today'; issueAssignee = null;
   const c = chores.find(function(x){ return x.id===choreId; });
-  document.getElementById('issue-copy').textContent = c ? 'Why can\'t "'+c.name+'" be completed, and who should receive it?' : 'Choose a reason and a new person.';
+  document.getElementById('issue-copy').textContent = c ? 'Why can\'t "'+c.name+'" be done right now? It comes back tomorrow unless you hand it to someone.' : 'Choose a reason.';
   document.querySelectorAll('[data-issue-reason]').forEach(function(b){ b.classList.toggle('on', b.dataset.issueReason===issueReason); });
-  const people = ['Bhargav','Anusha','Arya'].filter(function(p){ return p!==whoAmI; });
-  document.getElementById('reassign-people').innerHTML = people.map(function(p){ return '<button data-reassign="'+p+'">'+p+'</button>'; }).join('');
+  const others = people.filter(function(p){ return p!==whoAmI; });
+  document.getElementById('reassign-people').innerHTML = others.map(function(p){ return '<button data-reassign="'+escapeHtml(p)+'">'+escapeHtml(p)+'</button>'; }).join('');
   document.querySelectorAll('[data-reassign]').forEach(function(b){
-    b.onclick = function(){ issueAssignee=b.dataset.reassign; document.querySelectorAll('[data-reassign]').forEach(function(x){ x.classList.toggle('on', x===b); }); };
+    b.onclick = function(){
+      issueAssignee = (issueAssignee===b.dataset.reassign) ? null : b.dataset.reassign;
+      document.querySelectorAll('[data-reassign]').forEach(function(x){ x.classList.toggle('on', x.dataset.reassign===issueAssignee); });
+    };
   });
+  updateIssueLabel();
   document.getElementById('issue-modal').classList.add('open');
 }
 async function confirmIssue(){
   const chore = chores.find(function(c){ return c.id===issueTarget; });
   if(!chore) return;
-  if(issueReason==='Missing supplies' || issueReason==='Needs repair first'){
-    chore.lastIssue = {reason:issueReason, date:todayStr(), reportedBy:whoAmI};
-    chore.snoozedUntil = addDays(todayStr(),1);
-  } else {
-    if(!issueAssignee){ showToast('Choose who should receive this chore'); return; }
+  if(issueReason==='Passing to someone else' && !issueAssignee){ showToast('Choose who should take this chore'); return; }
+  chore.lastIssue = {reason:issueReason, date:todayStr(), reportedBy:whoAmI};
+  if(issueAssignee){
     chore.assignedTo = [issueAssignee];
+    chore.passedBy = {by: whoAmI, date: todayStr(), reason: issueReason};
+    chore.snoozedUntil = null;
     if(chore.rotationEnabled && chore.rotationMembers){
       if(chore.rotationMembers.indexOf(issueAssignee)===-1) chore.rotationMembers.push(issueAssignee);
       chore.rotationIndex = chore.rotationMembers.indexOf(issueAssignee);
     }
+  } else {
+    chore.snoozedUntil = addDays(todayStr(),1);
   }
-  history.unshift({id:'event-'+Date.now(), kind:'reassigned', date:todayStr(), task:chore.name, by:whoAmI, to:issueAssignee||null, reason:issueReason});
+  history.unshift({id:'event-'+Date.now(), kind: issueAssignee ? 'reassigned' : 'issue', choreId: chore.id, date:todayStr(), task:chore.name, by:whoAmI, to:issueAssignee||null, reason:issueReason});
   await saveChores(); await saveHistory();
   document.getElementById('issue-modal').classList.remove('open');
   showTab(activeTab);
-  showToast(issueAssignee ? 'Reassigned to '+issueAssignee : 'Issue recorded for tomorrow');
+  showToast(issueAssignee ? 'Handed to '+issueAssignee : 'Noted. It comes back tomorrow.');
 }
 
 /* =====================================================================
    SMART PLAN — "I have N minutes, what should I do?"
 ===================================================================== */
 function buildSmartPlan(minutes){
-  const due = chores.filter(function(c){ return ['overdue','today'].indexOf(statusFor(c))!==-1; });
+  const due = chores.filter(function(c){ return !doneToday(c) && ['overdue','today'].indexOf(statusFor(c))!==-1; });
   let pool = due.filter(function(c){ return c.assignedTo.indexOf(whoAmI)!==-1; });
   if(!pool.length) pool = due.slice();
   pool.sort(function(a,b){
@@ -993,12 +1075,15 @@ function roomHealthData(){
 /* =====================================================================
    STATS
 ===================================================================== */
+function isMine(c){ return (c.assignedTo||[]).indexOf(whoAmI)!==-1; }
 function computeStats(){
   const today = todayStr();
-  const dueToday = chores.filter(function(c){ return statusFor(c)==='today'; }).length;
-  const overdue = chores.filter(function(c){ return statusFor(c)==='overdue'; }).length;
-  const last7 = history.filter(function(h){ return h.kind!=='reassigned' && h.date >= addDays(today,-6); }).length;
-  const minutes = chores.filter(function(c){ return ['today','overdue'].indexOf(statusFor(c))!==-1; }).reduce(function(s,c){ return s+(c.estimatedMinutes||10); },0);
+  const active = function(c){ return !doneToday(c); };
+  const mine = chores.filter(function(c){ return isMine(c) && active(c); });
+  const dueToday = mine.filter(function(c){ return statusFor(c)==='today'; }).length;
+  const overdue = mine.filter(function(c){ return statusFor(c)==='overdue'; }).length;
+  const last7 = history.filter(function(h){ return isCompletion(h) && h.date >= addDays(today,-6) && (h.by||'').indexOf(whoAmI)!==-1; }).length;
+  const minutes = mine.filter(function(c){ return ['today','overdue'].indexOf(statusFor(c))!==-1; }).reduce(function(s,c){ return s+(c.estimatedMinutes||10); },0);
   return {dueToday, overdue, last7, minutes};
 }
 const RATING_SCORE = {good:3, ok:2, poor:1};
@@ -1009,7 +1094,7 @@ const RATING_META = {
 };
 function personStats(name){
   const today = todayStr();
-  const mine = history.filter(function(h){ return h.kind!=='reassigned' && (h.by === name || h.by.indexOf(name) !== -1); });
+  const mine = history.filter(function(h){ return isCompletion(h) && (h.by === name || h.by.indexOf(name) !== -1); });
   const last30 = mine.filter(function(h){ return h.date >= addDays(today,-29); }).length;
   let streak = 0, cursor = today;
   for(let i=0;i<60;i++){
@@ -1037,34 +1122,53 @@ function personStats(name){
       it, rating optional.
 ===================================================================== */
 function choreMode(chore){
-  if(chore.assignedTo.length === 1){
-    return chore.assignedTo[0]==='Arya' ? 'arya' : 'self';
+  return ((chore.assignedTo||[]).length===1 && chore.assignedTo[0]===whoAmI) ? 'self' : 'other';
+}
+function statusPillInfo(c, status){
+  const nd = nextDueFor(c), today = todayStr();
+  if(doneToday(c)) return {cls:'done', text:'Done today'};
+  if(isSnoozed(c)) return {cls:'upcoming', text:'Moved to '+fmtShort(c.snoozedUntil)};
+  if(status==='overdue'){ const n = daysBetween(nd, today); return {cls:'overdue', text:n+' day'+(n===1?'':'s')+' late', title:'Was due '+fmtShort(nd)}; }
+  if(status==='today'){
+    if(c.dueTime) return c.dueTime<=nowHHMM() ? {cls:'overdue', text:'Past '+fmtTime12(c.dueTime), title:'Due today at '+fmtTime12(c.dueTime)} : {cls:'today', text:'Due today · '+fmtTime12(c.dueTime)};
+    return {cls:'today', text:'Due today'};
   }
-  return 'shared';
+  if(status==='asneeded') return {cls:'asneeded', text:'As needed'};
+  return {cls:'upcoming', text:'Upcoming · '+fmtShort(nd)};
 }
 function choreRowHtml(chore, showCompleteBtn, showManageIcons){
   const status = statusFor(chore);
-  const statusLabel = {overdue:'Overdue', today:'Due today', upcoming:'Upcoming', asneeded:'As needed'}[status];
-  const nd = nextDueFor(chore);
+  const pill = statusPillInfo(chore, status);
   const mode = choreMode(chore);
   const rotationNext = chore.rotationEnabled && chore.rotationMembers && chore.rotationMembers.length>1
     ? chore.rotationMembers[(Math.max(0, chore.rotationMembers.indexOf(chore.assignedTo[0]))+1) % chore.rotationMembers.length]
     : null;
-  const btnHtml = mode==='self'
-    ? '<button class="done-btn" data-quickdone="'+chore.id+'">Mark done</button>'
-    : '<button class="done-btn" data-review="'+chore.id+'">Mark done</button>';
+  const done = doneToday(chore);
+  const entry = done ? todayEntryFor(chore) : null;
+  let primary = '';
+  if(showCompleteBtn){
+    if(done) primary = '<div class="done-wrap"><span class="done-badge">✓ Done today'+(entry?' · '+escapeHtml(entry.by):'')+'</span>'+(chore.undo?'<button type="button" class="undo-btn" data-undo="'+chore.id+'">Undo</button>':'')+'</div>';
+    else primary = mode==='self'
+      ? '<button class="done-btn" data-quickdone="'+chore.id+'">Mark done</button>'
+      : '<button class="done-btn" data-review="'+chore.id+'">Mark done</button>';
+  }
   const manageHtml = showManageIcons
     ? '<button class="icon-btn" data-editchore="'+chore.id+'" title="Edit">✎</button><button class="icon-btn" data-delchore="'+chore.id+'" title="Delete">✕</button>'
     : '';
-  return '<div class="chore-row '+status+'" data-chorewrap="'+chore.id+'"><div class="cr-top">'+
+  const passed = chore.passedBy ? '<span class="passed-tag">Passed on by '+escapeHtml(chore.passedBy.by)+'</span>' : '';
+  const secondary = (showCompleteBtn && !done)
+    ? '<div class="row-secondary-actions">'+(status!=='asneeded' ? (isSnoozed(chore) ? '<button data-unsnooze="'+chore.id+'">Bring back now</button>' : '<button data-snooze="'+chore.id+'">Move to later</button>') : '')+'<button data-issue="'+chore.id+'">Can\'t do it</button><button data-doneearlier="'+chore.id+'">Done earlier</button></div>'
+    : '';
+  return '<div class="chore-row '+(done?'upcoming':status)+(done?' is-done':'')+'" data-chorewrap="'+chore.id+'"><div class="cr-top">'+
     '<div class="cr-body">'+
       '<div class="cr-name">'+escapeHtml(chore.name)+'</div>'+
       '<div class="cr-meta">'+
-        chore.assignedTo.map(function(p){ return '<span class="person-pill '+personClass(p)+'">'+escapeHtml(p)+'</span>'; }).join('')+
-        '<span class="status-pill '+status+'">'+statusLabel+(nd && status!=='asneeded' ? ' · '+fmtShort(nd) : '')+'</span>'+
+        (chore.assignedTo||[]).map(function(p){ return '<span class="person-pill '+personClass(p)+'">'+escapeHtml(p)+'</span>'; }).join('')+
+        '<span class="status-pill '+pill.cls+'"'+(pill.title?' title="'+escapeHtml(pill.title)+'"':'')+'>'+escapeHtml(pill.text)+'</span>'+
+        passed+
         '<span class="category-pill">'+escapeHtml(chore.category||inferCategory(chore.name))+'</span>'+
         '<span class="time-pill">'+(chore.estimatedMinutes||10)+' min</span>'+
-        (chore.dueTime ? '<span class="time-pill">🕐 '+fmtTime12(chore.dueTime)+'</span>' : '')+
+        (chore.dueTime && pill.cls!=='overdue' && status!=='today' ? '<span class="time-pill">🕐 '+fmtTime12(chore.dueTime)+'</span>' : '')+
         (chore.rotationEnabled ? '<span class="rotation-tag">↻ Next: '+escapeHtml(rotationNext)+'</span>' : '')+
         '<span class="freq-tag">'+freqLabel(chore)+'</span>'+
         (chore.startDate && chore.freqType!=='everyNDays' ? '<span class="freq-tag" title="Just a record of when you started tracking this chore">📌 Since '+fmtShort(chore.startDate)+'</span>' : '')+
@@ -1074,11 +1178,11 @@ function choreRowHtml(chore, showCompleteBtn, showManageIcons){
       ((chore.instructions||chore.supplies) ? '<details class="chore-details"><summary>How to complete</summary><div class="instruction-grid">'+(chore.instructions?'<div class="instruction-box"><b>Steps</b><span>'+escapeHtml(chore.instructions)+'</span></div>':'')+(chore.supplies?'<div class="instruction-box"><b>Supplies</b><span>'+escapeHtml(chore.supplies)+'</span></div>':'')+'</div></details>' : '')+
     '</div>'+
     (showManageIcons ? '<div class="manage-icons">'+manageHtml+'</div>' : '')+
-    (showCompleteBtn ? btnHtml : '')+
+    primary+
     '</div>'+
-    (showCompleteBtn ? '<div class="row-secondary-actions">'+(status!=='asneeded'?'<button data-snooze="'+chore.id+'">Move to later</button>':'')+'<button data-issue="'+chore.id+'">Can\'t do it</button></div>' : '')+
+    secondary+
     (showManageIcons ? '<div class="edit-panel" id="edit-'+chore.id+'" style="display:none;">'+editFormHtml(chore)+'</div>' : '')+
-    (showCompleteBtn && mode!=='self' ? '<div class="review-panel" id="review-'+chore.id+'" style="display:none;">'+reviewPanelHtml(chore, mode)+'</div>' : '')+
+    (showCompleteBtn && !done ? '<div class="review-panel" id="review-'+chore.id+'" style="display:none;">'+reviewPanelHtml(chore)+'</div>' : '')+
     '</div>';
 }
 function editFormHtml(chore){
@@ -1103,7 +1207,7 @@ function editFormHtml(chore){
       ['S','M','T','W','T','F','S'].map(function(l,i){ return '<button type="button" class="'+(daySet.has(i)?'on':'')+'" data-editday="'+i+'">'+l+'</button>'; }).join('')+
     '</div>'+
     '<div class="assign-picker">'+
-      ['Bhargav','Anusha','Arya'].map(function(p){ return '<button type="button" class="'+(assignmentSet.has(p)?'on':'')+'" data-editassign="'+p+'">'+p+'</button>'; }).join('')+
+      allPeople().map(function(p){ return '<button type="button" class="'+(assignmentSet.has(p)?'on':'')+'" data-editassign="'+escapeHtml(p)+'">'+escapeHtml(p)+'</button>'; }).join('')+
     '</div>'+
     '<label style="grid-column:1/-1;font-size:11px;color:var(--text-soft);display:flex;gap:8px;align-items:center"><input type="checkbox" id="edit-rotation-'+chore.id+'" '+(chore.rotationEnabled?'checked':'')+'> Automatically rotate between selected people after completion</label>'+
     '<div class="f"><label>Attach to Schedule (optional)</label><select id="edit-syncprofile-'+chore.id+'" data-syncprofile-for="'+chore.id+'"><option value="">Not linked</option><option value="Bhargav" '+(chore.scheduleSync&&chore.scheduleSync.profile==='Bhargav'?'selected':'')+'>Bhargav\'s Schedule</option><option value="Anusha" '+(chore.scheduleSync&&chore.scheduleSync.profile==='Anusha'?'selected':'')+'>Anusha\'s Schedule</option></select></div>'+
@@ -1112,6 +1216,7 @@ function editFormHtml(chore){
     '<input type="text" id="edit-notes-'+chore.id+'" value="'+escapeHtml(chore.notes||'')+'" placeholder="Notes (optional)">'+
     '<textarea id="edit-instructions-'+chore.id+'" rows="3" style="grid-column:1/-1;padding:8px 10px;border:1px solid var(--border);border-radius:8px;background:var(--surface-alt)" placeholder="Completion steps (optional)">'+escapeHtml(chore.instructions||'')+'</textarea>'+
     '<input type="text" id="edit-supplies-'+chore.id+'" value="'+escapeHtml(chore.supplies||'')+'" placeholder="Supplies needed (optional)">'+
+    '<div class="form-error" id="edit-error-'+chore.id+'" style="display:none;"></div>'+
     '<div class="submit-row"><button class="btn-mini primary" data-savechore="'+chore.id+'">Save changes</button><button class="btn-mini ghost" data-canceledit="'+chore.id+'">Cancel</button></div>'+
   '</div>';
 }
@@ -1129,7 +1234,7 @@ function attachManageHandlers(el){
     btn.addEventListener('click', async function(){
       const chore = chores.find(function(c){ return c.id===btn.dataset.delchore; });
       if(!chore) return;
-      if(!confirm('Delete "'+chore.name+'"? This removes it from the list — completion history stays.')) return;
+      if(!confirm('Delete "'+chore.name+'"? It leaves the chore list for everyone. Past completions stay in History.')) return;
       chores = chores.filter(function(c){ return c.id!==chore.id; });
       await saveChores();
       renderAll();
@@ -1168,13 +1273,13 @@ function attachManageHandlers(el){
       if(!chore) return;
       const name = panel.querySelector('#edit-name-'+choreId).value.trim();
       const assigned = [...panel.querySelectorAll('[data-editassign].on')].map(function(b){ return b.dataset.editassign; });
-      if(!name || !assigned.length){
-        if(!name) panel.querySelector('#edit-name-'+choreId).style.outline = '2px solid var(--danger)';
-        return;
-      }
+      const blocksPicked = [...panel.querySelectorAll('#edit-syncblock-'+choreId+' input[data-syncblock-val]:checked')].map(function(cb){ return cb.dataset.syncblockVal; });
+      const err = validateChoreInput({name:name, freqType:freqSel.value, n:panel.querySelector('#edit-n-'+choreId).value, days:[...panel.querySelectorAll('[data-editday].on')], assigned:assigned, syncProfile:syncProfileSel.value, syncBlocks:blocksPicked}, choreId);
+      showFormError(panel.querySelector('#edit-error-'+choreId), err);
+      if(err) return;
       chore.name = name;
       chore.freqType = freqSel.value;
-      chore.freqDays = freqSel.value==='everyNDays' ? (Number(panel.querySelector('#edit-n-'+choreId).value)||7) : undefined;
+      chore.freqDays = freqSel.value==='everyNDays' ? Number(panel.querySelector('#edit-n-'+choreId).value) : undefined;
       chore.startDate = panel.querySelector('#edit-startdate-'+choreId).value || null;
       chore.days = freqSel.value==='specificDays' ? [...panel.querySelectorAll('[data-editday].on')].map(function(b){ return Number(b.dataset.editday); }).sort() : undefined;
       const rotationOn = panel.querySelector('#edit-rotation-'+choreId).checked && assigned.length>1;
@@ -1205,54 +1310,70 @@ function attachManageHandlers(el){
     });
   });
 }
-function reviewPanelHtml(chore, mode){
+function reviewPanelHtml(chore){
+  const today = todayStr();
+  const assigned = chore.assignedTo || [];
+  const pre = assigned.length===1 ? assigned[0] : null;
   const ratingOptions = ['good','ok','poor'].map(function(r){
     const m = RATING_META[r];
     return '<button type="button" class="rating-btn" data-rating="'+r+'">'+m.emoji+' '+m.label+'</button>';
   }).join('');
-  const doneBySection = mode==='shared'
-    ? '<div class="rp-label">Who did it?</div><div class="doneby-row">'+chore.assignedTo.map(function(p){
-        return '<button type="button" class="doneby-btn '+personClass(p)+'" data-doneby="'+p+'">'+escapeHtml(p)+'</button>';
-      }).join('')+'</div>'
-    : '';
-  const ratingLabel = mode==='arya' ? 'How was it done?' : 'How was it done? (optional)';
-  return doneBySection+
-    '<div class="rp-label">'+ratingLabel+'</div>'+
+  const doneBy = '<div class="rp-label">Who did it?</div><div class="doneby-row">'+allPeople().map(function(p){
+    return '<button type="button" class="doneby-btn '+personClass(p)+(p===pre?' on':'')+'" data-doneby="'+escapeHtml(p)+'">'+escapeHtml(p)+'</button>';
+  }).join('')+'</div>';
+  const when = '<div class="rp-label">When?</div><div class="when-row"><button type="button" class="when-chip on" data-when="0">Today</button><button type="button" class="when-chip" data-when="1">Yesterday</button><input type="date" class="rp-date" max="'+today+'" value="'+today+'"></div>';
+  return doneBy+when+
+    '<div class="rp-label">How was it done? (optional)</div>'+
     '<div class="rating-row">'+ratingOptions+'</div>'+
     '<input type="text" class="rp-note" placeholder="Note (optional) — e.g. left the corners">'+
     '<div class="rp-actions"><button class="btn-mini primary rp-confirm" data-confirm="'+chore.id+'">Confirm</button><button class="btn-mini ghost rp-cancel" data-cancel="'+chore.id+'">Cancel</button></div>';
 }
+function openReviewPanel(el, choreId, yesterday){
+  const panel = document.getElementById('review-'+choreId);
+  if(!panel) return;
+  const wasOpen = panel.style.display !== 'none';
+  el.querySelectorAll('.review-panel').forEach(function(p){ p.style.display='none'; });
+  panel.style.display = (wasOpen && !yesterday) ? 'none' : 'block';
+  if(yesterday && panel.style.display==='block'){
+    const chip = panel.querySelector('[data-when="1"]'); if(chip) chip.click();
+  }
+}
 function attachChoreHandlers(el){
   el.querySelectorAll('[data-snooze]').forEach(function(btn){ btn.addEventListener('click', function(){ openSnooze(btn.dataset.snooze); }); });
+  el.querySelectorAll('[data-unsnooze]').forEach(function(btn){ btn.addEventListener('click', function(){ unsnoozeChore(btn.dataset.unsnooze); }); });
+  el.querySelectorAll('[data-undo]').forEach(function(btn){ btn.addEventListener('click', function(){ btn.disabled = true; undoCompletion(btn.dataset.undo); }); });
   el.querySelectorAll('[data-issue]').forEach(function(btn){ btn.addEventListener('click', function(){ openIssue(btn.dataset.issue); }); });
+  el.querySelectorAll('[data-doneearlier]').forEach(function(btn){ btn.addEventListener('click', function(){ openReviewPanel(el, btn.dataset.doneearlier, true); }); });
   el.querySelectorAll('[data-quickdone]').forEach(function(btn){
     btn.addEventListener('click', async function(){
       const chore = chores.find(function(c){ return c.id===btn.dataset.quickdone; });
       if(!chore) return;
       btn.disabled = true; btn.textContent = '…';
-      await completeChore(chore.id, chore.assignedTo.slice(), null, null);
+      await completeChore(chore.id, [whoAmI], null, null);
     });
   });
-  el.querySelectorAll('[data-review]').forEach(function(btn){
-    btn.addEventListener('click', function(){
-      const panel = document.getElementById('review-'+btn.dataset.review);
-      const isOpen = panel.style.display !== 'none';
-      el.querySelectorAll('.review-panel').forEach(function(p){ p.style.display='none'; });
-      panel.style.display = isOpen ? 'none' : 'block';
-    });
-  });
+  el.querySelectorAll('[data-review]').forEach(function(btn){ btn.addEventListener('click', function(){ openReviewPanel(el, btn.dataset.review, false); }); });
   el.querySelectorAll('.review-panel').forEach(function(panel){
     const choreId = panel.id.replace('review-','');
-    const chore = chores.find(function(c){ return c.id===choreId; });
-    const mode = choreMode(chore);
-    const selectedDoneBy = new Set(mode==='arya' ? ['Arya'] : []);
+    const selectedDoneBy = new Set([...panel.querySelectorAll('[data-doneby].on')].map(function(b){ return b.dataset.doneby; }));
     let selectedRating = null;
+    const dateInput = panel.querySelector('.rp-date');
     panel.querySelectorAll('[data-doneby]').forEach(function(btn){
       btn.addEventListener('click', function(){
         const p = btn.dataset.doneby;
         if(selectedDoneBy.has(p)){ selectedDoneBy.delete(p); btn.classList.remove('on'); }
         else{ selectedDoneBy.add(p); btn.classList.add('on'); }
+        panel.querySelector('.doneby-row').style.outline = '';
       });
+    });
+    panel.querySelectorAll('[data-when]').forEach(function(chip){
+      chip.addEventListener('click', function(){
+        panel.querySelectorAll('[data-when]').forEach(function(c){ c.classList.toggle('on', c===chip); });
+        dateInput.value = addDays(todayStr(), -Number(chip.dataset.when));
+      });
+    });
+    dateInput.addEventListener('change', function(){
+      panel.querySelectorAll('[data-when]').forEach(function(c){ c.classList.toggle('on', dateInput.value===addDays(todayStr(), -Number(c.dataset.when))); });
     });
     panel.querySelectorAll('[data-rating]').forEach(function(btn){
       btn.addEventListener('click', function(){
@@ -1263,11 +1384,11 @@ function attachChoreHandlers(el){
     });
     const confirmBtn = panel.querySelector('.rp-confirm');
     confirmBtn.addEventListener('click', async function(){
-      if(mode==='shared' && !selectedDoneBy.size){ panel.querySelector('.doneby-row').style.outline = '2px solid var(--danger)'; return; }
-      if(mode==='arya' && !selectedRating){ panel.querySelector('.rating-row').style.outline = '2px solid var(--danger)'; return; }
+      if(!selectedDoneBy.size){ panel.querySelector('.doneby-row').style.outline = '2px solid var(--danger)'; showToast('Choose who did it'); return; }
+      if(!dateInput.value || dateInput.value > todayStr()){ showToast('Pick today or an earlier date'); return; }
       confirmBtn.disabled = true; confirmBtn.textContent = '…';
       const note = panel.querySelector('.rp-note').value.trim();
-      await completeChore(choreId, [...selectedDoneBy], selectedRating, note);
+      await completeChore(choreId, [...selectedDoneBy], selectedRating, note, dateInput.value);
     });
     panel.querySelector('.rp-cancel').addEventListener('click', function(){ panel.style.display = 'none'; });
   });
@@ -1276,36 +1397,49 @@ function attachChoreHandlers(el){
 function renderStatRow(){
   const s = computeStats();
   document.getElementById('stat-row').innerHTML =
-    '<div class="stat-card"><div class="sc-label">Due Today</div><div class="sc-value">'+s.dueToday+'</div></div>'+
-    '<div class="stat-card '+(s.overdue?'alert':'')+'"><div class="sc-label">Overdue</div><div class="sc-value">'+s.overdue+'</div></div>'+
-    '<div class="stat-card"><div class="sc-label">Time left</div><div class="sc-value">'+s.minutes+'<small style="font-size:9px;color:var(--text-faint);margin-left:2px;">min</small></div></div>'+
-    '<div class="stat-card"><div class="sc-label">Done, 7d</div><div class="sc-value">'+s.last7+'</div></div>'+
-    '<button type="button" class="stat-card action" id="plan-stat-btn"><div class="sc-label">⏱ Plan</div><div class="sc-value">Go →</div></button>';
+    '<div class="stat-card"><div class="sc-label">Yours today</div><div class="sc-value">'+s.dueToday+'</div></div>'+
+    '<div class="stat-card '+(s.overdue?'alert':'')+'"><div class="sc-label">Yours overdue</div><div class="sc-value">'+s.overdue+'</div></div>'+
+    '<div class="stat-card"><div class="sc-label">Time needed</div><div class="sc-value">'+s.minutes+'<small style="font-size:9px;color:var(--text-faint);margin-left:2px;">min</small></div></div>'+
+    '<div class="stat-card"><div class="sc-label">You did, 7 days</div><div class="sc-value">'+s.last7+'</div></div>'+
+    '<button type="button" class="stat-card action" id="plan-stat-btn"><div class="sc-label">⏱ Plan my time</div><div class="sc-value">Open →</div></button>';
   document.getElementById('plan-stat-btn').onclick = openSmartPlan;
 }
 
+function dueSorter(a,b){
+  const sa = statusFor(a)==='overdue' ? 0 : 1, sb = statusFor(b)==='overdue' ? 0 : 1;
+  if(sa!==sb) return sa-sb;
+  if(sa===0) return nextDueFor(a).localeCompare(nextDueFor(b));
+  return (a.dueTime||'99:99').localeCompare(b.dueTime||'99:99');
+}
 function renderToday(){
   const el = document.getElementById('today-view');
-  const due = chores.filter(function(c){ return ['overdue','today'].indexOf(statusFor(c)) !== -1; })
-    .sort(function(a,b){ const so=(statusFor(a)==='overdue'?0:1)-(statusFor(b)==='overdue'?0:1); return so || (a.dueTime||'99:99').localeCompare(b.dueTime||'99:99'); });
-  const mine = due.filter(function(c){ return c.assignedTo.indexOf(whoAmI)!==-1; });
-  const next = mine[0] || due[0];
-  const dueMinutes = due.reduce(function(s,c){ return s+(c.estimatedMinutes||10); }, 0);
+  const due = chores.filter(function(c){ return !doneToday(c) && ['overdue','today'].indexOf(statusFor(c)) !== -1; }).sort(dueSorter);
+  const mine = due.filter(isMine), others = due.filter(function(c){ return !isMine(c); });
+  const doneList = chores.filter(doneToday);
+  const snoozedList = chores.filter(function(c){ return isSnoozed(c) && !doneToday(c); });
+  const next = mine[0];
+  const rowFn = function(c){ return choreRowHtml(c,true); };
   const command = next
-    ? '<div class="command-card"><div class="command-eyebrow">Next best action</div><h2>'+escapeHtml(next.name)+'</h2><p>'+escapeHtml(next.notes||('A '+(next.estimatedMinutes||10)+' minute '+(next.category||'home').toLowerCase()+' task assigned to '+next.assignedTo.join(', ')+'.'))+'</p><div class="command-actions"><button class="command-btn" data-command-open="'+next.id+'">Open chore</button><span class="command-meta">'+(next.estimatedMinutes||10)+' min · '+(statusFor(next)==='overdue'?'overdue':'due today')+'</span></div></div>'
-    : '<div class="command-card"><div class="command-eyebrow">Household reset complete</div><h2>Everything due is handled.</h2><p>Nothing is overdue or due today. The board still keeps upcoming and as-needed work ready.</p><div class="command-actions"><button class="command-btn" data-open-board>View board</button></div></div>';
-  const people = ['Bhargav','Anusha','Arya'];
-  const loads = people.map(function(p){
+    ? '<div class="command-card"><div class="command-eyebrow">Next for you</div><h2>'+escapeHtml(next.name)+'</h2><p>'+escapeHtml(next.notes||('A '+(next.estimatedMinutes||10)+' minute '+(next.category||'home').toLowerCase()+' task.'))+'</p><div class="command-actions"><button class="command-btn" data-command-open="'+next.id+'">Open chore</button><span class="command-meta">'+(next.estimatedMinutes||10)+' min · '+statusPillInfo(next,statusFor(next)).text+'</span></div></div>'
+    : '<div class="command-card"><div class="command-eyebrow">You are clear</div><h2>Nothing due for you.</h2><p>'+(others.length?others.length+' chore'+(others.length===1?' is':'s are')+' due for someone else.':'Nothing is overdue or due today.')+'</p><div class="command-actions"><button class="command-btn" data-open-board>View board</button></div></div>';
+  const loads = allPeople().map(function(p){
     const mins = due.filter(function(c){ return c.assignedTo.indexOf(p)!==-1; }).reduce(function(s,c){ return s+Math.ceil((c.estimatedMinutes||10)/Math.max(1,c.assignedTo.length)); }, 0);
     return {name:p, minutes:mins};
   });
   const maxLoad = Math.max(1, ...loads.map(function(x){ return x.minutes; }));
-  const workload = '<div class="side-card"><h3>Today\'s workload</h3>'+loads.map(function(x){ return '<div class="load-row"><b>'+x.name+'</b><div class="load-track"><div class="load-fill" style="width:'+Math.round(x.minutes/maxLoad*100)+'%"></div></div><span class="load-min">'+x.minutes+'m</span></div>'; }).join('')+'<div class="tip">'+(dueMinutes?'About '+dueMinutes+' minutes of household work remains. Workload is based on shared time, not points.':'No scheduled workload remains today.')+'</div></div>';
+  const dueMinutes = due.reduce(function(s,c){ return s+(c.estimatedMinutes||10); }, 0);
+  const workload = '<div class="side-card"><h3>Today\'s workload</h3>'+loads.map(function(x){ return '<div class="load-row"><b>'+escapeHtml(x.name)+'</b><div class="load-track"><div class="load-fill" style="width:'+Math.round(x.minutes/maxLoad*100)+'%"></div></div><span class="load-min">'+x.minutes+'m</span></div>'; }).join('')+'<div class="tip">'+(dueMinutes?'About '+dueMinutes+' minutes of household work remains. Workload is based on shared time, not points.':'No scheduled workload remains today.')+'</div></div>';
   const rooms = '<div class="side-card"><h3>Room health</h3><div class="room-grid">'+roomHealthData().map(function(r){ return '<button type="button" class="room-health" data-room="'+r.name+'"><b>'+r.name+'</b><span class="health-track"><span class="health-fill health-'+r.level+'" style="display:block;width:'+r.score+'%"></span></span><span class="health-label '+r.level+'">'+r.label+'</span></button>'; }).join('')+'</div></div>';
-  const recentItems = history.filter(function(h){ return h.kind!=='reassigned'; }).slice(0,4);
+  const recentItems = history.filter(isCompletion).slice(0,4);
   const recent = '<div class="side-card"><h3>Recently completed</h3><div class="mini-list">'+(recentItems.map(function(h){ return '<div class="mini-item"><b>'+escapeHtml(h.task)+'</b><span>'+escapeHtml(h.by)+'</span></div>'; }).join('')||'<div class="empty-note">No completions yet.</div>')+'</div></div>';
-  const list = due.length ? '<div class="section-title"><span>Needs attention</span></div>'+due.map(function(c){ return choreRowHtml(c,true); }).join('') : '<div class="empty-note">Nothing due or overdue right now — nice.</div>';
-  el.innerHTML = command+'<div class="dashboard-grid"><div>'+list+'</div><div>'+rooms+workload+recent+'</div></div>';
+  const LIMIT = 6;
+  const yours = mine.length
+    ? '<div class="section-title"><span>Yours · '+mine.length+'</span></div>'+mine.slice(0,LIMIT).map(rowFn).join('')+(mine.length>LIMIT?'<details class="fold-box"><summary>Show '+(mine.length-LIMIT)+' more of yours</summary>'+mine.slice(LIMIT).map(rowFn).join('')+'</details>':'')
+    : '<div class="section-title"><span>Yours</span></div><div class="empty-note">Nothing due for you right now — nice.</div>';
+  const othersHtml = others.length ? '<details class="fold-box"><summary>Due for others · '+others.length+'</summary>'+others.map(rowFn).join('')+'</details>' : '';
+  const doneHtml = doneList.length ? '<details class="fold-box" open><summary>Done today · '+doneList.length+'</summary>'+doneList.map(rowFn).join('')+'</details>' : '';
+  const snoozedHtml = snoozedList.length ? '<details class="fold-box"><summary>Moved to later · '+snoozedList.length+'</summary>'+snoozedList.map(rowFn).join('')+'</details>' : '';
+  el.innerHTML = command+'<div class="dashboard-grid"><div>'+yours+othersHtml+doneHtml+snoozedHtml+'</div><div>'+rooms+workload+recent+'</div></div>';
   attachChoreHandlers(el);
   el.querySelectorAll('[data-open-board]').forEach(function(btn){ btn.onclick = function(){ showTab('all'); }; });
   el.querySelectorAll('[data-room]').forEach(function(btn){ btn.onclick = function(){ boardFilter = btn.dataset.room; showTab('all'); }; });
@@ -1382,6 +1516,25 @@ function renderAll(){
   if(showAddForm) wireAddForm(el);
 }
 
+function validateChoreInput(v, excludeId){
+  if(!v.name) return {field:'name', msg:'Give the chore a name.'};
+  const dup = chores.some(function(c){ return c.id!==excludeId && (c.name||'').trim().toLowerCase()===v.name.toLowerCase(); });
+  if(dup) return {field:'name', msg:'A chore called "'+v.name+'" already exists. Pick a different name.'};
+  if(!v.assigned.length) return {field:'assign', msg:'Pick at least one person for this chore.'};
+  if(v.freqType==='everyNDays'){
+    const n = Number(v.n);
+    if(!Number.isInteger(n) || n<1 || n>365) return {field:'n', msg:'"Every N days" needs a whole number from 1 to 365.'};
+  }
+  if(v.freqType==='specificDays' && !v.days.length) return {field:'days', msg:'Pick at least one weekday.'};
+  if(v.syncProfile && !v.syncBlocks.length) return {field:'sync', msg:'Tick at least one Schedule block, or set the link back to "Not linked".'};
+  return null;
+}
+function showFormError(box, err){
+  if(!box) return;
+  box.textContent = err ? err.msg : '';
+  box.style.display = err ? 'block' : 'none';
+  if(err) box.scrollIntoView({block:'nearest', behavior:'smooth'});
+}
 function addFormHtml(){
   return '<div class="add-form"><h3>New chore</h3><div class="af-grid">'+
     '<input type="text" id="new-chore-name" placeholder="Chore name">'+
@@ -1401,7 +1554,7 @@ function addFormHtml(){
       ['S','M','T','W','T','F','S'].map(function(l,i){ return '<button type="button" data-day="'+i+'">'+l+'</button>'; }).join('')+
     '</div>'+
     '<div class="assign-picker">'+
-      ['Bhargav','Anusha','Arya'].map(function(p){ return '<button type="button" data-assign="'+p+'">'+p+'</button>'; }).join('')+
+      allPeople().map(function(p){ return '<button type="button" data-assign="'+escapeHtml(p)+'">'+escapeHtml(p)+'</button>'; }).join('')+
     '</div>'+
     '<label style="grid-column:1/-1;font-size:11px;color:var(--text-soft);display:flex;gap:8px;align-items:center"><input type="checkbox" id="new-chore-rotation"> Automatically rotate between selected people after completion</label>'+
     '<div class="f"><label>Attach to Schedule (optional)</label><select id="new-chore-syncprofile"><option value="">Not linked</option><option value="Bhargav">Bhargav\'s Schedule</option><option value="Anusha">Anusha\'s Schedule</option></select></div>'+
@@ -1410,6 +1563,7 @@ function addFormHtml(){
     '<input type="text" id="new-chore-notes" placeholder="Notes (optional)">'+
     '<textarea id="new-chore-instructions" rows="3" style="grid-column:1/-1;padding:8px 10px;border:1px solid var(--border);border-radius:8px;background:var(--surface-alt)" placeholder="Completion steps (optional)"></textarea>'+
     '<input type="text" id="new-chore-supplies" placeholder="Supplies needed (optional)">'+
+    '<div class="form-error" id="new-chore-error" style="display:none;"></div>'+
     '<div class="submit-row"><button class="btn-mini primary" id="save-chore-btn">Add chore</button></div>'+
   '</div></div>';
 }
@@ -1451,16 +1605,21 @@ function wireAddForm(root){
   });
   root.querySelector('#save-chore-btn').addEventListener('click', async function(){
     const name = root.querySelector('#new-chore-name').value.trim();
-    if(!name || !assignSet.size){
-      if(!name) root.querySelector('#new-chore-name').style.outline = '2px solid var(--danger)';
+    const freqType = freqSel.value;
+    const blocksChecked = [...root.querySelectorAll('#new-chore-syncblock input[data-syncblock-val]:checked')].map(function(cb){ return cb.dataset.syncblockVal; });
+    const err = validateChoreInput({name:name, freqType:freqType, n:root.querySelector('#new-chore-n').value, days:[...daySet], assigned:[...assignSet], syncProfile:syncProfileSel.value, syncBlocks:blocksChecked}, null);
+    showFormError(root.querySelector('#new-chore-error'), err);
+    root.querySelectorAll('.f input, .f select, #new-chore-name, .assign-picker, .day-picker').forEach(function(x){ x.style.outline=''; });
+    if(err){
+      const target = {name:'#new-chore-name', assign:'.assign-picker', n:'#new-chore-n', days:'.day-picker', sync:'#new-chore-syncprofile'}[err.field];
+      const t = target && root.querySelector(target); if(t){ t.style.outline='2px solid var(--danger)'; if(t.focus) t.focus(); }
       return;
     }
-    const freqType = freqSel.value;
     const rotate = root.querySelector('#new-chore-rotation').checked && assignSet.size>1;
     const selected = [...assignSet];
     const newChore = {
       id: 'chore-'+Date.now(), name: name, freqType: freqType,
-      freqDays: freqType==='everyNDays' ? Number(root.querySelector('#new-chore-n').value)||7 : undefined,
+      freqDays: freqType==='everyNDays' ? Number(root.querySelector('#new-chore-n').value) : undefined,
       startDate: root.querySelector('#new-chore-startdate').value || null,
       days: freqType==='specificDays' ? [...daySet].sort() : undefined,
       assignedTo: rotate ? [selected[0]] : selected,
@@ -1487,23 +1646,32 @@ function wireAddForm(root){
 }
 
 function activityHeatmapHtml(){
-  const today = todayStr(), days = 63; // 9 weeks
+  const today = todayStr(), weeks = 9;
+  const start = addDays(today, -(weekdayOf(today) + 7*(weeks-1))); // a Sunday, so every column is a full week
   const counts = {};
-  history.forEach(function(h){ if(h.kind!=='reassigned'){ counts[h.date] = (counts[h.date]||0)+1; } });
+  history.forEach(function(h){ if(isCompletion(h)){ counts[h.date] = (counts[h.date]||0)+1; } });
   const cells = [];
-  for(let i=days-1;i>=0;i--){
-    const date = addDays(today,-i);
+  for(let date=start; date<=today; date=addDays(date,1)){
     const c = counts[date]||0;
     const lvl = c===0?0 : c===1?1 : c===2?2 : c<=4?3 : 4;
     cells.push('<div class="heatmap-cell" data-lvl="'+lvl+'" title="'+fmtShort(date)+': '+c+' completed"></div>');
   }
-  // pad the front so the grid always starts on a Sunday column
-  const startDow = weekdayOf(addDays(today,-(days-1)));
-  const pad = Array(startDow).fill('<div class="heatmap-cell" style="background:transparent;"></div>');
-  return '<div class="side-card"><h3>Consistency, last 9 weeks</h3><div class="heatmap-wrap"><div class="heatmap-grid">'+pad.join('')+cells.join('')+'</div></div><div class="heatmap-legend"><span>Less</span><div class="heatmap-cell" data-lvl="0"></div><div class="heatmap-cell" data-lvl="1"></div><div class="heatmap-cell" data-lvl="2"></div><div class="heatmap-cell" data-lvl="3"></div><div class="heatmap-cell" data-lvl="4"></div><span>More</span></div></div>';
+  const labels = ['','Mon','','Wed','','Fri',''].map(function(l){ return '<span>'+l+'</span>'; }).join('');
+  return '<div class="side-card"><h3>Consistency, last '+weeks+' weeks</h3><div class="heatmap-wrap"><div class="heatmap-days">'+labels+'</div><div class="heatmap-grid">'+cells.join('')+'</div></div><div class="heatmap-legend"><span>Less</span><div class="heatmap-cell" data-lvl="0"></div><div class="heatmap-cell" data-lvl="1"></div><div class="heatmap-cell" data-lvl="2"></div><div class="heatmap-cell" data-lvl="3"></div><div class="heatmap-cell" data-lvl="4"></div><span>More</span></div></div>';
+}
+function recalcLastCompleted(h){
+  // The chore's due date comes from its latest completion, so deleting or moving
+  // a completion has to recalculate it, otherwise History and the board disagree.
+  if(h.kind) return null;
+  const chore = chores.find(function(c){ return h.choreId ? c.id===h.choreId : c.name===h.task; });
+  if(!chore) return null;
+  const dates = history.filter(function(x){ return !x.kind && (x.choreId ? x.choreId===chore.id : x.task===chore.name); }).map(function(x){ return x.date; }).sort();
+  chore.lastCompleted = dates.length ? dates[dates.length-1] : null;
+  delete chore.undo;
+  return {chore:chore, after:statusFor(chore)};
 }
 function historyEditPanelHtml(h){
-  if(h.kind==='reassigned'){
+  if(h.kind){
     return '<div class="history-edit-panel">'+
       '<input type="date" id="hedit-date-'+h.id+'" value="'+h.date+'">'+
       '<div class="submit-row"><button class="btn-mini primary" data-savehist="'+h.id+'">Save date</button><button class="btn-mini ghost" data-cancelhist="'+h.id+'">Cancel</button></div>'+
@@ -1522,8 +1690,8 @@ function historyEditPanelHtml(h){
 }
 function renderHistory(){
   const el = document.getElementById('history-view');
-  const people = ['Bhargav','Anusha','Arya'];
-  const today = todayStr(), last30 = history.filter(function(h){ return h.kind!=='reassigned' && h.date>=addDays(today,-29); });
+  const people = allPeople();
+  const today = todayStr(), last30 = history.filter(function(h){ return isCompletion(h) && h.date>=addDays(today,-29); });
   const rated = last30.filter(function(h){ return h.rating; });
   const good = rated.filter(function(h){ return h.rating==='good'; }).length;
   const summary = '<div class="perf-card"><h3>Household pulse</h3><div class="summary-strip"><div class="summary-box"><b>'+last30.length+'</b><span>completed in 30 days</span></div><div class="summary-box"><b>'+chores.filter(function(c){ return statusFor(c)==='overdue'; }).length+'</b><span>currently overdue</span></div><div class="summary-box"><b>'+(rated.length?Math.round(good/rated.length*100):'—')+(rated.length?'%':'')+'</b><span>rated good</span></div></div><div class="tip">Insights are meant to reveal workload and recurring friction — not turn home care into a competition.</div></div>';
@@ -1554,14 +1722,14 @@ function renderHistory(){
   const toolbar = '<div class="history-toolbar"><input class="searchbox" id="history-search" style="flex:1 1 100%;" value="'+escapeHtml(historyQuery)+'" placeholder="Search completed chores, notes, people…">'+filterChips+'<input type="date" id="history-from" value="'+historyFrom+'" title="From date"><input type="date" id="history-to" value="'+historyTo+'" title="To date">'+((historyQuery||historyPersonFilter!=='all'||historyFrom||historyTo)?'<button class="filter-chip" id="history-clear">✕ Clear filters</button>':'')+'<button class="filter-chip select-toggle" id="history-select-toggle">'+(historySelectMode?'Cancel select':'Select multiple')+'</button></div>';
   const bulkBar = (historySelectMode && historySelected.size) ? '<div class="history-bulkbar"><span>'+historySelected.size+' selected</span><div style="display:flex;gap:6px;"><button class="btn-mini ghost" id="history-select-all">Select all shown</button><button class="btn-mini primary" id="history-bulk-delete" style="background:var(--danger);">Delete selected</button></div></div>' : (historySelectMode ? '<div class="history-bulkbar"><span>Tap records to select them</span><button class="btn-mini ghost" id="history-select-all">Select all shown</button></div>' : '');
 
-  const logHtml = '<div class="perf-card"><h3>Completion log <span style="font-weight:500;color:var(--text-faint);font-size:11px;">'+filtered.length+' of '+history.length+'</span></h3>'+toolbar+bulkBar+
+  const logHtml = '<div class="perf-card"><h3>Completion log <span style="font-weight:500;color:var(--text-faint);font-size:11px;">'+filtered.filter(isCompletion).length+' completions'+(filtered.some(function(h){ return h.kind; }) ? ' · '+filtered.filter(function(h){ return h.kind; }).length+' notes' : '')+'</span></h3>'+toolbar+bulkBar+
     (filtered.length ? filtered.slice(0,80).map(function(h){
       const editing = openHistoryEdit===h.id;
       const checkbox = historySelectMode ? '<input type="checkbox" class="hr-select" data-hist-check="'+h.id+'" '+(historySelected.has(h.id)?'checked':'')+'>' : '';
       const icons = historySelectMode ? '' : '<div class="hr-icons"><button data-edithist="'+h.id+'" title="Edit">✎</button><button data-delhist="'+h.id+'" title="Delete">✕</button></div>';
       const wrapClass = 'history-row-wrap'+(historySelectMode?' selectable':'');
-      if(h.kind==='reassigned'){
-        return '<div class="'+wrapClass+'">'+checkbox+icons+'<div class="history-row"><span class="hr-date">'+fmtShort(h.date)+'</span><span class="hr-task">'+escapeHtml(h.task)+'</span><span class="status-pill upcoming">Reassigned</span></div><div class="hr-recorded">'+escapeHtml(h.reason||'Reassigned')+(h.to?' · moved to '+escapeHtml(h.to):'')+' · reported by '+escapeHtml(h.by)+'</div>'+(editing?historyEditPanelHtml(h):'')+'</div>';
+      if(h.kind){
+        return '<div class="'+wrapClass+'">'+checkbox+icons+'<div class="history-row"><span class="hr-date">'+fmtShort(h.date)+'</span><span class="hr-task">'+escapeHtml(h.task)+'</span><span class="status-pill upcoming">'+(h.kind==='issue'?'Couldn\'t do it':'Reassigned')+'</span></div><div class="hr-recorded">'+escapeHtml(h.reason||'Reassigned')+(h.to?' · moved to '+escapeHtml(h.to):'')+' · reported by '+escapeHtml(h.by)+'</div>'+(editing?historyEditPanelHtml(h):'')+'</div>';
       }
       const ratingBadge = h.rating ? '<span class="rating-chip" style="color:'+RATING_META[h.rating].color+';">'+RATING_META[h.rating].emoji+'</span>' : '';
       const recordedNote = h.recordedBy && h.recordedBy!==h.by ? '<div class="hr-recorded">recorded by '+escapeHtml(h.recordedBy)+'</div>' : '';
@@ -1585,7 +1753,10 @@ function renderHistory(){
   if(bulkDeleteBtn) bulkDeleteBtn.onclick = async function(){
     const n = historySelected.size;
     if(!confirm('Delete '+n+' selected record'+(n===1?'':'s')+'? This only removes the history entries, not the chores themselves.')) return;
+    const removed = history.filter(function(h){ return historySelected.has(h.id); });
     history = history.filter(function(h){ return !historySelected.has(h.id); });
+    removed.forEach(function(h){ recalcLastCompleted(h); });
+    await saveChores();
     historySelected.clear();
     historySelectMode = false;
     await saveHistory();
@@ -1607,8 +1778,10 @@ function renderHistory(){
       if(!h) return;
       if(!confirm('Delete this record — "'+h.task+'" on '+fmtShort(h.date)+'? This only removes the history entry, not the chore itself.')) return;
       history = history.filter(function(x){ return x.id!==h.id; });
+      const changed = recalcLastCompleted(h);
       await saveHistory();
-      showToast('Record deleted');
+      if(changed) await saveChores();
+      showToast(changed ? 'Record deleted. "'+changed.chore.name+'" is now '+({overdue:'overdue',today:'due today',upcoming:'upcoming',asneeded:'as needed'}[changed.after])+'.' : 'Record deleted');
       renderHistory();
     });
   });
@@ -1632,9 +1805,11 @@ function renderHistory(){
       if(dateInput && dateInput.value) entry.date = dateInput.value;
       const notesInput = panel.querySelector('#hedit-notes-'+hid);
       if(notesInput) entry.notes = notesInput.value.trim() || null;
-      if(entry.kind!=='reassigned') entry.rating = selectedRating;
+      if(!entry.kind) entry.rating = selectedRating;
       history.sort(function(a,b){ return b.date.localeCompare(a.date); });
+      const changed = recalcLastCompleted(entry);
       await saveHistory();
+      if(changed) await saveChores();
       openHistoryEdit = null;
       showToast('Record updated');
       renderHistory();
@@ -1646,36 +1821,126 @@ function renderHistory(){
    BACKUP / EXPORT / IMPORT / RESET
 ===================================================================== */
 function exportBackup(){
-  const payload = {app:'IronLog Chores', version:3, exportedAt:new Date().toISOString(), chores:chores, history:history};
-  const blob = new Blob([JSON.stringify(payload,null,2)], {type:'application/json'}), url = URL.createObjectURL(blob), a = document.createElement('a');
-  a.href = url; a.download = 'ironlog-chores-backup-'+todayStr()+'.json'; a.click();
-  setTimeout(function(){ URL.revokeObjectURL(url); }, 1000);
+  const payload = {app:'Household Chores', version:4, exportedAt:new Date().toISOString(), chores:chores, history:history, people:people};
+  const blob = new Blob([JSON.stringify(payload,null,2)], {type:'application/json'});
+  const url = URL.createObjectURL(blob), a = document.createElement('a');
+  a.href = url; a.download = 'household-chores-backup-'+todayStr()+'.json'; a.click();
+  setTimeout(function(){ URL.revokeObjectURL(url); }, 500);
   showToast('Backup exported');
+}
+function validateBackup(data){
+  if(!data || typeof data!=='object') return 'it is not a chores backup file.';
+  if(!Array.isArray(data.chores) || !Array.isArray(data.history)) return 'it has no chores and history lists.';
+  const freqs = ['daily','everyNDays','specificDays','asNeeded'];
+  for(let i=0;i<data.chores.length;i++){
+    const c = data.chores[i];
+    if(!c || typeof c.id!=='string' || typeof c.name!=='string' || freqs.indexOf(c.freqType)===-1 || !Array.isArray(c.assignedTo)) return 'chore #'+(i+1)+' is missing a name, an id, a valid frequency or who it is assigned to.';
+  }
+  for(let i=0;i<data.history.length;i++){
+    const h = data.history[i];
+    if(!h || typeof h.date!=='string' || typeof h.task!=='string') return 'history entry #'+(i+1)+' is missing a date or a chore name.';
+  }
+  return null;
+}
+async function saveSafetyCopy(reason){
+  try{ await choresDoc('safetyCopy').set({json: JSON.stringify({at:Date.now(), reason:reason, chores:chores, history:history, people:people})}); }catch(e){ console.error('safety copy failed', e); }
+}
+async function refreshUndoRestoreButton(){
+  const btn = document.getElementById('undo-restore-btn'), note = document.getElementById('undo-restore-note');
+  btn.style.display = 'none';
+  try{
+    const doc = await choresDoc('safetyCopy').get();
+    if(doc.exists && doc.data().json){
+      const c = JSON.parse(doc.data().json);
+      note.textContent = 'Brings back '+c.chores.length+' chores and '+c.history.length+' history entries saved before the last '+c.reason+' ('+new Date(c.at).toLocaleDateString()+')';
+      btn.style.display = '';
+    }
+  }catch(e){}
+}
+async function undoRestore(){
+  let copy = null;
+  try{ const doc = await choresDoc('safetyCopy').get(); if(doc.exists && doc.data().json) copy = JSON.parse(doc.data().json); }catch(e){}
+  if(!copy){ showToast('Nothing to undo'); return; }
+  if(!confirm('Bring back the data from before the last '+copy.reason+'? ('+copy.chores.length+' chores, '+copy.history.length+' history entries)\n\nThe data you have now will be kept as a new safety copy.')) return;
+  await saveSafetyCopy('undo');
+  chores = copy.chores.map(normalizeChore); history = copy.history;
+  if(Array.isArray(copy.people) && copy.people.length) people = copy.people;
+  await saveChores(); await saveHistory(); await savePeople();
+  document.getElementById('backup-modal').classList.remove('open');
+  renderWhoami(); showTab(activeTab); showToast('Previous data restored');
 }
 function importBackup(file){
   if(!file) return;
   const reader = new FileReader();
   reader.onload = async function(){
-    try{
-      const data = JSON.parse(reader.result);
-      if(!Array.isArray(data.chores) || !Array.isArray(data.history)) throw new Error('Invalid backup');
-      chores = data.chores.map(normalizeChore); history = data.history;
-      await saveChores(); await saveHistory();
-      document.getElementById('backup-modal').classList.remove('open');
-      showTab(activeTab);
-      showToast('Backup restored');
-    }catch(e){ alert('This is not a valid IronLog Chores backup.'); }
+    let data;
+    try{ data = JSON.parse(reader.result); }catch(e){ alert('That file could not be read. It is not a Household Chores backup.'); return; }
+    const problem = validateBackup(data);
+    if(problem){ alert('That backup cannot be restored: '+problem); return; }
+    const when = data.exportedAt ? ' (saved '+new Date(data.exportedAt).toLocaleDateString()+')' : '';
+    if(!confirm('Restoring replaces ALL chores and history for everyone.\n\nNow: '+chores.length+' chores, '+history.length+' history entries.\nBackup'+when+': '+data.chores.length+' chores, '+data.history.length+' history entries.\n\nA safety copy of the current data is kept so you can undo this. Continue?')) return;
+    if(!data.chores.length && !confirm('This backup has NO chores. Everything would be emptied. Really continue?')) return;
+    await saveSafetyCopy('restore');
+    chores = data.chores.map(normalizeChore); history = data.history;
+    history.forEach(function(h,i){ if(!h.id) h.id = 'legacy-'+i+'-'+Date.now().toString(36); });
+    if(Array.isArray(data.people) && data.people.length){ people = data.people.filter(function(x){ return typeof x==='string' && x.trim(); }); ['Bhargav','Anusha'].forEach(function(n){ if(people.indexOf(n)===-1) people.unshift(n); }); await savePeople(); }
+    await saveChores(); await saveHistory();
+    document.getElementById('backup-modal').classList.remove('open');
+    if(people.indexOf(whoAmI)===-1) whoAmI = 'Bhargav';
+    renderWhoami(); showTab(activeTab);
+    showToast('Backup restored — you can undo it from the Backup menu');
   };
   reader.readAsText(file);
 }
 async function resetDemo(){
-  if(!confirm('Reset Chores back to the original household data? Current data for everyone will be replaced.')) return;
+  const typed = prompt('This replaces every chore and all history for everyone ('+chores.length+' chores, '+history.length+' history entries) with the original demo list.\n\nA safety copy is kept so you can undo it.\n\nType RESET to continue.');
+  if(!typed || typed.trim().toUpperCase()!=='RESET'){ if(typed!==null) showToast('Reset cancelled — nothing changed'); return; }
+  await saveSafetyCopy('reset');
   chores = JSON.parse(JSON.stringify(CHORES_SEED)).map(normalizeChore);
   history = JSON.parse(JSON.stringify(HISTORY_SEED));
+  history.forEach(function(h,i){ if(!h.id) h.id = 'legacy-'+i+'-'+Date.now().toString(36); });
   await saveChores(); await saveHistory();
   document.getElementById('backup-modal').classList.remove('open');
   showTab('today');
-  showToast('Data reset');
+  showToast('Data reset — you can undo it from the Backup menu');
+}
+
+/* ---- people ---- */
+function renderPeopleList(){
+  const box = document.getElementById('people-list');
+  box.innerHTML = people.map(function(p){
+    const locked = (p==='Bhargav' || p==='Anusha');
+    return '<span class="person-chip"><span class="person-pill '+personClass(p)+'">'+escapeHtml(p)+'</span>'+(locked ? '' : '<button type="button" data-removeperson="'+escapeHtml(p)+'" title="Remove">✕</button>')+'</span>';
+  }).join('');
+  box.querySelectorAll('[data-removeperson]').forEach(function(b){ b.onclick = function(){ removePerson(b.dataset.removeperson); }; });
+}
+async function addPerson(){
+  const input = document.getElementById('people-new');
+  const name = input.value.trim().replace(/\s+/g,' ');
+  if(!name){ showToast('Type a name first'); return; }
+  if(people.some(function(p){ return p.toLowerCase()===name.toLowerCase(); })){ showToast(name+' is already in the household'); return; }
+  people.push(name);
+  input.value = '';
+  await savePeople();
+  renderPeopleList(); renderWhoami(); showTab(activeTab);
+  showToast(name+' added');
+}
+async function removePerson(name){
+  if(name==='Bhargav' || name==='Anusha') return;
+  const n = chores.filter(function(c){ return (c.assignedTo||[]).indexOf(name)!==-1; }).length;
+  if(!confirm('Remove '+name+'?'+(n?' '+n+' chore'+(n===1?' is':'s are')+' assigned to them and will move to '+(whoAmI===name?'Bhargav':whoAmI)+' unless they are shared.':'')+' Their past history stays.')) return;
+  const fallback = whoAmI===name ? 'Bhargav' : whoAmI;
+  chores.forEach(function(c){
+    if((c.assignedTo||[]).indexOf(name)===-1) return;
+    c.assignedTo = c.assignedTo.filter(function(x){ return x!==name; });
+    if(!c.assignedTo.length) c.assignedTo = [fallback];
+    if(c.rotationMembers){ c.rotationMembers = c.rotationMembers.filter(function(x){ return x!==name; }); if(c.rotationMembers.length<2){ c.rotationEnabled = false; c.rotationMembers = []; } }
+  });
+  people = people.filter(function(p){ return p!==name; });
+  if(whoAmI===name) whoAmI = 'Bhargav';
+  await savePeople(); await saveChores();
+  renderPeopleList(); renderWhoami(); showTab(activeTab);
+  showToast(name+' removed');
 }
 
 /* =====================================================================
@@ -1687,7 +1952,7 @@ async function init(){
   // check off are attributed to that person automatically.
   const params = new URLSearchParams(window.location.search);
   const hubProfile = params.get('profile');
-  if(['Bhargav','Anusha','Arya'].indexOf(hubProfile)!==-1){
+  if(hubProfile){
     whoAmI = hubProfile;
     try{ localStorage.setItem(WHO_KEY, whoAmI); }catch(e){}
   } else {
@@ -1699,21 +1964,20 @@ async function init(){
   // before chore data has loaded — so just the cosmetic parts run here).
   document.body.dataset.profile = whoAmI;
   if(window.HubTheme) HubTheme.applyHubTheme(whoAmI, {base:'--accent',deep:'--accent-deep',soft:'--accent-soft'}).catch(()=>{});
-  document.querySelectorAll('[data-whoami]').forEach(function(btn){
-    btn.classList.toggle('active', btn.dataset.whoami===whoAmI);
-    btn.onclick = function(){ setWhoAmI(btn.dataset.whoami); };
-  });
   document.getElementById('tab-today-btn').onclick = function(){ showTab('today'); };
   document.getElementById('tab-all-btn').onclick = function(){ showTab('all'); };
   document.getElementById('tab-history-btn').onclick = function(){ showTab('history'); };
-  document.getElementById('backup-btn').onclick = function(e){ e.preventDefault(); document.getElementById('backup-modal').classList.add('open'); };
+  document.getElementById('backup-btn').onclick = function(e){ e.preventDefault(); renderPeopleList(); refreshUndoRestoreButton(); document.getElementById('backup-modal').classList.add('open'); };
+  document.getElementById('people-add-btn').onclick = addPerson;
+  document.getElementById('people-new').addEventListener('keydown', function(e){ if(e.key==='Enter'){ e.preventDefault(); addPerson(); } });
+  document.getElementById('undo-restore-btn').onclick = undoRestore;
   document.getElementById('backup-close').onclick = function(){ document.getElementById('backup-modal').classList.remove('open'); };
   document.getElementById('snooze-close').onclick = function(){ document.getElementById('snooze-modal').classList.remove('open'); };
   document.getElementById('plan-close').onclick = function(){ document.getElementById('plan-modal').classList.remove('open'); };
   document.getElementById('issue-close').onclick = function(){ document.getElementById('issue-modal').classList.remove('open'); };
   document.querySelectorAll('[data-snooze-days]').forEach(function(btn){ btn.onclick = function(){ snoozeChore(Number(btn.dataset.snoozeDays)); }; });
   document.querySelectorAll('[data-plan-minutes]').forEach(function(btn){ btn.onclick = function(){ smartPlanMinutes = Number(btn.dataset.planMinutes); document.querySelectorAll('[data-plan-minutes]').forEach(function(x){ x.classList.toggle('on', x===btn); }); renderSmartPlan(); }; });
-  document.querySelectorAll('[data-issue-reason]').forEach(function(btn){ btn.onclick = function(){ issueReason = btn.dataset.issueReason; document.querySelectorAll('[data-issue-reason]').forEach(function(x){ x.classList.toggle('on', x===btn); }); }; });
+  document.querySelectorAll('[data-issue-reason]').forEach(function(btn){ btn.onclick = function(){ issueReason = btn.dataset.issueReason; updateIssueLabel(); document.querySelectorAll('[data-issue-reason]').forEach(function(x){ x.classList.toggle('on', x===btn); }); }; });
   document.getElementById('issue-confirm').onclick = confirmIssue;
   document.getElementById('export-btn').onclick = exportBackup;
   document.getElementById('import-btn').onclick = function(){ document.getElementById('import-file').click(); };
@@ -1724,6 +1988,9 @@ async function init(){
   });
 
   await loadAll();
+  if(people.indexOf(whoAmI)===-1) whoAmI = 'Bhargav';
+  document.body.dataset.profile = whoAmI;
+  renderWhoami();
   // Both of these are independent of each other — only loadAll (the
   // chores list itself) has to finish first, since preloadScheduleSyncData
   // reads which chores are sync-linked.

@@ -289,6 +289,14 @@ async function loadHubMeta(){
   const appearance=appearanceDoc||(legacyTheme?{mode:legacyTheme.mode,wallpaper:legacyTheme.wallpaper}:null)||{mode:DEFAULT_THEME.mode,wallpaper:JSON.parse(JSON.stringify(DEFAULT_THEME.wallpaper))};
   state.theme={accents,mode:appearance.mode||'light',wallpaper:appearance.wallpaper||DEFAULT_THEME.wallpaper};
   state.widgets = (widgets && widgets[state.profile] && widgets[state.profile].length) ? widgets[state.profile].filter(w=>WIDGET_TYPES[w.type]) : widgetDefaultLayout();
+  // One-time: put the Calendar widget onto layouts saved before it existed.
+  try{
+    const k='hub-agenda-seeded-'+state.profile;
+    if(!localStorage.getItem(k)){
+      localStorage.setItem(k,'1');
+      if(!state.widgets.some(w=>w.type==='agenda')){state.widgets.splice(Math.min(2,state.widgets.length),0,{id:'w-agenda',type:'agenda',colSpan:12,rowSpan:16});saveWidgetLayout()}
+    }
+  }catch(e){}
   state.appIcons = profileIcons || legacyIcons || {};
   // photos: now one library per photo-widget instance ({byWidget:{id:[]}})
   // since the widget can be added more than once. profilePhotos is either
@@ -413,12 +421,13 @@ document.querySelectorAll('[data-edit-toggle]').forEach(btn => {
 ===================================================================== */
 async function loadDashboard(){
   setGate('loading');const date=today(),profileLower=state.profile.toLowerCase();
-  const [templates,events,personal,shared,chores,choreHistory,dailyLog,apps]=await Promise.all([
+  const [templates,events,personal,shared,chores,choreHistory,dailyLog,apps,reminders,reminderCats]=await Promise.all([
     readJson(profileRef('schedule-profiles','dayTemplates'),{}),readJson(profileRef('schedule-profiles','events'),[]),
     readJson(profileRef('todo-profiles','tasks'),[]),readJson(sharedTodoRef(),[]),
     readJson(appRef('chores','chores'),[]),readJson(appRef('chores','history'),[]),
     db.collection('users').doc(state.user.uid).collection('profiles').doc(profileLower).collection('dailyLogs').doc(date).get().then(s=>s.exists?s.data():null).catch(()=>null),
-    discoverApps()
+    discoverApps(),
+    readJson(appRef('calendar','reminders'),[]),readJson(appRef('calendar','reminderCategories'),[])
   ]);
   await loadHubMeta();
   // Gym lives in its own top-level gym/ folder, not inside apps/ like
@@ -426,7 +435,7 @@ async function loadDashboard(){
   // never find Gym on its own. It's added here as a fixed entry, the
   // same way the original hub always special-cased it.
   const appsWithGym = [{ file:'gym.html', path:'gym/index.html', title:'Gym', icon:'tile-icons/gym.png' }].concat(apps.map(a => ({...a, path:'apps/'+a.file})));
-  Object.assign(state,{templates,events,personalTasks:personal,sharedTasks:shared,chores,choreHistory,dailyLog,apps:appsWithGym});
+  Object.assign(state,{reminders:Array.isArray(reminders)?reminders:[],reminderCats:Array.isArray(reminderCats)?reminderCats:[],templates,events,personalTasks:personal,sharedTasks:shared,chores,choreHistory,dailyLog,apps:appsWithGym});
   renderDashboard();renderAllCategoryPages();startHubClock();initHubWeather();startTimelineAutoAdvance();wireWidgetModal();initTodayBanner();wireBannerGallery();setGate(null);
   // A reload used to always drop you back at the Hub even if you had an
   // app open in the viewer, because nothing recorded "which app" anywhere
@@ -437,10 +446,27 @@ async function loadDashboard(){
   if(!restoreAppFromHash()) showRoute(location.hash.replace('#','')||'today');
 }
 
+// Same recurrence rules as Calendar and Schedule (daily / weekly / monthly /
+// yearly, with an optional end date), so an event shows up on the Hub on exactly
+// the days it shows up everywhere else.
+function eventOccursOnHub(ev,date){
+  if(!ev.recurring)return ev.date===date;
+  const d=new Date(date+'T00:00:00');
+  if(!ev.startDate)return ev.weekday===d.getDay();
+  if(date<ev.startDate)return false;
+  const rp=ev.repeat||{type:'weekly',until:null};
+  if(rp.until&&date>rp.until)return false;
+  const s=new Date(ev.startDate+'T00:00:00');
+  if(rp.type==='daily')return true;
+  const dim=new Date(d.getFullYear(),d.getMonth()+1,0).getDate();
+  if(rp.type==='monthly')return d.getDate()===Math.min(s.getDate(),dim);
+  if(rp.type==='yearly')return d.getMonth()===s.getMonth()&&d.getDate()===Math.min(s.getDate(),dim);
+  return d.getDay()===(ev.weekday!=null?ev.weekday:s.getDay());
+}
 function timelineForDate(date){
   const weekday=new Date(date+'T00:00:00').getDay(),dayName=DAYS[weekday];
   const blocks=(state.templates[dayName]||[]).map((x,i)=>({id:'block-'+i,title:x.activity||x.title||'Scheduled block',time:x.start||'',end:x.end||'',kind:'routine'}));
-  const events=state.events.filter(e=>e.recurring?e.weekday===weekday&&(!e.startDate||e.startDate<=date):e.date===date).map(e=>({id:e.id,title:e.title,time:e.time||'',notes:e.notes||'',kind:'event'}));
+  const events=state.events.filter(e=>eventOccursOnHub(e,date)).map(e=>({id:e.id,title:e.title,time:e.time||'',notes:e.notes||'',kind:'event'}));
   return blocks.concat(events).sort((a,b)=>minutes(a.time)-minutes(b.time));
 }
 function todaysTimeline(){ return timelineForDate(today()); }
@@ -476,7 +502,7 @@ function plannedHours(items){let total=0;items.filter(x=>x.kind==='routine'&&x.t
 function weekParity(dateStr){
   const ref = new Date('2026-01-03T00:00:00');
   const d = new Date(dateStr+'T00:00:00');
-  const weeksSince = Math.floor((d - ref) / (7*86400000));
+  const weeksSince = Math.floor(Math.round((d - ref) / 86400000) / 7);
   return ((weeksSince % 2)+2)%2;
 }
 function scheduleHasKeywordOn(blocks, keyword){
@@ -490,8 +516,16 @@ function nextChoreDue(chore){
   if(chore.freqType==='daily') return chore.lastCompleted?addDays(chore.lastCompleted,1):date;
   if(chore.freqType==='everyNDays') return chore.lastCompleted?addDays(chore.lastCompleted,Number(chore.freqDays)||1):date;
   if(chore.freqType==='specificDays'){
-    let cursor=chore.lastCompleted?addDays(chore.lastCompleted,1):date;
-    for(let i=0;i<14;i++){ const candidate=addDays(cursor,i); if((chore.days||[]).includes(new Date(candidate+'T00:00:00').getDay())) return candidate; }
+    const days=chore.days||[];
+    if(!days.length) return null; // no weekdays chosen: treated as "as needed"
+    const cursor=chore.lastCompleted?addDays(chore.lastCompleted,1):date;
+    for(let i=0;i<21;i++){
+      const candidate=addDays(cursor,i);
+      if(!days.includes(new Date(candidate+'T00:00:00').getDay())) continue;
+      // done the day before a scheduled day counts for that day (same rule as the Chores page)
+      if(i===0&&chore.lastCompleted&&!days.includes(new Date(chore.lastCompleted+'T00:00:00').getDay())) continue;
+      return candidate;
+    }
   }
   return date;
 }
@@ -500,6 +534,8 @@ function choresDueToday(){
   return state.chores.filter(c => {
     if(c.active===false) return false;
     if(Array.isArray(c.assignedTo) && !c.assignedTo.includes(state.profile)) return false;
+    if(c.snoozedUntil && c.snoozedUntil>date) return false; // moved to later on the Chores page
+    if(c.lastCompleted===date) return false; // already done today
     const next = nextChoreDue(c);
     if(!next || next>date) return false;
     if(c.scheduleSync && c.scheduleSync.profile===state.profile){
@@ -593,26 +629,33 @@ function renderTasksInto(el,items){
   el.innerHTML=items.map(t=>'<div class="task-row" data-task-id="'+esc(t.id)+'"><button class="task-check" type="button" aria-label="Complete '+esc(t.title)+'"><i data-lucide="check"></i></button><span class="task-copy"><strong>'+esc(t.title)+'</strong><small>'+(t._shared?'Shared':esc(t.listId||'Personal'))+(t.dueTime?' · '+esc(time12(t.dueTime)):'')+'</small></span>'+(t.priority?'<span class="priority-mark">'+(t.priority>1?'Urgent':'Important')+'</span>':'')+'</div>').join('')+openLink;
   updateProfileLinks();lucide.createIcons();el.querySelectorAll('.task-check').forEach(btn=>btn.addEventListener('click',()=>completeTask(btn.closest('.task-row').dataset.taskId)));
 }
-async function completeChoreFromWidget(choreId,el){
+async function completeChoreFromWidget(choreId,el,after){
   const chore=state.chores.find(c=>c.id===choreId);
   if(!chore)return;
   const date=today();
+  if(chore.lastCompleted===date){toast('"'+chore.name+'" is already done today');if(after)after();else renderChoresListInto(el,choresDueToday());return}
   // A lighter version of what apps/chores.html's own completeChore() does
   // — marks it done and logs it to the exact same history doc the Chores
-  // app reads, so it shows up there too. What it deliberately skips:
-  // rotation-member cycling and writing the completion back into the
-  // Schedule for chores linked to a routine block — both edge-case
-  // features that need the full Chores app to do correctly, so a chore
-  // that uses either is still best finished from there.
+  // app reads, so it shows up there too. Rotation is handled the same way.
+  // What it still skips is writing the completion back into the Schedule
+  // for chores linked to a routine block, which needs the full Chores app.
+  chore.undo={lastCompleted:chore.lastCompleted||null,snoozedUntil:chore.snoozedUntil||null,assignedTo:(chore.assignedTo||[]).slice(),rotationIndex:chore.rotationIndex||0,passedBy:chore.passedBy||null,logId:'log-'+Date.now(),date};
   chore.lastCompleted=date;
   chore.snoozedUntil=null;
-  state.choreHistory.unshift({id:'log-'+Date.now(),date,task:chore.name,by:state.profile,rating:null,notes:null,recordedBy:state.profile});
+  chore.passedBy=null;
+  // rotation, same as the Chores page
+  if(chore.rotationEnabled&&chore.rotationMembers&&chore.rotationMembers.length>1){
+    const cur=Math.max(0,chore.rotationMembers.indexOf((chore.assignedTo||[])[0]));
+    chore.rotationIndex=(cur+1)%chore.rotationMembers.length;
+    chore.assignedTo=[chore.rotationMembers[chore.rotationIndex]];
+  }
+  state.choreHistory.unshift({id:chore.undo.logId,choreId:chore.id,date,task:chore.name,by:state.profile,rating:null,notes:null,recordedBy:state.profile});
   try{
     await appRef('chores','chores').set({json:JSON.stringify(state.chores)});
     await appRef('chores','history').set({json:JSON.stringify(state.choreHistory)});
   }catch(e){console.warn(e)}
   toast('Marked "'+chore.name+'" done');
-  renderChoresListInto(el,choresDueToday());
+  if(after)after();else renderChoresListInto(el,choresDueToday());
 }
 function renderChoresListInto(el,chores){
   if(!el)return;
@@ -663,9 +706,66 @@ function widgetDefaultLayout(){
   return [
     {id:'w-schedule',type:'schedule',colSpan:6,rowSpan:20},
     {id:'w-priorities',type:'priorities',colSpan:6,rowSpan:20},
+    {id:'w-agenda',type:'agenda',colSpan:12,rowSpan:16},
     {id:'w-chores',type:'chores',colSpan:12,rowSpan:13},
     {id:'w-quicklinks',type:'quicklinks',colSpan:12,rowSpan:6}
   ];
+}
+
+/* ---- Calendar widget: today's events, reminders (birthdays etc.), tasks and
+   chores with tick boxes, plus the next 7 days — everything Calendar knows
+   about, on the front page. ---- */
+function agFmtTime(t){if(!t)return'';const[h,m]=t.split(':').map(Number);return((h%12)||12)+(m?':'+String(m).padStart(2,'0'):'')+(h>=12?' pm':' am')}
+function agCatName(id){const c=(state.reminderCats||[]).find(x=>x.id===id);return c?c.name:(id==='cat-birthday'?'Birthday':id==='cat-anniversary'?'Anniversary':'Reminder')}
+// Feb 29 reminders fall on Feb 28 in non-leap years (same rule as the Calendar app).
+function reminderHitsDateHub(r,date){
+  const mm=date.slice(5,7),dd=date.slice(8,10);
+  if(r.month===mm&&r.day===dd)return true;
+  if(r.month==='02'&&r.day==='29'&&mm==='02'&&dd==='28'){const y=Number(date.slice(0,4));return !((y%4===0&&y%100!==0)||y%400===0)}
+  return false;
+}
+function agendaItemsFor(date,isToday){
+  const items=[],t=today();
+  (state.reminders||[]).filter(r=>reminderHitsDateHub(r,date)).forEach(r=>{
+    const cat=agCatName(r.categoryId);
+    items.push({kind:'reminder',sort:-2,title:r.name+(cat==='Birthday'?"'s birthday":cat==='Anniversary'?' anniversary':' · '+cat),icon:cat==='Birthday'?'cake':cat==='Anniversary'?'heart':'bell'});
+  });
+  (state.events||[]).filter(e=>eventOccursOnHub(e,date)&&(isToday||!(e.recurring&&e.repeat&&e.repeat.type==='daily'))).forEach(e=>{
+    items.push({kind:'event',sort:minutes(e.time),time:e.time||'',end:e.endTime||'',title:e.title||'Event',icon:e.kind==='task'?'check-square':'calendar',sub:e.location||''});
+  });
+  const tasks=(state.personalTasks||[]).map(x=>({...x,_shared:false})).concat((state.sharedTasks||[]).map(x=>({...x,_shared:true})));
+  tasks.filter(x=>!x.done&&x.due&&(isToday?x.due<=date:x.due===date)&&(!x.startDate||x.startDate<=date)).forEach(x=>{
+    const overdue=x.due<t;
+    items.push({kind:'task',id:x.id,sort:overdue?-1:minutes(x.dueTime),time:x.dueTime||'',title:x.title,icon:'list-checks',tick:isToday,overdue,sub:overdue?'Overdue since '+new Intl.DateTimeFormat(undefined,{month:'short',day:'numeric'}).format(new Date(x.due+'T00:00:00')):(x._shared?'Shared':'')});
+  });
+  if(isToday)choresDueToday().forEach(c=>items.push({kind:'chore',id:c.id,sort:9000,title:c.name,icon:'sparkles',tick:true,overdue:c.overdue,sub:c.overdue?'Overdue':'Chore'}));
+  return items.sort((a,b)=>a.sort-b.sort);
+}
+function agRowHtml(it){
+  const lead=it.tick
+    ?'<button type="button" class="task-check ag-tick" data-ag-kind="'+it.kind+'" data-ag-id="'+esc(it.id)+'" aria-label="Mark '+esc(it.title)+' done"><i data-lucide="check"></i></button>'
+    :'<span class="ag-ico ag-'+it.kind+'"><i data-lucide="'+it.icon+'"></i></span>';
+  const time=it.time?agFmtTime(it.time)+(it.end?' – '+agFmtTime(it.end):''):(it.kind==='reminder'?'All day':'');
+  return '<div class="ag-row'+(it.overdue?' overdue':'')+'">'+lead+'<span class="ag-copy"><strong>'+esc(it.title)+'</strong>'+((time||it.sub)?'<small>'+esc([time,it.sub].filter(Boolean).join(' · '))+'</small>':'')+'</span></div>';
+}
+function renderAgendaInto(el){
+  if(!el)return;
+  const t=today(),todayItems=agendaItemsFor(t,true),fmtDay=d=>new Intl.DateTimeFormat(undefined,{weekday:'short',month:'short',day:'numeric'}).format(new Date(d+'T00:00:00'));
+  let html='<div class="ag-sec">Today · '+fmtDay(t)+'</div>'+(todayItems.length?todayItems.map(agRowHtml).join(''):'<div class="ag-empty">Nothing on the calendar today.</div>');
+  let upcoming='',n=0;
+  for(let i=1;i<=7;i++){
+    const d=addDays(t,i),it=agendaItemsFor(d,false);if(!it.length)continue;
+    n+=it.length;
+    upcoming+='<div class="ag-day">'+(i===1?'Tomorrow':fmtDay(d))+'</div>'+it.map(agRowHtml).join('');
+  }
+  html+='<div class="ag-sec">Next 7 days</div>'+(n?upcoming:'<div class="ag-empty">Nothing coming up this week.</div>');
+  html+='<a class="widget-card-link" href="apps/calendar.html" data-profile-link>Open Calendar <i data-lucide="arrow-up-right"></i></a>';
+  el.innerHTML=html;
+  updateProfileLinks();if(window.lucide)lucide.createIcons();
+  el.querySelectorAll('.ag-tick').forEach(b=>b.addEventListener('click',()=>{
+    if(b.dataset.agKind==='task')completeTask(b.dataset.agId);
+    else completeChoreFromWidget(b.dataset.agId,el,()=>renderAgendaInto(el));
+  }));
 }
 const WIDGET_TYPES={
   schedule:{title:"Today's schedule",icon:'calendar-clock',desc:"Your planned blocks for today, same list as the Planner.",defaultSize:'lg',
@@ -687,6 +787,8 @@ const WIDGET_TYPES={
         '<a href="apps/diet.html" data-profile-link><span class="area-icon"><i data-lucide="utensils"></i></span><span><strong>Nutrition</strong><small>Meals and daily targets</small></span><i data-lucide="chevron-right"></i></a>'+
         '<a href="apps/chores.html" data-profile-link><span class="area-icon"><i data-lucide="sparkles"></i></span><span><strong>Household</strong><small>'+esc(choresStatus)+'</small></span><i data-lucide="chevron-right"></i></a>'+
         '</div>';updateProfileLinks();if(window.lucide)lucide.createIcons()}},
+  agenda:{title:'Calendar & reminders',icon:'calendar-days',desc:"Today's events, birthdays and reminders, tasks and chores to tick off, plus the next 7 days.",defaultSize:'lg',
+    render(el){renderAgendaInto(el)}},
   focus:{title:'Focus today',icon:'timer',desc:"Minutes logged in Clock's focus timer today.",defaultSize:'sm',
     async render(el){
       el.innerHTML='<div class="empty-state"><strong>Loading…</strong></div>';
@@ -1328,7 +1430,15 @@ function wireWidgetCard(card){
   card.querySelector('[data-widget-remove]').addEventListener('click',e=>{
     e.stopPropagation();
     if(!widgetEditMode)return;
-    state.widgets=state.widgets.filter(w=>w.id!==card.dataset.widgetId);
+    const removedId=card.dataset.widgetId;
+    const photoCount=(state.photosByWidget&&state.photosByWidget[removedId]||[]).length;
+    if(photoCount&&!confirm('Remove this photo widget? Its '+photoCount+' photo'+(photoCount===1?'':'s')+' will be deleted too.'))return;
+    state.widgets=state.widgets.filter(w=>w.id!==removedId);
+    // A removed photo widget takes its photos with it — otherwise they'd keep using up the shared photo space with no way to free it.
+    if(state.photosByWidget&&state.photosByWidget[removedId]){
+      const rt=photoWidgetRuntime[removedId]; if(rt&&rt.timer){clearInterval(rt.timer)}
+      delete photoWidgetRuntime[removedId]; delete state.photosByWidget[removedId]; savePhotoWidgets();
+    }
     saveWidgetLayout();renderWidgetBoard();
   });
 }
@@ -1372,10 +1482,11 @@ async function completeTask(id){
   if(task.repeat&&task.repeat!=='none'&&task.due){
     let nextDue=null;
     if(task.repeat==='daily')nextDue=addDays(task.due,1);
+    if(task.repeat==='everyNDays')nextDue=addDays(task.due,Math.max(1,Number(task.freqDays)||1));
     if(task.repeat==='weekly')nextDue=addDays(task.due,7);
     if(task.repeat==='weekdays'){nextDue=addDays(task.due,1);while([0,6].includes(new Date(nextDue+'T00:00:00').getDay()))nextDue=addDays(nextDue,1)}
-    if(task.repeat==='monthly'){const d=new Date(task.due+'T00:00:00');d.setMonth(d.getMonth()+1);nextDue=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')}
-    if(nextDue)list.push({...task,id:'task-'+Date.now()+'-'+Math.floor(Math.random()*1000),done:false,due:nextDue,completedOn:null,subtasks:(task.subtasks||[]).map(s=>({...s,done:false})),order:Date.now(),createdAt:new Date().toISOString()});
+    if(task.repeat==='monthly'){const d=new Date(task.due+'T00:00:00');const last=new Date(d.getFullYear(),d.getMonth()+2,0).getDate();const n=new Date(d.getFullYear(),d.getMonth()+1,Math.min(d.getDate(),last));nextDue=n.getFullYear()+'-'+String(n.getMonth()+1).padStart(2,'0')+'-'+String(n.getDate()).padStart(2,'0')}
+    if(nextDue){const nid='task-'+Date.now()+'-'+Math.floor(Math.random()*1000);list.push({...task,id:nid,spawnedId:null,done:false,due:nextDue,completedOn:null,subtasks:(task.subtasks||[]).map(s=>({...s,done:false})),order:Date.now(),createdAt:new Date().toISOString()});task.spawnedId=nid}
   }
   renderDashboard();toast('Task completed');
   try{await ref.set({json:JSON.stringify(list),updatedAt:firebase.firestore.FieldValue.serverTimestamp()},{merge:true})}catch(e){list.splice(originalLength);task.done=false;task.completedOn=null;renderDashboard();toast('Could not save. Try again.')}
@@ -1397,10 +1508,10 @@ async function completeTask(id){
 ===================================================================== */
 const SKIN_TEMPLATE_START='2026-10-01';
 const SKIN_REVIEW_DATES_TEMPLATE=['2026-10-31','2026-11-30','2026-12-31','2027-01-31','2027-02-28'];
-let insightsLoadedForProfile=null;
+let insightsLoadedForProfile=null,insightsLoadedAt=0;
 
 async function ensureInsightsLoaded(){
-  if(insightsLoadedForProfile===state.profile && state.insights) return;
+  if(insightsLoadedForProfile===state.profile && state.insights && Date.now()-insightsLoadedAt<60000) return;
   const [gymSnap,stepRes,trackRes,milestoneRes,startRes]=await Promise.all([
     gymDailyLogsCol(state.profile).get().catch(()=>null),
     skinDataRef(state.profile,'stepLog').get().catch(()=>null),
@@ -1418,8 +1529,24 @@ async function ensureInsightsLoaded(){
   Object.keys(stepLog).forEach(k=>{ if(stepLog[k]){ const d=k.split(':')[0]; if(d) skinTouchedDates.add(d); } });
   const skinCheckedDates=new Set();
   Object.keys(trackingLog).forEach(d=>{ if(trackingLog[d]&&trackingLog[d].savedAt) skinCheckedDates.add(d); });
-  state.insights={gymDates,skinTouchedDates,skinCheckedDates,milestoneLog,programStartDate};
-  insightsLoadedForProfile=state.profile;
+  const weights=[]; if(gymSnap) gymSnap.forEach(d=>{const v=d.data(); const kg=v&&v.weight!=null&&v.weight!==''?Number(v.weight):NaN; if(v&&v.date&&kg>0) weights.push({date:v.date,weight:kg});});
+  weights.sort((a,b)=>a.date.localeCompare(b.date));
+  // Diet + Pledge are read-only here, so a failure in either just hides that card
+  const uid=state.user.uid, pid=state.profile.toLowerCase();
+  const [dietRes,pledgeRes]=await Promise.all([
+    db.collection('users').doc(uid).collection('apps').doc('nourish-diet-v2').collection('data').doc('state').get().catch(()=>null),
+    db.collection('users').doc(uid).collection('apps').doc('pledge-v2').collection('data').doc('state').get().catch(()=>null)
+  ]);
+  let diet=null; const dState=(dietRes&&dietRes.exists&&dietRes.data().json)?safeJson(dietRes.data().json,null):null;
+  if(dState&&Array.isArray(dState.diary)){
+    const byDate={};
+    dState.diary.forEach(x=>{ if(x.profileId!==pid||(x.status||'eaten')!=='eaten'||x.replaced) return; const f=(x.servings||1)/(x.recipeServings||1); const n=x.nutrition||{}; const r=byDate[x.date]=byDate[x.date]||{kcal:0,protein:0}; r.kcal+=(n.calories||0)*f; r.protein+=(n.protein||0)*f; });
+    const g=(dState.profiles&&dState.profiles[pid]&&dState.profiles[pid].goals)||{};
+    diet={byDate,goalKcal:g.calories||0,goalProtein:g.protein||0};
+  }
+  const pledge=(pledgeRes&&pledgeRes.exists&&pledgeRes.data().json)?safeJson(pledgeRes.data().json,null):null;
+  state.insights={gymDates,skinTouchedDates,skinCheckedDates,milestoneLog,programStartDate,weights,diet,pledge};
+  insightsLoadedForProfile=state.profile; insightsLoadedAt=Date.now();
 }
 
 function insightsMilestoneDates(){
@@ -1510,7 +1637,7 @@ const MOMENTUM_QUOTES=[
   'Nobody sees the days you almost didn’t. Those are the ones that count most.',
   'Progress isn’t a straight line. Showing back up after a gap is still progress.'
 ];
-function dayOfYear(dateStr){ const dt=new Date(dateStr+'T00:00:00'); const start=new Date(dt.getFullYear(),0,0); return Math.floor((dt-start)/86400000); }
+function dayOfYear(dateStr){ const dt=new Date(dateStr+'T00:00:00'); const start=new Date(dt.getFullYear(),0,0); return Math.round((dt-start)/86400000); }
 
 function pickSurprise(m){
   if(m.thisWeekTotal>m.bestWeekTotal && m.bestWeekTotal>=3){
@@ -1557,435 +1684,217 @@ function heroMessage(m){
     sub:m.thisWeekTotal+' things done this week, on a '+m.currentStreak+'-day streak. Consistency like this is what actually moves the needle.'};
 }
 
-/* ===== Insights — "mission control" render suite =====
-   insightsRange controls the hero score/chart/foot window (7/28/60 days,
-   all sliced from the same 60-day computeInsights() scan — no re-fetch).
-   The activity grid and constellation always show the full 60-day/badge
-   picture regardless of range, since they're meant as the "whole story"
-   sections, not the headline metric. */
-let insightsRange='week';
+/* ===== Insights — progress page =====
+   One question: "am I getting where I said I wanted to go?" Goal cards (weight, Pledge, skin plan, food) come first,
+   then this week against last week, what's next, a 60-day grid and badges. No animation: every number is a real
+   reading from the apps. */
+const INSIGHT_WEIGHT_GOALS={Bhargav:{start:98.3,target:77,startDate:'2026-09-02',endDate:'2027-05-21'},Anusha:{start:66,target:53,startDate:'2026-09-02',endDate:'2026-12-22'}};
+const SKIN_PROGRAM_DAYS=151;
 let insightsCurrentM=null;
-let insightsConstellationRAF=null;
-let insightsRevealedOnce=false;
-let insightsPrevUnlocked=null;
-const INSIGHTS_RANGE_DAYS={week:7,month:28,all:60};
-
-function insightsRangeTotals(m){ return m.totals.slice(-INSIGHTS_RANGE_DAYS[insightsRange]); }
+const kgFmt=n=>(Math.round(n*10)/10).toFixed(1).replace(/\.0$/,'');
 function insightsDateLabel(dt){ return new Date(dt+'T00:00:00').toLocaleDateString(undefined,{month:'short',day:'numeric'}); }
+function insightsActiveDaysThisWeek(m,key){ return m.totals.slice(-7).filter(t=>t[key]>0).length; }
+function insightsActiveDaysPrevWeek(m,key){ return m.totals.slice(-14,-7).filter(t=>t[key]>0).length; }
 
-function insightsScoreFor(m){
-  const totals=insightsRangeTotals(m);
-  const active=totals.filter(t=>t.total>0).length;
-  return Math.round(active/totals.length*100);
+/* ---- goal readings ---- */
+function insightsWeightInfo(){
+  const goal=INSIGHT_WEIGHT_GOALS[state.profile]; if(!goal) return null;
+  const logs=(state.insights.weights||[]);
+  if(!logs.length) return {goal,empty:true};
+  const latest=logs[logs.length-1], current=latest.weight;
+  const total=goal.start-goal.target, done=goal.start-current;
+  const pct=Math.max(0,Math.min(100,Math.round(done/total*100)));
+  const d=today(), weekAgoDate=addDays(d,-7);
+  const before=logs.filter(w=>w.date<=weekAgoDate); const ref=before.length?before[before.length-1]:logs[0];
+  const weekChange=ref&&ref!==latest?Math.round((current-ref.weight)*10)/10:null;
+  const recent=logs.filter(w=>w.date>=addDays(d,-28));
+  let pace=null; // kg per week, negative = losing (regression over the last 28 days)
+  if(recent.length>=3&&daysBetween(recent[0].date,recent[recent.length-1].date)>=7){
+    const pts=recent.map(w=>({x:daysBetween(recent[0].date,w.date),y:w.weight}));
+    const n=pts.length,mx=pts.reduce((s,p)=>s+p.x,0)/n,my=pts.reduce((s,p)=>s+p.y,0)/n;
+    let nu=0,de=0; pts.forEach(p=>{nu+=(p.x-mx)*(p.y-my);de+=(p.x-mx)*(p.x-mx)});
+    pace=de?(nu/de)*7:0;
+  }
+  const toGo=current-goal.target, weeksLeft=Math.max(0.1,daysBetween(d,goal.endDate)/7);
+  const needed=-(toGo/weeksLeft); // kg/week required (negative when losing)
+  let status='nodata';
+  if(toGo<=0) status='done'; else if(pace!==null) status=pace<=needed*1.25?'ahead':pace<=needed?'on':pace<=needed*0.5?'close':'behind';
+  let eta=null; if(pace!==null&&pace<0&&toGo>0){ eta=addDays(d,Math.round(toGo/(-pace)*7)); }
+  return {goal,current,pct,done,toGo,weekChange,pace,needed,status,eta,asOf:latest.date,count:logs.length};
 }
-function insightsScoreMessage(m){
-  const totals=insightsRangeTotals(m);
-  const days=totals.length, active=totals.filter(t=>t.total>0).length;
-  return active+' of '+days+' day'+(days===1?'':'s')+' had something logged — tasks, chores, training or care.';
+function insightsPledgeInfo(){
+  const p=state.insights.pledge; if(!p) return null;
+  const goals=(p.goals||[]).filter(g=>g.profileId===state.profile&&g.status==='active');
+  const goal=goals.find(g=>g.id===p.activeGoalId)||goals[0]; if(!goal) return {none:true};
+  const lvl=goal.levels[goal.currentLevelIndex]||goal.levels[goal.levels.length-1];
+  const log=lvl.days_log||{}; const earned=Object.keys(log).filter(k=>log[k]&&log[k].complete).length;
+  const d=today(); let streak=0, cur=log[d]&&log[d].complete?d:addDays(d,-1);
+  while(log[cur]&&log[cur].complete){streak++;cur=addDays(cur,-1)}
+  const days=Math.max(1,lvl.days||1);
+  return {goal,lvl,stage:(goal.currentLevelIndex||0)+1,stages:goal.levels.length,earned,days,pct:Math.min(100,Math.round(earned/days*100)),streak,reward:lvl.reward&&lvl.reward.name};
 }
-function insightsDeltaFor(m){
-  const days=INSIGHTS_RANGE_DAYS[insightsRange];
-  if(days*2>m.totals.length) return null;
-  const cur=m.totals.slice(-days).filter(t=>t.total>0).length;
-  const prev=m.totals.slice(-days*2,-days).filter(t=>t.total>0).length;
-  return Math.round((cur-prev)/days*100);
+function insightsSkinInfo(m){
+  const start=state.insights.programStartDate||SKIN_TEMPLATE_START, d=today();
+  const day=daysBetween(start,d)+1;
+  if(day<1) return {before:true,start};
+  const dayClamped=Math.min(SKIN_PROGRAM_DAYS,day);
+  const last7=m.totals.slice(-7).filter(t=>t.skin>0).length;
+  const dates=insightsMilestoneDates(); const next=dates.find(dt=>!milestoneHitOn(dt)&&dt>=d);
+  return {day:dayClamped,pct:Math.round(dayClamped/SKIN_PROGRAM_DAYS*100),last7,next,checkins:state.insights.skinCheckedDates.size};
 }
-function insightsActiveDaysThisWeek(m,key){
-  return m.totals.slice(-7).filter(t=>t[key]>0).length;
+function insightsFoodInfo(){
+  const ds=state.insights.diet; if(!ds) return null;
+  const d=today(), days=Array.from({length:7},(_,i)=>addDays(d,-i));
+  const per=days.map(dt=>ds.byDate[dt]).filter(Boolean);
+  if(!per.length) return {logged:0,goalKcal:ds.goalKcal,goalProtein:ds.goalProtein};
+  const avgK=Math.round(per.reduce((s,x)=>s+x.kcal,0)/per.length), avgP=Math.round(per.reduce((s,x)=>s+x.protein,0)/per.length);
+  const proteinDays=per.filter(x=>ds.goalProtein&&x.protein>=ds.goalProtein*0.9).length;
+  return {logged:per.length,avgK,avgP,proteinDays,goalKcal:ds.goalKcal,goalProtein:ds.goalProtein};
 }
 
-function renderInsightsChart(m){
-  const totals=insightsRangeTotals(m);
-  const n=totals.length, w=760, h=190, padTop=10, padBottom=10;
-  const max=Math.max(1,...totals.map(t=>t.total));
-  const pts=totals.map((t,i)=>{
-    const x=n===1?w/2:(i/(n-1))*w;
-    const y=h-padBottom-(t.total/max)*(h-padTop-padBottom);
-    return [Math.round(x*10)/10, Math.round(y*10)/10];
-  });
-  const line=pts.map((p,i)=>(i===0?'M':'L')+p[0]+','+p[1]).join(' ');
-  const area=line+' L'+pts[pts.length-1][0]+','+h+' L'+pts[0][0]+','+h+' Z';
-  const lineEl=$('insights-chart-line'), areaEl=$('insights-chart-area');
-  lineEl.setAttribute('d',line); lineEl.setAttribute('pathLength','1');
-  areaEl.setAttribute('d',area);
-  lineEl.classList.remove('draw'); areaEl.classList.remove('draw');
-  void lineEl.getBoundingClientRect();
-  lineEl.classList.add('draw'); areaEl.classList.add('draw');
-  const gridRows=4;
-  let gridHtml='';
-  for(let i=0;i<=gridRows;i++){ const y=Math.round((h/gridRows)*i); gridHtml+='<line x1="0" y1="'+y+'" x2="'+w+'" y2="'+y+'"/>'; }
-  $('insights-chart-grid').innerHTML=gridHtml;
-  const dates=m.last60Dates.slice(-n);
-  $('insights-chart-start').textContent=insightsDateLabel(dates[0]);
-  $('insights-chart-end').textContent='Today';
+/* ---- rendering ---- */
+function progBar(pct,tone){ return '<div class="prog-bar"><i class="'+(tone||'')+'" style="width:'+Math.max(0,Math.min(100,pct))+'%"></i></div>'; }
+function progChip(text,tone){ return '<span class="prog-chip '+(tone||'')+'">'+esc(text)+'</span>'; }
+function progGoalCard(o){
+  return '<article class="prog-goal"><div class="prog-goal-top"><span class="prog-goal-icon"><i data-lucide="'+o.icon+'"></i></span><div><h3>'+esc(o.title)+'</h3><small>'+esc(o.sub||'')+'</small></div>'+(o.chip||'')+'</div>'+
+    '<div class="prog-goal-big">'+o.big+'</div>'+(o.pct!=null?progBar(o.pct,o.tone):'')+
+    '<div class="prog-goal-lines">'+(o.lines||[]).map(l=>'<span>'+l+'</span>').join('')+'</div>'+
+    (o.href?'<a class="prog-goal-link" href="'+o.href+'" data-profile-link>'+esc(o.cta||'Open')+' <i data-lucide="arrow-up-right"></i></a>':'')+'</article>';
 }
-/* Odometer — a tumbling digit strip (streak counter, consistency score)
-   instead of text just changing instantly. Each digit is its own
-   overflow:hidden column holding '0'-'9' stacked; showing digit N is a
-   translateY(-N*10%), and CSS transitions that move, so digits visibly
-   roll into place with real weight rather than popping. */
-function odometerHTML(value,minDigits){
-  const str=String(Math.max(0,Math.round(value))).padStart(minDigits||1,'0');
-  return '<span class="ico">'+str.split('').map(()=>'<span class="ico-digit"><span class="ico-strip">'+'0123456789'.split('').map(d=>'<span>'+d+'</span>').join('')+'</span></span>').join('')+'</span>';
-}
-function playOdometer(containerEl,value,minDigits){
-  if(!containerEl)return;
-  const str=String(Math.max(0,Math.round(value))).padStart(minDigits||1,'0');
-  let digits=containerEl.querySelectorAll('.ico-digit');
-  if(digits.length!==str.length){
-    containerEl.innerHTML=odometerHTML(value,minDigits);
-    digits=containerEl.querySelectorAll('.ico-digit');
-  }
-  requestAnimationFrame(()=>{
-    digits.forEach((el,i)=>{
-      const strip=el.querySelector('.ico-strip');
-      if(strip)strip.style.transform='translateY(-'+(Number(str[i])*10)+'%)';
-    });
-  });
-}
-function renderInsightsHeroFoot(m){
-  const totals=insightsRangeTotals(m);
-  const sum=k=>totals.reduce((s,t)=>s+t[k],0);
-  const tiles=[
-    {label:'Tasks',value:sum('tasks')},
-    {label:'Chores',value:sum('chores')},
-    {label:'Training days',value:sum('gym')},
-    {label:'Care nights',value:sum('skin')}
-  ];
-  $('insights-hero-foot').innerHTML=tiles.map(t=>'<div><b>'+t.value+'</b><span>'+esc(t.label)+'</span></div>').join('');
-}
-function renderInsightsHero(m){
-  const score=insightsScoreFor(m);
-  const scoreEl=$('insights-score');
-  // Fixed at 3 digits (000-100) so the digit count never changes and the
-  // '%' suffix never has to be torn down and rebuilt mid-transition.
-  if(!scoreEl.querySelector('.ico')) scoreEl.innerHTML=odometerHTML(score,3)+'<span class="ico-suffix">%</span>';
-  playOdometer(scoreEl,score,3);
-  scoreEl.classList.remove('flash'); void scoreEl.offsetWidth; scoreEl.classList.add('flash');
-  $('insights-score-message').textContent=insightsScoreMessage(m);
-  const delta=insightsDeltaFor(m);
-  const deltaEl=$('insights-delta');
-  if(delta===null){ deltaEl.style.display='none'; }
-  else{
-    deltaEl.style.display='';
-    deltaEl.classList.toggle('is-down',delta<0);
-    deltaEl.innerHTML='<i data-lucide="'+(delta>=0?'trending-up':'trending-down')+'"></i> '+(delta>=0?'+':'')+delta+'% vs previous '+INSIGHTS_RANGE_DAYS[insightsRange]+' days';
-    if(window.lucide)lucide.createIcons();
-  }
-  renderInsightsChart(m);
-  renderInsightsHeroFoot(m);
-}
-function renderInsightsCommand(m){
-  const msg=heroMessage(m);
-  $('insights-headline').textContent=msg.headline;
-  $('insights-subtext').textContent=msg.sub;
-  const streakEl=$('insights-streak-num');
-  if(!streakEl.querySelector('.ico')) streakEl.innerHTML=odometerHTML(m.currentStreak,2);
-  playOdometer(streakEl,m.currentStreak,2);
-  $('insights-streak-row').classList.toggle('active',m.currentStreak>0);
-  const s=pickSurprise(m);
-  $('insights-surprise-title').textContent=s.icon+' '+s.title;
-  $('insights-surprise-body').textContent=s.body;
-}
-function igridLevel(val,kind){
-  if(kind==='binary') return val>0?3:0;
-  if(val<=0) return 0;
-  if(val===1) return 1;
-  if(val<=3) return 2;
-  return 3;
-}
-function renderInsightsGrid(m){
-  const rows=[
-    {label:'Tasks',key:'tasks',kind:'count'},
-    {label:'Chores',key:'chores',kind:'count'},
-    {label:'Training',key:'gym',kind:'binary'},
-    {label:'Care',key:'skin',kind:'binary'}
-  ];
-  const totals=m.totals, days=totals.length, todayIdxLocal=days-1;
-  let html='';
-  rows.forEach(r=>{
-    html+='<span class="igrid-label">'+esc(r.label)+'</span>';
-    for(let i=0;i<days;i++){
-      const lvl=igridLevel(totals[i][r.key],r.kind);
-      html+='<button type="button" class="igrid-dot pending l'+lvl+(i===todayIdxLocal?' is-today':'')+'" style="transition-delay:'+(i*4)+'ms" data-day-idx="'+i+'" aria-label="'+esc(r.label)+' — '+insightsDateLabel(m.last60Dates[i])+'"></button>';
+function renderProgGoals(m){
+  const cards=[];
+  const w=insightsWeightInfo();
+  if(w){
+    if(w.empty) cards.push(progGoalCard({icon:'scale',title:'Weight goal',sub:INSIGHT_WEIGHT_GOALS[state.profile].start+' → '+INSIGHT_WEIGHT_GOALS[state.profile].target+' kg',big:'No weigh-ins yet',lines:['Log your weight in Gym and your progress shows up here.'],href:'gym/index.html',cta:'Open Gym'}));
+    else{
+      const statusMap={ahead:['Ahead of plan','good'],on:['On track','good'],close:['Slightly behind','warn'],behind:['Behind pace','bad'],done:['Goal reached','good'],nodata:['Keep logging','']};
+      const st=statusMap[w.status]||statusMap.nodata, lost=Math.abs(w.done), losing=w.done>=0;
+      const lines=[];
+      lines.push(kgFmt(Math.max(0,w.toGo))+' kg to go · target '+w.goal.target+' kg by '+insightsDateLabel(w.goal.endDate));
+      if(w.weekChange!=null) lines.push((w.weekChange<=0?'↓ ':'↑ ')+kgFmt(Math.abs(w.weekChange))+' kg in the last 7 days');
+      if(w.pace!=null) lines.push('Pace '+kgFmt(Math.abs(w.pace))+' kg/week '+(w.pace<0?'down':'up')+' · need '+kgFmt(Math.abs(w.needed))+' kg/week');
+      if(w.eta) lines.push('At this pace: '+insightsDateLabel(w.eta)+(w.eta>w.goal.endDate?' (after your date)':''));
+      cards.push(progGoalCard({icon:'scale',title:'Weight goal',sub:'Now '+kgFmt(w.current)+' kg · '+insightsDateLabel(w.asOf),big:(losing?'−':'+')+kgFmt(lost)+' kg <small>of '+kgFmt(w.goal.start-w.goal.target)+' kg</small>',pct:w.pct,tone:st[1],chip:progChip(st[0],st[1]),lines,href:'gym/index.html',cta:'Open Gym'}));
     }
-  });
-  $('insights-grid').innerHTML=html;
-  showInsightsDayDetail(m,todayIdxLocal);
+  }
+  const p=insightsPledgeInfo();
+  if(p){
+    if(p.none) cards.push(progGoalCard({icon:'flag',title:'Pledge',sub:'Commitment',big:'None active',lines:['Start one in Pledge to track it here.'],href:'apps/pledge.html',cta:'Open Pledge'}));
+    else cards.push(progGoalCard({icon:'flag',title:p.goal.title,sub:'Pledge · stage '+p.stage+' of '+p.stages,big:p.earned+' <small>of '+p.days+' days</small>',pct:p.pct,chip:p.streak>1?progChip(p.streak+'-day streak','good'):'',lines:[p.reward?'Reward: '+esc(p.reward):'Keep each day complete to finish the stage'],href:'apps/pledge.html',cta:'Open Pledge'}));
+  }
+  const s=insightsSkinInfo(m);
+  if(s.before) cards.push(progGoalCard({icon:'sparkles',title:'Skin plan',sub:'5-month program',big:'Starts '+insightsDateLabel(s.start),lines:['Your routine begins on that day.'],href:'apps/skin.html',cta:'Open Skin'}));
+  else cards.push(progGoalCard({icon:'sparkles',title:'Skin plan',sub:'5-month program',big:'Day '+s.day+' <small>of '+SKIN_PROGRAM_DAYS+'</small>',pct:s.pct,lines:['Routine done '+s.last7+' of the last 7 days','Check-ins saved: '+s.checkins].concat(s.next?['Next review '+insightsDateLabel(s.next)+' ('+Math.max(0,daysBetween(today(),s.next))+' days)']:[]),href:'apps/skin.html',cta:'Open Skin'}));
+  const f=insightsFoodInfo();
+  if(f){
+    if(!f.logged) cards.push(progGoalCard({icon:'utensils',title:'Food',sub:'Last 7 days',big:'Nothing logged',lines:['Tap “Ate as planned” in Diet to start.'],href:'apps/diet.html',cta:'Open Diet'}));
+    else cards.push(progGoalCard({icon:'utensils',title:'Food',sub:'Last 7 days, on days you logged',big:f.avgK.toLocaleString()+' <small>kcal avg</small>',pct:f.goalKcal?Math.min(100,Math.round(f.avgK/f.goalKcal*100)):null,lines:['Goal '+(f.goalKcal||'—').toLocaleString()+' kcal · protein avg '+f.avgP+' g of '+(f.goalProtein||'—'),'Logged '+f.logged+' of 7 days · protein goal hit '+f.proteinDays+' days'],href:'apps/diet.html',cta:'Open Diet'}));
+  }
+  $('prog-goals').innerHTML=cards.join('');
 }
-function showInsightsDayDetail(m,idx){
+function renderProgWeek(m){
+  const rows=[
+    {label:'Training',now:insightsActiveDaysThisWeek(m,'gym'),prev:insightsActiveDaysPrevWeek(m,'gym')},
+    {label:'Skin routine',now:insightsActiveDaysThisWeek(m,'skin'),prev:insightsActiveDaysPrevWeek(m,'skin')},
+    {label:'Tasks',now:insightsActiveDaysThisWeek(m,'tasks'),prev:insightsActiveDaysPrevWeek(m,'tasks'),extra:m.thisWeekTasks+' done'},
+    {label:'Chores',now:insightsActiveDaysThisWeek(m,'chores'),prev:insightsActiveDaysPrevWeek(m,'chores'),extra:m.thisWeekChores+' done'}
+  ];
+  if(state.insights.diet){
+    const d=today(), has=(i)=>!!state.insights.diet.byDate[addDays(d,-i)];
+    rows.push({label:'Food logged',now:[0,1,2,3,4,5,6].filter(has).length,prev:[7,8,9,10,11,12,13].filter(has).length});
+  }
+  $('prog-week').innerHTML=rows.map(r=>{
+    const diff=r.now-r.prev, dtxt=diff===0?'same as last week':(diff>0?'+':'−')+Math.abs(diff)+' vs last week';
+    return '<div class="prog-row"><b>'+esc(r.label)+'</b><div class="prog-bar"><i style="width:'+Math.round(r.now/7*100)+'%"></i></div><strong>'+r.now+'<small>/7 days</small></strong><span class="prog-delta '+(diff>0?'up':diff<0?'down':'')+'">'+esc(dtxt)+(r.extra?' · '+esc(r.extra):'')+'</span></div>';
+  }).join('');
+}
+/* what is actually going well — only real, current facts */
+function insightsWins(m){
+  const wins=[]; const w=insightsWeightInfo();
+  if(w&&!w.empty&&w.weekChange!=null&&w.weekChange<0) wins.push({pri:1,icon:'↓',text:'Down '+kgFmt(-w.weekChange)+' kg in the last 7 days'});
+  if(w&&!w.empty&&w.done>0) wins.push({pri:2,icon:'⚖️',text:kgFmt(w.done)+' kg lost since you started — '+w.pct+'% of the way'});
+  const p=insightsPledgeInfo(); if(p&&!p.none&&p.streak>=2) wins.push({pri:2,icon:'🚩',text:'Pledge: '+p.streak+' days in a row'});
+  if(m.currentStreak>=2) wins.push({pri:3,icon:'🔥',text:m.currentStreak+'-day streak across everything'});
+  if(m.thisWeekGymDays>=1) wins.push({pri:3,icon:'🏋️',text:'Trained '+m.thisWeekGymDays+' day'+(m.thisWeekGymDays===1?'':'s')+' this week'});
+  const f=insightsFoodInfo(); if(f&&f.proteinDays>=3) wins.push({pri:3,icon:'🥚',text:'Hit your protein goal '+f.proteinDays+' of the last 7 days'});
+  if(m.thisWeekTasks>=3) wins.push({pri:4,icon:'✅',text:m.thisWeekTasks+' tasks finished this week'});
+  if(m.thisWeekChores>=3) wins.push({pri:4,icon:'🧺',text:m.thisWeekChores+' chores done this week'});
+  if(m.thisWeekTotal>m.prevWeekTotal&&m.prevWeekTotal>0) wins.push({pri:4,icon:'📈',text:'More done than last week ('+m.thisWeekTotal+' vs '+m.prevWeekTotal+')'});
+  return wins.sort((a,b)=>a.pri-b.pri).slice(0,4);
+}
+/* the next concrete thing to aim for */
+function insightsNext(m){
+  const out=[]; const w=insightsWeightInfo();
+  if(w&&!w.empty&&w.toGo>0){ const mark=Math.floor((w.current-0.01)/1)*1; const next=Math.max(w.goal.target,mark); out.push({icon:'⚖️',text:'Next mark: '+kgFmt(next)+' kg',sub:kgFmt(w.current-next)+' kg away'}); }
+  const b=insightsBadges(m).filter(x=>!x.unlocked&&(x.id.indexOf('streak')===0)).sort((a,c)=>a.need-c.need)[0];
+  if(b) out.push({icon:b.icon,text:b.label,sub:(b.need-b.have)+' more day'+((b.need-b.have)===1?'':'s')+' in a row'});
+  const p=insightsPledgeInfo(); if(p&&!p.none) out.push({icon:'🚩',text:'Finish stage '+p.stage+' of “'+p.goal.title+'”',sub:Math.max(0,p.days-p.earned)+' day'+(p.days-p.earned===1?'':'s')+' left'});
+  const s=insightsSkinInfo(m); if(s&&!s.before&&s.next) out.push({icon:'✨',text:'Skin review',sub:insightsDateLabel(s.next)+' · '+Math.max(0,daysBetween(today(),s.next))+' days'});
+  if(!m.todayActive) out.push({icon:'👉',text:'Log one thing today',sub:m.currentStreak>0?'Keeps your '+m.currentStreak+'-day streak alive':'Starts a new streak'});
+  return out.slice(0,4);
+}
+function renderProgHero(m){
+  const w=insightsWeightInfo(), wins=insightsWins(m);
+  let headline, sub;
+  if(w&&!w.empty&&w.done>0&&w.status!=='done'){
+    headline=w.pct+'% of the way to '+w.goal.target+' kg';
+    sub=kgFmt(w.done)+' kg down, '+kgFmt(w.toGo)+' kg to go. '+(w.status==='ahead'||w.status==='on'?'You’re on pace — keep doing what you’re doing.':w.status==='close'?'Slightly behind the pace you need — a couple of solid weeks closes it.':w.status==='behind'?'Behind the pace you need — this week is a good one to tighten up.':'Keep logging weigh-ins so the pace gets clearer.');
+  }else if(w&&w.status==='done'){ headline='Goal weight reached'; sub='You hit '+w.goal.target+' kg. Hold it — that’s the next goal.'; }
+  else{ const msg=heroMessage(m); headline=msg.headline; sub=msg.sub; }
+  const earned=insightsBadges(m).filter(b=>b.unlocked).length, nb=insightsBadges(m).length;
+  $('prog-hero').innerHTML='<div class="prog-hero-main"><p class="prog-kicker">Right now</p><h2>'+esc(headline)+'</h2><p>'+esc(sub)+'</p></div>'+
+    '<div class="prog-hero-stats"><div><b>'+m.currentStreak+'</b><span>day streak</span></div><div><b>'+m.activeDaysThisWeek+'<small>/7</small></b><span>active days this week</span></div><div><b>'+earned+'<small>/'+nb+'</small></b><span>badges earned</span></div></div>'+
+    '<div class="prog-wins"><h3>Going well</h3>'+(wins.length?wins.map(x=>'<div class="prog-win"><span>'+x.icon+'</span>'+esc(x.text)+'</div>').join(''):'<div class="prog-win muted">Nothing logged yet this week. One small thing today puts the first win here.</div>')+'</div>';
+}
+function renderProgNext(m){
+  const items=insightsNext(m);
+  $('prog-next').innerHTML=items.length?items.map(x=>'<div class="prog-next-row"><span class="prog-next-icon">'+x.icon+'</span><div><b>'+esc(x.text)+'</b><small>'+esc(x.sub)+'</small></div></div>').join(''):'<div class="empty-state"><strong>You’re all caught up</strong></div>';
+}
+function renderProgGrid(m){
+  const dates=m.last60Dates, first=new Date(dates[0]+'T00:00:00'); const pad=(first.getDay()+6)%7; // Monday first
+  const maxT=Math.max(3,...m.totals.map(t=>t.total)); let html='';
+  for(let i=0;i<pad;i++) html+='<span class="prog-cell blank"></span>';
+  dates.forEach((dt,i)=>{ const t=m.totals[i].total, lvl=t===0?0:t<=1?1:t<=3?2:3; html+='<button type="button" class="prog-cell l'+lvl+(i===dates.length-1?' today':'')+'" data-day-idx="'+i+'" aria-label="'+esc(insightsDateLabel(dates[i]))+': '+t+' things"></button>'; });
+  $('prog-grid').innerHTML=html;
+  showProgDay(m,dates.length-1);
+}
+function showProgDay(m,idx){
   const t=m.totals[idx], dt=m.last60Dates[idx];
   const label=new Date(dt+'T00:00:00').toLocaleDateString(undefined,{weekday:'long',month:'short',day:'numeric'});
-  const parts=[];
-  if(t.tasks) parts.push(t.tasks+' task'+(t.tasks===1?'':'s')+' completed');
-  if(t.chores) parts.push(t.chores+' chore'+(t.chores===1?'':'s')+' done');
-  if(t.gym) parts.push('training logged');
-  if(t.skin) parts.push('care routine logged');
-  const body=parts.length?parts.join(' · '):'Nothing logged this day.';
-  $('insights-day-detail').innerHTML='<b>'+esc(label)+'</b> — '+esc(body);
-  $('insights-day-detail').classList.add('open');
+  const parts=[]; if(t.tasks) parts.push(t.tasks+' task'+(t.tasks===1?'':'s')); if(t.chores) parts.push(t.chores+' chore'+(t.chores===1?'':'s')); if(t.gym) parts.push('training'); if(t.skin) parts.push('skin routine');
+  const diet=state.insights.diet&&state.insights.diet.byDate[dt]; if(diet) parts.push('food logged ('+Math.round(diet.kcal)+' kcal)');
+  $('prog-day-detail').innerHTML='<b>'+esc(label)+'</b> — '+esc(parts.length?parts.join(' · '):'nothing logged');
 }
-function renderInsightsConstellation(m){
+function renderProgBadges(m){
   const badges=insightsBadges(m);
-  const unlockedCount=badges.filter(b=>b.unlocked).length;
-  $('insights-constellation-note').textContent = unlockedCount===0
-    ? 'No badges unlocked yet — the first one might be closer than you think.'
-    : unlockedCount===badges.length
-      ? 'Every badge on this page, earned.'
-      : unlockedCount+' of '+badges.length+' earned. Each one required real days, not luck.';
-  $('insights-badge-list').innerHTML=badges.map(b=>'<span class="insights-badge-chip'+(b.unlocked?' unlocked':'')+'">'+b.icon+' '+esc(b.label)+'</span>').join('');
-  $('insights-constellation-status').innerHTML='<strong>'+unlockedCount+' / '+badges.length+'</strong><span>badges earned</span>';
-
-  const canvas=$('insights-canvas');
-  const wrap=canvas.parentElement;
-  const rect=wrap.getBoundingClientRect();
-  if(rect.width<10||rect.height<10) return;
-  const dpr=Math.min(2,window.devicePixelRatio||1);
-  canvas.width=Math.max(1,Math.round(rect.width*dpr));
-  canvas.height=Math.max(1,Math.round(rect.height*dpr));
-  canvas.style.width=rect.width+'px';
-  canvas.style.height=rect.height+'px';
-  const ctx=canvas.getContext('2d');
-  const cx=canvas.width/2, cy=canvas.height*0.46;
-  const radius=Math.min(canvas.width,canvas.height)*0.32;
-  const n=badges.length;
-  const pts=badges.map((b,i)=>{
-    const angle=(i/n)*Math.PI*2-Math.PI/2;
-    return {x:cx+Math.cos(angle)*radius, y:cy+Math.sin(angle)*radius, badge:b};
-  });
-  if(insightsConstellationRAF) cancelAnimationFrame(insightsConstellationRAF);
-  const reduceMotion=window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-  let start=null;
-  function frame(ts){
-    if(!start) start=ts;
-    const t=(ts-start)/1000;
-    ctx.clearRect(0,0,canvas.width,canvas.height);
-    ctx.strokeStyle='rgba(66,230,164,.35)';
-    ctx.lineWidth=1.5*dpr;
-    ctx.beginPath();
-    let prev=null;
-    pts.forEach(p=>{ if(p.badge.unlocked){ if(prev) ctx.lineTo(p.x,p.y); else ctx.moveTo(p.x,p.y); prev=p; } });
-    ctx.stroke();
-    pts.forEach((p,i)=>{
-      const pulse=reduceMotion?0:Math.sin(t*1.6+i)*1.4;
-      const r=(p.badge.unlocked?5:3.4)*dpr+pulse*dpr;
-      ctx.beginPath(); ctx.arc(p.x,p.y,Math.max(1,r),0,Math.PI*2);
-      ctx.fillStyle=p.badge.unlocked?'#42e6a4':'rgba(140,150,144,.35)';
-      ctx.fill();
-      if(p.badge.unlocked){
-        ctx.beginPath(); ctx.arc(p.x,p.y,r+3*dpr,0,Math.PI*2);
-        ctx.strokeStyle='rgba(66,230,164,.25)'; ctx.lineWidth=1*dpr; ctx.stroke();
-      }
-    });
-    if(!reduceMotion) insightsConstellationRAF=requestAnimationFrame(frame);
-  }
-  frame(performance.now());
-}
-// Growth rings — the "tree rings" hero for Life systems. Each ring is one
-// real past week (not a decorative arc): thickness and brightness scale
-// with how many of that week's 7 days had *something* logged, oldest week
-// innermost, this week outermost — the same way an actual tree adds a new
-// ring outward each season. Rings start at r=0 and only grow to their real
-// radius once this section is scrolled into view (see growInsightsRings),
-// so the "growth" is something that happens as you get to it, not a
-// timer-driven intro.
-function insightsGrowthWeeks(m){
-  const totals=m.totals, n=totals.length;
-  const weeks=[];
-  const start=n%7; // drop the oldest partial week so every ring is a real full week
-  for(let i=start;i<n;i+=7){
-    const chunk=totals.slice(i,i+7);
-    const active=chunk.filter(t=>t.total>0).length;
-    weeks.push({active,size:chunk.length,endDate:m.last60Dates[Math.min(i+chunk.length-1,n-1)]});
-  }
-  return weeks;
-}
-function renderInsightsRings(m){
-  const weeks=insightsGrowthWeeks(m);
-  const n=Math.max(1,weeks.length);
-  const minR=24,maxR=138,gap=n>1?(maxR-minR)/(n-1):0;
-  const ringsSvg=weeks.map((w,i)=>{
-    const ratio=w.active/Math.max(1,w.size);
-    const r=(minR+i*gap).toFixed(1);
-    const sw=(2+ratio*7.5).toFixed(1);
-    const op=(0.3+ratio*0.7).toFixed(2);
-    const isCurrent=i===weeks.length-1;
-    return '<circle class="igrow-ring'+(isCurrent?' is-current':'')+'" cx="150" cy="150" r="0" data-r="'+r+'" style="--sw:'+sw+';--op:'+op+';transition-delay:'+(i*80)+'ms"><title>Week of '+esc(insightsDateLabel(w.endDate))+' — '+w.active+'/'+w.size+' active days</title></circle>';
+  $('prog-badges').innerHTML=badges.map(b=>{
+    const pct=Math.min(100,Math.round(b.have/b.need*100));
+    return '<div class="prog-badge'+(b.unlocked?' on':'')+'"><span class="prog-badge-icon">'+b.icon+'</span><div><b>'+esc(b.label)+'</b><small>'+esc(b.sub)+'</small>'+(b.unlocked?'':progBar(pct))+'</div><strong>'+(b.unlocked?'✓':Math.min(b.have,b.need)+'/'+b.need)+'</strong></div>';
   }).join('');
-  const latest=weeks.length?weeks[weeks.length-1]:{active:0,size:7};
-  $('insights-rings').innerHTML='<div class="insights-growth-wrap">'+
-    '<svg viewBox="0 0 300 300" class="insights-growth-svg" aria-label="Weekly consistency growth rings, oldest week at the center">'+ringsSvg+
-    '<text x="150" y="148" text-anchor="middle" class="igrow-center-num">'+latest.active+'</text>'+
-    '<text x="150" y="168" text-anchor="middle" class="igrow-center-sub">this week</text>'+
-    '</svg>'+
-    '<p class="insights-growth-caption">Each ring is one real week — thicker and brighter means more active. The outer ring is this week, still growing.</p>'+
-    '</div>';
-  if(document.querySelector('#insights-systems-row.in')) growInsightsRings();
-}
-function growInsightsRings(){
-  document.querySelectorAll('#insights-rings .igrow-ring').forEach(c=>{ c.setAttribute('r',c.dataset.r||'0'); });
-}
-function renderInsightsRankList(m){
-  const items=[
-    {label:'Training',days:m.thisWeekGymDays},
-    {label:'Care routine',days:m.thisWeekSkinDays},
-    {label:'Tasks',days:insightsActiveDaysThisWeek(m,'tasks')},
-    {label:'Chores',days:insightsActiveDaysThisWeek(m,'chores')}
-  ];
-  items.sort((a,b)=>b.days-a.days);
-  $('insights-rank-list').innerHTML=items.map((it,i)=>{
-    const pct=Math.round(it.days/7*100);
-    return '<div class="insights-rank"><span class="insights-rank-num">'+(i+1)+'</span><div><b>'+esc(it.label)+'</b><div class="insights-rank-track"><span style="transform:scaleX('+(pct/100)+')"></span></div></div><strong>'+it.days+'/7</strong></div>';
-  }).join('');
-}
-function renderInsightsMilestones(){
-  const show=state.profile==='Bhargav';
-  $('milestones-section-head').style.display=show?'':'none';
-  $('milestones-card').style.display=show?'':'none';
-  if(!show) return;
-  const dates=insightsMilestoneDates();
-  const d=today();
-  const nextIdx=dates.findIndex(dt=>!milestoneHitOn(dt) && dt>=d);
-  const rows=dates.map((dt,i)=>{
-    const hit=milestoneHitOn(dt);
-    const isNext=!hit && i===nextIdx;
-    const isOverdue=!hit && !isNext && dt<d;
-    const label='Month '+(i+1)+' review';
-    const dLabel=new Date(dt+'T00:00:00').toLocaleDateString(undefined,{month:'short',day:'numeric'});
-    const daysAway=daysBetween(d,dt);
-    const tag=hit?'Done':isOverdue?'Overdue':isNext?(daysAway>0?daysAway+'d away':'Today'):dLabel;
-    const cls=hit?'hit':isOverdue?'overdue':isNext?'next':'';
-    return '<div class="milestone-mini'+(cls?' '+cls:'')+'"><span class="mm-dot">'+(hit?'✓':(i+1))+'</span><span class="mm-copy"><strong>'+label+'</strong><small>'+dLabel+'</small></span><span class="mm-tag">'+esc(tag)+'</span></div>';
-  }).join('');
-  $('milestones-list').innerHTML=rows;
-}
-function renderInsightsStory(m){
-  const msg=heroMessage(m);
-  $('insights-story-title').textContent=msg.headline;
-  $('insights-story-body').textContent=msg.sub;
-  $('insights-thread-body').textContent = m.currentStreak>0
-    ? 'You’re '+m.currentStreak+' day'+(m.currentStreak===1?'':'s')+' deep right now. On the days it feels pointless, you don’t need motivation — just one small thing before the day ends.'
-    : 'No streak running right now, and that’s a fact, not a verdict. Every streak on this page started on a day that felt exactly like today. Do one small thing — that’s the whole job.';
-}
-function insightsFireCelebration(){
-  const host=$('insights-celebration');
-  const colors=['','gold'];
-  const cx=window.innerWidth/2, cy=window.innerHeight*0.35;
-  let html='';
-  for(let i=0;i<26;i++){
-    const angle=Math.random()*Math.PI*2, dist=60+Math.random()*180;
-    const x=Math.cos(angle)*dist, y=Math.sin(angle)*dist;
-    const cls=colors[Math.random()<0.3?1:0];
-    html+='<span class="insights-spark'+(cls?' '+cls:'')+'" style="left:'+cx+'px;top:'+cy+'px;--x:'+x+'px;--y:'+y+'px;animation-delay:'+(Math.random()*0.2)+'s"></span>';
-  }
-  host.innerHTML=html;
-  setTimeout(()=>{ if(host.innerHTML===html) host.innerHTML=''; },1600);
 }
 function wireInsightsInteractions(){
   if(wireInsightsInteractions._wired) return; wireInsightsInteractions._wired=true;
-  $('insights-range').addEventListener('click',e=>{
-    const btn=e.target.closest('button[data-range]'); if(!btn) return;
-    insightsRange=btn.dataset.range;
-    $('insights-range').querySelectorAll('button').forEach(b=>b.classList.toggle('active',b===btn));
-    if(insightsCurrentM) renderInsightsHero(insightsCurrentM);
-  });
-  $('insights-grid').addEventListener('click',e=>{
-    const dot=e.target.closest('.igrid-dot'); if(!dot||!insightsCurrentM) return;
-    showInsightsDayDetail(insightsCurrentM,Number(dot.dataset.dayIdx));
-  });
-  $('insights-grid-jump').addEventListener('click',()=>{
-    const sc=document.querySelector('.insights-grid-scroll'); if(sc) sc.scrollLeft=sc.scrollWidth;
-  });
-  $('insights-replay').addEventListener('click',()=>{ playInsightsReveal(); });
+  $('prog-grid').addEventListener('click',e=>{ const c=e.target.closest('.prog-cell[data-day-idx]'); if(c&&insightsCurrentM) showProgDay(insightsCurrentM,Number(c.dataset.dayIdx)); });
   $('insights-thread-btn').addEventListener('click',()=>{ $('insights-recovery').hidden=false; });
   $('insights-close-reset').addEventListener('click',()=>{ $('insights-recovery').hidden=true; });
   $('insights-begin-reset').addEventListener('click',()=>{
-    $('insights-recovery').hidden=true;
-    showRoute('today');
-    setTimeout(()=>{
-      const pr=document.querySelector('.widget-card[data-widget-type="priorities"]');
-      if(pr) pr.scrollIntoView({behavior:'smooth',block:'center'});
-    },80);
+    $('insights-recovery').hidden=true; showRoute('today');
+    setTimeout(()=>{ const pr=document.querySelector('.widget-card[data-widget-type="priorities"]'); if(pr) pr.scrollIntoView({behavior:'smooth',block:'center'}); },80);
   });
-  window.addEventListener('resize',()=>{
-    if(insightsCurrentM && document.getElementById('page-insights').classList.contains('active')) renderInsightsConstellation(insightsCurrentM);
-    updateInsightsSpine();
-  });
-  window.addEventListener('scroll',onInsightsScroll,{passive:true});
-}
-/* ===== Motion that reacts to the person, not a timer =====
-   Every section below fades/settles in only once it's actually scrolled
-   into view (IntersectionObserver), the growth rings only grow once
-   their section is visible, and the activity grid's dots only drop into
-   place the same way — so the page's motion is something that happens
-   *as you look at it*, not an autoplay intro you watch once and then
-   ignore. The spine (the vertical line running down the page) goes a
-   step further and tracks scroll position continuously, redrawing on
-   every scroll frame. Replay (the button) is the one deliberate
-   exception — it resets and re-triggers everything on demand. */
-let insightsIO=null;
-function setupInsightsRevealObserver(){
-  if(insightsIO) insightsIO.disconnect();
-  insightsIO=new IntersectionObserver(entries=>{
-    entries.forEach(entry=>{
-      if(!entry.isIntersecting) return;
-      const el=entry.target;
-      el.classList.add('in');
-      if(el.id==='insights-grid-card') document.querySelectorAll('#insights-grid .igrid-dot.pending').forEach(d=>d.classList.remove('pending'));
-      if(el.id==='insights-systems-row') growInsightsRings();
-      insightsIO.unobserve(el);
-    });
-  },{threshold:0.2,rootMargin:'0px 0px -6% 0px'});
-  document.querySelectorAll('#insights-cinema .reveal').forEach(el=>insightsIO.observe(el));
-}
-let insightsSpineRAF=null;
-function updateInsightsSpine(){
-  const cinema=$('insights-cinema'), line=$('insights-spine-line');
-  if(!cinema||!line||!document.getElementById('page-insights').classList.contains('active'))return;
-  const rect=cinema.getBoundingClientRect();
-  const total=rect.height; if(total<=0)return;
-  const triggerY=window.innerHeight*0.78;
-  const scrolled=Math.max(0,Math.min(total,triggerY-rect.top));
-  const progress=scrolled/total;
-  line.setAttribute('stroke-dasharray',String(total));
-  line.setAttribute('stroke-dashoffset',String(total*(1-progress)));
-}
-function onInsightsScroll(){
-  if(insightsSpineRAF)return;
-  insightsSpineRAF=requestAnimationFrame(()=>{ insightsSpineRAF=null; updateInsightsSpine(); });
-}
-function playInsightsReveal(){
-  const cinema=$('insights-cinema');
-  const scan=$('insights-scanline');
-  scan.classList.remove('go'); void scan.offsetWidth; scan.classList.add('go');
-  cinema.querySelectorAll('.reveal').forEach(c=>c.classList.remove('in'));
-  document.querySelectorAll('#insights-rings .igrow-ring').forEach(c=>c.setAttribute('r','0'));
-  document.querySelectorAll('#insights-grid .igrid-dot').forEach(d=>d.classList.add('pending'));
-  cinema.scrollIntoView({behavior:'smooth',block:'start'});
-  setupInsightsRevealObserver();
-  updateInsightsSpine();
-  if(insightsCurrentM) renderInsightsConstellation(insightsCurrentM);
 }
 async function renderInsightsPage(){
   await ensureInsightsLoaded();
   const m=computeInsights();
   insightsCurrentM=m;
   wireInsightsInteractions();
-  renderInsightsHero(m);
-  renderInsightsCommand(m);
-  renderInsightsGrid(m);
-  renderInsightsConstellation(m);
-  renderInsightsRings(m);
-  renderInsightsRankList(m);
-  renderInsightsMilestones();
-  renderInsightsStory(m);
+  renderProgHero(m); renderProgGoals(m); renderProgWeek(m); renderProgNext(m); renderProgGrid(m); renderProgBadges(m);
+  $('insights-thread-body').textContent=m.currentStreak>0
+    ? 'You’re '+m.currentStreak+' day'+(m.currentStreak===1?'':'s')+' in. On a day it feels pointless, do one small thing before it ends.'
+    : 'No streak right now — that’s a fact, not a verdict. Do one small thing today and a new one starts.';
   if(window.lucide)lucide.createIcons();
-  setupInsightsRevealObserver();
-  requestAnimationFrame(updateInsightsSpine);
-  const nowUnlocked=insightsBadges(m).filter(b=>b.unlocked).map(b=>b.id);
-  if(insightsPrevUnlocked && nowUnlocked.some(id=>!insightsPrevUnlocked.includes(id))) insightsFireCelebration();
-  insightsPrevUnlocked=nowUnlocked;
+  updateProfileLinks();
 }
+
 
 /* =====================================================================
    SETTINGS — the palette + wallpaper editor. Dragging a color swatch
@@ -2281,7 +2190,7 @@ function startHubClock(){
    otherwise so the widget is never empty. Cached in localStorage for 20
    minutes so switching pages/profiles doesn't refetch every time.
 ===================================================================== */
-const WEATHER_CACHE_KEY='hub-weather-cache-v1';
+const WEATHER_CACHE_KEY='hub-weather-cache-v2';
 const WEATHER_TTL_MS=20*60*1000;
 const WEATHER_FALLBACK={lat:32.7157,lon:-117.1611,label:'San Diego, CA'}; // used only if geolocation is denied/unavailable
 const WEATHER_GEOCODE_URL='https://geocoding-api.open-meteo.com/v1/search';
@@ -2311,10 +2220,17 @@ async function fetchWeather(lat,lon){
   const url='https://api.open-meteo.com/v1/forecast?latitude='+lat+'&longitude='+lon+
     '&current=temperature_2m,apparent_temperature,relative_humidity_2m,wind_speed_10m,weather_code'+
     '&hourly=temperature_2m,weather_code&daily=temperature_2m_max,temperature_2m_min'+
-    '&temperature_unit=fahrenheit&wind_speed_unit=mph&timezone=auto&forecast_days=1';
+    '&temperature_unit=fahrenheit&wind_speed_unit=mph&timezone=auto&forecast_days=2';
   const res=await fetch(url);
   if(!res.ok)throw new Error('weather fetch failed');
   return res.json();
+}
+// Next five hours in the *place's own* clock (not this device's — a second city can be in another time zone),
+// carrying on into tomorrow late at night instead of running out at midnight.
+function weatherNextHours(data){
+  const cur=(data.current&&data.current.time||'').slice(0,13);
+  return data.hourly.time.map((t,i)=>({key:t.slice(0,13),hour:new Date(t).getHours(),temp:data.hourly.temperature_2m[i],code:data.hourly.weather_code[i]}))
+    .filter(h=>!cur||h.key>=cur).slice(0,5);
 }
 function renderWeather(data,label){
   const icon=$('hub-weather-icon');
@@ -2328,9 +2244,7 @@ function renderWeather(data,label){
   $('hub-weather-wind').textContent=Math.round(data.current.wind_speed_10m)+' mph';
   $('hub-weather-place').textContent=label;
   // Next few hours, starting from the current hour, skipping ones already past.
-  const nowHour=new Date().getHours();
-  const hourly=data.hourly.time.map((t,i)=>({hour:new Date(t).getHours(),temp:data.hourly.temperature_2m[i],code:data.hourly.weather_code[i]}))
-    .filter(h=>h.hour>=nowHour).slice(0,5);
+  const hourly=weatherNextHours(data);
   $('hub-weather-hours').innerHTML=hourly.map(h=>{
     const label=h.hour===0?'12A':h.hour===12?'12P':h.hour>12?(h.hour-12)+'P':h.hour+'A';
     return '<div class="hub-weather-hour"><span>'+label+'</span><i data-lucide="'+weatherIconFor(h.code)+'"></i><b>'+Math.round(h.temp)+'°</b></div>';
@@ -2349,9 +2263,7 @@ function renderWeatherSecond(data,label){
   $('hub-weather-second-lo').textContent='L '+Math.round(data.daily.temperature_2m_min[0])+'°';
   $('hub-weather-second-humidity').textContent=Math.round(data.current.relative_humidity_2m)+'%';
   $('hub-weather-second-wind').textContent=Math.round(data.current.wind_speed_10m)+' mph';
-  const nowHour=new Date().getHours();
-  const hourly=data.hourly.time.map((t,i)=>({hour:new Date(t).getHours(),temp:data.hourly.temperature_2m[i],code:data.hourly.weather_code[i]}))
-    .filter(h=>h.hour>=nowHour).slice(0,5);
+  const hourly=weatherNextHours(data);
   $('hub-weather-second-hours').innerHTML=hourly.map(h=>{
     const label=h.hour===0?'12A':h.hour===12?'12P':h.hour>12?(h.hour-12)+'P':h.hour+'A';
     return '<div class="hub-weather-hour"><span>'+label+'</span><i data-lucide="'+weatherIconFor(h.code)+'"></i><b>'+Math.round(h.temp)+'°</b></div>';
@@ -2391,15 +2303,34 @@ async function loadWeatherFor(lat,lon,label,skipCache,slot){
     const data=await fetchWeather(lat,lon);
     localStorage.setItem(key,JSON.stringify({lat,lon,at:Date.now(),data}));
     (slot?renderWeatherSecond:renderWeather)(data,label);
-  }catch(e){console.warn('weather',e);(slot?weatherErrorSecond:weatherError)()}
+  }catch(e){
+    console.warn('weather',e);
+    // Offline / API down: show the last good reading for this city rather than nothing.
+    const old=safeJson(localStorage.getItem(weatherCacheKey(slot)),null);
+    if(old&&old.data&&old.lat===lat&&old.lon===lon){ try{ (slot?renderWeatherSecond:renderWeather)(old.data,label); return; }catch(_){} }
+    (slot?weatherErrorSecond:weatherError)();
+  }
 }
 async function saveWeatherSlots(){ try{ await profileRef('hub-profiles','weather').set({json:JSON.stringify({slots:weatherSlots})}); }catch(e){} }
 function openWeatherLocationEditor(slot){
   weatherEditingSlot=slot;
   $('hub-weather-location-editor').hidden=false;
+  const rm=$('hub-weather-remove-slot'); if(rm) rm.hidden=!(slot===1&&weatherSlots[1]);
   $('hub-weather-search-input').value='';
   $('hub-weather-search-results').innerHTML='';
   $('hub-weather-search-input').focus();
+}
+function removeSecondCity(){
+  weatherSlots[1]=null; saveWeatherSlots();
+  try{ localStorage.removeItem(weatherCacheKey(1)); }catch(e){}
+  $('hub-weather-second-place').textContent='Add a second city';
+  $('hub-weather-second-temp').textContent='';
+  $('hub-weather-second-icon').setAttribute('data-lucide','plus-circle');
+  $('hub-weather-second-chevron').hidden=true;
+  $('hub-weather-second-detail').hidden=true;
+  hubWeatherSecondSetCollapsed(true);
+  if(window.lucide)lucide.createIcons();
+  closeWeatherLocationEditor();
 }
 function closeWeatherLocationEditor(){ $('hub-weather-location-editor').hidden=true; }
 function useGpsForSlot(slot){
@@ -2407,17 +2338,20 @@ function useGpsForSlot(slot){
   if(slot===0){const icon=$('hub-weather-icon');icon.setAttribute('data-lucide','loader-circle');icon.classList.add('spin');if(window.lucide)lucide.createIcons();}
   navigator.geolocation.getCurrentPosition(
     pos=>{
-      weatherSlots[slot]=null; // null = auto/GPS going forward, same as the original default behavior
+      const la=Number(pos.coords.latitude.toFixed(3)),lo=Number(pos.coords.longitude.toFixed(3));
+      // Main slot: null = auto/GPS going forward. Second slot has no "auto" — pin the spot so it survives a reload.
+      weatherSlots[slot]=slot===0?null:{lat:la,lon:lo,label:'Your location'};
       saveWeatherSlots();
-      loadWeatherFor(Number(pos.coords.latitude.toFixed(3)),Number(pos.coords.longitude.toFixed(3)),'Your location',true,slot);
+      loadWeatherFor(la,lo,'Your location',true,slot);
       closeWeatherLocationEditor();
     },
     ()=>{ loadWeatherFor(WEATHER_FALLBACK.lat,WEATHER_FALLBACK.lon,WEATHER_FALLBACK.label,true,slot); closeWeatherLocationEditor(); },
     {timeout:8000,maximumAge:0}
   );
 }
-let weatherSearchTimer=null;
+let weatherSearchTimer=null,weatherSearchSeq=0;
 async function geocodeCitySearch(q){
+  const seq=++weatherSearchSeq;
   const resultsEl=$('hub-weather-search-results');if(!resultsEl)return;
   if(!q||q.trim().length<2){resultsEl.innerHTML='';return}
   resultsEl.innerHTML='<p class="hub-weather-search-empty">Searching…</p>';
@@ -2425,13 +2359,14 @@ async function geocodeCitySearch(q){
     const res=await fetch(WEATHER_GEOCODE_URL+'?name='+encodeURIComponent(q.trim())+'&count=6&language=en&format=json');
     if(!res.ok)throw new Error('geocode failed');
     const data=await res.json();
+    if(seq!==weatherSearchSeq)return;
     const results=data.results||[];
     if(!results.length){resultsEl.innerHTML='<p class="hub-weather-search-empty">No matches</p>';return}
     resultsEl.innerHTML=results.map(r=>{
       const label=[r.name,r.admin1,r.country].filter(Boolean).join(', ');
       return '<button type="button" class="hub-weather-search-result" data-lat="'+r.latitude+'" data-lon="'+r.longitude+'" data-label="'+esc(label)+'">'+esc(label)+'</button>';
     }).join('');
-  }catch(e){ resultsEl.innerHTML='<p class="hub-weather-search-empty">Search unavailable right now</p>'; }
+  }catch(e){ if(seq===weatherSearchSeq) resultsEl.innerHTML='<p class="hub-weather-search-empty">Search unavailable right now</p>'; }
 }
 function setWeatherSlotLocation(slot,lat,lon,label){
   weatherSlots[slot]={lat,lon,label};
@@ -2464,6 +2399,7 @@ function wireHubWeatherOnce(){
   $('hub-weather-second-place-btn').addEventListener('click',e=>{ e.stopPropagation(); openWeatherLocationEditor(1); });
   $('hub-weather-use-gps').addEventListener('click',e=>{ e.stopPropagation(); useGpsForSlot(weatherEditingSlot); });
   $('hub-weather-search-close').addEventListener('click',e=>{ e.stopPropagation(); closeWeatherLocationEditor(); });
+  $('hub-weather-remove-slot').addEventListener('click',e=>{ e.stopPropagation(); removeSecondCity(); });
   $('hub-weather-search-input').addEventListener('click',e=>e.stopPropagation());
   $('hub-weather-search-input').addEventListener('input',e=>{
     clearTimeout(weatherSearchTimer);
@@ -2827,23 +2763,47 @@ function startHubAlarmWatch(){
   }catch(e){}
 }
 function hubPad2(n){ return (n<10?'0':'')+n; }
+let hubLastAlarmCheck=Date.now();
+// A one-time alarm (no repeat days) switches itself off once it has rung, instead of ringing again every day.
+async function hubTurnOffOneTimeAlarm(id){
+  try{
+    const ref=profileRef('clock-profiles','alarms');
+    const snap=await ref.get();
+    const list=(snap.exists&&snap.data().json)?JSON.parse(snap.data().json):hubAlarms;
+    const a=list.find(x=>x.id===id); if(!a) return;
+    a.on=false;
+    await ref.set({json:JSON.stringify(list)});
+    hubAlarms=list;
+  }catch(e){}
+}
 function hubCheckAlarms(){
-  if(!hubAlarms.length) return;
+  const nowMs=Date.now();
+  // Browsers slow timers right down in background tabs (sometimes to one tick a minute), so look at every minute
+  // since the last check — up to the last 10 — rather than only the current one, or an alarm can slip by silently.
+  const fromMs=Math.max(hubLastAlarmCheck, nowMs-10*60000);
+  if(!hubAlarms.length){ hubLastAlarmCheck=nowMs; return; }
   // Never stack a second full-screen ring on top of one already showing.
   if($('hub-alarm-overlay') && !$('hub-alarm-overlay').hidden) return;
-  const now=new Date();
-  const hhmm=hubPad2(now.getHours())+':'+hubPad2(now.getMinutes());
-  const dow=now.getDay(), todayKey=now.toDateString();
-  hubAlarms.forEach(a=>{
-    if(!a.on) return;
-    if(a.days && a.days.length && a.days.indexOf(dow)===-1) return;
-    if(a.time!==hhmm) return;
-    const fireKey=a.id+':'+todayKey+':'+hhmm;
-    if(hubFiredToday[fireKey]) return;
-    hubFiredToday[fireKey]=true;
-    saveHubFiredToday();
-    hubFireAlarm(a);
-  });
+  const startMin=Math.floor(fromMs/60000)*60000;
+  for(let t=startMin;t<=nowMs;t+=60000){
+    const when=new Date(t);
+    const hhmm=hubPad2(when.getHours())+':'+hubPad2(when.getMinutes());
+    const dow=when.getDay(), dayKey=when.toDateString();
+    for(const a of hubAlarms){
+      if(!a.on) continue;
+      if(a.days && a.days.length && a.days.indexOf(dow)===-1) continue;
+      if(a.time!==hhmm) continue;
+      const fireKey=a.id+':'+dayKey+':'+hhmm;
+      if(hubFiredToday[fireKey]) continue;
+      hubFiredToday[fireKey]=true;
+      saveHubFiredToday();
+      hubFireAlarm(a);
+      if(!(a.days&&a.days.length)) hubTurnOffOneTimeAlarm(a.id);
+      hubLastAlarmCheck=t; // pick up from this minute next time, so another alarm in the window still rings once this one is dismissed
+      return;
+    }
+  }
+  hubLastAlarmCheck=nowMs;
 }
 function hubFireAlarm(a){
   hubStartRinging(a.sound||'chime');

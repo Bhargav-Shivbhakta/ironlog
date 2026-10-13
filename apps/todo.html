@@ -256,7 +256,7 @@
     .command-center{grid-template-columns:1fr 1fr;}
   }
   @media(max-width:700px){
-    .command-center{display:flex;overflow-x:auto;scroll-snap-type:x mandatory;gap:10px;margin-left:-14px;margin-right:-14px;padding:0 14px 4px;}
+    .command-center{display:flex;overflow-x:auto;scroll-snap-type:x mandatory;scroll-padding:0 14px;gap:10px;margin-left:-14px;margin-right:-14px;padding:0 14px 4px;}
     .command-lane{min-width:220px;scroll-snap-align:start;}
     .control-bar{position:static;overflow-x:auto;}
     .control-bar .smart-tabs{display:none;}
@@ -1193,6 +1193,23 @@ function fmt12(hhmm){
   return h12+(m?':'+String(m).padStart(2,'0'):'')+period;
 }
 
+// Calendar-safe date helpers: new Date(y, m, d) with real clamping, so "Jan 31 + 1 month" is Feb 28, not Mar 3,
+// and typing 11/5 on Oct 31 gives Nov 5 (setMonth on the 31st used to roll the date a month forward first).
+function clampedDate(y, m0, d){ const last = new Date(y, m0+1, 0).getDate(); return new Date(y, m0, Math.min(d, last)); }
+function addMonthsStr(dateStr, n){
+  const dt = new Date(dateStr+'T00:00:00');
+  return fmtDate(clampedDate(dt.getFullYear(), dt.getMonth()+n, dt.getDate()));
+}
+// "m/d" typed by the person → a real date this year, or next year if that day has already passed. null if it isn't a real date.
+function monthDayToDate(mo, da, today){
+  if(mo<1 || mo>12 || da<1 || da>31) return null;
+  const last = new Date(today.getFullYear(), mo, 0).getDate();
+  if(da>last) return null;
+  let d = new Date(today.getFullYear(), mo-1, da);
+  const t0 = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+  if(d < t0) d = new Date(today.getFullYear()+1, mo-1, da);
+  return d;
+}
 function resolveDateExpr(expr, today){
   const weekdayNames = ['sunday','monday','tuesday','wednesday','thursday','friday','saturday'];
   const e = expr.trim().toLowerCase();
@@ -1207,10 +1224,8 @@ function resolveDateExpr(expr, today){
   }
   const dateMatch = e.match(/^(\d{1,2})[\/\-](\d{1,2})$/);
   if(dateMatch){
-    const d = new Date(today);
-    d.setMonth(parseInt(dateMatch[1],10)-1);
-    d.setDate(parseInt(dateMatch[2],10));
-    return fmtDate(d);
+    const d = monthDayToDate(parseInt(dateMatch[1],10), parseInt(dateMatch[2],10), today);
+    return d ? fmtDate(d) : null;
   }
   return null;
 }
@@ -1261,11 +1276,11 @@ function parseQuickAdd(raw){
     } else {
       const dateMatch = text.match(/\b(\d{1,2})[\/\-](\d{1,2})\b/);
       if(dateMatch){
-        const d = new Date(today);
-        d.setMonth(parseInt(dateMatch[1],10)-1);
-        d.setDate(parseInt(dateMatch[2],10));
-        dueDate = fmtDate(d);
-        text = text.replace(dateMatch[0],'').trim();
+        const d = monthDayToDate(parseInt(dateMatch[1],10), parseInt(dateMatch[2],10), today);
+        if(d){
+          dueDate = fmtDate(d);
+          text = text.replace(dateMatch[0],'').trim();
+        }
       }
     }
   }
@@ -1316,9 +1331,7 @@ function nextRepeatDate(dateStr, repeat, freqDays){
     return d;
   }
   if(repeat==='monthly'){
-    const dt = new Date(dateStr+'T00:00:00');
-    dt.setMonth(dt.getMonth()+1);
-    return fmtDate(dt);
+    return addMonthsStr(dateStr,1);
   }
   return null;
 }
@@ -1447,12 +1460,19 @@ async function toggleTask(id, listId){
   t.completedOn = t.done ? todayStr() : null;
   if(t.done && t.repeat && t.repeat!=='none' && t.due){
     const nextDue = nextRepeatDate(t.due, t.repeat, t.freqDays);
+    const nextId = 'task-'+Date.now()+'-'+Math.floor(Math.random()*1000);
     arr.push(Object.assign({}, t, {
-      id:'task-'+Date.now()+'-'+Math.floor(Math.random()*1000),
+      id:nextId, spawnedId:null,
       done:false, due:nextDue, completedOn:null,
-      subtasks: t.subtasks.map(function(s){ return Object.assign({},s,{done:false}); }),
+      subtasks: (t.subtasks||[]).map(function(s){ return Object.assign({},s,{done:false}); }),
       order: Date.now(), createdAt: new Date().toISOString()
     }));
+    t.spawnedId = nextId;
+  } else if(!t.done && t.spawnedId){
+    // Un-ticking a repeating task takes back the next occurrence it created (if that one hasn't been touched), so it can't double up.
+    const i = arr.findIndex(function(x){ return x.id===t.spawnedId && !x.done; });
+    if(i>=0) arr.splice(i,1);
+    t.spawnedId = null;
   }
   await saveByShared(isShared);
 }

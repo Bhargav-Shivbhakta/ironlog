@@ -556,7 +556,13 @@ function bannerGalleryVisibleList(){
 function renderBannerGalleryTabs(){
   const wrap = document.getElementById('banner-gallery-tabs');
   if(!wrap) return;
+  const all = bannerPresetsFor(state.profile);
   wrap.querySelectorAll('[data-banner-tab]').forEach(btn=>{
+    // Hide a pack's tab when this profile has nothing in it (e.g. Anusha has no character pack).
+    const t = btn.dataset.bannerTab;
+    const n = t==='characters' ? all.filter(p=>p.pack==='characters').length : t==='original' ? all.filter(p=>(p.pack||'original')==='original').length : all.length;
+    btn.hidden = t!=='all' && n===0;
+    if(btn.hidden && bannerGalleryTab===t) bannerGalleryTab='all';
     btn.classList.toggle('active', btn.dataset.bannerTab===bannerGalleryTab);
   });
 }

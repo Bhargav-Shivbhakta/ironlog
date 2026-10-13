@@ -317,6 +317,7 @@
   <div class="topbar">
     <a href="../index.html">← All apps</a>
     <div style="display:flex;align-items:center;gap:14px;">
+      <a href="#" class="switch-btn" style="text-decoration:none" data-applink="grocery.html">Grocery ↗</a><a href="#" class="switch-btn" style="text-decoration:none" data-applink="diet.html">Diet ↗</a>
       <button class="switch-btn" id="backup-open-btn">Backup</button>
       <button class="switch-btn" id="switch-profile-btn">Switch profile</button>
     </div>
@@ -513,6 +514,8 @@ function attachRcLinkHandlers(el){
 function groceryStateDoc(){
   return db.collection('users').doc(currentUser.uid).collection('apps').doc('grocery-v4').collection('data').doc('modernState');
 }
+// names differ only by punctuation/case between the two apps (Paula’s vs Paula's) — compare on letters and digits only
+function normName(s){ return String(s||'').toLowerCase().replace(/[^a-z0-9]+/g,''); }
 async function sendItemToGrocery(item){
   if(typeof item === 'string') item = { name: item };
   try{
@@ -524,7 +527,7 @@ async function sendItemToGrocery(item){
     }
     const state = JSON.parse(doc.data().json);
     state.products = state.products || [];
-    let product = state.products.find(function(p){ return p.name === item.name; });
+    let product = state.products.find(function(p){ return normName(p.name) === normName(item.name); });
     if(!product){
       const priceNum = Number(String(item.price||'0').replace(/[^0-9.]/g,'')) || 0;
       product = {
@@ -1131,8 +1134,46 @@ function escapeHtml(s){
 /* =====================================================================
    INIT / TABS
 ===================================================================== */
+/* Grocery -> Skin: when a product you sent to Grocery shows up there as bought, the Cabinet marks it refilled by itself
+   (once per purchase), so you don't have to buy it in one app and tick "Refilled" in the other. */
+async function syncGroceryRefills(){
+  try{
+    if(!currentUser) return;
+    const doc = await groceryStateDoc().get();
+    if(!doc.exists || !doc.data().json) return;
+    const g = JSON.parse(doc.data().json), log = g.purchaseLog || [];
+    let changed = [];
+    currentProducts().forEach(function(p){
+      const sent = shoppingLog[p.name]; if(!sent) return;
+      const ps = productState[p.id]; if(!ps) return;
+      ps.groceryRefills = ps.groceryRefills || [];
+      log.filter(function(l){ return normName(l.name)===normName(p.name) && l.qty>0 && l.date>=sent; }).forEach(function(l){
+        const k = l.key+'|'+l.qty;
+        if(ps.groceryRefills.indexOf(k)!==-1) return;
+        ps.groceryRefills.push(k); ps.groceryRefills = ps.groceryRefills.slice(-20);
+        ps.remaining = ps.capacity; ps.refills = (ps.refills||0)+1;
+        if(changed.indexOf(p.name)===-1) changed.push(p.name);
+      });
+    });
+    if(changed.length){
+      await saveProductState();
+      const sv = document.getElementById('shopping-view');
+      if(sv && sv.offsetParent && typeof renderShopping==='function') renderShopping();
+      const n = document.getElementById('skin-refill-note');
+      if(n) n.remove();
+      const bar = document.createElement('div'); bar.id='skin-refill-note';
+      bar.style.cssText='position:fixed;left:50%;bottom:20px;transform:translateX(-50%);background:#2E1F06;color:#fff;padding:10px 16px;border-radius:12px;font-size:13px;z-index:9999;max-width:90vw;box-shadow:0 8px 30px rgba(0,0,0,.25)';
+      bar.textContent = 'Marked as refilled — you bought it in Grocery: '+changed.join(', ');
+      document.body.appendChild(bar); setTimeout(function(){ bar.remove(); }, 6000);
+    }
+  }catch(e){ console.error('grocery refill sync failed', e); }
+}
 async function init(){
+  document.querySelectorAll('[data-applink]').forEach(function(a){ a.href = a.dataset.applink+'?profile='+encodeURIComponent(activeProfile||''); });
   await Promise.all([loadAll(), loadGymLogs()]);
+  syncGroceryRefills();
+  document.addEventListener('visibilitychange', function(){ if(!document.hidden) syncGroceryRefills(); });
+  window.addEventListener('focus', syncGroceryRefills);
   document.getElementById('tab-today-btn').onclick = function(){ showTab('today'); };
   document.getElementById('tab-shopping-btn').onclick = function(){ showTab('shopping'); };
   document.getElementById('tab-milestones-btn').onclick = function(){ showTab('milestones'); };
@@ -1527,7 +1568,7 @@ function refreshStatsRow(){
 /* =====================================================================
    SHOPPING
 ===================================================================== */
-function daysAgo(dateStr){ return Math.floor((new Date(todayStr()+'T00:00:00') - new Date(dateStr+'T00:00:00'))/86400000); }
+function daysAgo(dateStr){ return Math.round((new Date(todayStr()+'T00:00:00') - new Date(dateStr+'T00:00:00'))/86400000); }
 function shopRowHtml(it){
   const sentDate = shoppingLog[it.name];
   const statusHtml = sentDate
@@ -1667,7 +1708,7 @@ function renderMilestones(){
    CHECK-INS
 ===================================================================== */
 function lastEntry(arr){ return arr.length ? arr[arr.length-1] : null; }
-function daysSince(dateStr){ return Math.floor((new Date(todayStr()+'T00:00:00') - new Date(dateStr+'T00:00:00'))/86400000); }
+function daysSince(dateStr){ return Math.round((new Date(todayStr()+'T00:00:00') - new Date(dateStr+'T00:00:00'))/86400000); }
 function dueNote(arr, intervalDays, label){
   const last = lastEntry(arr);
   if(!last) return 'Not logged yet — log your first '+label+'.';

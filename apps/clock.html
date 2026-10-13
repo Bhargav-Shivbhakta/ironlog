@@ -428,6 +428,7 @@ async function enterProfile(profileId){
       if(disp) disp.textContent = fmtStopwatch(swElapsedMs);
     }, 30);
   }
+  restoreFocus();
   wireNav();
   showTab('dashboard');
   startMainLoop();
@@ -1153,6 +1154,7 @@ function alarmRowHtml(a){
   return '<div class="list-row" data-editalarm="'+a.id+'" style="cursor:pointer;"><div class="row-main">'+
     '<div class="alarm-preview-time" style="color:'+(a.on?'var(--text)':'var(--faint)')+';">'+h12+':'+pad2(mm)+' <small>'+ampm+'</small></div>'+
     (a.label ? '<div class="row-sub">'+escapeHtml(a.label)+'</div>' : '')+
+    ((a.days&&a.days.length)?'':'<div class="row-sub" style="margin-top:2px;">Once · turns off after it rings</div>')+
     '<div class="day-chip-row">'+DAY_LETTERS.map(function(d,i){ return '<span class="day-chip '+((a.days||[]).indexOf(i)!==-1?'on':'')+'">'+d+'</span>'; }).join('')+'</div>'+
     '</div><div class="row-actions">'+
     '<button type="button" class="toggle-sw '+(a.on?'on':'')+'" data-togglealarm="'+a.id+'"></button>'+
@@ -1173,7 +1175,7 @@ function openAlarmModal(existing){
         '<button type="button" class="day-preset-btn" data-preset="all">Every day</button>'+
         '<button type="button" class="day-preset-btn" data-preset="weekdays">Weekdays</button>'+
         '<button type="button" class="day-preset-btn" data-preset="weekends">Weekends</button>'+
-        '<button type="button" class="day-preset-btn" data-preset="none">None</button>'+
+        '<button type="button" class="day-preset-btn" data-preset="none" title="Rings once at the next matching time, then turns itself off">Once</button>'+
       '</div>'+
       '<div class="day-picker" id="alarm-day-picker">'+DAY_LETTERS.map(function(d,i){ return '<button type="button" data-day="'+i+'" title="'+DAY_NAMES[i]+'" class="'+(days.indexOf(i)!==-1?'on':'')+(i===todayDow?' is-today':'')+'">'+d+'</button>'; }).join('')+'</div>'+
     '</div>'+
@@ -1330,6 +1332,18 @@ function openNewTimerModal(){
     await saveTimers(); mount.innerHTML = ''; renderTimersPanel();
   });
 }
+function fireTimerDone(t){
+  if(notifPermission==='granted'){ try{ new Notification('Timer done', {body:t.name+' has finished.'}); }catch(e){} }
+  logHistory('timer', t.name, 'Timer completed');
+  startRingingLoop('chime');
+  const mount = document.getElementById('fire-mount');
+  mount.innerHTML = '<div class="fire-overlay"><div class="fire-box">'+
+    '<div class="fb-label">Timer done</div>'+
+    '<div class="fb-time" style="font-size:28px;">'+escapeHtml(t.name)+'</div>'+
+    '<button type="button" id="dismiss-timer-btn">Dismiss</button>'+
+  '</div></div>';
+  document.getElementById('dismiss-timer-btn').addEventListener('click', function(){ stopRingingLoop(); mount.innerHTML = ''; });
+}
 function tickTimers(){
   let changed = false;
   const now = Date.now();
@@ -1341,8 +1355,7 @@ function tickTimers(){
     if(left !== t.remaining){ t.remaining = left; changed = true; }
     if(t.remaining<=0){
       t.running = false;
-      notify('Timer done', t.name+' has finished.');
-      logHistory('timer', t.name, 'Timer completed');
+      fireTimerDone(t);
       saveTimers();
       changed = true;
     }
@@ -1407,14 +1420,35 @@ function renderFocusPanel(){
     });
   } else {
     document.getElementById('focus-controls').innerHTML = '<button type="button" class="ctrl-btn ghost" id="focus-pause-btn">'+(focusState.paused?'Resume':'Pause')+'</button><button type="button" class="ctrl-btn danger" id="focus-stop-btn">End session</button>';
-    document.getElementById('focus-pause-btn').addEventListener('click', function(){ focusState.paused = !focusState.paused; renderFocusPanel(); });
+    document.getElementById('focus-pause-btn').addEventListener('click', function(){ focusState.paused = !focusState.paused; focusLastTick = Date.now(); persistFocus(); renderFocusPanel(); });
     document.getElementById('focus-stop-btn').addEventListener('click', endFocusSession);
   }
 }
+// A running focus session is remembered (localStorage, per profile) so leaving Clock for another app and coming
+// back — which reloads this page — resumes the session with the right time left instead of silently dropping it.
+function focusStoreKey(){ return 'clock-focus-live-'+(activeProfile||''); }
+function persistFocus(){
+  try{
+    if(!focusState.running){ localStorage.removeItem(focusStoreKey()); return; }
+    localStorage.setItem(focusStoreKey(), JSON.stringify({ s:focusState, savedAt:Date.now() }));
+  }catch(e){}
+}
+function restoreFocus(){
+  try{
+    const raw = localStorage.getItem(focusStoreKey()); if(!raw) return;
+    const o = JSON.parse(raw); if(!o || !o.s || !o.s.running) return;
+    focusState = Object.assign({ running:false, mode:'work', remaining:0, total:0, workMin:25, breakMin:5, task:'' }, o.s);
+    focusLastTick = Date.now();
+    if(!focusState.paused) advanceFocus(Math.max(0, Math.round((Date.now()-o.savedAt)/1000)));
+  }catch(e){}
+}
+let focusLastTick = Date.now();
 function startFocusSession(){
   focusState.running = true; focusState.paused = false; focusState.mode = 'work';
   focusState.total = focusState.workMin*60; focusState.remaining = focusState.total;
   focusState._workedSeconds = 0;
+  focusLastTick = Date.now();
+  persistFocus();
   renderFocusPanel();
 }
 async function endFocusSession(){
@@ -1425,23 +1459,40 @@ async function endFocusSession(){
     logHistory('focus', focusState.task||'Focus session', minutes+' min');
   }
   focusState = { running:false, mode:'work', remaining:0, total:0, workMin:focusState.workMin, breakMin:focusState.breakMin, task:'' };
+  persistFocus();
   renderFocusPanel();
   if(activeTab==='dashboard') renderDashboard();
 }
-function tickFocus(){
-  if(!focusState.running || focusState.paused) return;
-  focusState.remaining--;
-  if(focusState.mode==='work') focusState._workedSeconds = (focusState._workedSeconds||0)+1;
-  if(focusState.remaining<=0){
-    if(focusState.mode==='work'){
-      notify('Focus session done', 'Time for a '+focusState.breakMin+'-minute break.');
-      focusState.mode = 'break'; focusState.total = focusState.breakMin*60; focusState.remaining = focusState.total;
-    } else {
-      notify('Break over', 'Ready for another focus session?');
-      endFocusSession();
-      return;
+// Moves the session forward by `sec` real seconds (work → break → done), however long the gap since the last
+// tick was — a hidden tab or a reloaded page can leave several seconds, or minutes, to catch up on at once.
+function advanceFocus(sec){
+  while(sec>0 && focusState.running){
+    const use = Math.min(sec, focusState.remaining);
+    focusState.remaining -= use; sec -= use;
+    if(focusState.mode==='work') focusState._workedSeconds = (focusState._workedSeconds||0)+use;
+    if(focusState.remaining<=0){
+      if(focusState.mode==='work'){
+        notify('Focus session done', 'Time for a '+focusState.breakMin+'-minute break.');
+        focusState.mode = 'break'; focusState.total = focusState.breakMin*60; focusState.remaining = focusState.total;
+        persistFocus();
+      } else {
+        notify('Break over', 'Ready for another focus session?');
+        endFocusSession();
+        return;
+      }
     }
   }
+}
+function tickFocus(){
+  if(!focusState.running) return;
+  const now = Date.now();
+  if(focusState.paused){ focusLastTick = now; return; }
+  const sec = Math.floor((now-focusLastTick)/1000);
+  if(sec<1) return;
+  focusLastTick += sec*1000;
+  advanceFocus(sec);
+  if(!focusState.running) return;
+  persistFocus();
   if(activeTab==='focus'){
     const timeEl = document.getElementById('focus-time');
     if(timeEl) timeEl.textContent = pad2(Math.floor(Math.max(0,focusState.remaining)/60))+':'+pad2(Math.max(0,focusState.remaining)%60);

@@ -13,7 +13,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="assets/app.css">
-  <link rel="stylesheet" href="assets/banners.css?v=20261001a">
+  <link rel="stylesheet" href="assets/banners.css?v=20261013a">
   <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
@@ -116,6 +116,7 @@
           <button type="button" class="hub-weather-use-gps" id="hub-weather-use-gps"><i data-lucide="locate-fixed"></i><span>Use my location</span></button>
           <input type="text" class="hub-weather-search-input" id="hub-weather-search-input" placeholder="Search a city…" autocomplete="off">
           <div class="hub-weather-search-results" id="hub-weather-search-results"></div>
+          <button type="button" class="hub-weather-search-close" id="hub-weather-remove-slot" hidden>Remove this city</button>
           <button type="button" class="hub-weather-search-close" id="hub-weather-search-close">Cancel</button>
         </div>
       </div>
@@ -236,98 +237,39 @@
 
       <section class="page" id="page-insights" data-page="insights">
         <header class="page-header">
-          <div><p class="eyebrow">Your momentum</p><h1>Insights</h1><p class="page-subtitle">Your activity across the Hub.</p></div>
-          <div class="insights-head-actions">
-            <div class="insights-range" id="insights-range">
-              <button type="button" class="active" data-range="week">7 days</button>
-              <button type="button" data-range="month">28 days</button>
-              <button type="button" data-range="all">60 days</button>
-            </div>
-            <button type="button" class="insights-replay" id="insights-replay"><i data-lucide="play"></i> Replay</button>
-          </div>
+          <div><p class="eyebrow">Your progress</p><h1>Insights</h1><p class="page-subtitle">How you’re doing against what you set out to do.</p></div>
         </header>
 
-        <div class="insights-cinema" id="insights-cinema">
-          <div class="insights-scanline" id="insights-scanline"></div>
-          <div class="insights-spine" id="insights-spine" aria-hidden="true"><svg preserveAspectRatio="none"><line id="insights-spine-line" x1="1" y1="0" x2="1" y2="100%"/></svg></div>
+        <div class="prog" id="prog">
+          <section class="prog-hero" id="prog-hero"></section>
 
-          <section class="insights-hero reveal" id="insights-hero">
-            <div class="insights-hero-grid">
-              <div>
-                <p class="insights-score-label">Consistency, selected range</p>
-                <div class="insights-score" id="insights-score">0%</div>
-                <p class="insights-score-message" id="insights-score-message">Loading your activity…</p>
-                <div class="insights-delta" id="insights-delta"></div>
-              </div>
-              <div class="insights-chart-wrap">
-                <div class="insights-chart-meta"><span id="insights-chart-start">—</span><span>Daily activity</span><span id="insights-chart-end">—</span></div>
-                <svg class="insights-chart" id="insights-chart" viewBox="0 0 760 190" preserveAspectRatio="none" aria-label="Daily activity trend">
-                  <defs><linearGradient id="insightsAreaGrad" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#42e6a4" stop-opacity=".4"/><stop offset="1" stop-color="#42e6a4" stop-opacity="0"/></linearGradient></defs>
-                  <g id="insights-chart-grid"></g>
-                  <path class="insights-chart-area" id="insights-chart-area"/>
-                  <path class="insights-chart-line" id="insights-chart-line"/>
-                </svg>
-              </div>
+          <div class="prog-section-head"><h2>Your goals</h2><p>Where each one stands today</p></div>
+          <div class="prog-goals" id="prog-goals"></div>
+
+          <div class="prog-two">
+            <div>
+              <div class="prog-section-head"><h2>This week</h2><p>Days active out of 7, compared with last week</p></div>
+              <section class="prog-card" id="prog-week"></section>
             </div>
-            <div class="insights-hero-foot" id="insights-hero-foot"></div>
+            <div>
+              <div class="prog-section-head"><h2>Next up</h2><p>The closest things to aim for</p></div>
+              <section class="prog-card" id="prog-next"></section>
+            </div>
+          </div>
+
+          <div class="prog-section-head"><h2>Last 60 days</h2><p>Darker = more done that day. Tap a day.</p></div>
+          <section class="prog-card">
+            <div class="prog-grid-scroll"><div class="prog-grid" id="prog-grid"></div></div>
+            <div class="prog-legend"><span>Less</span><i class="prog-cell l0"></i><i class="prog-cell l1"></i><i class="prog-cell l2"></i><i class="prog-cell l3"></i><span>More</span></div>
+            <div class="prog-day-detail" id="prog-day-detail"></div>
           </section>
 
-          <section class="insights-command reveal" id="insights-command">
-            <div class="insights-command-main">
-              <p class="insights-chapter">Right now</p>
-              <h2 id="insights-headline">Loading your week…</h2>
-              <p id="insights-subtext"></p>
-              <div class="insights-streak-row" id="insights-streak-row">
-                <span class="insights-flame" id="insights-flame">🔥</span>
-                <strong id="insights-streak-num">0</strong><small>day streak</small>
-              </div>
-            </div>
-            <div class="insights-command-surprise">
-              <p class="insights-chapter">Just for you</p>
-              <h3 id="insights-surprise-title">Something to notice</h3>
-              <p id="insights-surprise-body"></p>
-            </div>
-          </section>
+          <div class="prog-section-head"><h2>Badges</h2><p>Earned from real days, not given</p></div>
+          <section class="prog-card prog-badges" id="prog-badges"></section>
 
-          <div class="insights-section-head"><div><h2>Activity grid</h2><p>60 days across tasks, chores, training and care — tap a dot to see that day</p></div><button type="button" id="insights-grid-jump">Jump to today</button></div>
-          <section class="insights-card insights-grid-card reveal" id="insights-grid-card">
-            <div class="insights-grid-scroll"><div class="insights-grid" id="insights-grid"></div></div>
-            <div class="insights-grid-legend"><span>Less</span><span class="igrid-dot l0"></span><span class="igrid-dot l1"></span><span class="igrid-dot l2"></span><span class="igrid-dot l3"></span><span>More</span></div>
-            <div class="insights-day-detail" id="insights-day-detail"></div>
-          </section>
-
-          <div class="insights-section-head"><div><h2>Your constellation</h2><p>Each point is a badge you've actually earned — not one you were given</p></div></div>
-          <section class="insights-constellation reveal" id="insights-constellation-card">
-            <canvas id="insights-canvas" aria-label="Constellation of earned badges"></canvas>
-            <div class="insights-constellation-copy">
-              <p class="insights-chapter">Earned the hard way</p>
-              <h3>Proof you can look back on.</h3>
-              <p id="insights-constellation-note">—</p>
-              <div class="insights-badge-list" id="insights-badge-list"></div>
-            </div>
-            <div class="insights-constellation-status" id="insights-constellation-status"><strong>0 / 6</strong><span>badges earned</span></div>
-          </section>
-
-          <div class="insights-section-head"><div><h2>Growth rings</h2><p>Every real week you've had, ring by ring — this week is the outer edge, still growing</p></div></div>
-          <section class="insights-two-col reveal" id="insights-systems-row">
-            <div class="insights-card"><div class="insights-rings" id="insights-rings"></div></div>
-            <div class="insights-card">
-              <div class="insights-section-head" style="margin:0 0 12px"><div><h2>Most consistent</h2><p>Ranked by days active this week</p></div></div>
-              <div class="insights-rank-list" id="insights-rank-list"></div>
-            </div>
-          </section>
-
-          <div class="insights-section-head" id="milestones-section-head"><div><h2>Skin plan milestones</h2><p>Monthly reviews, shifted to match your actual start date</p></div></div>
-          <section class="insights-card reveal" id="milestones-card"><div id="milestones-list"></div></section>
-
-          <div class="insights-section-head"><div><h2>What this week proves</h2><p>Interpretation grounded in your actual activity — not a random quote</p></div></div>
-          <section class="insights-story-grid reveal" id="insights-story-row">
-            <div class="insights-card insights-story"><div class="insights-quote">"</div><h3 id="insights-story-title"></h3><p id="insights-story-body"></p></div>
-            <div class="insights-card insights-thread">
-              <p class="insights-chapter">For the difficult days</p><h3>Keep the thread.</h3>
-              <p id="insights-thread-body">Today doesn't need to be perfect. Complete one meaningful action and keep your relationship with progress alive.</p>
-              <button type="button" id="insights-thread-btn">Choose my smallest meaningful action</button>
-            </div>
+          <section class="prog-card prog-thread">
+            <div><h3>Hard day?</h3><p id="insights-thread-body">Do one small thing before the day ends.</p></div>
+            <button type="button" id="insights-thread-btn">Pick my smallest next step</button>
           </section>
         </div>
       </section>
@@ -346,7 +288,7 @@
           <p class="settings-hint">Your own animated Today banner — picking one here only changes yours, never the other profile's. Click a banner to activate it. The checkbox in the corner of each one controls whether Shuffle/rotation is allowed to pick it — uncheck any you don't want showing up on their own.</p>
           <div class="banner-gallery-tabs" id="banner-gallery-tabs">
             <button type="button" data-banner-tab="all" class="active">All</button>
-            <button type="button" data-banner-tab="original">Original 8</button>
+            <button type="button" data-banner-tab="original">Originals</button>
             <button type="button" data-banner-tab="characters">Characters</button>
           </div>
           <div class="banner-pool-actions">
@@ -466,7 +408,6 @@
       </div>
     </div>
   </div>
-  <div class="insights-celebration" id="insights-celebration"></div>
 
   <div class="modal-backdrop" id="widget-add-modal" hidden>
     <div class="modal" role="dialog" aria-modal="true" aria-labelledby="widget-add-title">
@@ -508,7 +449,7 @@
     </div>
   </div>
 
-  <script src="assets/banners.js?v=20261001a"></script>
+  <script src="assets/banners.js?v=20261013a"></script>
   <script src="assets/app.js"></script>
   <script src="assets/voice.js"></script>
 </body>

@@ -101,6 +101,14 @@
   .card:hover,[class*="-card"]:hover{transform:translateY(-2px);box-shadow:0 10px 28px rgba(20,20,17,.09)}
   .card:active,[class*="-card"]:active{transform:translateY(0) scale(.985)}
   @keyframes life-fade-in{from{opacity:0;transform:translateY(8px)}}
+  /* phone: slim header, title wraps instead of being cut off */
+  @media(max-width:700px){
+    .topbar-wrap{padding:10px 14px}.topbar-inner{gap:8px!important}.brand-cluster{gap:8px!important}
+    .profile-box{margin-bottom:0;padding:6px 8px;width:100%}.profile-box small{display:none}.profile-buttons{display:flex;gap:6px;width:100%}.profile-buttons button{flex:1}
+    .command-title{white-space:normal;overflow:visible;text-overflow:clip}
+    .command-heading{width:100%}
+    .headline-stat b{font-size:20px}
+  }
 </style>
 </head>
 <body>
@@ -112,7 +120,7 @@
       <div class="brand-cluster">
         <div class="brand"><span class="brandmark">N</span> Nourish Duo</div>
         <a class="hub-link" href="../index.html">← Home hub</a>
-        <div class="integration-links"><a href="grocery.html">Grocery ↗</a><a href="../gym/index.html">Gym ↗</a></div>
+        <div class="integration-links"><a href="grocery.html">Grocery ↗</a><a href="skin.html" onclick="try{var p=state.activeProfile||'';this.href='skin.html?profile='+encodeURIComponent(p.charAt(0).toUpperCase()+p.slice(1))}catch(e){}">Skin ↗</a><a href="../gym/index.html">Gym ↗</a></div>
       </div>
       <div class="profile-box"><small>Active profile</small><div class="profile-buttons"><button id="profileBhargav" onclick="setProfile('bhargav')">Bhargav</button><button id="profileAnusha" onclick="setProfile('anusha')">Anusha</button></div></div>
     </div>
@@ -298,7 +306,7 @@ let state=JSON.parse(localStorage.getItem('nourish-state')||'null')||{foods:seed
 persist=function(){localStorage.setItem('nourish-state',JSON.stringify(state))};
 let draft=JSON.parse(JSON.stringify(seedRecipe)); let editingFood=null,logDraft=null;
 const $=id=>document.getElementById(id), round=(n,d=1)=>Number(n.toFixed(d));
-function toast(msg){$('notice').textContent=msg;$('notice').classList.add('show');setTimeout(()=>$('notice').classList.remove('show'),1800)}
+function toast(msg){$('notice').textContent=msg;$('notice').classList.add('show');clearTimeout(toast.t);toast.t=setTimeout(()=>$('notice').classList.remove('show'),Math.min(7000,1800+String(msg).length*40))}
 function food(id){return state.foods.find(f=>f.id===id)}
 function unitsFor(f){const mass=['g','oz'],liquid=['ml','cup','tbsp','tsp'],count=['piece','serving','scoop'];let u=mass.includes(f.unit)?mass:liquid.includes(f.unit)?liquid:[f.unit];if(f.density)u.push(...mass,...liquid);if(f.pieceG)u.push(...mass,...count);return [...new Set(u)]}
 function toBasisQty(f,qty,unit){qty=Number(qty)||0;if(unit===f.unit)return qty;const mass={g:1,oz:28.3495},liquid={ml:1,cup:236.588,tbsp:14.787,tsp:4.929},counts=['piece','serving','scoop'];let grams=null,ml=null;if(mass[unit])grams=qty*mass[unit];if(liquid[unit])ml=qty*liquid[unit];if(counts.includes(unit)&&f.pieceG)grams=qty*f.pieceG;if(grams===null&&ml!==null&&f.density)grams=ml*f.density;if(ml===null&&grams!==null&&f.density)ml=grams/f.density;if(mass[f.unit]&&grams!==null)return grams/mass[f.unit];if(liquid[f.unit]&&ml!==null)return ml/liquid[f.unit];if(counts.includes(f.unit)&&grams!==null&&f.pieceG)return grams/f.pieceG;return 0}
@@ -528,10 +536,10 @@ todayKey=function(){return state.selectedDate}
 // then were silently saved under tomorrow's date, which is why Gym's "Today's
 // Targets" could show 0 even right after logging a meal.
 function localToday(){let d=new Date();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')}
-function addDaysISO(iso,d){let x=new Date(iso+'T12:00:00');x.setDate(x.getDate()+d);return x.toISOString().slice(0,10)}
+function addDaysISO(iso,d){let x=new Date(iso+'T12:00:00');x.setDate(x.getDate()+d);return x.getFullYear()+'-'+String(x.getMonth()+1).padStart(2,'0')+'-'+String(x.getDate()).padStart(2,'0')}
 function mondayOf(iso){let d=new Date(iso+'T12:00:00'),n=(d.getDay()+6)%7;return addDaysISO(iso,-n)}
 function formatDate(iso,opt={month:'short',day:'numeric'}){return new Date(iso+'T12:00:00').toLocaleDateString(undefined,opt)}
-function updateHeaderDate(){$('todayDate').value=state.selectedDate;if($('planSectionTitle'))$('planSectionTitle').textContent=state.selectedDate===new Date().toISOString().slice(0,10)?'Plan for Today':`Plan for ${formatDate(state.selectedDate,{weekday:'short',month:'short',day:'numeric'})}`}
+function updateHeaderDate(){$('todayDate').value=state.selectedDate;if($('planSectionTitle'))$('planSectionTitle').textContent=state.selectedDate===localToday()?'Plan for Today':`Plan for ${formatDate(state.selectedDate,{weekday:'short',month:'short',day:'numeric'})}`}
 function consumptionFor(items,factor=1){let map={},missing=false;items.forEach(it=>{let f=food(it.foodId);if(!f){missing=true;return}let q=toBasisQty(f,it.qty,it.unit)*factor;map[f.id]=(map[f.id]||0)+q});if(missing&&typeof toast==='function')toast('One or more ingredients in this meal no longer exist in your library — logged the rest');return Object.entries(map).map(([foodId,qty])=>({foodId,qty}))}
 function mergeConsumption(groups){let m={};groups.flat().forEach(x=>m[x.foodId]=(m[x.foodId]||0)+x.qty);return Object.entries(m).map(([foodId,qty])=>({foodId,qty}))}
 function applyConsumption(list,direction=-1){list.forEach(c=>{let f=food(c.foodId);if(f&&f.groceryProductId)return;let p=state.pantry.find(x=>x.foodId===c.foodId);if(p)p.qty=Math.max(0,p.qty+direction*c.qty)})}
@@ -541,7 +549,7 @@ diaryNutrients=function(){return state.diary.filter(x=>x.date===todayKey()&&x.pr
 confirmLog=async function(){if(!logDraft||!logDraft.items.length)return toast('Add at least one ingredient');let servings=Math.max(.25,+$('logServings').value||1),name=$('logName').value.trim()||logDraft.name,factor=servings/(logDraft.servings||1),c=consumptionFor(logDraft.items,factor);logDraft.name=name;if($('updateMaster').checked)state.recipes=state.recipes.map(r=>r.id===logDraft.id?clone(logDraft):r);applyConsumption(c,-1);state.diary.push({id:'d-'+Date.now(),date:todayKey(),profileId:state.activeProfile,recipeId:logDraft.id,name,detail:'Customized recipe',icon:'🍽️',servings,nutrition:recipeNutrients(logDraft),recipeServings:logDraft.servings,status:'eaten',note:'',consumption:c});persist();closeLogModal();renderAll();toast(`${name} added to ${formatDate(todayKey())}`);go('dashboard');if(typeof trackPantryConsumption==='function'){try{await trackPantryConsumption([logDraft])}catch(err){console.error('Grocery pantry sync failed:',err)}}}
 function resolvePlannedDuplicates(mealName){state.diary.filter(x=>x.date===todayKey()&&x.profileId===state.activeProfile&&x.name===mealName&&x.status==='planned'&&!x.replaced).forEach(x=>x.replaced=true)}
 confirmBundle=async function(){let parts=bundleDraft.parts.filter(p=>p.include);if(!parts.length)return toast('Select at least one recipe');if($('bundleUpdate').checked)parts.forEach(p=>state.recipes=state.recipes.map(r=>r.id===p.recipe.id?clone(p.recipe):r));let n=addNutrition(parts.map(p=>recipeServingN(p.recipe))),c=mergeConsumption(parts.map(p=>consumptionFor(p.recipe.items,1/(p.recipe.servings||1)))),m=bundleDraft.meal;applyConsumption(c,-1);resolvePlannedDuplicates(m.name);state.diary.push({id:'d-'+Date.now(),date:todayKey(),profileId:state.activeProfile,mealId:m.id,name:m.name,detail:parts.map(p=>p.recipe.name).join(' + '),icon:m.icon,servings:1,recipeServings:1,nutrition:n,status:'eaten',note:'',consumption:c});persist();closeBundle();renderAll();go('dashboard');toast(`${m.name} added to ${formatDate(todayKey())}`);if(typeof trackPantryConsumption==='function'){try{await trackPantryConsumption(parts.map(p=>p.recipe))}catch(err){console.error('Grocery pantry sync failed:',err)}}}
-logFullDay=async function(){let ms=state.meals.filter(m=>m.profileId===state.activeProfile);if(!confirm(`Log all ${ms.length} meals for ${active().name} on ${formatDate(todayKey())}?`))return;let allRs=[];for(let i=0;i<ms.length;i++){let m=ms[i],rs=defaultRecipesForMeal(m),c=mergeConsumption(rs.map(r=>consumptionFor(r.items,1/(r.servings||1))));applyConsumption(c,-1);resolvePlannedDuplicates(m.name);state.diary.push({id:`d-${Date.now()}-${i}`,date:todayKey(),profileId:state.activeProfile,mealId:m.id,name:m.name,detail:rs.map(r=>r.name).join(' + '),icon:m.icon,servings:1,recipeServings:1,nutrition:mealNutrition(m),status:'eaten',note:'',consumption:c});allRs.push(...rs)}persist();renderAll();go('dashboard');toast('Complete day logged');if(typeof trackPantryConsumption==='function'&&allRs.length){try{await trackPantryConsumption(allRs)}catch(err){console.error('Grocery pantry sync failed:',err)}}}
+logFullDay=async function(){let ms=state.meals.filter(m=>m.profileId===state.activeProfile&&!state.diary.some(x=>x.date===todayKey()&&x.profileId===state.activeProfile&&x.name===m.name&&((x.status||'eaten')==='eaten'||x.replaced)));if(!ms.length)return toast('Everything on this day’s plan is already logged or replaced');if(!confirm(`Log the ${ms.length} meal${ms.length===1?'':'s'} not yet logged for ${active().name} on ${formatDate(todayKey())}?`))return;let allRs=[];for(let i=0;i<ms.length;i++){let m=ms[i],rs=defaultRecipesForMeal(m),c=mergeConsumption(rs.map(r=>consumptionFor(r.items,1/(r.servings||1))));applyConsumption(c,-1);resolvePlannedDuplicates(m.name);state.diary.push({id:`d-${Date.now()}-${i}`,date:todayKey(),profileId:state.activeProfile,mealId:m.id,name:m.name,detail:rs.map(r=>r.name).join(' + '),icon:m.icon,servings:1,recipeServings:1,nutrition:mealNutrition(m),status:'eaten',note:'',consumption:c});allRs.push(...rs)}persist();renderAll();go('dashboard');toast('Complete day logged');if(typeof trackPantryConsumption==='function'&&allRs.length){try{await trackPantryConsumption(allRs)}catch(err){console.error('Grocery pantry sync failed:',err)}}}
 const MACROS_COLLAPSE_KEY='diet-macros-collapsed';
 function toggleMacrosCard(force){
   const collapsed = typeof force==='boolean' ? force : $('macrosBody').style.display!=='none';
@@ -554,7 +562,7 @@ function toggleMacrosCard(force){
   try{ saved=localStorage.getItem(MACROS_COLLAPSE_KEY); }catch(e){}
   if(saved==='1') toggleMacrosCard(true);
 })();
-renderDashboard=function(){updateHeaderDate();let n=diaryNutrients(),g=active().goals,mg=active().microGoals,row=(k,v,t,u)=>`<div class="pair-row"><span>${k}</span><b>${round(v,0)}<small>/${t}${u}</small></b><div class="bar"><i style="width:${Math.min(100,v/t*100)}%"></i></div></div>`,pairCard=(a,b)=>`<div class="stat pair-stat">${a}${b}</div>`;$('stats').innerHTML=pairCard(row('Calories',n.calories,g.calories,'kcal'),row('Protein',n.protein,g.protein,'g'))+pairCard(row('Carbs',n.carbs,g.carbs,'g'),row('Sugar',n.sugar,mg.sugar,'g'))+pairCard(row('Fat',n.fat,g.fat,'g'),row('Sat fat',n.satFat,mg.satFat,'g'));let entries=state.diary.filter(x=>x.date===todayKey()&&x.profileId===state.activeProfile);$('mealList').innerHTML=entries.length?entries.map(x=>{let f=x.servings/(x.recipeServings||1),nn=scaled(x.nutrition,f),s=x.status||'eaten',quick=x.quick!==false,statusClass=x.replaced?'replaced':s,statusLabel=x.replaced?'↔ Replacement logged':(s==='eaten'?'✓ Eaten as planned':s==='skipped'?'Skipped':'Planned'),quickActions=(s==='planned'&&!x.replaced&&quick)?`<button class="btn secondary small" onclick="quickLogMeal('${x.id}')">✓ Ate as planned</button><button class="btn ghost small" onclick='openUniversalLog({type:"replacement",targetId:"${x.id}"})'>Replace</button>`:'',quickToggle=(s==='planned'&&!x.replaced)?`<button class="icon-btn" title="${quick?'Remove from quick list':'Add to quick list'}" onclick="toggleQuickMeal('${x.id}')">${quick?'★':'☆'}</button>`:'',mealDef=x.mealId?state.meals.find(mm=>mm.id===x.mealId):null,nameHtml=mealDef?`<button class="timeline-name-link" title="Open in Meals tab" onclick="goToMeal('${x.mealId}')">${esc(x.name)} ↗</button>`:`<div class="timeline-name">${esc(x.name)}</div>`,contentsHtml=mealDef&&mealDef.recipeIds.length?`<details class="entry-contents"><summary>▸ Contents (${mealDef.recipeIds.length})</summary><div class="entry-contents-body">${mealDef.recipeIds.map(id=>{let r=state.recipes.find(rr=>rr.id===id);return r?esc(r.name)+' — '+round(recipeServingN(r).calories,0)+' kcal':''}).filter(Boolean).join('<br>')}</div></details>`:'';return`<div class="timeline-meal"><div class="timeline-icon">${x.icon||'🍽️'}</div><div class="timeline-main">${nameHtml}<div class="timeline-meta">${esc(x.detail||'Meal')} · P ${round(nn.protein)}g · C ${round(nn.carbs)}g · F ${round(nn.fat)}g${s==='eaten'&&!x.replaced?` · ${round(nn.calories,0)} kcal`:''}</div>${contentsHtml}<span class="timeline-status ${statusClass}">${statusLabel}</span><details class="entry-edit"><summary>Edit</summary><div class="diary-controls"><div class="status-toggle">${['planned','eaten','skipped'].map(v=>`<button class="${s===v?'active':''}" onclick="updateDiary('${x.id}','status','${v}')">${v[0].toUpperCase()+v.slice(1)}</button>`).join('')}</div><input class="input note-input" value="${esc(x.note||'')}" placeholder="Hunger, energy, digestion…" onchange="updateDiary('${x.id}','note',this.value)"></div></details></div><div class="timeline-actions">${quickActions}${quickToggle}<button class="icon-btn" onclick="removeDiary('${x.id}')">×</button></div></div>`}).join(''):'<div class="empty"><div class="orb">🥗</div><b>No entries for this date</b><div>Open Meal plan or Week to add the standard plan.</div></div>';fillExtraMealSelect();renderMealListOG();let pct=Math.min(1,n.calories/g.calories);$('calRing').style.setProperty('--angle',pct*360+'deg');$('ringValue').textContent=round(n.calories,0);$('ringGoal').textContent=`of ${g.calories.toLocaleString()} kcal`;$('dailyTip').textContent=n.calories?`${round(g.calories-n.calories,0)} kcal remaining. Protein: ${round(n.protein)} of ${g.protein} g.`:`${active().name}’s plan is ready for ${formatDate(todayKey())}.`;if($('headlineRemaining')){let remaining=g.calories-n.calories;$('headlineRemaining').textContent=round(Math.abs(remaining),0).toLocaleString();$('headlineRemainingLabel').textContent=remaining>=0?'kcal remaining':'kcal over';$('headlineProtein').textContent=`${round(n.protein)}/${g.protein}g`;$('headlineMeals').textContent=entries.filter(x=>(x.status||'eaten')==='eaten').length}renderDietCommand();renderProteinRescue()}
+renderDashboard=function(){updateHeaderDate();seedPlanForDate();let n=diaryNutrients(),g=active().goals,mg=active().microGoals,row=(k,v,t,u)=>`<div class="pair-row"><span>${k}</span><b>${round(v,0)}<small>/${t}${u}</small></b><div class="bar"><i style="width:${Math.min(100,v/t*100)}%"></i></div></div>`,pairCard=(a,b)=>`<div class="stat pair-stat">${a}${b}</div>`;$('stats').innerHTML=pairCard(row('Calories',n.calories,g.calories,'kcal'),row('Protein',n.protein,g.protein,'g'))+pairCard(row('Carbs',n.carbs,g.carbs,'g'),row('Sugar',n.sugar,mg.sugar,'g'))+pairCard(row('Fat',n.fat,g.fat,'g'),row('Sat fat',n.satFat,mg.satFat,'g'));let entries=state.diary.filter(x=>x.date===todayKey()&&x.profileId===state.activeProfile);$('mealList').innerHTML=entries.length?entries.map(x=>{let f=x.servings/(x.recipeServings||1),nn=scaled(x.nutrition,f),s=x.status||'eaten',quick=x.quick!==false,statusClass=x.replaced?'replaced':s,statusLabel=x.replaced?'↔ Replacement logged':(s==='eaten'?'✓ Eaten as planned':s==='skipped'?'Skipped':'Planned'),quickActions=(s==='planned'&&!x.replaced&&quick)?`<button class="btn secondary small" onclick="quickLogMeal('${x.id}')">✓ Ate as planned</button><button class="btn ghost small" onclick='openUniversalLog({type:"replacement",targetId:"${x.id}"})'>Replace</button>`:'',quickToggle=(s==='planned'&&!x.replaced)?`<button class="icon-btn" title="${quick?'Remove from quick list':'Add to quick list'}" onclick="toggleQuickMeal('${x.id}')">${quick?'★':'☆'}</button>`:'',mealDef=x.mealId?state.meals.find(mm=>mm.id===x.mealId):null,nameHtml=mealDef?`<button class="timeline-name-link" title="Open in Meals tab" onclick="goToMeal('${x.mealId}')">${esc(x.name)} ↗</button>`:`<div class="timeline-name">${esc(x.name)}</div>`,contentsHtml=mealDef&&mealDef.recipeIds.length?`<details class="entry-contents"><summary>Contents (${mealDef.recipeIds.length})</summary><div class="entry-contents-body">${mealDef.recipeIds.map(id=>{let r=state.recipes.find(rr=>rr.id===id);return r?esc(r.name)+' — '+round(recipeServingN(r).calories,0)+' kcal':''}).filter(Boolean).join('<br>')}</div></details>`:'';return`<div class="timeline-meal"><div class="timeline-icon">${x.icon||'🍽️'}</div><div class="timeline-main">${nameHtml}<div class="timeline-meta">${esc(x.detail||'Meal')} · P ${round(nn.protein)}g · C ${round(nn.carbs)}g · F ${round(nn.fat)}g${s==='eaten'&&!x.replaced?` · ${round(nn.calories,0)} kcal`:''}</div>${contentsHtml}<span class="timeline-status ${statusClass}">${statusLabel}</span><details class="entry-edit"><summary>Edit</summary><div class="diary-controls"><div class="status-toggle">${['planned','eaten','skipped'].map(v=>`<button class="${s===v?'active':''}" onclick="updateDiary('${x.id}','status','${v}')">${v[0].toUpperCase()+v.slice(1)}</button>`).join('')}</div><input class="input note-input" value="${esc(x.note||'')}" placeholder="Hunger, energy, digestion…" onchange="updateDiary('${x.id}','note',this.value)"></div></details></div><div class="timeline-actions">${quickActions}${quickToggle}<button class="icon-btn" onclick="removeDiary('${x.id}')">×</button></div></div>`}).join(''):'<div class="empty"><div class="orb">🥗</div><b>No entries for this date</b><div>Open Meal plan or Week to add the standard plan.</div></div>';fillExtraMealSelect();renderMealListOG();let pct=Math.min(1,n.calories/g.calories);$('calRing').style.setProperty('--angle',pct*360+'deg');$('ringValue').textContent=round(n.calories,0);$('ringGoal').textContent=`of ${g.calories.toLocaleString()} kcal`;$('dailyTip').textContent=n.calories?`${round(g.calories-n.calories,0)} kcal remaining. Protein: ${round(n.protein)} of ${g.protein} g.`:`${active().name}’s plan is ready for ${formatDate(todayKey())}.`;if($('headlineRemaining')){let remaining=g.calories-n.calories;$('headlineRemaining').textContent=round(Math.abs(remaining),0).toLocaleString();$('headlineRemainingLabel').textContent=remaining>=0?'kcal remaining':'kcal over';$('headlineProtein').textContent=`${round(n.protein)}/${g.protein}g`;$('headlineMeals').textContent=entries.filter(x=>(x.status||'eaten')==='eaten').length}renderDietCommand();renderProteinRescue()}
 quickLogMeal=function(id){let entry=state.diary.find(d=>d.id===id);let m=entry&&entry.mealId?state.meals.find(mm=>mm.id===entry.mealId):null;if(m&&mealHasChoice(m)){pendingQuickLogId=id;openBundle(m.id);toast('Pick which option you actually had');return}updateDiary(id,'status','eaten');toast('Marked as eaten')}
 function toggleQuickMeal(id){let e=state.diary.find(x=>x.id===id);if(!e)return;e.quick=e.quick===false?true:false;persist();renderAll();toast(e.quick?'Added to quick list':'Removed from quick list')}
 function fillExtraMealSelect(){let sel=$('extraMealSelect');if(!sel)return;let selected=sel.value,ms=state.meals.filter(m=>m.profileId===state.activeProfile);sel.innerHTML=ms.length?ms.map(m=>`<option value="${m.id}">${m.icon} ${esc(m.name)} — ${esc(m.recipeIds.map(id=>state.recipes.find(r=>r.id===id)).filter(Boolean).map(r=>r.name).join(' + '))}</option>`).join(''):'<option value="">No meals yet</option>';if(ms.some(m=>m.id===selected))sel.value=selected}
@@ -565,19 +573,29 @@ function addExtraPlannedMeal(){let sel=$('extraMealSelect'),ms=state.meals.filte
 let dashMode='day';
 function setDashMode(mode){dashMode=mode;document.querySelectorAll('#dashToggle button').forEach(b=>b.classList.toggle('active',b.dataset.mode===mode));$('dashDay').style.display=mode==='day'?'':'none';$('dashWeek').style.display=mode==='week'?'':'none';if(mode==='week')renderCalendar()}
 function greetingWord(){let h=new Date().getHours();return h<5?'evening':h<12?'morning':h<17?'afternoon':'evening'}
-renderDietCommand=function(){if(!$('commandTitle'))return;let planned=state.diary.filter(x=>x.date===todayKey()&&x.profileId===state.activeProfile&&x.status==='planned'&&!x.replaced).length,icon=state.activeProfile==='anusha'?'🌸':'🔥',mode=dashMode||'day';$('commandIcon').textContent=icon;$('commandLabel').textContent=`Good ${greetingWord()}`;$('commandTitle').textContent=`${active().name}, ${planned?`${planned} planned meal${planned===1?'':'s'} left today`:'plan complete for today'}`;$('commandControls').innerHTML=`<div class="dash-toggle" id="dashToggle"><button class="${mode==='day'?'active':''}" data-mode="day" onclick="setDashMode('day')">Day</button><button class="${mode==='week'?'active':''}" data-mode="week" onclick="setDashMode('week')">Week</button></div>`}
+renderDietCommand=function(){if(!$('commandTitle'))return;let planned=state.diary.filter(x=>x.date===todayKey()&&x.profileId===state.activeProfile&&x.status==='planned'&&!x.replaced).length,icon=state.activeProfile==='anusha'?'🌸':'🔥',mode=dashMode||'day';$('commandIcon').textContent=icon;$('commandLabel').textContent=`Good ${greetingWord()}`;let eatenN=state.diary.filter(x=>x.date===todayKey()&&x.profileId===state.activeProfile&&(x.status||'eaten')==='eaten'&&!x.replaced).length,when=todayKey()===localToday()?'today':'on '+formatDate(todayKey(),{weekday:'short',month:'short',day:'numeric'});$('commandTitle').textContent=`${active().name}, ${planned?`${planned} planned meal${planned===1?'':'s'} left ${when}`:eatenN?`plan complete ${when}`:`nothing planned ${when} yet`}`;$('commandControls').innerHTML=`<div class="dash-toggle" id="dashToggle"><button class="${mode==='day'?'active':''}" data-mode="day" onclick="setDashMode('day')">Day</button><button class="${mode==='week'?'active':''}" data-mode="week" onclick="setDashMode('week')">Week</button></div>`}
 renderProteinRescue=function(){if(!$('proteinRescue'))return;let n=diaryNutrients(),g=active().goals,remainP=g.protein-n.protein;if(remainP<=8){$('proteinRescue').innerHTML='';return}let scoops=Math.max(1,Math.round(remainP/24)),nextProteinMeal=state.diary.find(x=>x.date===todayKey()&&x.profileId===state.activeProfile&&x.status==='planned'&&!x.replaced&&(x.nutrition.protein||0)*(x.servings/(x.recipeServings||1))>=15);$('proteinRescue').innerHTML=`<div class="rescue-card"><b>${round(remainP,0)} g of protein left today</b><span>${nextProteinMeal?`Your planned “${esc(nextProteinMeal.name)}” would close most of the gap when you eat it. `:''}${scoops} scoop${scoops===1?'':'s'} of whey (~24 g protein each) is another option. This is guidance only — nothing here changes your plan automatically.</span></div>`}
-function renderCalendar(){let start=mondayOf(state.weekAnchor),days=Array.from({length:7},(_,i)=>addDaysISO(start,i));$('weekTitle').textContent=`${formatDate(start)} – ${formatDate(days[6],{month:'short',day:'numeric',year:'numeric'})}`;$('weekGrid').innerHTML=days.map(d=>{let es=state.diary.filter(x=>x.date===d&&x.profileId===state.activeProfile),eaten=es.filter(x=>(x.status||'eaten')==='eaten'),n=addNutrition(eaten.map(x=>scaled(x.nutrition,x.servings/(x.recipeServings||1)))),status=eaten.length>=5?'done':eaten.length?'partial':'';return`<button class="day-card ${d===state.selectedDate?'active':''}" onclick="selectDate('${d}')"><span class="status-dot ${status}"></span><div class="dayname">${formatDate(d,{weekday:'short'})}</div><div class="daynum">${new Date(d+'T12:00:00').getDate()}</div><div class="daymacro"><b>${eaten.length}/5 meals</b><br>${round(n.calories,0)} kcal<br>${round(n.protein)} g protein</div></button>`}).join('')}
+function renderCalendar(){let start=mondayOf(state.weekAnchor),days=Array.from({length:7},(_,i)=>addDaysISO(start,i)),tot=Math.max(1,(state.meals||[]).filter(m=>m.profileId===state.activeProfile).length);$('weekTitle').textContent=`${formatDate(start)} – ${formatDate(days[6],{month:'short',day:'numeric',year:'numeric'})}`;$('weekGrid').innerHTML=days.map(d=>{let es=state.diary.filter(x=>x.date===d&&x.profileId===state.activeProfile),eaten=es.filter(x=>(x.status||'eaten')==='eaten'),n=addNutrition(eaten.map(x=>scaled(x.nutrition,x.servings/(x.recipeServings||1)))),status=eaten.length>=tot?'done':eaten.length?'partial':'';return`<button class="day-card ${d===state.selectedDate?'active':''}" onclick="selectDate('${d}')"><span class="status-dot ${status}"></span><div class="dayname">${formatDate(d,{weekday:'short'})}</div><div class="daynum">${new Date(d+'T12:00:00').getDate()}</div><div class="daymacro"><b>${eaten.length}/${tot} meals</b><br>${round(n.calories,0)} kcal<br>${round(n.protein)} g protein</div></button>`}).join('')}
 function selectDate(d){state.selectedDate=d;state.weekAnchor=d;persist();updateHeaderDate();renderCalendar()}
-function selectToday(){selectDate(new Date().toISOString().slice(0,10))}function moveWeek(n){state.weekAnchor=addDaysISO(state.weekAnchor,n);persist();renderCalendar()}function openSelectedDay(){go('dashboard')}
+function selectToday(){selectDate(localToday())}function moveWeek(n){state.weekAnchor=addDaysISO(state.weekAnchor,n);persist();renderCalendar()}function openSelectedDay(){go('dashboard')}
 function copyPreviousDay(){let src=addDaysISO(state.selectedDate,-1),old=state.diary.filter(x=>x.date===src&&x.profileId===state.activeProfile),existingNames=new Set(state.diary.filter(x=>x.date===state.selectedDate&&x.profileId===state.activeProfile).map(x=>x.name)),toCopy=old.filter(x=>!existingNames.has(x.name));if(!old.length)return toast('Previous day has no entries');if(!toCopy.length)return toast('Every meal from the previous day is already on this date');toCopy.forEach((x,i)=>state.diary.push({...clone(x),id:`d-copy-${Date.now()}-${i}`,date:state.selectedDate,status:'planned',note:'Copied from previous day'}));persist();renderAll();toast(`${toCopy.length} meal${toCopy.length===1?'':'s'} copied as planned`)}
+// Each day (today or later) gets the standard meal plan as one-tap "planned" rows the first time it is opened —
+// otherwise a new day looked empty until you dug into the Week tab. Done once per profile+date, so deleting a row sticks.
+function seedPlanForDate(){
+  if(!state.meals||!state.diary)return;const d=state.selectedDate,p=state.activeProfile;if(!d||d<localToday())return;
+  state.planSeeded=state.planSeeded||{};const k=p+'|'+d;if(state.planSeeded[k])return;state.planSeeded[k]=true;
+  const old=addDaysISO(localToday(),-14);Object.keys(state.planSeeded).forEach(x=>{if(x.split('|')[1]<old)delete state.planSeeded[x]});
+  const names=new Set(state.diary.filter(x=>x.date===d&&x.profileId===p).map(x=>x.name));
+  state.meals.filter(m=>m.profileId===p&&!names.has(m.name)).forEach((m,i)=>{let rs=defaultRecipesForMeal(m);if(!rs.length)return;let c=mergeConsumption(rs.map(r=>consumptionFor(r.items,1/(r.servings||1))));state.diary.push({id:`d-plan-${Date.now()}-${i}-${Math.random().toString(36).slice(2,6)}`,date:d,profileId:p,mealId:m.id,name:m.name,detail:rs.map(r=>r.name).join(' + '),icon:m.icon,servings:1,recipeServings:1,nutrition:mealNutrition(m),status:'planned',note:'',consumption:c,quick:true})});
+  persist();
+}
 function logPlanForSelectedDay(){let ms=state.meals.filter(m=>m.profileId===state.activeProfile),existingNames=new Set(state.diary.filter(x=>x.date===state.selectedDate&&x.profileId===state.activeProfile).map(x=>x.name)),toAdd=ms.filter(m=>!existingNames.has(m.name));if(!toAdd.length)return toast('The standard plan is already on this date');toAdd.forEach((m,i)=>{let rs=defaultRecipesForMeal(m),c=mergeConsumption(rs.map(r=>consumptionFor(r.items,1/(r.servings||1))));state.diary.push({id:`d-plan-${Date.now()}-${i}`,date:state.selectedDate,profileId:state.activeProfile,mealId:m.id,name:m.name,detail:rs.map(r=>r.name).join(' + '),icon:m.icon,servings:1,recipeServings:1,nutrition:mealNutrition(m),status:'planned',note:'',consumption:c,quick:true})});persist();renderAll();toast(`${toAdd.length} meal${toAdd.length===1?'':'s'} added as planned`)}
 function populateYieldRecipes(){$('yieldRecipe').innerHTML=state.recipes.filter(r=>r.profileId===state.activeProfile).map(r=>`<option value="${r.id}">${esc(r.name)}</option>`).join('');loadYield()}
 function loadYield(){let r=state.recipes.find(x=>x.id===$('yieldRecipe').value),y=r?.yield;if(y){$('yieldRaw').value=y.raw;$('yieldCooked').value=y.cooked;$('yieldPortion').value=y.portion}calculateYield()}
 function calculateYield(){let raw=+$('yieldRaw').value||0,cooked=+$('yieldCooked').value||0,portion=+$('yieldPortion').value||0;$('yieldPortions').value=cooked&&portion?round(cooked/portion,2):0;$('yieldResult').textContent=cooked?`${round(raw*portion/cooked,1)} g`:'0 g'}
 function saveYield(){let r=state.recipes.find(x=>x.id===$('yieldRecipe').value);if(!r)return toast('Choose a recipe');r.yield={raw:+$('yieldRaw').value,cooked:+$('yieldCooked').value,portion:+$('yieldPortion').value};persist();toast('Cooking yield saved')}
 function renderNutrition(){if(!$('microStrip'))return;let n=diaryNutrients(),g=active().microGoals,defs=[['Sodium','sodium','mg'],['Calcium','calcium','mg'],['Iron','iron','mg'],['Potassium','potassium','mg'],['Vit D','vitaminD','mcg']],row=(label,k,u)=>`<div class="pair-row"><span>${label}</span><b>${round(n[k],1)}<small>/${g[k]}${u}</small></b><div class="bar"><i style="width:${Math.min(100,n[k]/g[k]*100)}%"></i></div></div>`,pairs=[[defs[0],defs[1]],[defs[2],defs[3]],[defs[4]]];$('microStrip').innerHTML=pairs.map(p=>`<div class="stat pair-stat">${p.map(([label,k,u])=>row(label,k,u)).join('')}</div>`).join('')}
-function lastDays(n){return Array.from({length:n},(_,i)=>addDaysISO(new Date().toISOString().slice(0,10),i-(n-1)))}
+function lastDays(n){return Array.from({length:n},(_,i)=>addDaysISO(localToday(),i-(n-1)))}
 function renderInsights(){let days=lastDays(7),entries=state.diary.filter(x=>x.profileId===state.activeProfile&&days.includes(x.date)),eaten=entries.filter(x=>(x.status||'eaten')==='eaten'),skipped=entries.filter(x=>x.status==='skipped'),g=active().goals,dayData=days.map(d=>{let es=eaten.filter(x=>x.date===d),n=addNutrition(es.map(x=>scaled(x.nutrition,x.servings/(x.recipeServings||1))));return{d,count:es.length,n}}),activeDays=dayData.filter(x=>x.count),avgCal=activeDays.length?activeDays.reduce((a,x)=>a+x.n.calories,0)/activeDays.length:0,avgPro=activeDays.length?activeDays.reduce((a,x)=>a+x.n.protein,0)/activeDays.length:0,proteinDays=dayData.filter(x=>x.n.protein>=g.protein*.9).length,adherence=Math.min(100,eaten.length/35*100);$('adherenceScores').innerHTML=[['Meal adherence',`${round(adherence,0)}%`],['Meals completed',`${eaten.length}/35`],['Average calories',`${round(avgCal,0)}`],['Protein days',`${proteinDays}/7`]].map(([k,v])=>`<div class="score"><b>${v}</b><span>${k}</span></div>`).join('');$('adherenceDays').innerHTML=dayData.map(x=>`<div class="metric-row"><span>${formatDate(x.d,{weekday:'short',month:'short',day:'numeric'})}</span><div class="bar"><i style="width:${Math.min(100,x.count/5*100)}%"></i></div><b>${x.count}/5</b></div>`).join('');let notes=[];if(avgPro<g.protein*.9)notes.push(['Protein consistency',`Average protein on logged days is ${round(avgPro)} g versus a ${g.protein} g target.`]);else notes.push(['Protein consistency','Protein is averaging close to or above the target on logged days.']);if(skipped.length)notes.push(['Skipped meals',`${skipped.length} meal${skipped.length===1?' was':'s were'} marked skipped this week.`]);let low=state.pantry.filter(p=>{let f=food(p.foodId);return f&&!f.groceryProductId&&p.qty<=p.lowAt});notes.push(['Pantry readiness (locally-tracked only)',low.length?`${low.length} locally-tracked ingredient${low.length===1?' is':'s are'} currently low. Grocery-linked items — most of the plan — are tracked live on the Pantry tab instead.`:'Locally-tracked ingredients are above their low-stock thresholds. Grocery-linked items are tracked live on the Pantry tab.']);$('adherencePatterns').innerHTML=notes.map(([a,b],i)=>`<div class="why"><i>${i+1}</i><div><b>${a}</b><span>${b}</span></div></div>`).join('')}
 function historyEntryRow(x){let f=x.servings/(x.recipeServings||1),nn=scaled(x.nutrition,f),s=x.status||'eaten',statusClass=x.replaced?'replaced':s,statusLabel=x.replaced?'↔ Replacement logged':(s==='eaten'?'✓ Eaten':s==='skipped'?'Skipped':'Planned');return `<div class="timeline-meal"><div class="timeline-icon">${x.icon||'🍽️'}</div><div class="timeline-main"><div class="timeline-name">${esc(x.name)}</div><div class="timeline-meta">${esc(x.detail||'Meal')} · ${round(nn.calories,0)} kcal · P ${round(nn.protein)}g · C ${round(nn.carbs)}g · F ${round(nn.fat)}g</div><span class="timeline-status ${statusClass}">${statusLabel}</span><div class="diary-controls" style="margin-top:6px"><select onchange="updateDiary('${x.id}','status',this.value)"><option value="planned" ${s==='planned'?'selected':''}>Planned</option><option value="eaten" ${s==='eaten'?'selected':''}>Eaten</option><option value="skipped" ${s==='skipped'?'selected':''}>Skipped</option></select><input class="input note-input" value="${esc(x.note||'')}" placeholder="Hunger, energy, digestion…" onchange="updateDiary('${x.id}','note',this.value)"></div></div><div class="timeline-actions"><button class="icon-btn" title="Delete entry" onclick="if(confirm('Delete this diary entry?'))removeDiaryFromHistory('${x.id}')">×</button></div></div>`}
 function removeDiaryFromHistory(id){removeDiary(id);renderHistory()}
@@ -657,12 +675,42 @@ function openNewFoodFromUniversal(){closeUniversalLog();openFoodModal()}
     if(!cloudReady||!appUser)return;
     setCloudStatus('Saving…',false);
     clearTimeout(saveTimer);
-    saveTimer=setTimeout(function(){
-      stateDoc().set({json:JSON.stringify(state),updatedAt:firebase.firestore.FieldValue.serverTimestamp()})
-        .then(function(){setCloudStatus('Saved to cloud',true);})
-        .catch(function(){setCloudStatus('Saved on this device; cloud retry needed',false);});
-    },350);
+    saveTimer=setTimeout(flushCloud,350);
   };
+  /* Bhargav and Anusha (and a phone and a laptop) all write into this ONE document, so a plain overwrite
+     loses whatever the other side logged. Before every save we read the cloud copy and fold in anything
+     added/changed there since we last synced (base = what we last saw), then write the merged result. */
+  const MERGE_KEYS=['diary','recipes','meals','foods'];
+  let base=null;
+  function snapBase(){base={};MERGE_KEYS.forEach(function(k){const m={};(state[k]||[]).forEach(function(x){m[x.id]=JSON.stringify(x);});base[k]=m;});base.profiles=JSON.stringify(state.profiles||{});base.progress=JSON.stringify(state.progress||{});}
+  function mergeRemoteState(r){
+    if(!r||!base)return false;let changed=false;
+    MERGE_KEYS.forEach(function(k){
+      const loc=state[k]=state[k]||[],byId={};loc.forEach(function(x){byId[x.id]=x;});
+      (r[k]||[]).forEach(function(rx){
+        const id=rx.id,b=base[k][id],rs=JSON.stringify(rx),l=byId[id];
+        if(!l){ if(b===undefined){loc.push(rx);changed=true;} /* new on the other side */ return; } // else: we deleted it on purpose
+        if(rs!==b&&JSON.stringify(l)===b){ Object.keys(l).forEach(function(kk){delete l[kk];});Object.assign(l,rx);changed=true; } // changed only on the other side
+      });
+    });
+    if(r.profiles&&base.profiles===JSON.stringify(state.profiles||{})&&JSON.stringify(r.profiles)!==base.profiles){state.profiles=r.profiles;changed=true;} // goals changed only on the other side
+    return changed;
+  }
+  async function flushCloud(){
+    if(!cloudReady||!appUser)return;
+    try{
+      try{const d=await stateDoc().get();if(d.exists&&d.data().json){if(mergeRemoteState(JSON.parse(d.data().json))){originalLocalPersist();if(!document.querySelector('.modal-backdrop.open'))try{renderAll();}catch(e){}}}}catch(e){}
+      snapBase();
+      await stateDoc().set({json:JSON.stringify(state),updatedAt:firebase.firestore.FieldValue.serverTimestamp()});
+      setCloudStatus('Saved to cloud',true);
+    }catch(e){setCloudStatus('Saved on this device; cloud retry needed',false);}
+  }
+  async function refreshFromCloud(){
+    if(!cloudReady||!appUser||document.hidden)return;
+    try{const d=await stateDoc().get();if(d.exists&&d.data().json&&mergeRemoteState(JSON.parse(d.data().json))){snapBase();originalLocalPersist();if(!document.querySelector('.modal-backdrop.open'))renderAll();}}catch(e){}
+  }
+  document.addEventListener('visibilitychange',refreshFromCloud);window.addEventListener('focus',refreshFromCloud);
+  window.addEventListener('online',function(){persist();});
 
   const groceryProducts=[
     ['costco-eggs','Kirkland Signature Large Eggs (60 ct)'],['costco-whey','ON Gold Standard Whey, Chocolate (5.64 lb)'],
@@ -844,7 +892,8 @@ function openNewFoodFromUniversal(){closeUniversalLog();openFoodModal()}
     touchedIds.forEach(function(pid){
       const p = (gstate.products||[]).find(function(x){ return x.id===pid; });
       if(!p) return;
-      const inv = gstate.inventory[pid] = gstate.inventory[pid] || {status:'full', onHand:p.purchaseQty||0, location:p.store, expiry:'', lastPurchased:null};
+      if(!gstate.inventory[pid]) return; // never bought or counted in Grocery yet — nothing real to take it from
+      const inv = gstate.inventory[pid];
       let consumed=0,anyUnknown=false;
       touched[pid].forEach(function(it){
         const c=dietQtyToPurchaseUnit(it.unit,it.qty,p);
@@ -862,8 +911,8 @@ function openNewFoodFromUniversal(){closeUniversalLog();openFoodModal()}
       // corrections made inside Grocery itself.
       if(consumed>0){
         gstate.stockLog = gstate.stockLog || [];
-        gstate.stockLog.push({pid, date:new Date().toISOString().slice(0,10), delta:Math.round(consumed*1000)/1000});
-        const cutoff=addDaysISO(new Date().toISOString().slice(0,10),-60);
+        gstate.stockLog.push({pid, date:localToday(), delta:Math.round(consumed*1000)/1000});
+        const cutoff=addDaysISO(localToday(),-60);
         gstate.stockLog = gstate.stockLog.filter(function(e){ return e.date>=cutoff; });
       }
       if(inv.status==='low' || inv.status==='finished'){
@@ -889,27 +938,12 @@ function openNewFoodFromUniversal(){closeUniversalLog();openFoodModal()}
   }
   showUnlinkedFoodsPrompt=function(foods){
     state.groceryLinkDismissed = state.groceryLinkDismissed || [];
-    const relevant = foods.filter(function(f){ return state.groceryLinkDismissed.indexOf(f.id)===-1; });
+    window.__unlinkedShown = window.__unlinkedShown || {};
+    const relevant = foods.filter(function(f){ return state.groceryLinkDismissed.indexOf(f.id)===-1 && !window.__unlinkedShown[f.id]; });
     if(!relevant.length) return;
-    const box = document.createElement('div');
-    box.className = 'modal-backdrop';
-    box.style.display = 'flex';
-    box.innerHTML = '<div class="modal" style="max-width:440px"><div class="section-head"><div><h2>Not linked to Grocery</h2><div class="subtle">These ingredients aren\'t connected to a Grocery product yet, so logging them won\'t update Pantry stock</div></div></div>'+
-      relevant.map(function(f){ return '<div class="checkline" style="justify-content:space-between"><span><b>'+esc(f.name)+'</b></span><span style="display:flex;gap:6px"><button class="btn ghost small" data-linkfood="'+f.id+'">Locate / link</button><button class="btn ghost small" data-skipfood="'+f.id+'">Don\'t ask again</button></span></div>'; }).join('')+
-      '<div class="modal-actions"><button class="btn ghost" id="unlinkedClose">Close</button></div></div>';
-    document.body.appendChild(box);
-    box.querySelector('#unlinkedClose').onclick = function(){ box.remove(); };
-    box.querySelectorAll('[data-linkfood]').forEach(function(btn){
-      btn.onclick = function(){ box.remove(); openFoodModal(btn.dataset.linkfood); };
-    });
-    box.querySelectorAll('[data-skipfood]').forEach(function(btn){
-      btn.onclick = function(){
-        state.groceryLinkDismissed.push(btn.dataset.skipfood);
-        persist();
-        btn.closest('.checkline').remove();
-        if(!box.querySelector('[data-linkfood]')) box.remove();
-      };
-    });
+    relevant.forEach(function(f){ window.__unlinkedShown[f.id]=true; });
+    // a quiet note instead of a blocking pop-up after every meal
+    toast(relevant.map(function(f){return f.name;}).slice(0,3).join(', ')+(relevant.length>3?' +'+(relevant.length-3)+' more':'')+' aren’t linked to a Grocery product, so they don’t use up stock. Link them in Meals → Ingredients if you want that.');
   }
   showPantryLowPopup=function(items){
     const box = document.createElement('div');
@@ -961,17 +995,17 @@ function openNewFoodFromUniversal(){closeUniversalLog();openFoodModal()}
         const ia=gstate.inventory&&gstate.inventory[a.id],ib=gstate.inventory&&gstate.inventory[b.id];
         const oa=(ia?ia.onHand:0)||0,ob=(ib?ib.onHand:0)||0;
         const ra=oa/pantryFull(oa,a.purchaseQty||1),rb=ob/pantryFull(ob,b.purchaseQty||1);
-        return ra-rb;
+        return (ia?ra:2)-(ib?rb:2);
       }).forEach(p=>{
-        const inv=(gstate.inventory&&gstate.inventory[p.id])||{onHand:0};
+        const counted=!!(gstate.inventory&&gstate.inventory[p.id]),inv=(gstate.inventory&&gstate.inventory[p.id])||{onHand:0};
         const full=pantryFull(inv.onHand||0,p.purchaseQty||1),pct=Math.max(0,Math.min(100,(inv.onHand||0)/full*100)),low=pct<=20,color=low?'var(--red)':pct<40?'var(--orange)':'var(--green)';
         const st=(typeof pantryStatus==='function')?pantryStatus(inv.onHand||0,full):'';
         const stLabel={full:'Full','75':'75%',half:'Half','25':'25%',low:'Low',finished:'Finished'}[st]||'';
         let linkedNames=(state.foods||[]).filter(f=>f.groceryProductId===p.id).map(f=>f.name).join(', ');
-        rows.push(`<div class="pantry-exact-row"><div class="pantry-exact-top"><b>${esc(p.name)}</b><span class="pantry-exact-qty ${low?'stock-low':''}">${round(inv.onHand||0,1)}/${round(full,1)} ${esc(p.purchaseUnit||'unit')} · <b>${stLabel}</b></span></div><div class="pantry-exact-bar"><i style="width:${pct}%;background:${color}"></i></div><div class="pantry-exact-meta"><span class="subtle">${linkedNames?'Used for: '+esc(linkedNames):'Not linked to any ingredient'}${low?' · Running low':''}</span><button class="btn ghost small" onclick="restockGroceryProduct('${p.id}')">Restock</button></div></div>`);
+        rows.push(`<div class="pantry-exact-row"><div class="pantry-exact-top"><b>${esc(p.name)}</b><span class="pantry-exact-qty ${low&&counted?'stock-low':''}">${counted?`${round(inv.onHand||0,1)}/${round(full,1)} ${esc(p.purchaseUnit||'unit')} · <b>${stLabel}</b>`:'<b>Not counted yet</b>'}</span></div><div class="pantry-exact-bar"><i style="width:${pct}%;background:${color}"></i></div><div class="pantry-exact-meta"><span class="subtle">${linkedNames?'Used for: '+esc(linkedNames):'Not linked to any ingredient'}${low&&counted?' · Running low':''}</span><button class="btn ghost small" onclick="restockGroceryProduct('${p.id}')">${counted?'Restock':'Set stock'}</button></div></div>`);
       });
     }else{
-      rows.push('<div class="empty">Could not reach Grocery — showing nothing until it\'s reachable. <a href="grocery.html">Open Grocery</a></div>');
+      rows.push('<div class="empty">Your Grocery pantry hasn’t been set up yet (or can’t be reached). <a href="grocery.html">Open Grocery</a> once and it will show up here.</div>');
     }
     (state.pantry||[]).forEach(p=>{
       let f=food(p.foodId);if(!f||f.groceryProductId)return; // only genuinely unlinked local items
@@ -1296,7 +1330,7 @@ function openNewFoodFromUniversal(){closeUniversalLog();openFoodModal()}
       // different day from the calendar still works for the rest of that
       // session; it just resets back to today on the next fresh page load.
       state.selectedDate=localToday();state.weekAnchor=state.selectedDate;
-      cloudReady=true;
+      cloudReady=true;snapBase();
       await stateDoc().set({json:JSON.stringify(state),updatedAt:firebase.firestore.FieldValue.serverTimestamp()},{merge:true});
       draft=clone(state.recipes.find(function(r){return r.profileId===state.activeProfile;})||{id:null,profileId:state.activeProfile,name:'',servings:1,method:'',items:[]});
       fillFoodSelect();setProfile(state.activeProfile);setCloudStatus('Saved to cloud',true);
