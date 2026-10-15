@@ -292,11 +292,11 @@
      static. Broad attribute-selector matches ([class*="-card"] etc.) are
      deliberate — they cover every current and future card/button without
      hand-listing each one. */
-  button,.btn,[class*="-btn"],[class*="btn-"]{transition:transform .12s cubic-bezier(.34,1.56,.64,1),box-shadow .15s ease,background-color .15s ease,border-color .15s ease}
-  button:active,.btn:active,[class*="-btn"]:active,[class*="btn-"]:active{transform:scale(.96)}
+  button,.btn,[class*="-btn"],[class*="btn-"]{transition:transform .08s ease-out,box-shadow .15s ease,background-color .15s ease,border-color .15s ease}
+  button:active,.btn:active,[class*="-btn"]:active,[class*="btn-"]:active{transform:scale(.98)}
   .card,[class*="-card"]{transition:transform .18s cubic-bezier(.16,1,.3,1),box-shadow .18s ease,border-color .18s ease;animation:life-fade-in .38s cubic-bezier(.16,1,.3,1) both}
-  .card:hover,[class*="-card"]:hover{transform:translateY(-2px);box-shadow:0 10px 28px rgba(20,20,17,.09)}
-  .card:active,[class*="-card"]:active{transform:translateY(0) scale(.985)}
+  .card:hover,[class*="-card"]:hover{box-shadow:0 10px 28px rgba(20,20,17,.09)}
+  
   @keyframes life-fade-in{from{opacity:0;transform:translateY(8px)}}
   .form-error{grid-column:1/-1;background:var(--danger-soft,#FCE1E5);color:var(--danger,#B3261E);border-radius:8px;padding:8px 10px;font-size:12px;font-weight:600;}
   .done-wrap{flex:none;display:flex;flex-direction:column;align-items:flex-end;gap:4px;}

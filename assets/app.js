@@ -785,14 +785,14 @@ function agRowHtml(it){
 function renderAgendaInto(el){
   if(!el)return;
   const t=today(),todayItems=agendaItemsFor(t,true),fmtDay=d=>new Intl.DateTimeFormat(undefined,{weekday:'short',month:'short',day:'numeric'}).format(new Date(d+'T00:00:00'));
-  let html='<div class="ag-sec">Today · '+fmtDay(t)+'</div>'+(todayItems.length?todayItems.map(agRowHtml).join(''):'<div class="ag-empty">Nothing on the calendar today.</div>');
+  let html='<div class="ag-box"><div class="ag-wrap"><div class="ag-col"><div class="ag-sec">Today · '+fmtDay(t)+'</div>'+(todayItems.length?todayItems.map(agRowHtml).join(''):'<div class="ag-empty">Nothing on the calendar today.</div>')+'</div>';
   let upcoming='',n=0;
   for(let i=1;i<=7;i++){
     const d=addDays(t,i),it=agendaItemsFor(d,false);if(!it.length)continue;
     n+=it.length;
     upcoming+='<div class="ag-day">'+(i===1?'Tomorrow':fmtDay(d))+'</div>'+it.map(agRowHtml).join('');
   }
-  html+='<div class="ag-sec">Next 7 days</div>'+(n?upcoming:'<div class="ag-empty">Nothing coming up this week.</div>');
+  html+='<div class="ag-col"><div class="ag-sec">Next 7 days</div>'+(n?upcoming:'<div class="ag-empty">Nothing coming up this week.</div>')+'</div></div></div>';
   html+='<a class="widget-card-link" href="apps/calendar.html" data-profile-link>Open Calendar <i data-lucide="arrow-up-right"></i></a>';
   el.innerHTML=html;
   updateProfileLinks();if(window.lucide)lucide.createIcons();

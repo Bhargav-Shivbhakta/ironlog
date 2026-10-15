@@ -48,8 +48,8 @@
   .wrap{max-width:min(95vw,1760px);margin:0 auto;}
   h1,h2,h3{font-family:'Manrope',sans-serif;}
   button,input,select{font-family:inherit;}
-  button{transition:transform .12s cubic-bezier(.34,1.56,.64,1);cursor:pointer;}
-  button:active{transform:scale(0.96);}
+  button{transition:transform .08s ease-out;cursor:pointer;}
+  button:active{transform:scale(.98);}
 
   .loading-gate{position:fixed;inset:0;z-index:200;background:var(--bg);display:flex;align-items:center;justify-content:center;color:var(--text-soft);}
 
@@ -92,7 +92,7 @@
   .legend{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:12px;justify-content:center;}
   .legend{display:flex;flex-wrap:wrap;gap:10px;margin-bottom:14px;justify-content:center;align-items:center;}
   .filter-toggle{display:flex;flex-direction:column;align-items:center;gap:4px;background:none;border:none;padding:0;}
-  .filter-toggle .ft-circle{width:34px;height:34px;border-radius:50%;border:2.5px solid var(--border);background:var(--surface);display:flex;align-items:center;justify-content:center;font-size:14px;transition:all .18s cubic-bezier(.34,1.7,.64,1);}
+  .filter-toggle .ft-circle{width:34px;height:34px;border-radius:50%;border:2.5px solid var(--border);background:var(--surface);display:flex;align-items:center;justify-content:center;font-size:14px;transition:all .18s cubic-bezier(.2,0,0,1);}
   .filter-toggle.active .ft-circle{border-color:transparent;box-shadow:0 3px 10px -3px rgba(20,20,50,0.35);}
   .filter-toggle .ft-label{font-size:9px;color:var(--text-faint);font-weight:700;}
   .filter-toggle.active .ft-label{color:var(--text);}
