@@ -136,6 +136,12 @@
     set('--surface-alt',v.soft);set('--surface-2',v.soft);set('--panel',v.surface);set('--panel2',v.soft);
     set('--border',v.line);set('--border-soft','color-mix(in srgb,'+v.line+' 55%,'+v.surface+')');
     set('--text-soft',v.muted);set('--text-faint','color-mix(in srgb,'+v.muted+' 72%,'+v.text+')');
+    const acc='var(--accent,var(--green,#AD7B20))';
+    set('--hero',v.dark?'color-mix(in srgb,'+acc+' 8%,'+v.soft+')':'color-mix(in srgb,'+acc+' 12%,'+v.ink+')');
+    set('--hero-2','color-mix(in srgb,var(--hero) 84%,#fff)');
+    set('--hero-line','color-mix(in srgb,var(--hero) 72%,#fff)');
+    set('--hero-text','#f7f5ef');
+    set('--hero-muted','color-mix(in srgb,#fff 72%,var(--hero))');
     if(v.dark){
       SOFT_BASES.forEach(n=>set('--'+n+'-soft','color-mix(in srgb,var(--'+n+') 20%,'+v.surface+')'));
       set('--green2','color-mix(in srgb,var(--green,var(--accent)) 20%,'+v.surface+')');
