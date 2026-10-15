@@ -2317,12 +2317,18 @@ function updateWaterDisplay(){
 // the whole check-in. Water now saves itself a moment after every tap —
 // a merge write that only touches the water field, so it never clobbers
 // weight/steps/notes/habits you haven't saved yet in the rest of the form.
-let waterSaveTimer = null, waterSaveMsgTimer = null;
+let waterSaveTimer = null, waterSaveMsgTimer = null, waterPending = null;
 function autosaveWater(){
   clearTimeout(waterSaveTimer);
   const date = document.getElementById('log-date').value || todayStr();
   const val = parseFloat(document.getElementById('f-water').value) || 0;
-  waterSaveTimer = setTimeout(async ()=>{
+  waterPending = { date, val };
+  waterSaveTimer = setTimeout(waterWrite, 500);
+}
+async function waterWrite(){
+  const pend = waterPending; if(!pend) return; waterPending = null;
+  const { date, val } = pend;
+  {
     try{
       await userCol('dailyLogs').doc(date).set({ date, day: dayNameFor(date), water: val }, { merge: true });
       const msg = document.getElementById('save-msg-today');
@@ -2332,8 +2338,13 @@ function autosaveWater(){
         waterSaveMsgTimer = setTimeout(()=>{ if(msg.textContent==='Water saved ✓') msg.textContent=''; }, 2000);
       }
     }catch(e){ console.error(e); }
-  }, 500);
+  }
 }
+// push a pending water edit right away when the page is hidden or the Hub closes the app
+function flushWaterNow(){ if(waterPending){ clearTimeout(waterSaveTimer); waterWrite(); } }
+window.addEventListener('pagehide', flushWaterNow);
+document.addEventListener('visibilitychange', ()=>{ if(document.hidden) flushWaterNow(); });
+window.addEventListener('message', e=>{ if(e.data && e.data.type==='hub-flush') flushWaterNow(); });
 document.querySelectorAll('.water-add').forEach(btn=>{
   btn.addEventListener('click', ()=>{
     const field = document.getElementById('f-water');

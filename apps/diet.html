@@ -679,6 +679,9 @@ function openNewFoodFromUniversal(){closeUniversalLog();openFoodModal()}
     clearTimeout(saveTimer);
     saveTimer=setTimeout(flushCloud,350);
   };
+  /* saves wait a moment to batch edits; push anything pending immediately when the page is hidden or the Hub closes the app */
+  const flushNow=()=>{if(saveTimer){clearTimeout(saveTimer);saveTimer=null;try{flushCloud()}catch(e){}}};
+  window.addEventListener('pagehide',flushNow);document.addEventListener('visibilitychange',()=>{if(document.hidden)flushNow()});window.addEventListener('message',e=>{if(e.data&&e.data.type==='hub-flush')flushNow()});
   /* Bhargav and Anusha (and a phone and a laptop) all write into this ONE document, so a plain overwrite
      loses whatever the other side logged. Before every save we read the cloud copy and fold in anything
      added/changed there since we last synced (base = what we last saw), then write the merged result. */

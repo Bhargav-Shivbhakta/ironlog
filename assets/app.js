@@ -456,8 +456,10 @@ async function loadDashboard(){
 /* Quiet re-sync of the Today data. Runs when you close an app, and when you come back to the tab after a
    while, so what you just did in To-Do / Chores / Calendar shows up on the Hub without a manual refresh. */
 let hubLastSoft=Date.now(),hubSoftBusy=false;
+let hubSoftAgain=false;
 async function hubSoftRefresh(force){
-  if(hubSoftBusy||!state.user||!state.profile||$('app-shell').hidden)return;
+  if(hubSoftBusy){ if(force)hubSoftAgain=true; return; }
+  if(!state.user||!state.profile||$('app-shell').hidden)return;
   if(!force&&Date.now()-hubLastSoft<45000)return;
   if($('app-frame-overlay')&&!$('app-frame-overlay').hidden)return;
   hubSoftBusy=true;
@@ -477,6 +479,7 @@ async function hubSoftRefresh(force){
     if(act&&act.dataset.page==='insights')renderInsightsPage().catch(()=>{});
   }catch(e){}
   hubSoftBusy=false;hubLastSoft=Date.now();
+  if(hubSoftAgain){hubSoftAgain=false;hubSoftRefresh(true)}
 }
 document.addEventListener('visibilitychange',()=>{if(!document.hidden)hubSoftRefresh(false)});
 
@@ -685,8 +688,30 @@ async function completeChoreFromWidget(choreId,el,after){
   }
   state.choreHistory.unshift({id:chore.undo.logId,choreId:chore.id,date,task:chore.name,by:state.profile,rating:null,notes:null,recordedBy:state.profile});
   try{
-    await appRef('chores','chores').set({json:JSON.stringify(state.chores)});
-    await appRef('chores','history').set({json:JSON.stringify(state.choreHistory)});
+    // Re-read both docs right before writing, so an edit made in the Chores app since the Hub last loaded
+    // isn't overwritten; only this chore's completion fields and one history entry are applied on top.
+    const [latestC,latestH]=await Promise.all([readJson(appRef('chores','chores'),null),readJson(appRef('chores','history'),null)]);
+    const list=Array.isArray(latestC)?latestC:state.chores, hist=Array.isArray(latestH)?latestH:state.choreHistory;
+    const i=list.findIndex(c=>c.id===chore.id);
+    if(i>=0&&list[i].lastCompleted===date&&i>=0&&list[i]!==chore&&Array.isArray(latestC)){
+      Object.assign(chore,{lastCompleted:list[i].lastCompleted}); // already marked done elsewhere
+    }else{
+      if(i>=0)['lastCompleted','snoozedUntil','passedBy','rotationIndex','assignedTo','undo'].forEach(k=>{list[i][k]=chore[k]});
+      else list.push(chore);
+      hist.unshift(state.choreHistory[0]);
+      await appRef('chores','chores').set({json:JSON.stringify(list)});
+      await appRef('chores','history').set({json:JSON.stringify(hist)});
+      // tick the linked block in Schedule, exactly like the Chores app does
+      for(const link of (chore.links||[])){
+        try{
+          const ref=db.collection('users').doc(state.user.uid).collection('schedule-profiles').doc(link.profile).collection('data').doc('choreLog');
+          const d=await ref.get(); const log=(d.exists&&d.data().json)?safeJson(d.data().json,{}):{};
+          log[link.scheduleChoreId+':'+date]={done:true,by:state.profile,at:new Date().toISOString()};
+          await ref.set({json:JSON.stringify(log)});
+        }catch(e){console.warn('schedule sync failed',e)}
+      }
+    }
+    state.chores=list; state.choreHistory=hist;
   }catch(e){console.warn(e)}
   toast('Marked "'+chore.name+'" done');
   if(after)after();else renderChoresListInto(el,choresDueToday());
@@ -825,7 +850,7 @@ const WIDGET_TYPES={
     render(el){renderAgendaInto(el)}},
   focus:{title:'Focus today',icon:'timer',desc:"Minutes logged in Clock's focus timer today.",defaultSize:'sm',
     async render(el){
-      el.innerHTML='<div class="empty-state"><strong>Loading…</strong></div>';
+      wLoading(el);
       try{
         const ref=db.collection('users').doc(state.user.uid).collection('clock-profiles').doc(state.profile).collection('data').doc('focusSessions');
         const snap=await ref.get();
@@ -838,7 +863,7 @@ const WIDGET_TYPES={
     }},
   skin:{title:'Skin program',icon:'sparkle',desc:'Which day of your current skin program you’re on.',defaultSize:'sm',
     async render(el){
-      el.innerHTML='<div class="empty-state"><strong>Loading…</strong></div>';
+      wLoading(el);
       try{
         const ref=db.collection('users').doc(state.user.uid).collection('skin-profiles').doc(state.profile).collection('data').doc('programStart');
         const snap=await ref.get();
@@ -851,7 +876,7 @@ const WIDGET_TYPES={
     }},
   grocery:{title:'Grocery list',icon:'shopping-cart',desc:"How many items are still left to buy this week.",defaultSize:'sm',
     async render(el){
-      el.innerHTML='<div class="empty-state"><strong>Loading…</strong></div>';
+      wLoading(el);
       try{
         const ref=db.collection('users').doc(state.user.uid).collection('apps').doc('grocery-v4').collection('data').doc('modernState');
         const snap=await ref.get();
@@ -864,7 +889,7 @@ const WIDGET_TYPES={
     }},
   budget:{title:'Budget',icon:'piggy-bank',desc:"This month's spending vs. your category budgets, personal + shared combined.",defaultSize:'md',
     async render(el){
-      el.innerHTML='<div class="empty-state"><strong>Loading…</strong></div>';
+      wLoading(el);
       try{
         const uid=state.user.uid;
         const [pt,st,pc,sc]=await Promise.all([
@@ -877,7 +902,7 @@ const WIDGET_TYPES={
         const sharedTxns=(st&&st.exists&&st.data().json)?safeJson(st.data().json,[]):[];
         const personalCats=(pc&&pc.exists&&pc.data().json)?safeJson(pc.data().json,[]):[];
         const sharedCats=(sc&&sc.exists&&sc.data().json)?safeJson(sc.data().json,[]):[];
-        const monthKey=new Date().toISOString().slice(0,7);
+        const monthKey=today().slice(0,7);
         const spentIn=txns=>txns.filter(t=>t.type==='expense'&&(t.date||'').slice(0,7)===monthKey).reduce((s,t)=>s+(Number(t.amount)||0),0);
         const spent=spentIn(personalTxns)+spentIn(sharedTxns);
         const budget=personalCats.concat(sharedCats).reduce((s,c)=>s+(Number(c.budget)||0),0);
@@ -903,7 +928,7 @@ const WIDGET_TYPES={
     }},
   pledge:{title:'Pledge',icon:'flag',desc:"Today's requirements for your active commitment, and the reward riding on it.",defaultSize:'md',
     async render(el){
-      el.innerHTML='<div class="empty-state"><strong>Loading…</strong></div>';
+      wLoading(el);
       try{
         const uid=state.user.uid;
         const snap=await db.collection('users').doc(uid).collection('apps').doc('pledge-v2').collection('data').doc('state').get();
@@ -927,7 +952,7 @@ const WIDGET_TYPES={
     }},
   taskmap:{title:'Task order map',icon:'git-branch',desc:"The same level-by-level order map from the To-Do app's Map view — see what's next and what's still waiting on something else, right from Today.",defaultSize:'lg',
     async render(el){
-      el.innerHTML='<div class="empty-state"><strong>Loading…</strong></div>';
+      wLoading(el);
       try{
         const uid=state.user.uid;
         const [pt,st]=await Promise.all([
@@ -994,7 +1019,7 @@ async function ensureWater(){
   let v=null;
   try{ const snap=await profileRef('hub-profiles','water').get(); v=snap.exists?safeJson(snap.data().json,null):null; }catch(e){}
   if(!v||typeof v!=='object') v={};
-  v.goal=Number(v.goal)>0?Number(v.goal):2000; v.unit=v.unit==='oz'?'oz':'ml'; v.log=(v.log&&typeof v.log==='object')?v.log:{};
+  v.goal=Number(v.goal)>0?Number(v.goal):(/anusha/i.test(state.profile||'')?3000:3500); v.unit=v.unit==='oz'?'oz':'ml'; v.log=(v.log&&typeof v.log==='object')?v.log:{};
   state.water=v; state.waterProfile=state.profile;
 }
 let waterSaveTimer=null;
@@ -1006,11 +1031,37 @@ function saveWater(){
     try{ await db.collection('users').doc(state.user.uid).collection('hub-profiles').doc(prof).collection('data').doc('water').set({json:JSON.stringify(data)}); }catch(e){}
   },400);
 }
+/* ---- Water <-> Gym sync. The Gym check-in keeps water in litres at profiles/{p}/dailyLogs/{date}.water.
+   That is the shared record: the widget reads it, adopts any change made in Gym, and writes every tap back.
+   w.sync[date] remembers the total (ml) both sides last agreed on, so we can tell who changed. ---- */
+function gymWaterDoc(prof,d){ return gymDailyLogsCol(prof).doc(d); }
+async function reconcileWater(days){
+  const w=state.water, prof=state.profile; if(!w||!prof) return;
+  w.sync=(w.sync&&typeof w.sync==='object')?w.sync:{};
+  let changed=false;
+  await Promise.all(days.map(async d=>{
+    let gymMl=0, exists=false;
+    try{ const s=await gymWaterDoc(prof,d).get(); exists=s.exists; gymMl=exists?Math.round((Number(s.data().water)||0)*1000):0; }catch(e){ return; }
+    const hubMl=waterTotal(d), base=w.sync[d];
+    if(base===undefined){
+      if(gymMl===hubMl){ w.sync[d]=gymMl; changed=true; return; }
+      if(gymMl>0){ w.log[d]=[gymMl]; w.sync[d]=gymMl; changed=true; return; }
+      await pushWaterToGym(prof,d,hubMl); w.sync[d]=hubMl; changed=true; return;
+    }
+    if(gymMl!==base){ w.log[d]=gymMl>0?[gymMl]:[]; w.sync[d]=gymMl; changed=true; }
+    else if(hubMl!==base){ await pushWaterToGym(prof,d,hubMl); w.sync[d]=hubMl; changed=true; }
+  }));
+  if(changed) saveWater();
+}
+async function pushWaterToGym(prof,d,ml){
+  try{ await gymWaterDoc(prof,d).set({date:d,water:Math.round(ml/10)/100},{merge:true}); }catch(e){}
+}
 function waterTotal(date){ const a=state.water.log[date]; return Array.isArray(a)?a.reduce((s,x)=>s+(Number(x)||0),0):0; }
 function waterFmt(ml){ return state.water.unit==='oz'?Math.round(ml/OZ_ML)+' oz':Math.round(ml).toLocaleString()+' ml'; }
 async function renderWaterInto(el){
   if(!el)return;
   await ensureWater();
+  { const dd=today(); await reconcileWater(Array.from({length:7},(_,i)=>addDays(dd,i-6))); }
   const w=state.water, d=today(), total=waterTotal(d), pct=Math.min(100,Math.round(total/w.goal*100));
   let streak=0, cur=total>=w.goal?d:addDays(d,-1);
   while(waterTotal(cur)>=w.goal&&streak<400){streak++;cur=addDays(cur,-1)}
@@ -1021,20 +1072,21 @@ async function renderWaterInto(el){
     '<div class="water-track"><i style="width:'+pct+'%"></i></div>'+
     '<div class="water-btns"><button type="button" data-water-add="'+cup+'">+ Cup<small>'+(w.unit==='oz'?'8 oz':'250 ml')+'</small></button><button type="button" data-water-add="'+bottle+'">+ Bottle<small>'+(w.unit==='oz'?'17 oz':'500 ml')+'</small></button><button type="button" data-water-custom>+ Custom</button></div>'+
     '<div class="water-foot"><div class="water-week">'+bars+'</div><div class="water-meta">'+(streak?'<b>'+streak+'</b> day streak':'No streak yet')+'<br><button type="button" data-water-undo>Undo</button> · <button type="button" data-water-settings>Goal</button></div></div>';
-  const add=ml=>{ (w.log[d]=Array.isArray(w.log[d])?w.log[d]:[]).push(Math.round(ml)); saveWater(); renderWaterInto(el); };
+  const syncToday=()=>{ w.sync=w.sync||{}; const t=waterTotal(d); w.sync[d]=t; return pushWaterToGym(state.profile,d,t); };
+  const add=async ml=>{ (w.log[d]=Array.isArray(w.log[d])?w.log[d]:[]).push(Math.round(ml)); await syncToday(); saveWater(); renderWaterInto(el); };
   el.onclick=e=>{
     const a=e.target.closest('[data-water-add]'); if(a){ add(Number(a.dataset.waterAdd)); return; }
     if(e.target.closest('[data-water-custom]')){
       const v=parseFloat(prompt('How much did you drink ('+w.unit+')?',''));
       if(v>0&&v<5000) add(w.unit==='oz'?v*OZ_ML:v); return;
     }
-    if(e.target.closest('[data-water-undo]')){ const arr=w.log[d]; if(Array.isArray(arr)&&arr.length){ arr.pop(); saveWater(); renderWaterInto(el); } return; }
+    if(e.target.closest('[data-water-undo]')){ const arr=w.log[d]; if(Array.isArray(arr)&&arr.length){ arr.pop(); syncToday().then(()=>{ saveWater(); renderWaterInto(el); }); } return; }
     if(e.target.closest('[data-water-settings]')){
       const unit=(prompt('Units: type ml or oz',w.unit)||'').trim().toLowerCase();
       if(unit==='ml'||unit==='oz') w.unit=unit; else if(unit) toast('Use ml or oz');
       const cur=w.unit==='oz'?Math.round(w.goal/OZ_ML):w.goal;
       const g=parseFloat(prompt('Daily goal ('+w.unit+')',String(cur)));
-      if(g>0&&g<20000) w.goal=Math.round(w.unit==='oz'?g*OZ_ML:g);
+      if(g>0&&g<20000){ w.goal=Math.round(w.unit==='oz'?g*OZ_ML:g); w.goalSet=true; }
       saveWater(); renderWaterInto(el);
     }
   };
@@ -1356,6 +1408,11 @@ function widgetSetEditMode(on){
   const board=$('widget-board');if(board)board.classList.toggle('editing',on);
   const doneBtn=$('widget-edit-done');if(doneBtn)doneBtn.hidden=!on;
 }
+/* Widgets that fetch their own data used to blank out to "Loading…" on every refresh. The last drawn
+   content is now kept and shown straight away while fresh data loads, so refreshes are invisible. */
+const widgetHtmlCache=new Map();
+const WIDGET_NO_CACHE={notes:1,photos:1};
+function wLoading(el){ if(!el.firstChild) el.innerHTML='<div class="empty-state"><strong>Loading…</strong></div>'; }
 function renderWidgetBoard(){
   const board=$('widget-board');if(!board||!state.widgets)return;
   if(!state.widgets.length){board.innerHTML='<div class="widget-board-empty">No widgets yet — use <strong>+ Add widget</strong> above to put something here.</div>';return}
@@ -1383,7 +1440,12 @@ function renderWidgetBoard(){
   board.querySelectorAll('.widget-card').forEach(card=>{
     const type=card.dataset.widgetType,def=WIDGET_TYPES[type];
     const w=state.widgets.find(x=>x.id===card.dataset.widgetId);
-    if(def)def.render(card.querySelector('.widget-card-body'),w);
+    if(def){
+      const body=card.querySelector('.widget-card-body'),ck=(w&&w.id)+'|'+state.profile;
+      if(!WIDGET_NO_CACHE[type]&&widgetHtmlCache.has(ck)) body.innerHTML=widgetHtmlCache.get(ck);
+      let r; try{ r=def.render(body,w); }catch(e){ console.warn(e); }
+      if(!WIDGET_NO_CACHE[type]) Promise.resolve(r).then(()=>{ if(body.isConnected&&body.innerHTML&&!/Loading…|Unavailable/.test(body.innerHTML)) widgetHtmlCache.set(ck,body.innerHTML); }).catch(()=>{});
+    }
     wireWidgetCard(card);
     const qaBtn=card.querySelector('[data-widget-quick-add]');
     if(qaBtn) qaBtn.addEventListener('click',e=>{e.stopPropagation();openQuickAdd()});
@@ -1564,6 +1626,18 @@ function wireWidgetModal(){
     saveWidgetLayout();renderWidgetBoard();$('widget-add-modal').hidden=true;toast(def.title+' added to your Today page');
   });
 }
+/* Hub edits write whole lists, so just before writing we re-read the stored copy and keep anything that was
+   added/changed elsewhere (e.g. in the To-Do app) since the Hub last loaded; only the ids we touched come from here. */
+async function mergeBeforeWrite(ref,list,touched){
+  const remote=await readJson(ref,null);
+  if(!Array.isArray(remote)) return list;
+  const ids=new Set(touched), byId=new Map(list.map(t=>[t.id,t]));
+  const out=remote.map(t=>ids.has(t.id)&&byId.has(t.id)?byId.get(t.id):t);
+  const have=new Set(out.map(t=>t.id));
+  touched.forEach(id=>{ if(byId.has(id)&&!have.has(id)) out.push(byId.get(id)); });
+  list.splice(0,list.length,...out);
+  return list;
+}
 async function completeTask(id){
   let list=state.personalTasks,task=list.find(t=>t.id===id),ref=profileRef('todo-profiles','tasks');
   if(!task){list=state.sharedTasks;task=list.find(t=>t.id===id);ref=sharedTodoRef()}if(!task)return;
@@ -1579,7 +1653,7 @@ async function completeTask(id){
     if(nextDue){const nid='task-'+Date.now()+'-'+Math.floor(Math.random()*1000);list.push({...task,id:nid,spawnedId:null,done:false,due:nextDue,completedOn:null,subtasks:(task.subtasks||[]).map(s=>({...s,done:false})),order:Date.now(),createdAt:new Date().toISOString()});task.spawnedId=nid}
   }
   renderDashboard();toast('Task completed');
-  try{await ref.set({json:JSON.stringify(list),updatedAt:firebase.firestore.FieldValue.serverTimestamp()},{merge:true})}catch(e){list.splice(originalLength);task.done=false;task.completedOn=null;renderDashboard();toast('Could not save. Try again.')}
+  try{await mergeBeforeWrite(ref,list,[task.id,task.spawnedId].filter(Boolean));await ref.set({json:JSON.stringify(list),updatedAt:firebase.firestore.FieldValue.serverTimestamp()},{merge:true})}catch(e){list.splice(originalLength);task.done=false;task.completedOn=null;renderDashboard();toast('Could not save. Try again.')}
 }
 
 /* =====================================================================
@@ -2745,7 +2819,10 @@ function openAppFrame(url,title){
 function closeAppFrame(){
   $('app-shell').classList.remove('app-open');
   $('app-frame-overlay').hidden=true;
-  $('app-frame-iframe').src='about:blank';
+  // ask the app to push any save it is still holding back, then unload it a beat later
+  const fr=$('app-frame-iframe');
+  try{ if(fr.contentWindow) fr.contentWindow.postMessage({type:'hub-flush'},'*'); }catch(e){}
+  setTimeout(()=>{ if($('app-frame-overlay').hidden) fr.src='about:blank'; },350);
   const activePage=document.querySelector('[data-page].active');
   const route=activePage?activePage.dataset.page:'today';
   if(document.querySelector('[data-nav-clock].active')){
@@ -2760,7 +2837,7 @@ function closeAppFrame(){
     $('app-shell').classList.remove('sidebar-collapsed');
     sidebarAutoCollapsed=false;
   }
-  setTimeout(()=>hubSoftRefresh(true),120);
+  setTimeout(()=>hubSoftRefresh(true),120);setTimeout(()=>hubSoftRefresh(true),900);
 }
 // Reads a #app=<url> hash (set by openAppFrame) and reopens that app in
 // the viewer — used on initial load so a refresh restores where you were,
@@ -2848,7 +2925,7 @@ document.addEventListener('click',e=>{
 function openQuickAdd(){$('qa-date').value=today();$('quick-add-modal').hidden=false;setTimeout(()=>$('qa-title').focus(),0)}
 function closeQuickAdd(){$('quick-add-modal').hidden=true;$('quick-add-form').reset()}
 document.querySelectorAll('[data-open-quick-add]').forEach(x=>x.addEventListener('click',openQuickAdd));$('quick-add-close').addEventListener('click',closeQuickAdd);$('quick-add-cancel').addEventListener('click',closeQuickAdd);$('quick-add-modal').addEventListener('click',e=>{if(e.target===$('quick-add-modal'))closeQuickAdd()});
-$('quick-add-form').addEventListener('submit',async e=>{e.preventDefault();const shared=$('qa-shared').value==='shared',task={id:'task-'+Date.now()+'-'+Math.floor(Math.random()*1000),title:$('qa-title').value.trim(),done:false,priority:Number($('qa-priority').value)||0,startDate:today(),due:$('qa-date').value||null,dueTime:$('qa-time').value||null,repeat:'none',notes:'',link:'',tags:[],subtasks:[],listId:shared?'shared':'personal',createdBy:state.profile,order:Date.now(),createdAt:new Date().toISOString()};if(!task.title)return;const list=shared?state.sharedTasks:state.personalTasks,ref=shared?sharedTodoRef():profileRef('todo-profiles','tasks');list.push(task);$('qa-save').disabled=true;try{await ref.set({json:JSON.stringify(list),updatedAt:firebase.firestore.FieldValue.serverTimestamp()},{merge:true});closeQuickAdd();renderDashboard();toast('Task added')}catch(err){list.pop();toast('Could not save. Try again.')}finally{$('qa-save').disabled=false}});
+$('quick-add-form').addEventListener('submit',async e=>{e.preventDefault();const shared=$('qa-shared').value==='shared',task={id:'task-'+Date.now()+'-'+Math.floor(Math.random()*1000),title:$('qa-title').value.trim(),done:false,priority:Number($('qa-priority').value)||0,startDate:today(),due:$('qa-date').value||null,dueTime:$('qa-time').value||null,repeat:'none',notes:'',link:'',tags:[],subtasks:[],listId:shared?'shared':'personal',createdBy:state.profile,order:Date.now(),createdAt:new Date().toISOString()};if(!task.title)return;const list=shared?state.sharedTasks:state.personalTasks,ref=shared?sharedTodoRef():profileRef('todo-profiles','tasks');list.push(task);$('qa-save').disabled=true;try{await mergeBeforeWrite(ref,list,[task.id]);await ref.set({json:JSON.stringify(list),updatedAt:firebase.firestore.FieldValue.serverTimestamp()},{merge:true});closeQuickAdd();renderDashboard();toast('Task added')}catch(err){list.pop();toast('Could not save. Try again.')}finally{$('qa-save').disabled=false}});
 
 function toast(message){const el=$('toast');el.textContent=message;el.classList.add('show');clearTimeout(toast.timer);toast.timer=setTimeout(()=>el.classList.remove('show'),2200)}
 function chooseProfile(){setGate('profile')}

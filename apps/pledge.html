@@ -266,6 +266,8 @@ function doc(k){return db.collection('users').doc(user.uid).collection('apps').d
 function prefGet(k){try{return localStorage.getItem(k)}catch(e){return null}}
 function prefSet(k,v){try{localStorage.setItem(k,v)}catch(e){}}
 function save(){if(!user)return;$('syncLabel').textContent='Saving…';$('syncDot').classList.remove('on');clearTimeout(saveTimer);saveTimer=setTimeout(flushSave,300)}
+function flushNow(){if(saveTimer){clearTimeout(saveTimer);saveTimer=null;try{flushSave()}catch(e){}}}
+window.addEventListener('pagehide',flushNow);document.addEventListener('visibilitychange',()=>{if(document.hidden)flushNow()});window.addEventListener('message',e=>{if(e.data&&e.data.type==='hub-flush')flushNow()});
 function safeParse(j){try{return JSON.parse(j)}catch(e){return null}}
 /* Both profiles live in one document. Saving merges goal-by-goal so a second
    device never overwrites goals it did not touch. */
