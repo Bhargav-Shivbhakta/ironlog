@@ -10,6 +10,8 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
 <script src="../assets/theme.js"></script>
+<link rel="stylesheet" href="../assets/motion.css">
+<script src="../assets/motion.js" defer></script>
 <script src="../assets/schedcats.js"></script>
 <style>
   /* These match the Hub shell's own tokens exactly (assets/app.css's
@@ -255,7 +257,7 @@
   .rb-status{font-weight:800;font-size:12px;border-radius:50%;width:20px;height:20px;display:inline-flex;align-items:center;justify-content:center;flex:none;}
   .rb-status.done{background:var(--accent-soft);color:var(--accent-deep);}
   .rb-status.missed{background:var(--danger-soft);color:var(--danger);}
-  .now-badge{font-size:11px;font-weight:800;color:var(--gold);text-transform:uppercase;letter-spacing:0.04em;margin-left:4px;}
+  .now-badge{font-size:11px;font-weight:800;color:color-mix(in srgb,var(--gold) 60%,var(--text));text-transform:uppercase;letter-spacing:0.04em;margin-left:4px;}
   /* "Hide done" toggle on the routine panel — checked-off blocks pile up
      as the day goes on and push what's actually next off the bottom of
      the screen, so this collapses them out of the list (reversible with
@@ -477,10 +479,10 @@
   .focus-inline-controls{flex:1;min-width:160px;display:flex;flex-direction:column;gap:8px;}
   .focus-presets{display:flex;gap:6px;flex-wrap:wrap;}
   .focus-preset-btn{border:1px solid rgba(255,255,255,.32);background:rgba(255,255,255,.1);color:#fff;border-radius:var(--radius-sm);padding:6px 10px;font-size:11px;font-weight:700;cursor:pointer;}
-  .focus-preset-btn.active{background:#fff;color:var(--accent-deep);border-color:#fff;}
+  .focus-preset-btn.active{background:#fff;color:color-mix(in srgb,var(--accent) 55%,#000);border-color:#fff;}
   .focus-ctrl-row{display:flex;gap:8px;flex-wrap:wrap;}
   .focus-ctrl-row button{border:0;border-radius:var(--radius-sm);padding:8px 12px;font-size:12px;font-weight:800;cursor:pointer;}
-  .focus-start-btn{background:#fff;color:var(--accent-deep);}
+  .focus-start-btn{background:#fff;color:color-mix(in srgb,var(--accent) 55%,#000);}
   .focus-pause-btn{background:rgba(255,255,255,.2);color:#fff;}
   .focus-end-btn{background:rgba(240,89,107,.9);color:#fff;}
   .focus-today-total{font-size:10.5px;color:rgba(255,255,255,.72);}

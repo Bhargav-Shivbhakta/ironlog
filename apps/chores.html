@@ -10,6 +10,8 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
 <script src="../assets/theme.js"></script>
+<link rel="stylesheet" href="../assets/motion.css">
+<script src="../assets/motion.js" defer></script>
 <style>
   :root{
     --bg:#F4F4F0; --surface:#FFFFFF; --surface-alt:#EFEDE4;
@@ -209,7 +211,7 @@
   .command-card h2{margin:5px 0 4px;font-size:18px;}
   .command-card p{margin:0 0 12px;font-size:12.5px;opacity:.92;}
   .command-actions{display:flex;gap:8px;flex-wrap:wrap;align-items:center;}
-  .command-btn{background:#fff;color:var(--accent-deep);border:none;border-radius:9px;padding:9px 14px;font-size:12.5px;font-weight:800;cursor:pointer;}
+  .command-btn{background:#fff;color:color-mix(in srgb,var(--accent) 55%,#000);border:none;border-radius:9px;padding:9px 14px;font-size:12.5px;font-weight:800;cursor:pointer;}
   .soft-btn{background:rgba(255,255,255,.16);color:#fff;border:1px solid rgba(255,255,255,.3);border-radius:9px;padding:9px 14px;font-size:12.5px;font-weight:700;cursor:pointer;}
   .command-meta{font-size:11px;opacity:.85;}
   .smart-plan-strip{display:flex;justify-content:space-between;align-items:center;gap:10px;background:var(--gold-soft);border-radius:var(--radius-md);padding:11px 13px;margin-bottom:12px;flex-wrap:wrap;}

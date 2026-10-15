@@ -1,0 +1,70 @@
+/* =====================================================================
+   Shared motion + polish layer — loaded by the Hub and every app so the
+   whole suite feels like one product. It only uses low-specificity rules and
+   the individual `scale` / `translate` properties (never `transform`), so it
+   never fights an app's own layout transforms. Disabled automatically for
+   people who ask their device for reduced motion.
+===================================================================== */
+:root{
+  --mo-ease:cubic-bezier(.22,1,.36,1);
+  --mo-spring:cubic-bezier(.34,1.56,.64,1);
+  --mo-fast:.16s; --mo-med:.3s; --mo-slow:.5s;
+}
+html{-webkit-tap-highlight-color:transparent;scroll-behavior:smooth;text-size-adjust:100%}
+body{-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale;text-rendering:optimizeLegibility;
+  transition:background-color .35s var(--mo-ease),color .35s var(--mo-ease)}
+button,a,[role=button],select,input,textarea,summary,label{touch-action:manipulation}
+img{-webkit-user-drag:none}
+
+/* every surface eases between themes instead of snapping */
+:where(div,section,header,nav,aside,main,article,li,td,th,input,select,textarea,button,a,span,p,h1,h2,h3,h4){
+  transition-property:background-color,border-color,color,box-shadow,opacity,scale,translate,filter;
+  transition-duration:.22s;transition-timing-function:var(--mo-ease);
+}
+/* but never slow down things that animate their own size/position */
+:where(.chart-bar,.cat-bar-fill,[class*=progress] i,[class*=bar] > i,[class*=fill]){transition-property:width,height,background-color,opacity;transition-duration:.6s}
+
+/* press + hover feedback */
+:where(button,.btn,.button,[role=button],a.tile,.app-tile):not(:disabled){transition-property:scale,translate,background-color,border-color,color,box-shadow,opacity,filter;transition-duration:.16s}
+@media (hover:hover){
+  :where(button:not(:disabled),.btn,.button,[role=button]):hover{filter:brightness(1.04)}
+}
+:where(button,.btn,.button,[role=button]):not(:disabled):active{scale:.965;filter:brightness(.97)}
+:where(button,.btn,.button,[role=button]):disabled{cursor:not-allowed}
+
+/* one consistent keyboard / focus ring */
+:where(button,a,[role=button],summary,input[type=checkbox],input[type=radio]):focus-visible{
+  outline:2px solid var(--accent,#ad7b20);outline-offset:2px;border-radius:inherit}
+:where(input:not([type=checkbox]):not([type=radio]):not([type=range]),select,textarea):focus{
+  outline:none;border-color:var(--accent,#ad7b20);
+  box-shadow:0 0 0 3px color-mix(in srgb,var(--accent,#ad7b20) 24%,transparent)}
+::selection{background:color-mix(in srgb,var(--accent,#ad7b20) 30%,transparent)}
+::placeholder{opacity:.7}
+
+/* thin, quiet scrollbars */
+*{scrollbar-width:thin;scrollbar-color:color-mix(in srgb,var(--muted,#74766f) 45%,transparent) transparent}
+::-webkit-scrollbar{width:10px;height:10px}
+::-webkit-scrollbar-thumb{background:color-mix(in srgb,var(--muted,#74766f) 40%,transparent);border-radius:99px;border:3px solid transparent;background-clip:padding-box}
+::-webkit-scrollbar-thumb:hover{background:color-mix(in srgb,var(--muted,#74766f) 65%,transparent);background-clip:padding-box;border:3px solid transparent}
+::-webkit-scrollbar-track{background:transparent}
+
+/* money and counters line up */
+:where(.txn-amount,.sc-value,.snap-big,.snap-row b,.ev-amt,.cat-amounts,.stat b,.fh-value,[class*=amount],[class*=balance]){font-variant-numeric:tabular-nums}
+
+/* toasts spring in (the app's own show/hide stays in charge of position) */
+:where(.toast){transition-property:opacity,translate,scale;transition-duration:.28s}
+
+/* skeleton shimmer helper + spinner for any "Loading…" gate */
+@keyframes mo-shimmer{from{background-position:200% 0}to{background-position:-200% 0}}
+.mo-skel{background:linear-gradient(90deg,transparent 0,color-mix(in srgb,var(--muted,#888) 14%,transparent) 50%,transparent 100%) 0 0/200% 100%;animation:mo-shimmer 1.4s linear infinite;border-radius:10px}
+@keyframes mo-spin{to{rotate:360deg}}
+:where(.loading-gate)::before{content:"";display:block;width:26px;height:26px;margin:0 auto 12px;border-radius:50%;
+  border:3px solid color-mix(in srgb,var(--accent,#ad7b20) 25%,transparent);border-top-color:var(--accent,#ad7b20);animation:mo-spin .8s linear infinite}
+
+/* a tiny bounce for success moments (apps can add .mo-bump) */
+@keyframes mo-bump{0%{scale:1}40%{scale:1.12}100%{scale:1}}
+.mo-bump{animation:mo-bump .35s var(--mo-spring)}
+
+@media (prefers-reduced-motion:reduce){
+  *,*::before,*::after{animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important;scroll-behavior:auto!important}
+}

@@ -90,6 +90,9 @@
     document.documentElement.style.setProperty(baseVar,sh.accent);
     if(deepVar)document.documentElement.style.setProperty(deepVar,sh.deep);
     if(softVar)document.documentElement.style.setProperty(softVar,sh.soft);
+    // Follow the Hub's full look (mode / palette) too, so every app matches
+    // whatever was picked in Settings instead of only taking the accent color.
+    try{ await applyHubAppearance(canon); }catch(e){}
     return sh;
   }
   /* ---- Full-appearance follower (mode + palette + wallpaper) ----------
@@ -118,26 +121,59 @@
     const[r,g,b]=hexToRgb(hex);
     return(0.299*r+0.587*g+0.114*b)>150?'#16130c':'#ffffff';
   }
+  /* Every app names its tokens a little differently (--surface-alt, --panel, --border, --text-soft ...).
+     This maps the Hub's surface tokens onto all of those names, and in dark modes re-tints the pastel
+     "-soft" chips so they don't glow on a dark surface. */
+  const SOFT_BASES=['accent','danger','good','done','success','info','warn','gold','p1','p2','p3','p4','todo','gym','chores','schedule','skin','am','body-c','night','pm','track','ok','bad','orange','blue','red','coral','violet'];
+  function applyVars(v){
+    const root=document.documentElement,set=(k,x)=>root.style.setProperty(k,x);
+    const inkText=root.dataset.themeInk==='text';
+    root.dataset.theme=v.dark?'dark':'light';
+    root.style.colorScheme=v.dark?'dark':'light';
+    set('--bg',v.bg);set('--surface',v.surface);set('--surface-soft',v.soft);set('--line',v.line);
+    set('--text',v.text);set('--muted',v.muted);set('--faint','color-mix(in srgb,'+v.muted+' 72%,'+v.text+')');set('--shadow',v.shadow);
+    set('--ink',inkText?v.text:v.ink);
+    set('--surface-alt',v.soft);set('--surface-2',v.soft);set('--panel',v.surface);set('--panel2',v.soft);
+    set('--border',v.line);set('--border-soft','color-mix(in srgb,'+v.line+' 55%,'+v.surface+')');
+    set('--text-soft',v.muted);set('--text-faint','color-mix(in srgb,'+v.muted+' 72%,'+v.text+')');
+    if(v.dark){
+      SOFT_BASES.forEach(n=>set('--'+n+'-soft','color-mix(in srgb,var(--'+n+') 20%,'+v.surface+')'));
+      set('--green2','color-mix(in srgb,var(--green,var(--accent)) 20%,'+v.surface+')');
+      const lift='color-mix(in srgb,var(--accent) 62%,#fff)';
+      set('--accent-deep',lift);set('--accent-ink',lift);
+    }else{
+      ['--accent-deep','--accent-ink'].forEach(k=>{ /* keep whatever applyHubTheme derived */ });
+    }
+    const meta=document.querySelector('meta[name="theme-color"]'); if(meta&&/^#|^hsl/.test(v.bg))meta.setAttribute('content',v.bg);
+    root.classList.add('themed');
+  }
+  function cacheKey(p){return 'hub-appearance:'+(canonProfile(p)||'last');}
+  function readCache(p){ try{ const c=JSON.parse(localStorage.getItem(cacheKey(p))||'null'); return c&&c.surface?c:null; }catch(e){ return null; } }
+  function writeCache(p,v){ try{ const j=JSON.stringify(v); localStorage.setItem(cacheKey(p),j); localStorage.setItem(cacheKey('last'),j); }catch(e){} }
+  function profileFromUrl(){ try{ return new URLSearchParams(location.search).get('profile'); }catch(e){ return null; } }
+  function applyCached(p){ const c=readCache(p||profileFromUrl())||readCache('last'); if(c)applyVars(c); return !!c; }
   async function applyHubAppearance(profileRaw){
     const canon=canonProfile(profileRaw)||'Bhargav';
-    let ap=null;
+    let ap=null, fetched=false;
     try{
       const user=firebase.auth&&firebase.auth().currentUser;
       if(user){
         const snap=await firebase.firestore().collection('users').doc(user.uid).collection('hub-profiles').doc(canon).collection('data').doc('appearance').get();
         if(snap.exists)ap=JSON.parse(snap.data().json||'{}');
+        fetched=true;
       }
     }catch(e){}
+    if(!fetched){ const c=readCache(canon); if(c){ applyVars(c); return c; } }
     ap=ap||{};
-    const v=(ap.mode&&ap.mode.indexOf('palette-')===0?paletteVars(ap.mode):MODES[ap.mode])||MODES.light;
-    const root=document.documentElement,set=(k,x)=>root.style.setProperty(k,x);
-    root.dataset.theme=v.dark?'dark':'light';
-    set('--bg',v.bg);set('--surface',v.surface);set('--surface-soft',v.soft);set('--line',v.line);
-    set('--text',v.text);set('--muted',v.muted);set('--faint',v.faint);set('--ink',v.ink);set('--shadow',v.shadow);
+    const v=Object.assign({},(ap.mode&&ap.mode.indexOf('palette-')===0?paletteVars(ap.mode):MODES[ap.mode])||MODES.light);
     const wp=ap.wallpaper&&ap.wallpaper.css;
-    if(wp)set('--bg',wp);
-    root.classList.toggle('wallpaper-live',!!(ap.wallpaper&&/^(aurora|ember|tide)$/.test(ap.wallpaper.id||'')));
+    if(wp)v.bg=wp;
+    applyVars(v);
+    writeCache(canon,v);
+    document.documentElement.classList.toggle('wallpaper-live',!!(ap.wallpaper&&/^(aurora|ember|tide)$/.test(ap.wallpaper.id||'')));
     return v;
   }
-  global.HubTheme={applyHubTheme,applyHubAppearance,readableOn,deriveShades,hexToRgb,rgbToHsl,hslToHex};
+  // Paint the last-known look immediately (before Firebase answers) so a dark theme never flashes light.
+  applyCached();
+  global.HubTheme={applyHubTheme,applyHubAppearance,applyCached,writeCache,readableOn,deriveShades,hexToRgb,rgbToHsl,hslToHex};
 })(window);

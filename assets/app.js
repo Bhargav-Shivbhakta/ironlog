@@ -196,6 +196,13 @@ function applyTheme(){
   if(wpCss)document.documentElement.style.setProperty('--bg',wpCss);
   const wpPreset=WALLPAPER_PRESETS.find(w=>w.id===((t.wallpaper&&t.wallpaper.id)||'none'));
   document.documentElement.classList.toggle('wallpaper-live',!!(wpPreset&&wpPreset.live));
+  // Remember the resolved look so every app can paint it instantly (no light flash) and follow it.
+  try{
+    const cs=getComputedStyle(document.documentElement), g=k=>cs.getPropertyValue('--'+k).trim();
+    const dk=document.documentElement.dataset.theme;
+    const v={bg:g('bg'),surface:g('surface'),soft:g('surface-soft'),line:g('line'),text:g('text'),muted:g('muted'),faint:g('faint'),ink:g('ink'),shadow:g('shadow'),dark:dk==='dark'||dk==='midnight'};
+    if(v.surface&&state.profile){ const j=JSON.stringify(v); localStorage.setItem('hub-appearance:'+state.profile,j); localStorage.setItem('hub-appearance:last',j); }
+  }catch(e){}
 }
 // Accent colors stay shared (Bhargav's gold / Anusha's pink need to be
 // recognizable to both of you no matter who's active — e.g. a shared
@@ -445,6 +452,33 @@ async function loadDashboard(){
   // just falling back to a bare route.
   if(!restoreAppFromHash()) showRoute(location.hash.replace('#','')||'today');
 }
+
+/* Quiet re-sync of the Today data. Runs when you close an app, and when you come back to the tab after a
+   while, so what you just did in To-Do / Chores / Calendar shows up on the Hub without a manual refresh. */
+let hubLastSoft=Date.now(),hubSoftBusy=false;
+async function hubSoftRefresh(force){
+  if(hubSoftBusy||!state.user||!state.profile||$('app-shell').hidden)return;
+  if(!force&&Date.now()-hubLastSoft<45000)return;
+  if($('app-frame-overlay')&&!$('app-frame-overlay').hidden)return;
+  hubSoftBusy=true;
+  try{
+    const date=today(),pl=state.profile.toLowerCase();
+    const [templates,events,personal,shared,chores,choreHistory,dailyLog,reminders,reminderCats]=await Promise.all([
+      readJson(profileRef('schedule-profiles','dayTemplates'),{}),readJson(profileRef('schedule-profiles','events'),[]),
+      readJson(profileRef('todo-profiles','tasks'),[]),readJson(sharedTodoRef(),[]),
+      readJson(appRef('chores','chores'),[]),readJson(appRef('chores','history'),[]),
+      db.collection('users').doc(state.user.uid).collection('profiles').doc(pl).collection('dailyLogs').doc(date).get().then(x=>x.exists?x.data():null).catch(()=>null),
+      readJson(appRef('calendar','reminders'),[]),readJson(appRef('calendar','reminderCategories'),[])
+    ]);
+    Object.assign(state,{reminders:Array.isArray(reminders)?reminders:[],reminderCats:Array.isArray(reminderCats)?reminderCats:[],templates,events,personalTasks:personal,sharedTasks:shared,chores,choreHistory,dailyLog});
+    insightsLoadedAt=0;
+    renderDashboard();
+    const act=document.querySelector('[data-page].active');
+    if(act&&act.dataset.page==='insights')renderInsightsPage().catch(()=>{});
+  }catch(e){}
+  hubSoftBusy=false;hubLastSoft=Date.now();
+}
+document.addEventListener('visibilitychange',()=>{if(!document.hidden)hubSoftRefresh(false)});
 
 // Same recurrence rules as Calendar and Schedule (daily / weekly / monthly /
 // yearly, with an optional end date), so an event shows up on the Hub on exactly
@@ -948,8 +982,64 @@ const WIDGET_TYPES={
   photos:{title:'Photo widget',icon:'image',desc:'Your own little rotating gallery — add a batch of photos, shuffle them, or let it play on its own. Add as many of these as you like.',defaultSize:'lg',bare:true,multiple:true,
     render(el,w){renderPhotoWidgetInto(el,w.id)}},
   notes:{title:'Sticky notes',icon:'sticky-note',desc:'The same sticky notes as your To-Do app — write one here or there and it stays in sync both ways.',defaultSize:'md',
-    render(el){renderNotesWidgetInto(el)}}
+    render(el){renderNotesWidgetInto(el)}},
+  water:{title:'Water',icon:'droplets',desc:'Tap to log a cup or a bottle, see how close you are to your daily goal, and keep a streak going.',defaultSize:'md',
+    render(el){renderWaterInto(el)}}
 };
+/* ---- Water tracker: log is {date:[amountsInMl]} so the last tap can be undone; goal + unit are per profile.
+   Stored at users/{uid}/hub-profiles/{profile}/data/water. ---- */
+const OZ_ML=29.5735;
+async function ensureWater(){
+  if(state.water && state.waterProfile===state.profile) return;
+  let v=null;
+  try{ const snap=await profileRef('hub-profiles','water').get(); v=snap.exists?safeJson(snap.data().json,null):null; }catch(e){}
+  if(!v||typeof v!=='object') v={};
+  v.goal=Number(v.goal)>0?Number(v.goal):2000; v.unit=v.unit==='oz'?'oz':'ml'; v.log=(v.log&&typeof v.log==='object')?v.log:{};
+  state.water=v; state.waterProfile=state.profile;
+}
+let waterSaveTimer=null;
+function saveWater(){
+  clearTimeout(waterSaveTimer);
+  const prof=state.profile, data=state.water;
+  waterSaveTimer=setTimeout(async()=>{
+    const keep=Object.keys(data.log).sort().slice(-90); const log={}; keep.forEach(k=>log[k]=data.log[k]); data.log=log;
+    try{ await db.collection('users').doc(state.user.uid).collection('hub-profiles').doc(prof).collection('data').doc('water').set({json:JSON.stringify(data)}); }catch(e){}
+  },400);
+}
+function waterTotal(date){ const a=state.water.log[date]; return Array.isArray(a)?a.reduce((s,x)=>s+(Number(x)||0),0):0; }
+function waterFmt(ml){ return state.water.unit==='oz'?Math.round(ml/OZ_ML)+' oz':Math.round(ml).toLocaleString()+' ml'; }
+async function renderWaterInto(el){
+  if(!el)return;
+  await ensureWater();
+  const w=state.water, d=today(), total=waterTotal(d), pct=Math.min(100,Math.round(total/w.goal*100));
+  let streak=0, cur=total>=w.goal?d:addDays(d,-1);
+  while(waterTotal(cur)>=w.goal&&streak<400){streak++;cur=addDays(cur,-1)}
+  const days=Array.from({length:7},(_,i)=>addDays(d,i-6));
+  const bars=days.map(x=>{const t=waterTotal(x);const h=Math.max(4,Math.min(100,Math.round(t/w.goal*100)));return '<span class="water-bar'+(t>=w.goal?' hit':'')+(x===d?' today':'')+'" style="height:'+h+'%" title="'+esc(x)+': '+esc(waterFmt(t))+'"></span>'}).join('');
+  const cup=w.unit==='oz'?Math.round(8*OZ_ML):250, bottle=w.unit==='oz'?Math.round(17*OZ_ML):500;
+  el.innerHTML='<div class="water-top"><strong class="water-num">'+esc(waterFmt(total))+'</strong><span class="water-goal">of '+esc(waterFmt(w.goal))+(pct>=100?' · goal hit':'')+'</span></div>'+
+    '<div class="water-track"><i style="width:'+pct+'%"></i></div>'+
+    '<div class="water-btns"><button type="button" data-water-add="'+cup+'">+ Cup<small>'+(w.unit==='oz'?'8 oz':'250 ml')+'</small></button><button type="button" data-water-add="'+bottle+'">+ Bottle<small>'+(w.unit==='oz'?'17 oz':'500 ml')+'</small></button><button type="button" data-water-custom>+ Custom</button></div>'+
+    '<div class="water-foot"><div class="water-week">'+bars+'</div><div class="water-meta">'+(streak?'<b>'+streak+'</b> day streak':'No streak yet')+'<br><button type="button" data-water-undo>Undo</button> · <button type="button" data-water-settings>Goal</button></div></div>';
+  const add=ml=>{ (w.log[d]=Array.isArray(w.log[d])?w.log[d]:[]).push(Math.round(ml)); saveWater(); renderWaterInto(el); };
+  el.onclick=e=>{
+    const a=e.target.closest('[data-water-add]'); if(a){ add(Number(a.dataset.waterAdd)); return; }
+    if(e.target.closest('[data-water-custom]')){
+      const v=parseFloat(prompt('How much did you drink ('+w.unit+')?',''));
+      if(v>0&&v<5000) add(w.unit==='oz'?v*OZ_ML:v); return;
+    }
+    if(e.target.closest('[data-water-undo]')){ const arr=w.log[d]; if(Array.isArray(arr)&&arr.length){ arr.pop(); saveWater(); renderWaterInto(el); } return; }
+    if(e.target.closest('[data-water-settings]')){
+      const unit=(prompt('Units: type ml or oz',w.unit)||'').trim().toLowerCase();
+      if(unit==='ml'||unit==='oz') w.unit=unit; else if(unit) toast('Use ml or oz');
+      const cur=w.unit==='oz'?Math.round(w.goal/OZ_ML):w.goal;
+      const g=parseFloat(prompt('Daily goal ('+w.unit+')',String(cur)));
+      if(g>0&&g<20000) w.goal=Math.round(w.unit==='oz'?g*OZ_ML:g);
+      saveWater(); renderWaterInto(el);
+    }
+  };
+  if(window.lucide)lucide.createIcons();
+}
 /* ---- Photo widget: a small self-contained gallery, its own upload +
    shuffle + slideshow logic rather than a generic "widget data" blob,
    since photos are genuinely different from every other widget (a list of
@@ -2670,6 +2760,7 @@ function closeAppFrame(){
     $('app-shell').classList.remove('sidebar-collapsed');
     sidebarAutoCollapsed=false;
   }
+  setTimeout(()=>hubSoftRefresh(true),120);
 }
 // Reads a #app=<url> hash (set by openAppFrame) and reopens that app in
 // the viewer — used on initial load so a refresh restores where you were,
@@ -2767,7 +2858,18 @@ $('auth-form').addEventListener('submit',async e=>{e.preventDefault();$('auth-er
 
 auth.onAuthStateChanged(user=>{state.user=user;if(!user){setGate('auth');return}const saved=localStorage.getItem(PROFILE_KEY);if(saved==='Bhargav'||saved==='Anusha'){setProfile(saved);loadDashboard()}else setGate('profile')});
 lucide.createIcons();
-if('serviceWorker'in navigator)window.addEventListener('load',()=>navigator.serviceWorker.register('sw.js').catch(()=>{}));
+if('serviceWorker'in navigator){
+  const hadController=!!navigator.serviceWorker.controller;
+  let reloaded=false;
+  // A new deploy activates a new worker: pick it up right away (once), unless you are typing something.
+  navigator.serviceWorker.addEventListener('controllerchange',()=>{
+    if(!hadController||reloaded)return;
+    const a=document.activeElement;
+    if(a&&/^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName))return;
+    reloaded=true;location.reload();
+  });
+  window.addEventListener('load',()=>navigator.serviceWorker.register('sw.js').then(r=>{r.update&&r.update();document.addEventListener('visibilitychange',()=>{if(!document.hidden&&r.update)r.update()})}).catch(()=>{}));
+}
 
 /* =====================================================================
    HUB ALARMS — reads the same alarm list Clock manages, but checks the
