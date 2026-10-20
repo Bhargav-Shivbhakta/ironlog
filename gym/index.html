@@ -1855,6 +1855,7 @@ function dayNameFor(dateStr){ const d = new Date(dateStr+'T00:00:00'); return DA
    profiles/{id}/meta/workoutOverrides. It never touches the weekly plan: the date just borrows another day's
    workout (or becomes a rest day). effectiveDayFor(date) is the plan day that date actually follows. ---- */
 let workoutOverrides = {};
+let liftPicked = null; // a day chip the user chose by hand on the Train tab (date + day) — never overridden by sync
 function workoutOverridesDoc(){ return db.collection('users').doc(currentUser.uid).collection('profiles').doc(activeProfile.id).collection('meta').doc('workoutOverrides'); }
 async function loadWorkoutOverrides(){
   try{ const d = await workoutOverridesDoc().get(); workoutOverrides = (d.exists && d.data() && d.data().map) || {}; }catch(e){ workoutOverrides = {}; }
@@ -1916,6 +1917,18 @@ function openSwapWorkout(date){
   const rs = document.getElementById('swap-reset');
   if(rs) rs.addEventListener('click', async function(){ await setWorkoutOverride(date, null); close(); await afterWorkoutOverride(date); });
 }
+// Train follows the plan day a date actually uses (incl. one-day swaps). Re-reads the saved swaps first, so a
+// swap made on another device or in another tab shows up here too.
+async function syncTrainToOverrides(){
+  await loadWorkoutOverrides();
+  if(liftMode!=='regular') return;
+  const date = document.getElementById('lift-date').value || todayStr();
+  if(liftPicked && liftPicked.date===date) return;
+  const eff = effectiveDayFor(date);
+  if(activeProfile.workouts[eff] && currentLiftDay!==eff){
+    currentLiftDay = eff; renderDayPicker(); await renderExerciseList(date, currentLiftDay);
+  }else{ renderDayPicker(); }
+}
 async function afterWorkoutOverride(date){
   if(document.getElementById('lift-date') && (document.getElementById('lift-date').value||todayStr())===date && liftMode==='regular'){
     const eff = effectiveDayFor(date);
@@ -1937,7 +1950,8 @@ function openView(view){
   document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));
   document.getElementById('view-'+view).classList.add('active');
   try{ window.scrollTo({top:0}); }catch(e){}
-  if(view==='today') renderDashboard();
+  if(view==='today'){ loadWorkoutOverrides().then(renderDashboard).catch(function(){ renderDashboard(); }); }
+  if(view==='train') syncTrainToOverrides().catch(function(e){ console.error(e); });
   if(view==='progress'){ renderAnalytics(); renderProgressExtras(); loadBodyStatsForm(); }
   if(view==='history') renderHistory();
   if(view==='diet'){ loadLiveDietData().then(renderDiet); }
@@ -1955,6 +1969,7 @@ function stepDateInput(inputId, delta){
 document.getElementById('log-date-prev').addEventListener('click', ()=> stepDateInput('log-date', -1));
 document.getElementById('log-date-next').addEventListener('click', ()=> stepDateInput('log-date', 1));
 document.getElementById('log-date-today').addEventListener('click', ()=> stepDateInput('log-date', 0));
+document.addEventListener('visibilitychange', ()=>{ if(!document.hidden && typeof activeProfile!=='undefined' && activeProfile){ const a=document.querySelector('.view.active'); if(a && a.id==='view-train') syncTrainToOverrides().catch(function(){}); else if(a && a.id==='view-today') loadWorkoutOverrides().then(renderDashboard).catch(function(){}); } });
 document.getElementById('lift-date-prev').addEventListener('click', ()=> stepDateInput('lift-date', -1));
 document.getElementById('lift-date-next').addEventListener('click', ()=> stepDateInput('lift-date', 1));
 document.getElementById('lift-date-today').addEventListener('click', ()=> stepDateInput('lift-date', 0));
@@ -2502,21 +2517,31 @@ function renderDayPicker(){
   const WEEK_ORDER = ['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'];
   const dayKeys = Object.keys(set).sort(function(a,b){ return WEEK_ORDER.indexOf(a)-WEEK_ORDER.indexOf(b); });
   const restNotes = (liftMode==='regular' && activeProfile.restDayNotes) || {};
+  const pickDate = document.getElementById('lift-date').value || todayStr();
+  const ownDay = dayNameFor(pickDate), effDay = effectiveDayFor(pickDate);
+  const swapped = liftMode==='regular' && effDay!==ownDay && workoutOverrides[pickDate]!==undefined && !isRestOverride(pickDate);
   dayKeys.forEach(dn=>{
     const chip = document.createElement('button');
     chip.className = 'day-chip';
-    chip.innerHTML = restNotes[dn] ? dn+'<span class="day-chip-rest-tag">'+restNotes[dn]+'</span>' : dn;
-    if(dn === currentLiftDay) chip.classList.add('active');
+    // a one-day swap shows up under the date's own weekday: "Tuesday · Push + Core (from Monday)"
+    const swappedHere = swapped && dn===ownDay;
+    const target = swappedHere ? effDay : dn;
+    if(swappedHere){
+      const sc = activeProfile.weekSchedule && activeProfile.weekSchedule[effDay];
+      chip.innerHTML = dn+'<span class="day-chip-rest-tag">'+(sc?sc.main:effDay)+' · from '+effDay.slice(0,3)+'</span>';
+    }else chip.innerHTML = restNotes[dn] ? dn+'<span class="day-chip-rest-tag">'+restNotes[dn]+'</span>' : dn;
+    if(swappedHere ? currentLiftDay===effDay : (dn === currentLiftDay && !(swapped && dn===effDay))) chip.classList.add('active');
     chip.addEventListener('click', ()=>{
-      currentLiftDay = dn; renderDayPicker();
-      renderExerciseList(document.getElementById('lift-date').value || todayStr(), dn);
+      currentLiftDay = target; liftPicked = {date: document.getElementById('lift-date').value || todayStr(), day: target}; renderDayPicker();
+      renderExerciseList(document.getElementById('lift-date').value || todayStr(), target);
     });
     picker.appendChild(chip);
   });
   if(liftMode === 'regular'){
     const scheduledDay = effectiveDayFor(document.getElementById('lift-date').value || todayStr());
-    const restNote = restNotes[scheduledDay];
-    document.getElementById('lift-rules').innerHTML = restNote ?
+    const restNote = swapped ? null : restNotes[scheduledDay];
+    document.getElementById('lift-rules').innerHTML = swapped ?
+      `<div class="empty-note">${ownDay} is following ${effDay}'s workout — this day only. Change it with “Swap today” on the Today tab.</div>` : restNote ?
       `<div class="empty-note">${scheduledDay} is normally a ${restNote.toLowerCase()} — pick it above only if you're choosing to log a workout anyway.</div>` :
       (activeProfile.workouts[scheduledDay] ? '' :
       `<div class="empty-note">${scheduledDay} is a scheduled rest / recovery day. Pick a day above to log anyway.</div>`);
