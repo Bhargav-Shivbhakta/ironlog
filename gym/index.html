@@ -1855,6 +1855,22 @@ function dayNameFor(dateStr){ const d = new Date(dateStr+'T00:00:00'); return DA
    profiles/{id}/meta/workoutOverrides. It never touches the weekly plan: the date just borrows another day's
    workout (or becomes a rest day). effectiveDayFor(date) is the plan day that date actually follows. ---- */
 let workoutOverrides = {};
+/* ---- Removing exercises from the Train list. Two kinds: "just this day" (exerciseRemovals.once[date]) and
+   "from this workout for good" (exerciseRemovals.perm[day]); both hide a built-in exercise by id and are
+   undoable with "Restore" at the bottom of the list. Exercises you added yourself are removed outright. ---- */
+let exerciseRemovals = {perm:{}, once:{}};
+function exerciseRemovalsDoc(){ return db.collection('users').doc(currentUser.uid).collection('profiles').doc(activeProfile.id).collection('meta').doc('exerciseRemovals'); }
+async function loadExerciseRemovals(){
+  try{ const d = await exerciseRemovalsDoc().get(); const v = d.exists ? d.data() : null; exerciseRemovals = {perm:(v&&v.perm)||{}, once:(v&&v.once)||{}}; }
+  catch(e){ exerciseRemovals = {perm:{}, once:{}}; }
+  const cut = new Date(Date.now()-120*86400000); const cs = cut.getFullYear()+'-'+String(cut.getMonth()+1).padStart(2,'0')+'-'+String(cut.getDate()).padStart(2,'0');
+  Object.keys(exerciseRemovals.once).forEach(function(k){ if(k<cs) delete exerciseRemovals.once[k]; });
+}
+async function saveExerciseRemovals(){ try{ await exerciseRemovalsDoc().set(exerciseRemovals); return true; }catch(e){ console.error(e); return false; } }
+function exerciseHiddenFor(id, dayKey, date){
+  return ((exerciseRemovals.perm[dayKey]||[]).indexOf(id)!==-1) || ((exerciseRemovals.once[date]||[]).filter(function(x){ return x.day===dayKey && x.id===id; }).length>0);
+}
+function visibleExercises(list, dayKey, date){ return (list||[]).filter(function(e){ return !exerciseHiddenFor(e.id, dayKey, date); }); }
 let liftPicked = null; // a day chip the user chose by hand on the Train tab (date + day) — never overridden by sync
 function workoutOverridesDoc(){ return db.collection('users').doc(currentUser.uid).collection('profiles').doc(activeProfile.id).collection('meta').doc('workoutOverrides'); }
 async function loadWorkoutOverrides(){
@@ -2221,7 +2237,7 @@ function readinessFor(log){
 }
 async function renderFitnessCommand(todayLog, sched){
   const date = todayStr(), day = effectiveDayFor(date);
-  const planned = isRestOverride(date) ? [] : ((activeProfile.workouts && activeProfile.workouts[day]) || []).concat(customExercisesFor(day));
+  const planned = isRestOverride(date) ? [] : visibleExercises((activeProfile.workouts && activeProfile.workouts[day]) || [], day, date).concat(customExercisesFor(day));
   const saved = await getLift(date, 'regular:'+day);
   const ready = readinessFor(todayLog);
   const completed = saved?.exercises?.length || 0, total = planned.length;
@@ -2334,7 +2350,7 @@ function scienceOrderedExercises(list){
 }
 function openWorkoutPreview(dayKey){
   const p = activeProfile;
-  const defaultExercises = (p.workouts && p.workouts[dayKey]) || [];
+  const defaultExercises = visibleExercises((p.workouts && p.workouts[dayKey]) || [], dayKey, todayStr());
   const customList = customExercisesFor(dayKey).map(e=>Object.assign({}, e, {custom:true}));
   const ordered = scienceOrderedExercises(defaultExercises.concat(customList));
   const s = p.weekSchedule ? p.weekSchedule[dayKey] : null;
@@ -2577,7 +2593,8 @@ async function renderExerciseList(date, dayKey){
   }
 
   const customList = customExercisesFor(dayKey).map(e=>Object.assign({}, e, {custom:true}));
-  let allExercises = exercises.concat(customList);
+  const hiddenHere = exercises.filter(function(e){ return exerciseHiddenFor(e.id, dayKey, date); });
+  let allExercises = visibleExercises(exercises, dayKey, date).concat(customList);
   const orderKey = liftMode+':'+dayKey;
   allExercises = applyExerciseOrder(orderKey, allExercises);
 
@@ -2653,7 +2670,7 @@ async function renderExerciseList(date, dayKey){
         <span class="rest-display"></span>
         <button type="button" class="rest-suggest" title="Rest suggestion based on that set's Effort — tap to use it"></button>
         <button type="button" class="btn small ghost plate-btn" title="Plates to load per side">Plates</button>
-        ${ex.custom ? `<button class="btn small ghost" style="color:var(--danger);margin-left:auto;" data-removecustom="${ex.id}" data-day="${dayKey}">Remove</button>` : ''}
+        ${ex.custom ? `<button class="btn small ghost" style="color:var(--danger);margin-left:auto;" data-removecustom="${ex.id}" data-day="${dayKey}">Remove</button>` : `<button class="btn small ghost" style="color:var(--danger);margin-left:auto;" data-removeplan="${ex.id}" data-exname="${String(ex.name).replace(/"/g,'&quot;')}">Remove</button>`}
       </div>
       <div class="ex-save-msg"></div>
     `;
@@ -2774,8 +2791,49 @@ function wireExerciseCardHandlers(container, date, dayKey, orderKey){
       renderExerciseList(document.getElementById('lift-date').value || todayStr(), currentLiftDay);
     });
   });
+  const hiddenHere = ((activeWorkoutSet()||{})[dayKey]||[]).filter(function(e){ return exerciseHiddenFor(e.id, dayKey, date); });
+  container.querySelectorAll('[data-removeplan]').forEach(btn=>{
+    btn.addEventListener('click', ()=> openRemoveExercise(btn.dataset.removeplan, btn.dataset.exname, dayKey, date));
+  });
+  if(hiddenHere.length){
+    const rb = document.createElement('div');
+    rb.className = 'empty-note';
+    rb.innerHTML = hiddenHere.length+' exercise'+(hiddenHere.length===1?'':'s')+' removed from this workout · <a href="#" id="restore-exercises">Restore</a>';
+    container.appendChild(rb);
+    rb.querySelector('#restore-exercises').addEventListener('click', async (e)=>{
+      e.preventDefault();
+      hiddenHere.forEach(function(h){
+        exerciseRemovals.perm[dayKey] = (exerciseRemovals.perm[dayKey]||[]).filter(function(x){ return x!==h.id; });
+        if(exerciseRemovals.once[date]) exerciseRemovals.once[date] = exerciseRemovals.once[date].filter(function(x){ return !(x.day===dayKey && x.id===h.id); });
+      });
+      await saveExerciseRemovals();
+      renderExerciseList(date, dayKey); renderDashboard().catch(function(){});
+    });
+  }
   wireExerciseDragDrop(container, orderKey);
   restoreRestTimers(container);
+}
+function openRemoveExercise(id, name, dayKey, date){
+  const mount = document.getElementById('preview-modal-mount');
+  mount.innerHTML = '<div class="preview-overlay" id="preview-overlay"><div class="preview-sheet">'+
+    '<div class="preview-head"><div><h3>Remove “'+escHtml(name)+'”?</h3><div class="ex-meta">Anything already logged for it on this date is dropped when you save.</div></div><button class="icon-btn" id="preview-close">✕</button></div>'+
+    '<div class="swap-list">'+
+    '<button type="button" class="swap-opt" id="rm-once"><b>Just for '+escHtml(fmtHuman(date))+'</b><span>Skip it on this day only — the plan keeps it</span></button>'+
+    '<button type="button" class="swap-opt" id="rm-perm"><b>From the '+escHtml(dayKey)+' workout for good</b><span>Hidden every time this workout comes up (restorable below the list)</span></button>'+
+    '</div></div></div>';
+  const close = function(){ mount.innerHTML=''; };
+  document.getElementById('preview-close').addEventListener('click', close);
+  document.getElementById('preview-overlay').addEventListener('click', function(e){ if(e.target.id==='preview-overlay') close(); });
+  const done = async function(){
+    await saveExerciseRemovals(); close();
+    renderExerciseList(date, dayKey); renderDashboard().catch(function(){});
+  };
+  document.getElementById('rm-once').addEventListener('click', function(){
+    (exerciseRemovals.once[date] = exerciseRemovals.once[date] || []).push({day:dayKey, id:id}); done();
+  });
+  document.getElementById('rm-perm').addEventListener('click', function(){
+    const l = (exerciseRemovals.perm[dayKey] = exerciseRemovals.perm[dayKey] || []); if(l.indexOf(id)===-1) l.push(id); done();
+  });
 }
 function wireDeleteSetButton(btn){
   if(!btn) return;
@@ -5681,6 +5739,7 @@ async function init(){
   await loadExerciseUnits();
   await loadExerciseOrder();
   await loadWorkoutOverrides();
+  await loadExerciseRemovals();
   currentLiftDay = activeProfile.workouts[effectiveDayFor(today)] ? effectiveDayFor(today) : Object.keys(activeProfile.workouts)[0];
   applyLiftMode('regular');
   // A guided session left open (e.g. the page reloaded mid-workout) picks
