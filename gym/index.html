@@ -25,6 +25,7 @@ if(typeof Chart==='undefined'){ window.Chart=function(){ this.destroy=function()
 <script src="../assets/theme.js"></script>
 <link rel="stylesheet" href="../assets/motion.css">
 <script src="../assets/motion.js" defer></script>
+<script src="../assets/waterpantry.js"></script>
 <style>
   /* Hub design tokens — identical to assets/app.css / schedule.html's
      :root, so Gym reads as part of the same suite. Anusha's profile gets
@@ -2452,6 +2453,7 @@ async function waterWrite(){
   {
     try{
       await userCol('dailyLogs').doc(date).set({ date, day: dayNameFor(date), water: val }, { merge: true });
+      if(window.WaterPantry && date===todayStr()) WaterPantry.sync(db, currentUser.uid, activeProfile.id, date, Math.round((Number(val)||0)*1000));
       const msg = document.getElementById('save-msg-today');
       if(msg){
         msg.textContent = 'Water saved ✓';

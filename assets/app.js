@@ -1056,12 +1056,13 @@ async function reconcileWater(days){
 async function pushWaterToGym(prof,d,ml){
   try{ await gymWaterDoc(prof,d).set({date:d,water:Math.round(ml/10)/100},{merge:true}); }catch(e){}
 }
+function pantryWater(d){ if(window.WaterPantry&&state.user&&state.profile) WaterPantry.sync(db,state.user.uid,state.profile,d,waterTotal(d)); }
 function waterTotal(date){ const a=state.water.log[date]; return Array.isArray(a)?a.reduce((s,x)=>s+(Number(x)||0),0):0; }
 function waterFmt(ml){ return state.water.unit==='oz'?Math.round(ml/OZ_ML)+' oz':Math.round(ml).toLocaleString()+' ml'; }
 async function renderWaterInto(el){
   if(!el)return;
   await ensureWater();
-  { const dd=today(); await reconcileWater(Array.from({length:7},(_,i)=>addDays(dd,i-6))); }
+  { const dd=today(); await reconcileWater(Array.from({length:7},(_,i)=>addDays(dd,i-6))); pantryWater(dd); }
   const w=state.water, d=today(), total=waterTotal(d), pct=Math.min(100,Math.round(total/w.goal*100));
   let streak=0, cur=total>=w.goal?d:addDays(d,-1);
   while(waterTotal(cur)>=w.goal&&streak<400){streak++;cur=addDays(cur,-1)}
@@ -1072,7 +1073,7 @@ async function renderWaterInto(el){
     '<div class="water-track"><i style="width:'+pct+'%"></i></div>'+
     '<div class="water-btns"><button type="button" data-water-add="'+cup+'">+ Cup<small>'+(w.unit==='oz'?'8 oz':'250 ml')+'</small></button><button type="button" data-water-add="'+bottle+'">+ Bottle<small>'+(w.unit==='oz'?'17 oz':'500 ml')+'</small></button><button type="button" data-water-custom>+ Custom</button></div>'+
     '<div class="water-foot"><div class="water-week">'+bars+'</div><div class="water-meta">'+(streak?'<b>'+streak+'</b> day streak':'No streak yet')+'<br><button type="button" data-water-undo>Undo</button> · <button type="button" data-water-settings>Goal</button></div></div>';
-  const syncToday=()=>{ w.sync=w.sync||{}; const t=waterTotal(d); w.sync[d]=t; return pushWaterToGym(state.profile,d,t); };
+  const syncToday=()=>{ w.sync=w.sync||{}; const t=waterTotal(d); w.sync[d]=t; pantryWater(d); return pushWaterToGym(state.profile,d,t); };
   const add=async ml=>{ (w.log[d]=Array.isArray(w.log[d])?w.log[d]:[]).push(Math.round(ml)); await syncToday(); saveWater(); renderWaterInto(el); };
   el.onclick=e=>{
     const a=e.target.closest('[data-water-add]'); if(a){ add(Number(a.dataset.waterAdd)); return; }
