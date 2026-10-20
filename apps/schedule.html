@@ -257,6 +257,8 @@
   .rb-status{font-weight:800;font-size:12px;border-radius:50%;width:20px;height:20px;display:inline-flex;align-items:center;justify-content:center;flex:none;}
   .rb-status.done{background:var(--accent-soft);color:var(--accent-deep);}
   .rb-status.missed{background:var(--danger-soft);color:var(--danger);}
+  .skin-prod{display:block;font-size:11.5px;font-weight:650;color:var(--accent-deep);margin-top:1px;}
+  .skin-qty{display:block;font-size:11px;color:var(--text-faint);}
   .now-badge{font-size:11px;font-weight:800;color:color-mix(in srgb,var(--gold) 60%,var(--text));text-transform:uppercase;letter-spacing:0.04em;margin-left:4px;}
   /* "Hide done" toggle on the routine panel — checked-off blocks pile up
      as the day goes on and push what's actually next off the bottom of
@@ -1096,6 +1098,33 @@ function skinStepsForSection(profile, dateStr, section){
   if(section==='am') return SKIN_ANUSHA_MORNING;
   if(section==='pm') return SKIN_ANUSHA_NIGHT;
   return [];
+}
+/* Which product each skincare step uses (ids/names mirror skin.html's Product Cabinet) so the day's checklist can say what to reach for. */
+const SKIN_TEXT_PRODUCT = {"Cleanser": "cleanser", "Moisturizer — face & neck": "moisturizer", "Sunscreen — face, ears, neck": "spf", "Body sunscreen on exposed areas (if leaving home)": "spf", "Thin layer of moisturizer": "moisturizer", "Differin — entire face": "differin", "Another thin layer of moisturizer": "moisturizer", "Azelaic acid on uneven/pigmented areas": "azelaic", "Moisturizer after it absorbs": "moisturizer", "Paula’s Choice 2% BHA — nose, forehead, blackhead-prone areas": "bha", "Moisturizer": "moisturizer", "CeraVe SA on rough/bumpy arms": "sa", "CeraVe SA on rough/bumpy legs": "sa", "Eucerin on the rest of the body — within 3 minutes of showering": "eucerin", "Eucerin — both arms": "eucerin", "Eucerin — both legs": "eucerin", "Eucerin — chest & stomach": "eucerin", "Eucerin — back": "eucerin", "Rinse with water — INKEY List Salicylic Acid Cleanser only if face is oily": "cleanser", "Tone: Anua Heartleaf 77 + Hyaluron Soothing Toner": "toner", "Brighten: INKEY List 15% Vitamin C + EGF Serum — 1–2 pumps": "vitc", "Hydrate: Atomy Hydra Brightening Capsule Essence — 1–2 pumps": "essence", "Moisturize: Atomy Hydra Brightening Cream": "amCream", "Broad-spectrum sunscreen SPF 30–50": "spf", "Cleanse: INKEY List Salicylic Acid Cleanser": "cleanser", "Treat: Anua Azelaic Acid 10% Serum — 2–3 drops": "azelaicSerum", "Moisturize: Anua Ceramide 3 + Panthenol Barrier Cream": "pmCream"};
+const SKIN_PRODUCT_NAMES = {"Bhargav": {"cleanser": "Vanicream Gentle Facial Cleanser", "moisturizer": "Vanicream Daily Facial Moisturizer", "spf": "La Roche-Posay Anthelios Melt-In Milk SPF 60", "nizoral": "Nizoral A-D Anti-Dandruff Shampoo 1%", "eucerin": "Eucerin Advanced Repair Lotion", "differin": "Differin Gel 0.1% (adapalene)", "azelaic": "The Ordinary Azelaic Acid Suspension 10%", "sa": "CeraVe SA Lotion", "bha": "Paula’s Choice Skin Perfecting 2% BHA Liquid Exfoliant"}, "Anusha": {"cleanser": "INKEY List Salicylic Acid Cleanser", "toner": "Anua Heartleaf 77 + Hyaluron Soothing Toner", "vitc": "INKEY List 15% Vitamin C + EGF Serum", "essence": "Atomy Hydra Brightening Capsule Essence", "amCream": "Atomy Hydra Brightening Cream", "spf": "Broad-spectrum sunscreen SPF 30–50", "azelaicSerum": "Anua Azelaic Acid 10% Serum", "pmCream": "Anua Ceramide 3 + Panthenol Barrier Cream"}};
+function skinStepDetails(profile, dateStr, section){
+  const texts = skinStepsForSection(profile, dateStr, section);
+  let objs = null;
+  if(profile==='Bhargav'){
+    const entry = SKIN_DATE_PLAN[dateStr];
+    if(entry){
+      if(section==='am') objs = SKIN_AM_ROUTINE;
+      else if(section==='body') objs = skinBodyStepsFor(entry);
+      else if(section==='face') objs = (SKIN_TREATMENTS[entry.face] || SKIN_TREATMENTS.regular).steps;
+    }
+  }
+  return texts.map(function(text, i){
+    const o = (objs && objs[i] && objs[i].text===text) ? objs[i] : {};
+    let pid = SKIN_TEXT_PRODUCT[text] || '';
+    if(!pid && section==='nizoral' && /^Apply /.test(text)) pid = 'nizoral';
+    let name = (SKIN_PRODUCT_NAMES[profile]||{})[pid] || '';
+    if(name){
+      const norm = text.toLowerCase().replace(/[^a-z0-9 ]/g,' ').replace(/\s+/g,' ');
+      const keys = name.split(/[\s—-]+/).slice(0,2).map(function(w){ return w.replace(/[^A-Za-z0-9]/g,'').toLowerCase(); }).filter(Boolean);
+      if(keys.length && keys.every(function(k){ return norm.indexOf(k)!==-1; })) name = '';
+    }
+    return {text:text, qty:o.qty||'', product:name};
+  });
 }
 function skinStepKey(date, section, idx){ return date+':'+section+':'+idx; }
 
@@ -2196,11 +2225,12 @@ function renderBlockExpandPanel(dateStr, tKey, idx, b){
   const skinChecklistHtml = linkedSkinSections.length
     ? '<div class="rb-link-section"><div class="rb-link-section-title">Skincare</div>'+
         linkedSkinSections.map(function(secMeta){
-          const steps = skinStepsForSection(activeProfile, dateStr, secMeta.key);
-          const rows = steps.map(function(text, i){
+          const steps = skinStepDetails(activeProfile, dateStr, secMeta.key);
+          const rows = steps.map(function(st, i){
             const key = skinStepKey(dateStr, secMeta.key, i);
             const done = !!skinStepLogCache[activeProfile][key];
-            return '<div class="rb-link-row"><label><input type="checkbox" data-skinstep="'+escapeHtml(key)+'" '+(done?'checked':'')+'> <span class="'+(done?'strike':'')+'">'+escapeHtml(text)+'</span></label></div>';
+            const sub = (st.product?'<span class="skin-prod">🧴 '+escapeHtml(st.product)+'</span>':'')+(st.qty?'<span class="skin-qty">'+escapeHtml(st.qty)+'</span>':'');
+            return '<div class="rb-link-row"><label><input type="checkbox" data-skinstep="'+escapeHtml(key)+'" '+(done?'checked':'')+'> <span><span class="'+(done?'strike':'')+'">'+escapeHtml(st.text)+'</span>'+sub+'</span></label></div>';
           }).join('');
           return '<div class="rb-link-subsection" style="margin-top:6px;"><div style="font-size:11px;font-weight:700;color:var(--text-faint);margin-bottom:2px;">'+escapeHtml(secMeta.label)+'</div>'+rows+'</div>';
         }).join('')+

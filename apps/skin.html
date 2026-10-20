@@ -271,6 +271,7 @@
   .subtabs2{display:flex;gap:2px;background:var(--surface-alt);border-radius:999px;padding:4px;margin-bottom:13px;max-width:280px;box-shadow:inset 0 1px 3px rgba(0,0,0,.05);}
   .subtabs2 button{flex:1;border:none;background:transparent;border-radius:999px;padding:8px 4px;font-size:11.5px;font-weight:700;color:var(--text-soft);cursor:pointer;}
   .subtabs2 button.active{background:var(--surface);color:var(--accent-deep);box-shadow:var(--shadow-sm);}
+  .step-product{font-size:12px;font-weight:650;color:var(--accent-deep);margin-top:2px;}
   .product-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:11px;}
   .product-cabinet-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-md);padding:14px 15px;box-shadow:var(--shadow-sm);display:flex;flex-direction:column;position:relative;overflow:hidden;}
   .product-cabinet-card::before{content:'';position:absolute;left:0;top:0;bottom:0;width:4px;background:var(--good);}
@@ -1271,8 +1272,19 @@ function stepRowHtml(date, section, idx, step){
   const product = step.product || '';
   const weight = step.weight != null ? step.weight : 1;
   const timerBtn = step.timerMinutes ? '<button type="button" class="timer-open" data-timerminutes="'+step.timerMinutes+'" data-timerlabel="'+escapeHtml(step.text)+'">Start '+step.timerMinutes+'-min wait timer</button>' : '';
+  // which product to use: shown under the step unless the step text already names it
+  let prodName = '';
+  if(product){
+    const pr = currentProducts().find(function(p){ return p.id === product; });
+    if(pr){
+      const norm = step.text.toLowerCase().replace(/[^a-z0-9 ]/g,' ').replace(/\s+/g,' ');
+      const keys = pr.name.split(/[\s—-]+/).slice(0,2).map(function(w){ return w.replace(/[^A-Za-z0-9]/g,'').toLowerCase(); }).filter(Boolean);
+      if(!keys.length || !keys.every(function(k){ return norm.indexOf(k) !== -1; })) prodName = pr.name;
+    }
+  }
   return '<div class="step-row"><input type="checkbox" class="step-chk" data-stepkey="'+key+'" data-product="'+escapeHtml(product)+'" data-weight="'+weight+'" '+(done?'checked':'')+'>'+
     '<div><div class="step-text '+(done?'strike':'')+'">'+escapeHtml(step.text)+(step.optional?'<span class="opt-tag">OPTIONAL</span>':'')+'</div>'+
+    (prodName?'<div class="step-product">🧴 '+escapeHtml(prodName)+'</div>':'')+
     (step.qty?'<div class="step-note" style="color:var(--text-faint);">'+escapeHtml(step.qty)+'</div>':'')+timerBtn+'</div></div>';
 }
 function attachStepHandlers(el){

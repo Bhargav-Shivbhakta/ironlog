@@ -249,7 +249,7 @@ if(typeof Chart==='undefined'){ window.Chart=function(){ this.destroy=function()
   .program-text p{font-size:12.5px;color:var(--text-soft);line-height:1.5;margin:4px 0 0;}
 
   /* week list */
-  .week-row{display:grid;grid-template-columns:86px minmax(0,1fr) auto;gap:10px;align-items:center;padding:8px 6px;border-bottom:1px solid var(--border-soft);cursor:pointer;border-radius:var(--radius-sm);}
+  .week-row{display:grid;grid-template-columns:86px minmax(0,1fr) auto auto;gap:10px;align-items:center;padding:8px 6px;border-bottom:1px solid var(--border-soft);cursor:pointer;border-radius:var(--radius-sm);}
   .week-row:last-child{border-bottom:0;}
   .week-row:hover{background:var(--surface-alt);}
   .week-row.today{background:var(--accent-soft);}
@@ -374,6 +374,14 @@ if(typeof Chart==='undefined'){ window.Chart=function(){ this.destroy=function()
   .preview-sheet{background:var(--surface);width:100%;max-width:560px;max-height:85vh;overflow-y:auto;border-radius:20px 20px 0 0;padding:20px;box-shadow:0 -12px 40px rgba(0,0,0,.2);}
   .modal-sheet{background:var(--surface);width:100%;max-width:460px;max-height:88vh;overflow-y:auto;border-radius:var(--radius-lg);padding:18px 20px;box-shadow:0 24px 60px rgba(37,38,32,.28);}
   .preview-head,.modal-head{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:12px;gap:10px;}
+  .swap-list{display:grid;gap:8px;}
+  .swap-opt{display:flex;flex-direction:column;align-items:flex-start;gap:2px;text-align:left;border:1px solid var(--border);background:var(--surface);color:var(--text);border-radius:var(--radius-sm,10px);padding:10px 12px;font:inherit;cursor:pointer;}
+  .swap-opt b{font-size:13.5px;}.swap-opt span{font-size:11.5px;color:var(--text-soft);}
+  .swap-opt:hover{border-color:var(--accent);}
+  .swap-opt.active{border-color:var(--accent);background:var(--accent-soft);}
+  .swap-reset{margin-top:12px;background:var(--accent);color:#fff;width:100%;}
+  .wr-swap{border:1px solid var(--border);background:transparent;color:var(--text-soft);border-radius:8px;width:30px;height:30px;font-size:14px;cursor:pointer;flex:none;}
+  .wr-swap:hover{border-color:var(--accent);color:var(--accent);}
   .preview-head h3,.modal-head h3{margin:0;font-size:17px;}
   .modal-close{border:0;background:var(--surface-alt);width:30px;height:30px;border-radius:var(--radius-sm);color:var(--text-soft);font-size:15px;flex:none;}
   .preview-ex-row{display:flex;gap:12px;padding:11px 0;border-top:1px solid var(--border-soft);}
@@ -619,6 +627,7 @@ if(typeof Chart==='undefined'){ window.Chart=function(){ this.destroy=function()
           <button type="button" class="hero-btn primary" id="command-primary">Start workout</button>
           <button type="button" class="hero-btn ghost" id="command-checkin">Check in</button>
           <button type="button" class="hero-btn ghost" id="command-preview">Preview</button>
+          <button type="button" class="hero-btn ghost" id="command-swap" title="Change today's workout — today only">Swap today</button>
         </div>
       </div>
       <div class="hero-next">
@@ -1841,6 +1850,80 @@ function pad2(n){ return String(n).padStart(2,'0'); }
 function fmtDate(d){ return d.getFullYear()+'-'+pad2(d.getMonth()+1)+'-'+pad2(d.getDate()); }
 function todayStr(){ return fmtDate(new Date()); }
 function dayNameFor(dateStr){ const d = new Date(dateStr+'T00:00:00'); return DAY_NAMES[d.getDay()]; }
+
+/* ---- One-day workout changes. workoutOverrides = { 'YYYY-MM-DD': 'Thursday' | '__rest' } stored at
+   profiles/{id}/meta/workoutOverrides. It never touches the weekly plan: the date just borrows another day's
+   workout (or becomes a rest day). effectiveDayFor(date) is the plan day that date actually follows. ---- */
+let workoutOverrides = {};
+function workoutOverridesDoc(){ return db.collection('users').doc(currentUser.uid).collection('profiles').doc(activeProfile.id).collection('meta').doc('workoutOverrides'); }
+async function loadWorkoutOverrides(){
+  try{ const d = await workoutOverridesDoc().get(); workoutOverrides = (d.exists && d.data() && d.data().map) || {}; }catch(e){ workoutOverrides = {}; }
+  const cutoff = new Date(Date.now()-90*86400000); const cs = cutoff.getFullYear()+'-'+String(cutoff.getMonth()+1).padStart(2,'0')+'-'+String(cutoff.getDate()).padStart(2,'0');
+  Object.keys(workoutOverrides).forEach(function(k){ if(k<cs) delete workoutOverrides[k]; });
+}
+async function setWorkoutOverride(date, value){
+  if(value) workoutOverrides[date] = value; else delete workoutOverrides[date];
+  try{ await workoutOverridesDoc().set({map: workoutOverrides}); return true; }catch(e){ console.error('override save failed', e); return false; }
+}
+function isRestOverride(date){ return workoutOverrides[date]==='__rest'; }
+function effectiveDayFor(date){
+  const ov = workoutOverrides[date];
+  if(ov && ov!=='__rest' && activeProfile.workouts && activeProfile.workouts[ov]!==undefined) return ov;
+  return dayNameFor(date);
+}
+// the weekSchedule entry a date follows (a swapped rest day gets a plain one)
+function scheduleEntryFor(date){
+  if(isRestOverride(date)) return {main:'Rest day', purpose:'Swapped for this day only', cardio:'Recover — a walk if you like', status:'Rest'};
+  return activeProfile.weekSchedule[effectiveDayFor(date)];
+}
+function weekDatesMonFirst(){
+  const t = new Date(todayStr()+'T00:00:00'); const off = (t.getDay()+6)%7; const out = {};
+  ['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'].forEach(function(dn,i){
+    const d = new Date(t.getFullYear(), t.getMonth(), t.getDate()-off+i);
+    out[dn] = d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+  });
+  return out;
+}
+function openSwapWorkout(date){
+  const p = activeProfile, scheduled = dayNameFor(date), current = isRestOverride(date) ? '__rest' : effectiveDayFor(date);
+  const mount = document.getElementById('preview-modal-mount');
+  const order = ['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'];
+  const keys = Object.keys(p.workouts).sort(function(a,b){ return order.indexOf(a)-order.indexOf(b); });
+  const opt = function(val, label, sub, active){
+    return '<button type="button" class="swap-opt'+(active?' active':'')+'" data-swap="'+val+'"><b>'+label+'</b><span>'+sub+'</span></button>';
+  };
+  const rows = keys.map(function(dn){
+    const s = p.weekSchedule[dn]; const rest = !(p.workouts[dn]||[]).length;
+    return opt(dn, dn+(dn===scheduled?' (planned)':''), (s?s.main:'')+(rest?' · rest':''), current===dn);
+  }).join('')
+    + opt('__rest', 'Rest day', 'Skip training for this day only', current==='__rest');
+  const changed = workoutOverrides[date] !== undefined;
+  mount.innerHTML = '<div class="preview-overlay" id="preview-overlay"><div class="preview-sheet">'+
+    '<div class="preview-head"><div><h3>Change workout — '+fmtHuman(date)+'</h3><div class="ex-meta">This day only. Your weekly plan stays exactly as it is.</div></div><button class="icon-btn" id="preview-close">✕</button></div>'+
+    '<div class="swap-list">'+rows+'</div>'+
+    (changed?'<button type="button" class="hero-btn swap-reset" id="swap-reset">Back to the plan ('+scheduled+')</button>':'')+
+    '</div></div>';
+  const close = function(){ mount.innerHTML=''; };
+  document.getElementById('preview-close').addEventListener('click', close);
+  document.getElementById('preview-overlay').addEventListener('click', function(e){ if(e.target.id==='preview-overlay') close(); });
+  mount.querySelectorAll('[data-swap]').forEach(function(b){
+    b.addEventListener('click', async function(){
+      const v = b.dataset.swap;
+      await setWorkoutOverride(date, v===scheduled ? null : v);
+      close(); await afterWorkoutOverride(date);
+    });
+  });
+  const rs = document.getElementById('swap-reset');
+  if(rs) rs.addEventListener('click', async function(){ await setWorkoutOverride(date, null); close(); await afterWorkoutOverride(date); });
+}
+async function afterWorkoutOverride(date){
+  if(document.getElementById('lift-date') && (document.getElementById('lift-date').value||todayStr())===date && liftMode==='regular'){
+    const eff = effectiveDayFor(date);
+    if(activeProfile.workouts[eff]) currentLiftDay = eff;
+    renderDayPicker(); await renderExerciseList(date, currentLiftDay);
+  }
+  await renderDashboard();
+}
 function daysBetween(a,b){ return Math.round((new Date(b+'T00:00:00') - new Date(a+'T00:00:00')) / 86400000); }
 function phaseForDate(dateStr){ return activeProfile.phases ? activeProfile.phases.find(p => dateStr >= p.start && dateStr <= p.end) : null; }
 
@@ -1879,7 +1962,8 @@ document.getElementById('command-checkin').addEventListener('click', ()=>{
   if(document.getElementById('log-date').value !== todayStr()) stepDateInput('log-date', 0);
   document.getElementById('checkin-panel').scrollIntoView({behavior:'smooth', block:'start'});
 });
-document.getElementById('command-preview').addEventListener('click', ()=> openWorkoutPreview(dayNameFor(todayStr())));
+document.getElementById('command-preview').addEventListener('click', ()=> { if(isRestOverride(todayStr())) openSwapWorkout(todayStr()); else openWorkoutPreview(effectiveDayFor(todayStr())); });
+document.getElementById('command-swap').addEventListener('click', ()=> openSwapWorkout(todayStr()));
 // Merged Train status chip in the hero (see renderFitnessCommand) — it's
 // re-rendered into innerHTML each refresh, so it's wired once here via
 // delegation rather than re-attaching a listener every render.
@@ -2016,24 +2100,30 @@ async function renderDashboard(){
   }
   const weekGrid = document.getElementById('week-grid');
   weekGrid.innerHTML='';
+  const weekDates = weekDatesMonFirst();
   ['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'].forEach(dn=>{
-    const s = p.weekSchedule[dn];
+    const wdate = weekDates[dn];
+    const moved = workoutOverrides[wdate] !== undefined;
+    const effDay = effectiveDayFor(wdate);
+    const s = scheduleEntryFor(wdate);
     const isToday = dn === dayNameFor(today);
     const row = document.createElement('div');
     row.className = 'week-row' + (isToday ? ' today' : '');
     row.title = 'Tap for a full preview of this day\'s workout';
     row.innerHTML = `
       <div class="wr-day">${dn.slice(0,3)}${isToday ? ' · Today' : ''}</div>
-      <div><div class="wr-main">${s.main}</div><div class="wr-sub">${s.purpose ? s.purpose+' · ' : ''}${s.cardio}</div></div>
+      <div><div class="wr-main">${s.main}</div><div class="wr-sub">${moved ? (isRestOverride(wdate)?'Swapped to rest · this day only':'Swapped in from '+effDay+' · this day only')+' · ' : ''}${s.purpose && !moved ? s.purpose+' · ' : ''}${s.cardio}</div></div>
       <span class="meta-chip ${s.status==='Train'?'accent':''}">${s.status}</span>
+      <button type="button" class="wr-swap" title="Change this day's workout (this day only)" aria-label="Change workout for ${dn}">⇄</button>
     `;
-    row.addEventListener('click', ()=> openWorkoutPreview(dn));
+    row.addEventListener('click', ()=> { if(!isRestOverride(wdate)) openWorkoutPreview(effDay); });
+    row.querySelector('.wr-swap').addEventListener('click', (e)=>{ e.stopPropagation(); openSwapWorkout(wdate); });
     weekGrid.appendChild(row);
   });
 
-  const s = p.weekSchedule[dayNameFor(today)];
+  const s = scheduleEntryFor(today);
   const todayLog = daily.find(d=>d.date===today) || null;
-  document.getElementById('hero-eyebrow').textContent = dayNameFor(today)+' · '+fmtHuman(today);
+  document.getElementById('hero-eyebrow').textContent = dayNameFor(today)+' · '+fmtHuman(today)+(workoutOverrides[today]!==undefined ? ' · changed for today' : '');
   document.getElementById('hero-title').textContent = s.main;
   document.getElementById('hero-time').textContent = (s.purpose ? s.purpose+' · ' : '') + s.cardio;
   await renderFitnessCommand(todayLog, s);
@@ -2115,8 +2205,8 @@ function readinessFor(log){
   return {score,label:'Recovery focus',copy:'Reduce load or volume today. Main flags: '+(reasons.join(' and ')||'recovery')+'.',tone:'#F4A29A'};
 }
 async function renderFitnessCommand(todayLog, sched){
-  const date = todayStr(), day = dayNameFor(date);
-  const planned = ((activeProfile.workouts && activeProfile.workouts[day]) || []).concat(customExercisesFor(day));
+  const date = todayStr(), day = effectiveDayFor(date);
+  const planned = isRestOverride(date) ? [] : ((activeProfile.workouts && activeProfile.workouts[day]) || []).concat(customExercisesFor(day));
   const saved = await getLift(date, 'regular:'+day);
   const ready = readinessFor(todayLog);
   const completed = saved?.exercises?.length || 0, total = planned.length;
@@ -2397,7 +2487,7 @@ document.querySelectorAll('.mode-btn').forEach(btn=>{
     liftMode = btn.dataset.mode;
     document.getElementById('period-note').style.display = liftMode === 'period' ? 'block' : 'none';
     const date = document.getElementById('lift-date').value || todayStr();
-    currentLiftDay = liftMode === 'period' ? Object.keys(activeProfile.periodWorkouts)[0] : (activeProfile.workouts[dayNameFor(date)] ? dayNameFor(date) : Object.keys(activeProfile.workouts)[0]);
+    currentLiftDay = liftMode === 'period' ? Object.keys(activeProfile.periodWorkouts)[0] : (activeProfile.workouts[effectiveDayFor(date)] ? effectiveDayFor(date) : Object.keys(activeProfile.workouts)[0]);
     renderDayPicker();
     await renderExerciseList(date, currentLiftDay);
   });
@@ -2424,7 +2514,7 @@ function renderDayPicker(){
     picker.appendChild(chip);
   });
   if(liftMode === 'regular'){
-    const scheduledDay = dayNameFor(document.getElementById('lift-date').value || todayStr());
+    const scheduledDay = effectiveDayFor(document.getElementById('lift-date').value || todayStr());
     const restNote = restNotes[scheduledDay];
     document.getElementById('lift-rules').innerHTML = restNote ?
       `<div class="empty-note">${scheduledDay} is normally a ${restNote.toLowerCase()} — pick it above only if you're choosing to log a workout anyway.</div>` :
@@ -3251,6 +3341,11 @@ async function saveWorkout(opts){
     doc.sessionDurationSec = doc.sessions.reduce((s,x)=>s+(x.durationSec||0),0);
   }
   const ok = await setLift(date, liftMode+':'+currentLiftDay, doc);
+  if(ok && liftMode==='regular' && currentLiftDay !== effectiveDayFor(date) && !isRestOverride(date)){
+    // you trained a different day's workout on this date: remember it for this date only
+    await setWorkoutOverride(date, currentLiftDay===dayNameFor(date) ? null : currentLiftDay);
+    renderDashboard().catch(function(){});
+  }
   if(ok){
     msg.style.color = 'var(--green)'; msg.textContent = 'Workout saved ✓';
     setTimeout(()=>msg.textContent='', 3000);
@@ -3264,7 +3359,7 @@ document.getElementById('save-lift').addEventListener('click', ()=>{ saveWorkout
 document.getElementById('lift-date').addEventListener('change', async (e)=>{
   const date = e.target.value || todayStr();
   if(liftMode === 'regular'){
-    const scheduled = dayNameFor(date);
+    const scheduled = effectiveDayFor(date);
     currentLiftDay = activeProfile.workouts[scheduled] ? scheduled : currentLiftDay;
   }
   renderDayPicker();
@@ -5560,7 +5655,8 @@ async function init(){
   await loadCustomExercises();
   await loadExerciseUnits();
   await loadExerciseOrder();
-  currentLiftDay = activeProfile.workouts[dayNameFor(today)] ? dayNameFor(today) : Object.keys(activeProfile.workouts)[0];
+  await loadWorkoutOverrides();
+  currentLiftDay = activeProfile.workouts[effectiveDayFor(today)] ? effectiveDayFor(today) : Object.keys(activeProfile.workouts)[0];
   applyLiftMode('regular');
   // A guided session left open (e.g. the page reloaded mid-workout) picks
   // up where it was — unless it's stale (> 18 h old).
