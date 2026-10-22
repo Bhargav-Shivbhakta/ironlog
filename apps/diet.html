@@ -1380,26 +1380,35 @@ function openNewFoodFromUniversal(){closeUniversalLog();openFoodModal()}
   // --- Gemini call (shared) ---
   function geminiErr(status,msg){
     msg=msg||'';
-    if(status===429||/quota|RESOURCE_EXHAUSTED|rate.?limit/i.test(msg))return 'Gemini’s free limit is used up for now (it resets daily). Try again later, or type the numbers in below.';
+    if(status===429||/quota|RESOURCE_EXHAUSTED|rate.?limit/i.test(msg))return 'LIMIT';
     if(status===503||/overload|unavailable/i.test(msg))return 'Gemini is busy right now. Try again in a minute.';
     if(status===403||(status===400&&/API key/i.test(msg)))return 'KEY';
     return msg||('Gemini error (HTTP '+status+')');
   }
-  async function geminiCall(parts,search){
-    let err=null;
+  async function geminiTry(parts,search){
+    let err=null,raw='';
     for(const m of FF_MODELS){
       try{
         let body={contents:[{parts:parts}],generationConfig:{temperature:0.1}};if(search)body.tools=[{google_search:{}}];
         let r=await fetch('https://generativelanguage.googleapis.com/v1beta/models/'+m+':generateContent?key='+encodeURIComponent(ffKey),{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
         let j={};try{j=await r.json()}catch(e){}
-        if(!r.ok){err=geminiErr(r.status,j.error&&j.error.message);if(r.status===404)continue;break}
+        if(!r.ok){raw=(j.error&&j.error.message)||'';err=geminiErr(r.status,raw);if(r.status===404||err==='LIMIT')continue;break}
         let c=j.candidates&&j.candidates[0];
         let text=c&&c.content&&c.content.parts?c.content.parts.map(x=>x.text||'').join(''):'';
         if(!text){err='Gemini returned nothing';break}
-        return{text,sources:((c.groundingMetadata&&c.groundingMetadata.groundingChunks)||[]).map(x=>x.web).filter(Boolean).slice(0,4)};
-      }catch(e){err='Could not reach Gemini. Check your connection.'}
+        return{text,sources:((c.groundingMetadata&&c.groundingMetadata.groundingChunks)||[]).map(x=>x.web).filter(Boolean).slice(0,4),searched:!!search};
+      }catch(e){err='Could not reach Gemini. Check your connection.';break}
     }
+    return{err,raw};
+  }
+  async function geminiCall(parts,search){
+    let g=await geminiTry(parts,search);
+    // Web search can have its own, tighter free quota — if that's what was refused, answer without it (labelled as an estimate).
+    if(g.err==='LIMIT'&&search){let g2=await geminiTry(parts,false);if(!g2.err){g2.noSearch=true;return g2}g=g2.err==='LIMIT'?g2:g}
+    if(!g.err)return g;
+    let err=g.err;
     if(err==='KEY'){ffKey='';localStorage.removeItem('nourish-gemini-key');$('ffKey').style.display='';err='Gemini rejected the key. Paste a new one.'}
+    else if(err==='LIMIT')err='Google is refusing this key right now (rate or quota limit). If it just worked, wait a minute and retry; if it never worked, the key’s project may have no free quota for this model.'+(g.raw?' Google said: “'+g.raw.slice(0,200)+'”':'');
     return{err};
   }
   function parseJson(t){try{return JSON.parse(t.match(/\{[\s\S]*\}/)[0])}catch(e){return null}}
@@ -1501,7 +1510,7 @@ function openNewFoodFromUniversal(){closeUniversalLog();openFoodModal()}
     let o=parseJson(g.text);
     if(!o||o.calories==null||!(Number(o.calories)>=0)){ffMsg(ffNote('Could not read a usable answer. Try rewording (add the place name and size).',true));return}
     ['calories','protein','carbs','fat','fiber','satFat','sugar','sodium','calcium','iron','potassium','vitaminD'].forEach(k=>o[k]=Number(o[k])||0);
-    geminiCard(o,g.sources,'ai');
+    if(g.noSearch){o.notes=((o.notes||'')+' (Web search was unavailable, so this is an estimate from typical ingredients.)').trim();o.confidence='estimate'}geminiCard(o,g.sources,'ai');
   }
   readLabelPhoto=async function(inp){
     let file=inp.files&&inp.files[0];inp.value='';if(!file)return;
