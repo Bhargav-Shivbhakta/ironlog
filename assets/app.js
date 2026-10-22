@@ -2778,6 +2778,8 @@ function titleForAppUrl(u){
 // an app is open, that click clears this flag so closing the app won't
 // fight you by collapsing it again.
 let sidebarAutoCollapsed=false;
+function syncMobileNavHeight(){ try{ const n=document.querySelector('.mobile-nav'); if(n&&n.offsetHeight>0) document.documentElement.style.setProperty('--mobile-nav-h', n.offsetHeight+'px'); }catch(e){} }
+window.addEventListener('resize',syncMobileNavHeight); window.addEventListener('orientationchange',()=>setTimeout(syncMobileNavHeight,200)); window.addEventListener('load',syncMobileNavHeight);
 function openAppFrame(url,title){
   if(!$('app-shell').classList.contains('sidebar-collapsed')){
     $('app-shell').classList.add('sidebar-collapsed');
@@ -2789,6 +2791,7 @@ function openAppFrame(url,title){
   // there's no way out of the app. This hides the Hub's own bar while an
   // app is open; the bottom tab bar stays up so you can always jump away.
   $('app-shell').classList.add('app-open');
+  syncMobileNavHeight(); setTimeout(syncMobileNavHeight,300);
   // Always force a genuinely fresh load of the app, even if it's the same
   // URL as what's already sitting in the iframe (re-opening Clock right
   // after it was already open). Setting .src to an unchanged value is a

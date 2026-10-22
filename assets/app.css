@@ -654,7 +654,10 @@ html.wallpaper-live{background-size:250% 250%;animation:wallpaper-drift 24s ease
      reserves for it) stays visible over an open app too, the overlay
      needs to stop short of it, or the last ~72px of the app would render
      underneath the tab bar and never be reachable. */
-  .app-shell.app-open .app-frame-overlay{bottom:72px}
+  .app-shell.app-open .app-frame-overlay{bottom:var(--mobile-nav-h,72px)}
+  /* Nothing of the Hub page may show through while an app is open (it peeked out as a second window above the tab bar). */
+  .app-shell.app-open .main{visibility:hidden}
+  .app-shell.app-open{background:var(--bg)}
 }
 
 /* HUB ALARM — fires from the top-level shell (not from inside an app
