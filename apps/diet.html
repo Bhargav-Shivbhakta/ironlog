@@ -275,7 +275,7 @@
 </div>
 
 <div class="modal-backdrop" id="mealSlotModal"><div class="modal"><div class="section-head"><div><h2 id="msModalTitle">New meal</h2><div class="subtle" id="msModalSub">Add a new slot to today's daily plan, like a second snack or post-workout meal</div></div><button class="icon-btn" onclick="closeNewMealModal()">×</button></div><div class="modal-grid"><div class="field"><label>Slot label</label><input class="input" id="msSlot" placeholder="e.g., Snack 2"></div><div class="field"><label>Meal name</label><input class="input" id="msName" placeholder="e.g., Post-workout shake"></div><div class="field"><label>Time</label><input class="input" id="msTime" placeholder="e.g., 6:00 PM"></div><div class="field"><label>Icon (emoji)</label><input class="input" id="msIcon" placeholder="🍽️" value="🍽️"></div><div class="field" style="grid-column:1/-1"><label>Note (optional)</label><input class="input" id="msRule" placeholder="Any rule or reminder for this meal"></div><div class="field" style="grid-column:1/-1"><label>Attach to Schedule block(s)</label><div class="subtle" id="msSchedHint" style="margin-bottom:4px;">Check every block this meal should show up under — even across different days.</div><div class="ms-sched-wrap" id="msSchedWrap"><div class="subtle">Loading Schedule…</div></div></div></div><div class="modal-actions"><button class="btn ghost" onclick="closeNewMealModal()">Cancel</button><button class="btn" id="msModalSave" onclick="saveNewMeal()">Create meal</button></div></div></div>
-<div class="modal-backdrop" id="foodModal"><div class="modal"><div class="section-head"><div><h2 id="modalTitle">Add custom ingredient</h2><div class="subtle">Use values from the nutrition label</div></div><button class="icon-btn" onclick="closeFoodModal()">×</button></div><div class="modal-grid"><div class="field" style="grid-column:1/-1"><label>Name</label><input class="input" id="fName" placeholder="e.g., Your brand protein powder"></div><div class="field"><label>Basis amount</label><input class="input" id="fBasis" type="number" value="100"></div><div class="field"><label>Basis unit</label><select id="fUnit"><option>g</option><option>oz</option><option>ml</option><option>cup</option><option>tbsp</option><option>tsp</option><option>piece</option><option>serving</option><option>scoop</option></select></div><div class="field"><label>Calories (kcal)</label><input class="input" id="fCalories" type="number" value="0"></div><div class="field"><label>Protein (g)</label><input class="input" id="fProtein" type="number" value="0"></div><div class="field"><label>Carbs (g)</label><input class="input" id="fCarbs" type="number" value="0"></div><div class="field"><label>Fat (g)</label><input class="input" id="fFat" type="number" value="0"></div><div class="field"><label>Fiber (g)</label><input class="input" id="fFiber" type="number" value="0"></div><div class="field"><label>Saturated fat (g)</label><input class="input" id="fSatFat" type="number" value="0"></div><div class="field"><label>Sugar (g)</label><input class="input" id="fSugar" type="number" value="0"></div><div class="field"><label>Sodium (mg)</label><input class="input" id="fSodium" type="number" value="0"></div><div class="field"><label>Calcium (mg)</label><input class="input" id="fCalcium" type="number" value="0"></div><div class="field"><label>Iron (mg)</label><input class="input" id="fIron" type="number" value="0"></div><div class="field"><label>Potassium (mg)</label><input class="input" id="fPotassium" type="number" value="0"></div><div class="field"><label>Vitamin D (mcg)</label><input class="input" id="fVitaminD" type="number" value="0"></div><div class="field"><label>Grams per piece/serving (optional)</label><input class="input" id="fPieceG" type="number" placeholder="e.g., 50"></div><div class="field"><label>Density g/ml (optional)</label><input class="input" id="fDensity" type="number" step="0.01" placeholder="e.g., 1.03"></div><div class="field" style="grid-column:1/-1"><label>Linked Grocery product</label><select id="fGroceryProduct"><option value="">Not linked — logging this won't affect Pantry stock</option></select></div></div><div class="modal-actions"><button class="btn ghost" onclick="closeFoodModal()">Cancel</button><button class="btn" onclick="saveFood()">Save ingredient</button></div></div></div>
+<div class="modal-backdrop" id="foodModal"><div class="modal"><div class="section-head"><div><h2 id="modalTitle">Add custom ingredient</h2><div class="subtle">Use values from the nutrition label</div></div><button class="icon-btn" onclick="closeFoodModal()">×</button></div><div class="modal-grid"><div class="field" id="findFoodBox" style="grid-column:1/-1;border:1px solid var(--line);border-radius:14px;padding:12px;background:var(--soft)"><label>Find a food online <span class="subtle">(optional)</span></label><div style="display:flex;gap:8px;flex-wrap:wrap"><input class="input" id="ffQuery" style="flex:1;min-width:180px" placeholder="Name, or a barcode number — e.g., Trader Joe's strawberry yogurt" onkeydown="if(event.key==='Enter'){event.preventDefault();ffSearch()}"><button type="button" class="btn secondary" onclick="ffSearch()">Search</button></div><div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px"><button type="button" class="btn ghost" onclick="scanBarcode()">📷 Scan barcode</button><button type="button" class="btn ghost" onclick="$('ffLabelFile').click()">📷 Photo of label</button><button type="button" class="btn ghost" onclick="findWithAI()">✨ Ask AI (cafe / restaurant)</button></div><input type="file" id="ffLabelFile" accept="image/*" capture="environment" style="display:none" onchange="readLabelPhoto(this)"><input type="file" id="ffBarFile" accept="image/*" capture="environment" style="display:none" onchange="readBarcodePhoto(this)"><div class="subtle" style="margin-top:6px">Search and barcodes use Open Food Facts (free). Label photo and Ask AI use Google Gemini (free key). Anything estimated is labelled.</div><div id="ffKey" style="display:none;margin-top:8px"><div class="subtle" style="margin-bottom:4px">Paste your free Gemini key (from aistudio.google.com/apikey). It stays in your private account.</div><div style="display:flex;gap:8px"><input class="input" id="ffKeyInput" type="password" autocomplete="off" style="flex:1" placeholder="Gemini API key"><button type="button" class="btn" onclick="saveAiKey()">Save key</button></div></div><div id="ffOut" style="margin-top:8px"></div></div><div class="field" style="grid-column:1/-1"><label>Name</label><input class="input" id="fName" placeholder="e.g., Your brand protein powder"></div><div class="field"><label>Basis amount</label><input class="input" id="fBasis" type="number" value="100"></div><div class="field"><label>Basis unit</label><select id="fUnit"><option>g</option><option>oz</option><option>ml</option><option>cup</option><option>tbsp</option><option>tsp</option><option>piece</option><option>serving</option><option>scoop</option></select></div><div class="field"><label>Calories (kcal)</label><input class="input" id="fCalories" type="number" value="0"></div><div class="field"><label>Protein (g)</label><input class="input" id="fProtein" type="number" value="0"></div><div class="field"><label>Carbs (g)</label><input class="input" id="fCarbs" type="number" value="0"></div><div class="field"><label>Fat (g)</label><input class="input" id="fFat" type="number" value="0"></div><div class="field"><label>Fiber (g)</label><input class="input" id="fFiber" type="number" value="0"></div><div class="field"><label>Saturated fat (g)</label><input class="input" id="fSatFat" type="number" value="0"></div><div class="field"><label>Sugar (g)</label><input class="input" id="fSugar" type="number" value="0"></div><div class="field"><label>Sodium (mg)</label><input class="input" id="fSodium" type="number" value="0"></div><div class="field"><label>Calcium (mg)</label><input class="input" id="fCalcium" type="number" value="0"></div><div class="field"><label>Iron (mg)</label><input class="input" id="fIron" type="number" value="0"></div><div class="field"><label>Potassium (mg)</label><input class="input" id="fPotassium" type="number" value="0"></div><div class="field"><label>Vitamin D (mcg)</label><input class="input" id="fVitaminD" type="number" value="0"></div><div class="field"><label>Grams per piece/serving (optional)</label><input class="input" id="fPieceG" type="number" placeholder="e.g., 50"></div><div class="field"><label>Density g/ml (optional)</label><input class="input" id="fDensity" type="number" step="0.01" placeholder="e.g., 1.03"></div><div class="field" style="grid-column:1/-1"><label>Linked Grocery product</label><select id="fGroceryProduct"><option value="">Not linked — logging this won't affect Pantry stock</option></select></div></div><div id="fLogRow" style="margin-top:12px;display:flex;gap:8px;align-items:center;flex-wrap:wrap"><span class="subtle">Eating it now?</span><input class="input" id="fLogQty" type="number" min=".01" step=".1" value="1" style="width:90px"><select id="fLogUnit" style="width:100px"><option>serving</option></select><span class="subtle">goes on the date selected in Today</span></div><div class="modal-actions"><button class="btn ghost" onclick="closeFoodModal()">Cancel</button><button class="btn secondary" onclick="saveAndLog()">Save &amp; log it</button><button class="btn" onclick="saveFood()">Save ingredient</button></div></div></div>
 <div class="modal-backdrop" id="logModal"><div class="modal meal-modal"><div class="section-head"><div><div class="eyebrow" id="logModalEyebrow">Add to today</div><h2>Customize this meal</h2><div class="subtle">Increase, decrease, replace, add, or remove ingredients before logging</div></div><button class="icon-btn" onclick="closeLogModal()">×</button></div><div class="customize-head"><div class="field"><label>Meal name</label><input class="input" id="logName"></div><div class="field"><label>Servings eaten</label><input class="input" id="logServings" type="number" min=".25" step=".25" value="1" oninput="renderLogEditor()"></div></div><div id="logItems"></div><div class="add-custom-row"><div class="field"><label>Add another ingredient</label><select id="logFoodSelect" onchange="fillLogUnits()"></select></div><div class="field"><label>Amount</label><input class="input" id="logFoodQty" type="number" min=".01" step=".1" value="10"></div><div class="field"><label>Unit</label><select id="logFoodUnit"></select></div><button class="btn secondary" onclick="addLogItem()">+ Add</button></div><div class="custom-total"><span><b id="logCalories">0 kcal</b><br><span class="subtle" id="logMacroLine"></span></span><span class="tag">Amount being logged</span></div><label class="checkline"><input type="checkbox" id="updateMaster"><span><b style="color:var(--ink)">Also update my saved recipe</b><br>Leave this unchecked to keep the original recipe unchanged.</span></label><div class="modal-actions"><button class="btn ghost" onclick="closeLogModal()">Cancel</button><button class="btn" onclick="confirmLog()">Add customized meal</button></div></div></div>
 <div class="modal-backdrop" id="bundleModal"><div class="modal bundle-modal"><div class="section-head"><div><div class="eyebrow">Review complete meal</div><h2 id="bundleTitle"></h2><div class="subtle">Select recipes and customize every ingredient before logging</div></div><button class="icon-btn" onclick="closeBundle()">×</button></div><div id="bundleRule"></div><div id="bundleParts"></div><div class="custom-total"><span><b id="bundleCalories">0 kcal</b><br><span class="subtle" id="bundleMacros"></span></span><span class="tag">Meal total</span></div><label class="checkline"><input type="checkbox" id="bundleUpdate"><span><b style="color:var(--ink)">Also update the saved recipes</b><br>Leave unchecked for a one-time change today.</span></label><div class="modal-actions"><button class="btn ghost" onclick="closeBundle()">Cancel</button><button class="btn" onclick="confirmBundle()">Add meal to today</button></div></div></div>
 <div class="modal-backdrop" id="universalLogModal"><div class="modal universal-modal"><div class="ulog-head"><div class="section-head"><div><div class="eyebrow">Nourish Duo</div><h2>Log food or meal</h2><div class="subtle">Record what you actually ate. The plan stays available, but it never limits your diary.</div></div><button class="icon-btn" onclick="closeUniversalLog()">×</button></div><div class="ulog-context"><div class="field"><label>How should this be recorded?</label><select id="ulogType" onchange="updateUniversalTarget()"><option value="separate">Separate food or meal</option><option value="snack">Unplanned snack</option><option value="replacement">Replace a planned meal</option><option value="restaurant">Restaurant / estimated meal</option></select></div><div class="field" id="ulogTargetWrap" style="display:none"><label>Planned meal</label><select id="ulogTarget"></select></div></div></div><div class="ulog-tabs"><button class="ulog-tab active" data-ulog-tab="saved" onclick="switchUniversalTab('saved')">Saved meals</button><button class="ulog-tab" data-ulog-tab="search" onclick="switchUniversalTab('search')">Search</button><button class="ulog-tab" data-ulog-tab="recent" onclick="switchUniversalTab('recent')">Recent</button><button class="ulog-tab" data-ulog-tab="plate" onclick="switchUniversalTab('plate')">Build a meal</button><button class="ulog-tab" data-ulog-tab="quick" onclick="switchUniversalTab('quick')">Quick add</button><button class="ulog-tab" data-ulog-tab="new" onclick="switchUniversalTab('new')">New food</button></div><div class="ulog-body">
@@ -480,6 +480,7 @@ draft=clone(state.recipes.find(r=>r.profileId===state.activeProfile));fillFoodSe
 </script>
 <script>
 /* Weekly planning, pantry, progress, micronutrients, and adherence */
+let pendingFoodMeta=null,lastSavedFood=null;
 const microKeys=['satFat','sugar','sodium','calcium','iron','potassium','vitaminD'];
 const microSeed={
  whey:[1,1,130,130,.5,160,0],oats:[1.2,1,2,52,4.3,429,0],milk:[1.3,5,47,120,0,150,1.2],banana:[.1,12.2,1,5,.3,358,0],flax:[3.7,1.6,30,255,5.7,813,0],egg:[1.6,.2,71,28,.9,69,1.1],eggwhite:[0,.2,55,2,0,54,0],rice:[.1,.1,1,10,.2,35,0],yogurt:[.1,3.2,36,110,.1,141,0],salad:[.05,1.2,30,45,1.2,300,0],lemon:[0,1.5,1,15,.3,80,0],salt:[0,0,393,0,0,0,0],chili:[2.5,10,30,148,7.8,2014,0],mandarin:[0,14,10,20,.3,150,0],fruit:[0,9,2,12,.3,170,0],paneer:[15,1,22,480,.2,104,0],lentils:[.1,1.8,2,19,3.3,369,0],ghee:[60,0,0,0,0,0,0],water:[0,0,0,0,0,0,0]
@@ -604,8 +605,8 @@ function removeDiaryFromHistory(id){removeDiary(id);renderHistory()}
 function historyJumpTo(v){if(!v)return;selectDate(v);let el=$('hist-day-'+v);if(el)el.scrollIntoView({behavior:'smooth',block:'start'});else toast('No diary entries on that date yet')}
 function deleteHistoryDay(d){let count=state.diary.filter(x=>x.date===d&&x.profileId===state.activeProfile&&(x.status||'eaten')==='eaten').length;if(!confirm(`Delete all ${count} logged entr${count===1?'y':'ies'} for ${formatDate(d,{month:'short',day:'numeric',year:'numeric'})}? This can't be undone.`))return;state.diary=state.diary.filter(x=>!(x.date===d&&x.profileId===state.activeProfile));persist();renderAll();toast('Day deleted from history')}
 renderHistory=function(){if(!$('historyList'))return;let entries=state.diary.filter(x=>x.profileId===state.activeProfile&&(x.status||'eaten')==='eaten').slice().sort((a,b)=>b.date.localeCompare(a.date));if(!entries.length){$('historyList').innerHTML='<div class="empty"><div class="orb">🕘</div><b>No diary entries yet</b><div>Log a meal from Today to start building history.</div></div>';return}let byDay={};entries.forEach(x=>(byDay[x.date]=byDay[x.date]||[]).push(x));$('historyList').innerHTML=Object.keys(byDay).sort((a,b)=>b.localeCompare(a)).map(d=>{let list=byDay[d],n=addNutrition(list.map(x=>scaled(x.nutrition,x.servings/(x.recipeServings||1))));return `<div class="card" id="hist-day-${d}" style="margin-bottom:14px"><div class="section-head"><div><h3>${formatDate(d,{weekday:'long',month:'short',day:'numeric',year:'numeric'})}</h3><div class="subtle">${list.length} eaten · ${round(n.calories,0)} kcal · P ${round(n.protein)}g · C ${round(n.carbs)}g · F ${round(n.fat)}g</div></div><div style="display:flex;gap:6px"><button class="btn ghost small" onclick="selectDate('${d}');go('dashboard')">Open in Today</button><button class="icon-btn" title="Delete this day" onclick="deleteHistoryDay('${d}')">×</button></div></div><div class="meal-timeline">${list.map(historyEntryRow).join('')}</div></div>`}).join('')}
-openFoodModal=function(id){editingFood=id||null;let f=id?food(id):{name:'',basis:100,unit:'g',calories:0,protein:0,carbs:0,fat:0,fiber:0,satFat:0,sugar:0,sodium:0,calcium:0,iron:0,potassium:0,vitaminD:0,pieceG:'',density:'',groceryProductId:''};$('modalTitle').textContent=id?'Edit ingredient':'Add custom ingredient';['Name','Basis','Unit','Calories','Protein','Carbs','Fat','Fiber','SatFat','Sugar','Sodium','Calcium','Iron','Potassium','VitaminD','PieceG','Density'].forEach(k=>$('f'+k).value=f[k[0].toLowerCase()+k.slice(1)]??'');fillGroceryProductSelect(f.groceryProductId);$('foodModal').classList.add('open')}
-saveFood=function(){let name=$('fName').value.trim(),basis=+$('fBasis').value;if(!name||basis<=0)return toast('Name and basis amount are required');let f={id:editingFood||'custom-'+Date.now(),name,basis,unit:$('fUnit').value,groceryProductId:$('fGroceryProduct').value||null};['Calories','Protein','Carbs','Fat','Fiber','SatFat','Sugar','Sodium','Calcium','Iron','Potassium','VitaminD','PieceG','Density'].forEach(k=>f[k[0].toLowerCase()+k.slice(1)]=num('f'+k)||undefined);microKeys.forEach(k=>f[k]=f[k]||0);['calories','protein','carbs','fat','fiber'].forEach(k=>f[k]=f[k]||0);if(editingFood)state.foods=state.foods.map(x=>x.id===editingFood?f:x);else{state.foods.push(f);state.pantry.push({foodId:f.id,qty:0,lowAt:1,expiry:'',store:'Pantry'})}persist();closeFoodModal();fillFoodSelect();renderAll();toast('Ingredient saved')}
+openFoodModal=function(id){editingFood=id||null;let f=id?food(id):{name:'',basis:100,unit:'g',calories:0,protein:0,carbs:0,fat:0,fiber:0,satFat:0,sugar:0,sodium:0,calcium:0,iron:0,potassium:0,vitaminD:0,pieceG:'',density:'',groceryProductId:''};$('modalTitle').textContent=id?'Edit ingredient':'Add custom ingredient';['Name','Basis','Unit','Calories','Protein','Carbs','Fat','Fiber','SatFat','Sugar','Sodium','Calcium','Iron','Potassium','VitaminD','PieceG','Density'].forEach(k=>$('f'+k).value=f[k[0].toLowerCase()+k.slice(1)]??'');fillGroceryProductSelect(f.groceryProductId);pendingFoodMeta=null;{let b=$('findFoodBox');if(b){b.style.display=id?'none':'';$('ffOut').innerHTML='';$('ffQuery').value=''}$('fLogRow').style.display=id?'none':'';$('fLogUnit').innerHTML=[...$('fUnit').options].map(o=>'<option'+(o.value===f.unit?' selected':'')+'>'+o.value+'</option>').join('');$('fLogQty').value=1}$('foodModal').classList.add('open')}
+saveFood=function(){let name=$('fName').value.trim(),basis=+$('fBasis').value;if(!name||basis<=0)return toast('Name and basis amount are required');let f={id:editingFood||'custom-'+Date.now(),name,basis,unit:$('fUnit').value,groceryProductId:$('fGroceryProduct').value||null};['Calories','Protein','Carbs','Fat','Fiber','SatFat','Sugar','Sodium','Calcium','Iron','Potassium','VitaminD','PieceG','Density'].forEach(k=>f[k[0].toLowerCase()+k.slice(1)]=num('f'+k)||undefined);microKeys.forEach(k=>f[k]=f[k]||0);['calories','protein','carbs','fat','fiber'].forEach(k=>f[k]=f[k]||0);if(editingFood)state.foods=state.foods.map(x=>x.id===editingFood?f:x);else{if(pendingFoodMeta)Object.assign(f,pendingFoodMeta);state.foods.push(f);state.pantry.push({foodId:f.id,qty:0,lowAt:1,expiry:'',store:'Pantry'})}lastSavedFood=f.id;persist();closeFoodModal();fillFoodSelect();renderAll();toast('Ingredient saved')}
 importData=function(e){let file=e.target.files[0];if(!file)return;let reader=new FileReader();reader.onload=()=>{try{let x=JSON.parse(reader.result);if(!x.foods||!x.recipes||!x.profiles)throw 0;state=x;if(state.featureVersion!==1)migrateFeatures();ensurePantry();if(typeof ensurePurchases==='function')ensurePurchases();linkBuiltInGroceryProducts();persist();fillFoodSelect();setProfile(state.activeProfile||'bhargav');toast('Data imported')}catch{toast('That file is not valid Nourish Duo data')}};reader.readAsText(file)}
 const previousSetProfile=setProfile;setProfile=function(id){previousSetProfile(id);populateYieldRecipes();renderCalendar();renderPantry();renderProgress();renderProgression();renderNutrition();renderInsights()}
 go=function(id){document.querySelectorAll('.page').forEach(p=>p.classList.toggle('active',p.id===id));document.querySelectorAll('[data-page]').forEach(b=>b.classList.toggle('active',b.dataset.page===id));let titles={dashboard:['Daily nutrition','Today'],mealplan:['Meal structure','Daily meal plan'],pantry:['Inventory and expiry','Pantry'],progress:['Body, balance, trend & adherence','Progress'],history:['Full diary record','History'],recipes:['Create, edit & browse','Recipes'],foods:['Nutrition database','Ingredients'],settings:['Personalize','Goals & settings']},t=titles[id];$('eyebrow').textContent=t[0];$('pageTitle').textContent=t[1];updateHeaderDate();if(id==='dashboard'){renderDashboard();renderCalendar();renderNutrition();renderDietCommand();renderProteinRescue()}if(id==='mealplan')renderMealPlan();if(id==='pantry')renderPantry();if(id==='progress'){renderProgress();renderInsights();renderProgression()}if(id==='history')renderHistory();if(id==='recipes'){renderRecipes();populateYieldRecipes()}if(id==='foods')renderFoods();if(id==='settings')loadGoalInputs();scrollTo(0,0)}
@@ -1346,6 +1347,198 @@ function openNewFoodFromUniversal(){closeUniversalLog();openFoodModal()}
       cloudReady=false;setCloudStatus('Using this device; cloud unavailable',false);shell.style.visibility='visible';gate.style.display='none';renderAll();toast('Cloud could not load; local data is still available');
     }
   });
+
+  // ===== Find a food online: Open Food Facts (search + barcode) and Gemini (label photo, cafe/restaurant via web search) =====
+  const FF_MODELS=['gemini-2.5-flash','gemini-flash-latest'];
+  let ffKey=localStorage.getItem('nourish-gemini-key')||'',ffResults=[],ffAi=null,ffPending=null;
+  const OFF_FIELDS='product_name,brands,nutriments,serving_size,code';
+  function aiKeyDoc(){return db.collection('users').doc(appUser.uid).collection('apps').doc('nourish-diet-v2').collection('data').doc('aiKey')}
+  async function loadAiKey(){if(!appUser)return;try{let d=await aiKeyDoc().get();if(d.exists&&d.data().key){ffKey=d.data().key;localStorage.setItem('nourish-gemini-key',ffKey)}}catch(e){}}
+  saveAiKey=async function(){let k=($('ffKeyInput').value||'').trim();if(k.length<20)return toast('That does not look like a Gemini key');ffKey=k;localStorage.setItem('nourish-gemini-key',k);$('ffKeyInput').value='';$('ffKey').style.display='none';try{if(appUser)await aiKeyDoc().set({key:k})}catch(e){}toast('Key saved');let r=ffPending;ffPending=null;if(r)r()}
+  function ffMsg(h){$('ffOut').innerHTML=h}
+  function ffNote(t,bad){return '<div class="subtle"'+(bad?' style="color:#b3261e"':'')+'>'+t+'</div>'}
+  const ffNum=(v,d=0)=>{v=Number(v);return isFinite(v)?Math.round(v*Math.pow(10,d))/Math.pow(10,d):0};
+  function setField(id,v){$(id).value=v===''||v==null?'':v}
+  const askAiBtn='<button type="button" class="btn ghost" style="margin-top:6px" onclick="findWithAI()">✨ Not here? Ask AI (cafe / restaurant)</button>';
+  // --- sanity check: do the numbers agree with each other? ---
+  function nutritionWarnings(o,perG){
+    let w=[],c=+o.calories||0,p=+o.protein||0,cb=+o.carbs||0,f=+o.fat||0,fi=+o.fiber||0,sg=+o.sugar||0,sf=+o.satFat||0,na=+o.sodium||0;
+    let est=4*p+4*(cb-fi*0.5)+9*f;
+    if(c>0&&est>0&&Math.abs(c-est)>Math.max(45,.25*c))w.push('Calories ('+Math.round(c)+') don’t match the macros (about '+Math.round(est)+')');
+    if(c===0&&p+cb+f>5)w.push('Calories are 0 but macros are not');
+    if(c>0&&p+cb+f===0)w.push('Calories listed but no macros');
+    if(sg>cb+.5)w.push('Sugar is higher than total carbs');
+    if(sf>f+.5)w.push('Saturated fat is higher than total fat');
+    if(fi>cb+.5)w.push('Fiber is higher than total carbs');
+    if(perG&&p+cb+f>perG*1.03)w.push('Macros add up to more than the portion weighs');
+    if(perG&&c>perG*9.2)w.push('Calories are impossibly high for that weight');
+    if(na>6000)w.push('Sodium looks too high');
+    if(c>3000)w.push('Calories look unusually high for one serving');
+    return w;
+  }
+  function warnHtml(w){return w.length?'<div style="margin-top:6px;padding:7px 9px;border-radius:9px;background:#fff3cd;color:#664d03;font-size:12.5px"><b>⚠ Check these before saving:</b><br>'+w.map(esc).join('<br>')+'</div>':''}
+  // --- Gemini call (shared) ---
+  function geminiErr(status,msg){
+    msg=msg||'';
+    if(status===429||/quota|RESOURCE_EXHAUSTED|rate.?limit/i.test(msg))return 'Gemini’s free limit is used up for now (it resets daily). Try again later, or type the numbers in below.';
+    if(status===503||/overload|unavailable/i.test(msg))return 'Gemini is busy right now. Try again in a minute.';
+    if(status===403||(status===400&&/API key/i.test(msg)))return 'KEY';
+    return msg||('Gemini error (HTTP '+status+')');
+  }
+  async function geminiCall(parts,search){
+    let err=null;
+    for(const m of FF_MODELS){
+      try{
+        let body={contents:[{parts:parts}],generationConfig:{temperature:0.1}};if(search)body.tools=[{google_search:{}}];
+        let r=await fetch('https://generativelanguage.googleapis.com/v1beta/models/'+m+':generateContent?key='+encodeURIComponent(ffKey),{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+        let j={};try{j=await r.json()}catch(e){}
+        if(!r.ok){err=geminiErr(r.status,j.error&&j.error.message);if(r.status===404)continue;break}
+        let c=j.candidates&&j.candidates[0];
+        let text=c&&c.content&&c.content.parts?c.content.parts.map(x=>x.text||'').join(''):'';
+        if(!text){err='Gemini returned nothing';break}
+        return{text,sources:((c.groundingMetadata&&c.groundingMetadata.groundingChunks)||[]).map(x=>x.web).filter(Boolean).slice(0,4)};
+      }catch(e){err='Could not reach Gemini. Check your connection.'}
+    }
+    if(err==='KEY'){ffKey='';localStorage.removeItem('nourish-gemini-key');$('ffKey').style.display='';err='Gemini rejected the key. Paste a new one.'}
+    return{err};
+  }
+  function parseJson(t){try{return JSON.parse(t.match(/\{[\s\S]*\}/)[0])}catch(e){return null}}
+  async function needKey(retry){if(!ffKey)await loadAiKey();if(ffKey)return true;ffPending=retry;$('ffKey').style.display='';ffMsg('');$('ffKeyInput').focus();return false}
+  // --- Open Food Facts ---
+  function offList(list,head){
+    ffResults=list;
+    ffMsg((head||'')+list.map((p,i)=>{let n=p.nutriments,w=nutritionWarnings({calories:n['energy-kcal_100g'],protein:n.proteins_100g,carbs:n.carbohydrates_100g,fat:n.fat_100g,fiber:n.fiber_100g,sugar:n.sugars_100g,satFat:n['saturated-fat_100g']},100);
+      return '<button type="button" class="btn ghost" style="display:block;width:100%;text-align:left;margin-bottom:6px" onclick="usePackaged('+i+')"><b>'+esc(p.product_name)+'</b>'+(p.brands?' <span class="subtle">· '+esc(p.brands)+'</span>':'')+(w.length?' <span title="'+esc(w.join('; '))+'">⚠</span>':'')+'<br><span class="subtle">'+ffNum(n['energy-kcal_100g'])+' kcal · '+ffNum(n.proteins_100g,1)+'P · '+ffNum(n.carbohydrates_100g,1)+'C · '+ffNum(n.fat_100g,1)+'F per 100 g</span></button>'}).join('')+ffNote('Community-edited data — check it against the package.')+askAiBtn);
+  }
+  async function offFetch(url){let ctl=new AbortController(),t=setTimeout(()=>ctl.abort(),9000);try{let r=await fetch(url,{signal:ctl.signal});return await r.json()}finally{clearTimeout(t)}}
+  ffSearch=async function(){
+    let q=$('ffQuery').value.trim();if(!q)return toast('Type a food name or barcode first');
+    if(/^\d{8,14}$/.test(q))return lookupBarcode(q);
+    ffMsg(ffNote('Searching Open Food Facts…'));
+    try{
+      let j=await offFetch('https://world.openfoodfacts.org/cgi/search.pl?search_simple=1&action=process&json=1&page_size=10&fields='+OFF_FIELDS+'&search_terms='+encodeURIComponent(q));
+      let list=(j.products||[]).filter(p=>p.product_name&&p.nutriments&&p.nutriments['energy-kcal_100g']!=null).slice(0,6);
+      if(!list.length){ffMsg(ffNote('No packaged match with nutrition data.')+askAiBtn);return}
+      offList(list);
+    }catch(e){ffMsg(ffNote('Could not reach Open Food Facts right now. Try again, or use Ask AI.',true)+askAiBtn)}
+  }
+  findPackaged=ffSearch;
+  async function lookupBarcode(code){
+    $('ffQuery').value=code;ffMsg(ffNote('Looking up barcode '+esc(code)+'…'));
+    try{
+      let j=await offFetch('https://world.openfoodfacts.org/api/v2/product/'+code+'.json?fields='+OFF_FIELDS);
+      let p=j&&j.product;
+      if(j.status!==1||!p||!p.product_name||!p.nutriments||p.nutriments['energy-kcal_100g']==null){ffMsg(ffNote('Barcode '+esc(code)+' is not in Open Food Facts with nutrition data. Try a photo of the label.')+'<button type="button" class="btn ghost" style="margin-top:6px" onclick="$(\'ffLabelFile\').click()">📷 Photo of label</button>');return}
+      offList([p],ffNote('Found by barcode:'));
+    }catch(e){ffMsg(ffNote('Could not reach Open Food Facts right now. Try again in a moment.',true))}
+  }
+  usePackaged=function(i){
+    let p=ffResults[i];if(!p)return;let n=p.nutriments,g=k=>Number(n[k])||0;
+    setField('fName',(p.brands?p.brands.split(',')[0].trim()+' ':'')+p.product_name);setField('fBasis',100);$('fUnit').value='g';
+    setField('fCalories',ffNum(g('energy-kcal_100g'),1));setField('fProtein',ffNum(g('proteins_100g'),1));setField('fCarbs',ffNum(g('carbohydrates_100g'),1));setField('fFat',ffNum(g('fat_100g'),1));setField('fFiber',ffNum(g('fiber_100g'),1));
+    setField('fSatFat',ffNum(g('saturated-fat_100g'),1));setField('fSugar',ffNum(g('sugars_100g'),1));setField('fSodium',ffNum(g('sodium_100g')*1000));setField('fCalcium',ffNum(g('calcium_100g')*1000));setField('fIron',ffNum(g('iron_100g')*1000,2));setField('fPotassium',ffNum(g('potassium_100g')*1000));setField('fVitaminD',ffNum(g('vitamin-d_100g')*1e6,2));
+    let sz=parseFloat(p.serving_size);setField('fPieceG',sz>0&&/g/i.test(p.serving_size||'')&&!/ml/i.test(p.serving_size)?sz:'');setField('fDensity','');
+    pendingFoodMeta={source:'Open Food Facts',sourceNote:'Community data — verify against the package'};
+    setLogDefaults();
+    let w=nutritionWarnings({calories:g('energy-kcal_100g'),protein:g('proteins_100g'),carbs:g('carbohydrates_100g'),fat:g('fat_100g'),fiber:g('fiber_100g'),sugar:g('sugars_100g'),satFat:g('saturated-fat_100g')},100);
+    ffMsg(ffNote('Filled in below (per 100 g). Check the numbers, then save.')+warnHtml(w));
+  }
+  // --- barcode scanning (camera if the browser supports it, otherwise a photo) ---
+  scanBarcode=async function(){
+    if(!('BarcodeDetector' in window)||!(navigator.mediaDevices&&navigator.mediaDevices.getUserMedia)){
+      ffMsg(ffNote('Live scanning isn’t supported in this browser. Take a photo of the barcode instead, or type the number under the bars into the box and tap Search.'));$('ffBarFile').click();return;
+    }
+    let det;try{det=new BarcodeDetector({formats:['ean_13','ean_8','upc_a','upc_e']})}catch(e){$('ffBarFile').click();return}
+    let stream;try{stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:'environment'}})}catch(e){ffMsg(ffNote('Camera permission was denied. Allow the camera, or take a photo instead.',true));$('ffBarFile').click();return}
+    let ov=document.createElement('div');ov.style.cssText='position:fixed;inset:0;z-index:99999;background:#000;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px';
+    ov.innerHTML='<video playsinline muted autoplay style="max-width:100%;max-height:70vh"></video><div style="color:#fff;font:14px system-ui">Point the camera at the barcode</div><button type="button" class="btn secondary" id="ffScanCancel">Cancel</button>';
+    document.body.appendChild(ov);let v=ov.querySelector('video');v.srcObject=stream;
+    let done=false,stop=()=>{done=true;clearInterval(iv);stream.getTracks().forEach(t=>t.stop());ov.remove()};
+    ov.querySelector('#ffScanCancel').onclick=stop;
+    let iv=setInterval(async()=>{if(done||v.readyState<2)return;try{let r=await det.detect(v);if(r&&r.length){let code=r[0].rawValue;stop();lookupBarcode(code)}}catch(e){}},300);
+  }
+  async function imageToJpeg(file,max){
+    let bmp=await createImageBitmap(file),s=Math.min(1,max/Math.max(bmp.width,bmp.height)),c=document.createElement('canvas');
+    c.width=Math.round(bmp.width*s);c.height=Math.round(bmp.height*s);c.getContext('2d').drawImage(bmp,0,0,c.width,c.height);
+    return{b64:c.toDataURL('image/jpeg',0.85).split(',')[1],bmp};
+  }
+  readBarcodePhoto=async function(inp){
+    let file=inp.files&&inp.files[0];inp.value='';if(!file)return;
+    ffMsg(ffNote('Reading barcode…'));
+    try{
+      if('BarcodeDetector' in window){let bmp=await createImageBitmap(file),r=await new BarcodeDetector({formats:['ean_13','ean_8','upc_a','upc_e']}).detect(bmp);if(r&&r.length)return lookupBarcode(r[0].rawValue)}
+      if(!(await needKey(()=>readBarcodePhoto({files:[file],value:''}))))return;
+      let img=await imageToJpeg(file,1280);
+      let g=await geminiCall([{text:'Read the barcode number (8-14 digits) printed under the bars in this photo. Reply with ONLY the digits, or NONE.'},{inline_data:{mime_type:'image/jpeg',data:img.b64}}],false);
+      if(g.err)return ffMsg(ffNote(esc(g.err),true));
+      let m=(g.text||'').replace(/\s/g,'').match(/\d{8,14}/);
+      if(m)return lookupBarcode(m[0]);
+      ffMsg(ffNote('Couldn’t read a barcode from that photo. Type the number under the bars into the box and tap Search, or photograph the nutrition label.',true));
+    }catch(e){ffMsg(ffNote('Couldn’t read that image.',true))}
+  }
+  // --- results from Gemini (cafe/restaurant lookup and label photo) share one card ---
+  function geminiCard(o,sources,kind){
+    ffAi={o,sources,kind,w:nutritionWarnings(o,kind==='label'&&o.servingG&&o.servingUnit!=='ml'?+o.servingG:0)};
+    let conf=kind==='label'?'From label photo':({official:'Official data',similar:'Similar published item',estimate:'Estimate'})[o.confidence]||'Estimate';
+    let src=kind==='label'?'<div class="subtle" style="margin-top:4px">Read from your photo. Check it against the label.</div>':(sources.length?'<div class="subtle" style="margin-top:4px">Sources: '+sources.map(s=>'<a href="'+esc(s.uri)+'" target="_blank" rel="noopener">'+esc(s.title||s.uri)+'</a>').join(' · ')+'</div>':'<div class="subtle" style="margin-top:4px">No web source found — treat as a rough guess.</div>');
+    ffMsg('<div style="border:1px solid var(--line);border-radius:12px;padding:10px;background:var(--card,#fff)"><b>'+esc(o.name||$('ffQuery').value||'Food')+'</b> <span class="tag">'+esc(conf)+'</span><div class="subtle">'+esc(o.serving||'1 serving')+' · <span id="ffScaled"></span></div>'+(o.notes?'<div class="subtle" style="margin-top:4px">'+esc(o.notes)+'</div>':'')+src+warnHtml(ffAi.w)+
+      '<div style="margin-top:8px"><span class="subtle">Portion:</span> '+[[.5,'½'],[.75,'¾'],[1,'1×'],[1.25,'1¼'],[1.5,'1½'],[2,'2×']].map(a=>'<button type="button" class="btn ghost" style="padding:4px 9px;margin:2px" onclick="ffSetScale('+a[0]+')">'+a[1]+'</button>').join('')+' <input class="input" id="ffScale" type="number" min=".1" max="10" step=".05" value="1" style="width:80px;display:inline-block" oninput="ffScaledUpdate()"></div>'+
+      '<button type="button" class="btn" style="margin-top:8px" onclick="useGeminiFood()">Use these values</button></div>');
+    ffScaledUpdate();
+  }
+  function ffScaleVal(){let s=parseFloat(($('ffScale')||{}).value);return s>0?s:1}
+  ffSetScale=function(x){$('ffScale').value=x;ffScaledUpdate()}
+  ffScaledUpdate=function(){let o=ffAi&&ffAi.o,s=ffScaleVal(),e=$('ffScaled');if(!o||!e)return;e.textContent=ffNum(o.calories*s)+' kcal · '+ffNum(o.protein*s,1)+'P · '+ffNum(o.carbs*s,1)+'C · '+ffNum(o.fat*s,1)+'F'+(s!==1?' (×'+s+')':'')}
+  findWithAI=async function(){
+    let q=$('ffQuery').value.trim();if(!q)return toast('Type the food and place first');
+    if(!(await needKey(findWithAI)))return;
+    ffMsg(ffNote('Asking Gemini and searching the web… (10–20 s)'));
+    let prompt='Find nutrition facts for this food or drink, using Google Search. Query: "'+q+'".\n'+
+    'Prefer the venue\'s or brand\'s OWN official nutrition page or menu. If none exists, estimate from typical ingredients and portion size, and say so.\n'+
+    'Reply with ONLY one JSON object, no markdown, with keys: name (include the place/brand), serving (short description of the serving, e.g. "16 oz drink"), calories, protein, carbs, fat, fiber, satFat, sugar (all grams except calories kcal), sodium, calcium, iron, potassium (all mg), vitaminD (mcg), confidence ("official" if from the venue/brand\'s own published data, "similar" if from a comparable published item, "estimate" if computed from ingredients), notes (one sentence: where the numbers came from, and what is uncertain). Numbers are per ONE serving. Use 0 for unknown micronutrients; never invent a source.';
+    let g=await geminiCall([{text:prompt}],true);
+    if(g.err)return ffMsg(ffNote(esc(g.err),true));
+    let o=parseJson(g.text);
+    if(!o||o.calories==null||!(Number(o.calories)>=0)){ffMsg(ffNote('Could not read a usable answer. Try rewording (add the place name and size).',true));return}
+    ['calories','protein','carbs','fat','fiber','satFat','sugar','sodium','calcium','iron','potassium','vitaminD'].forEach(k=>o[k]=Number(o[k])||0);
+    geminiCard(o,g.sources,'ai');
+  }
+  readLabelPhoto=async function(inp){
+    let file=inp.files&&inp.files[0];inp.value='';if(!file)return;
+    if(!(await needKey(()=>readLabelPhoto({files:[file],value:''}))))return;
+    ffMsg(ffNote('Reading the label…'));
+    let img;try{img=await imageToJpeg(file,1600)}catch(e){return ffMsg(ffNote('Couldn’t read that image.',true))}
+    let prompt='This is a photo of a Nutrition Facts label. Read the printed numbers exactly; do NOT guess or fill in missing values. Reply with ONLY one JSON object with keys: readable (true/false), name (product name if visible, else ""), serving (serving size text as printed), servingG (number: grams or ml per serving if printed, else null), servingUnit ("g" or "ml"), calories, protein, carbs, fat, fiber, satFat, sugar (grams; calories kcal), sodium, calcium, iron, potassium (mg), vitaminD (mcg). All values per ONE serving as printed. Use 0 for anything not on the label.';
+    let g=await geminiCall([{text:prompt},{inline_data:{mime_type:'image/jpeg',data:img.b64}}],false);
+    if(g.err)return ffMsg(ffNote(esc(g.err),true));
+    let o=parseJson(g.text);
+    if(!o||o.readable===false||o.calories==null){ffMsg(ffNote('Couldn’t read that label. Retake it closer, flat and well lit, with the whole panel in view.',true));return}
+    ['calories','protein','carbs','fat','fiber','satFat','sugar','sodium','calcium','iron','potassium','vitaminD'].forEach(k=>o[k]=Number(o[k])||0);
+    o.confidence='label';geminiCard(o,[],'label');
+  }
+  useGeminiFood=function(){
+    if(!ffAi)return;let o=ffAi.o,s=ffScaleVal(),est=ffAi.kind==='ai'&&o.confidence!=='official';
+    setField('fName',(o.name||$('ffQuery').value)+(est?' (est.)':'')+(s!==1?' ×'+s:''));setField('fBasis',1);$('fUnit').value='serving';
+    [['fCalories','calories',1],['fProtein','protein',1],['fCarbs','carbs',1],['fFat','fat',1],['fFiber','fiber',1],['fSatFat','satFat',1],['fSugar','sugar',1],['fSodium','sodium',0],['fCalcium','calcium',0],['fIron','iron',2],['fPotassium','potassium',0],['fVitaminD','vitaminD',2]].forEach(a=>setField(a[0],ffNum(o[a[1]]*s,a[2])));
+    let sg=ffAi.kind==='label'&&o.servingUnit!=='ml'&&+o.servingG>0?ffNum(o.servingG*s,1):'';
+    setField('fPieceG',sg);setField('fDensity','');
+    pendingFoodMeta=ffAi.kind==='label'?{source:'Nutrition label photo',confidence:'label',sourceNote:'Read from a photo of the label'}:{source:'Gemini + web search',confidence:o.confidence||'estimate',sourceNote:(o.notes||'').slice(0,240),sourceLinks:ffAi.sources.map(x=>x.uri)};
+    setLogDefaults();
+    ffMsg(ffNote('Filled in below, per 1 serving ('+esc(o.serving||'serving')+(s!==1?', ×'+s:'')+'). Edit if needed, then save.')+warnHtml(ffAi.w));
+  }
+  // --- save + log in one step ---
+  function setLogDefaults(){let u=$('fUnit').value;$('fLogUnit').innerHTML=[...$('fUnit').options].map(o=>'<option'+(o.value===u?' selected':'')+'>'+o.value+'</option>').join('');$('fLogQty').value=u==='serving'||u==='piece'||u==='scoop'?1:(+$('fBasis').value||100)}
+  saveAndLog=async function(){
+    let qty=+$('fLogQty').value,unit=$('fLogUnit').value;if(!(qty>0))return toast('Enter how much you ate');
+    lastSavedFood=null;saveFood();let id=lastSavedFood;if(!id)return;
+    let f=food(id);if(!f)return;let item={foodId:id,qty,unit},c=consumptionFor([item],1);
+    if(!c.length||!(c[0].qty>0)){toast('Saved, but I can’t convert '+unit+' to '+f.unit+' for this food — add grams per piece or density, then log it from Log food.');return}
+    try{applyConsumption(c,-1)}catch(e){}
+    state.diary.push({id:'d-'+Date.now(),date:todayKey(),profileId:state.activeProfile,name:f.name,detail:`${round(toBasisQty(f,qty,unit),1)} ${f.unit}`,icon:'🍽️',servings:1,recipeServings:1,nutrition:nutrients(item),status:'eaten',note:'',consumption:c});
+    persist();try{rememberFood(id)}catch(e){}renderAll();toast(f.name+' saved and logged to '+formatDate(todayKey()));
+    if(typeof trackPantryConsumption==='function'){try{await trackPantryConsumption([{items:[item]}])}catch(err){console.error(err)}}
+  }
+  setTimeout(loadAiKey,1500);
 })();
 </script>
 </body>
