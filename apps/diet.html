@@ -1353,8 +1353,20 @@ function openNewFoodFromUniversal(){closeUniversalLog();openFoodModal()}
   let ffKey=localStorage.getItem('nourish-gemini-key')||'',ffResults=[],ffAi=null,ffPending=null;
   const OFF_FIELDS='product_name,brands,nutriments,serving_size,code';
   function aiKeyDoc(){return db.collection('users').doc(appUser.uid).collection('apps').doc('nourish-diet-v2').collection('data').doc('aiKey')}
-  async function loadAiKey(){if(!appUser)return;try{let d=await aiKeyDoc().get();if(d.exists&&d.data().key){ffKey=d.data().key;localStorage.setItem('nourish-gemini-key',ffKey)}}catch(e){}}
-  saveAiKey=async function(){let k=($('ffKeyInput').value||'').trim();if(k.length<20)return toast('That does not look like a Gemini key');ffKey=k;localStorage.setItem('nourish-gemini-key',k);$('ffKeyInput').value='';$('ffKey').style.display='none';try{if(appUser)await aiKeyDoc().set({key:k})}catch(e){}toast('Key saved');let r=ffPending;ffPending=null;if(r)r()}
+  async function loadAiKey(){if(ffKey||!appUser)return;try{let d=await aiKeyDoc().get();if(d.exists&&d.data().key){ffKey=d.data().key;localStorage.setItem('nourish-gemini-key',ffKey)}}catch(e){}}
+  async function dropAiKey(){ffKey='';localStorage.removeItem('nourish-gemini-key');try{if(appUser)await aiKeyDoc().delete()}catch(e){}}
+  saveAiKey=async function(){
+    let k=($('ffKeyInput').value||'').replace(/^[\s"'`]+|[\s"'`]+$/g,'').replace(/^key=/i,'').replace(/\s+/g,'');
+    if(!/^AIza[\w-]{30,}$/.test(k))return toast('That doesn’t look like a full Gemini key. It starts with AIza and has about 39 characters');
+    toast('Checking key…');
+    try{
+      let r=await fetch('https://generativelanguage.googleapis.com/v1beta/models?pageSize=1&key='+encodeURIComponent(k));
+      if(!r.ok){let j={};try{j=await r.json()}catch(e){}let m=(j.error&&j.error.message)||'';
+        if(r.status===400||r.status===401||r.status===403||/API key/i.test(m)){ffMsg(ffNote('Google says this key is not valid ('+esc(m||('HTTP '+r.status))+'). Create a new key at aistudio.google.com/apikey and paste the whole thing.',true));return}}
+    }catch(e){/* offline or blocked: save anyway, the first real call will tell us */}
+    ffKey=k;localStorage.setItem('nourish-gemini-key',k);$('ffKeyInput').value='';$('ffKey').style.display='none';try{if(appUser)await aiKeyDoc().set({key:k})}catch(e){}
+    toast('Key saved');ffMsg(ffNote('Key saved. Try your search again.'));let r2=ffPending;ffPending=null;if(r2)r2()
+  }
   function ffMsg(h){$('ffOut').innerHTML=h}
   function ffNote(t,bad){return '<div class="subtle"'+(bad?' style="color:#b3261e"':'')+'>'+t+'</div>'}
   const ffNum=(v,d=0)=>{v=Number(v);return isFinite(v)?Math.round(v*Math.pow(10,d))/Math.pow(10,d):0};
@@ -1380,9 +1392,10 @@ function openNewFoodFromUniversal(){closeUniversalLog();openFoodModal()}
   // --- Gemini call (shared) ---
   function geminiErr(status,msg){
     msg=msg||'';
+    if(/API key not valid|API_KEY_INVALID|API key expired/i.test(msg))return 'KEY';
     if(status===429||/quota|RESOURCE_EXHAUSTED|rate.?limit/i.test(msg))return 'LIMIT';
     if(status===503||/overload|unavailable/i.test(msg))return 'Gemini is busy right now. Try again in a minute.';
-    if(status===403||(status===400&&/API key/i.test(msg)))return 'KEY';
+    if(status===403||/API key not valid|API_KEY_INVALID|API key expired/i.test(msg))return 'KEY';
     return msg||('Gemini error (HTTP '+status+')');
   }
   async function geminiTry(parts,search){
@@ -1407,7 +1420,7 @@ function openNewFoodFromUniversal(){closeUniversalLog();openFoodModal()}
     if(g.err==='LIMIT'&&search){let g2=await geminiTry(parts,false);if(!g2.err){g2.noSearch=true;return g2}g=g2.err==='LIMIT'?g2:g}
     if(!g.err)return g;
     let err=g.err;
-    if(err==='KEY'){ffKey='';localStorage.removeItem('nourish-gemini-key');$('ffKey').style.display='';err='Gemini rejected the key. Paste a new one.'}
+    if(err==='KEY'){await dropAiKey();$('ffKey').style.display='';err='Google rejected the saved key. Paste a new one below.'}
     else if(err==='LIMIT')err='Google is refusing this key right now (rate or quota limit). If it just worked, wait a minute and retry; if it never worked, the key’s project may have no free quota for this model.'+(g.raw?' Google said: “'+g.raw.slice(0,200)+'”':'');
     return{err};
   }
