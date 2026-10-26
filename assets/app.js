@@ -1659,473 +1659,511 @@ async function completeTask(id){
 }
 
 /* =====================================================================
-   INSIGHTS — "momentum" tab. Pulls a thin, read-only slice from every
-   app's own Firestore data (tasks/chores already in state; gym and skin
-   fetched here specifically) and turns it into one motivational picture:
-   a weekly recap, streaks, Skin's phase milestones, a handful of earned
-   badges, and a rotating "surprise" highlight. Nothing here is written
-   back anywhere — it only reads.
-
-   Skin's milestone *dates* are recomputed here from the same small
-   offset-shift rule skin.html itself uses (SKIN_TEMPLATE_START + however
-   many days the person has moved programStart by), rather than importing
-   skin.html's logic wholesale — see skin.html's own rebuildProgramCalendar
-   for the source of truth if that ever changes.
+   INSIGHTS — the workshop.
+   Zero input on this page. Every app feeds it by itself:
+     Schedule  -> routine blocks ticked per day (templateLog) of the blocks planned
+     Gym       -> planned session done + weigh-in; weight vs. the plan line
+     Diet      -> meals eaten of meals planned; calories + protein vs. goal
+     Chores    -> chores done of chores due
+     To-Do     -> tasks finished of tasks due
+     Skin      -> routine steps ticked (vs. your fullest day)
+     Water     -> litres vs. daily goal
+     Pledge    -> daily check-in complete
+   Each app can be switched on/off from the module bar; the choice is saved per
+   profile. Nothing here is ever written back to any app — it only reads.
 ===================================================================== */
 const SKIN_TEMPLATE_START='2026-10-01';
-const SKIN_REVIEW_DATES_TEMPLATE=['2026-10-31','2026-11-30','2026-12-31','2027-01-31','2027-02-28'];
-let insightsLoadedForProfile=null,insightsLoadedAt=0;
+const INSIGHT_WEIGHT_GOALS={Bhargav:{start:94.885,target:76,startDate:'2026-10-26',endDate:'2027-04-15'},Anusha:{start:66,target:53,startDate:'2026-09-02',endDate:'2026-12-22',band:1}};
+const INS_TRAIN_DOWS=[0,1,3,4,5]; // Sun, Mon, Wed, Thu, Fri: both plans lift on these days (Tue rest, Sat recovery)
+const WS_MODS=[
+  {id:'schedule',name:'Schedule',code:'SCHED',color:'#74b9cf',link:'apps/schedule.html',what:'routine blocks ticked'},
+  {id:'gym',name:'Gym',code:'FORGE',color:'#d98474',link:'gym/index.html',what:'session + weigh-in'},
+  {id:'diet',name:'Diet',code:'FUEL',color:'#97c283',link:'apps/diet.html',what:'meals eaten'},
+  {id:'chores',name:'Chores',code:'HOME',color:'#d3ac66',link:'apps/chores.html',what:'chores done'},
+  {id:'todo',name:'To-Do',code:'OPS',color:'#a898d2',link:'apps/todo.html',what:'tasks finished'},
+  {id:'skin',name:'Skin',code:'DERM',color:'#cd96b4',link:'apps/skin.html',what:'routine steps'},
+  {id:'water',name:'Water',code:'HYDRO',color:'#7aa6d6',link:'#',what:'litres vs goal'},
+  {id:'pledge',name:'Pledge',code:'OATH',color:'#cdbb77',link:'apps/pledge.html',what:'daily check-in'}
+];
+let insightsLoadedForProfile=null,insightsLoadedAt=0,insCur=null;
 
-async function ensureInsightsLoaded(){
-  if(insightsLoadedForProfile===state.profile && state.insights && Date.now()-insightsLoadedAt<60000) return;
-  const [gymSnap,stepRes,trackRes,milestoneRes,startRes]=await Promise.all([
-    FsCache.get(gymDailyLogsCol(state.profile)).catch(()=>null),
+const kgFmt=n=>(Math.round(n*10)/10).toFixed(1).replace(/\.0$/,'');
+const insInt=n=>Math.round(n).toLocaleString();
+const insPct=r=>r==null?'—':Math.round(r*100)+'%';
+function insLabel(dt,o){return new Date(dt+'T00:00:00').toLocaleDateString(undefined,o||{month:'short',day:'numeric'})}
+function insMonday(d){const dow=(new Date(d+'T00:00:00').getDay()+6)%7;return addDays(d,-dow)}
+function insDow(d){return new Date(d+'T00:00:00').getDay()}
+function insShortDay(d){return new Date(d+'T00:00:00').toLocaleDateString(undefined,{weekday:'short'})}
+function insGymCol(profile,name){return db.collection('users').doc(state.user.uid).collection('profiles').doc(profile.toLowerCase()).collection(name)}
+const insR=v=>v==null?null:(v.frac!=null?v.frac:(v.total?v.done/v.total:null));
+function insStatus(r){return r==null?'offline':r>=0.85?'nominal':r>=0.6?'degraded':'critical'}
+const INS_STATUS_WORD={nominal:'NOMINAL',degraded:'DEGRADED',critical:'CRITICAL',offline:'NO DATA'};
+
+/* ---------- loading (all cached or single-document reads) ---------- */
+async function ensureInsightsLoaded(force){
+  if(!force&&insightsLoadedForProfile===state.profile&&state.insights&&Date.now()-insightsLoadedAt<60000)return;
+  const uid=state.user.uid;
+  const [dailySnap,liftSnap,cardioSnap,stepRes,trackRes,dietRes,tplRes,pledgeRes,prefRes]=await Promise.all([
+    FsCache.get(insGymCol(state.profile,'dailyLogs')).catch(()=>null),
+    FsCache.get(insGymCol(state.profile,'workoutLogs')).catch(()=>null),
+    FsCache.get(insGymCol(state.profile,'cardioLogs')).catch(()=>null),
     skinDataRef(state.profile,'stepLog').get().catch(()=>null),
     skinDataRef(state.profile,'trackingLog').get().catch(()=>null),
-    skinDataRef(state.profile,'milestoneLog').get().catch(()=>null),
-    skinDataRef(state.profile,'programStart').get().catch(()=>null)
-  ]);
-  const gymDates=new Set();
-  if(gymSnap) gymSnap.forEach(d=>{const v=d.data(); if(v&&v.date) gymDates.add(v.date);});
-  const stepLog=safeJson(stepRes&&stepRes.exists?stepRes.data().json:null,{});
-  const trackingLog=safeJson(trackRes&&trackRes.exists?trackRes.data().json:null,{});
-  const milestoneLog=safeJson(milestoneRes&&milestoneRes.exists?milestoneRes.data().json:null,{});
-  const programStartDate=(startRes&&startRes.exists&&startRes.data().startDate)?startRes.data().startDate:SKIN_TEMPLATE_START;
-  const skinTouchedDates=new Set();
-  Object.keys(stepLog).forEach(k=>{ if(stepLog[k]){ const d=k.split(':')[0]; if(d) skinTouchedDates.add(d); } });
-  const skinCheckedDates=new Set();
-  Object.keys(trackingLog).forEach(d=>{ if(trackingLog[d]&&trackingLog[d].savedAt) skinCheckedDates.add(d); });
-  const weights=[]; if(gymSnap) gymSnap.forEach(d=>{const v=d.data(); const kg=v&&v.weight!=null&&v.weight!==''?Number(v.weight):NaN; if(v&&v.date&&kg>0) weights.push({date:v.date,weight:kg});});
-  weights.sort((a,b)=>a.date.localeCompare(b.date));
-  // Diet + Pledge are read-only here, so a failure in either just hides that card
-  const uid=state.user.uid, pid=state.profile.toLowerCase();
-  const [dietRes,pledgeRes]=await Promise.all([
     db.collection('users').doc(uid).collection('apps').doc('nourish-diet-v2').collection('data').doc('state').get().catch(()=>null),
-    db.collection('users').doc(uid).collection('apps').doc('pledge-v2').collection('data').doc('state').get().catch(()=>null)
+    profileRef('schedule-profiles','templateLog').get().catch(()=>null),
+    db.collection('users').doc(uid).collection('apps').doc('pledge-v2').collection('data').doc('state').get().catch(()=>null),
+    profileRef('hub-profiles','insightPrefs').get().catch(()=>null)
   ]);
-  let diet=null; const dState=(dietRes&&dietRes.exists&&dietRes.data().json)?safeJson(dietRes.data().json,null):null;
+  const daily={},trained=new Set(),vol={},cardio=new Set();
+  if(dailySnap)dailySnap.forEach(s=>{const v=s.data()||{},date=v.date||s.id,w=Number(v.weight),st=Number(v.steps);daily[date]={weight:w>0?w:null,steps:st>0?st:null};if(v.habits&&v.habits.workout)trained.add(date)});
+  if(liftSnap)liftSnap.forEach(s=>{const v=s.data()||{},date=v.date||String(s.id).split(':')[0];let any=false;(Array.isArray(v.exercises)?v.exercises:[]).forEach(e=>(e.sets||[]).forEach(st=>{any=true;vol[date]=(vol[date]||0)+(Number(st.weight)||0)*(Number(st.reps)||0)}));if(any)trained.add(date)});
+  if(cardioSnap)cardioSnap.forEach(s=>{const v=s.data()||{},date=v.date||s.id;if((Array.isArray(v.entries)&&v.entries.length)||v.machine)cardio.add(date)});
+  const stepLog=safeJson(stepRes&&stepRes.exists?stepRes.data().json:null,{}),trackingLog=safeJson(trackRes&&trackRes.exists?trackRes.data().json:null,{});
+  const skinCount={};
+  Object.keys(stepLog).forEach(k=>{if(stepLog[k]){const d=k.split(':')[0];if(d)skinCount[d]=(skinCount[d]||0)+1}});
+  Object.keys(trackingLog).forEach(d=>{if(trackingLog[d]&&trackingLog[d].savedAt&&!skinCount[d])skinCount[d]=skinCount[d]||0});
+  let diet=null;const pid=state.profile.toLowerCase(),dState=(dietRes&&dietRes.exists&&dietRes.data().json)?safeJson(dietRes.data().json,null):null;
   if(dState&&Array.isArray(dState.diary)){
     const byDate={};
-    dState.diary.forEach(x=>{ if(x.profileId!==pid||(x.status||'eaten')!=='eaten'||x.replaced) return; const f=(x.servings||1)/(x.recipeServings||1); const n=x.nutrition||{}; const r=byDate[x.date]=byDate[x.date]||{kcal:0,protein:0}; r.kcal+=(n.calories||0)*f; r.protein+=(n.protein||0)*f; });
+    dState.diary.forEach(x=>{
+      if(x.profileId!==pid||x.replaced)return;
+      const r=byDate[x.date]=byDate[x.date]||{kcal:0,protein:0,eaten:0,total:0};
+      r.total++;
+      if((x.status||'eaten')==='eaten'){const f=(x.servings||1)/(x.recipeServings||1),n=x.nutrition||{};r.eaten++;r.kcal+=(n.calories||0)*f;r.protein+=(n.protein||0)*f}
+    });
     const g=(dState.profiles&&dState.profiles[pid]&&dState.profiles[pid].goals)||{};
     diet={byDate,goalKcal:g.calories||0,goalProtein:g.protein||0};
   }
+  const tplLog=safeJson(tplRes&&tplRes.exists?tplRes.data().json:null,{});
   const pledge=(pledgeRes&&pledgeRes.exists&&pledgeRes.data().json)?safeJson(pledgeRes.data().json,null):null;
-  state.insights={gymDates,skinTouchedDates,skinCheckedDates,milestoneLog,programStartDate,weights,diet,pledge};
-  insightsLoadedForProfile=state.profile; insightsLoadedAt=Date.now();
+  let prefs=safeJson(prefRes&&prefRes.exists?prefRes.data().json:null,null);
+  if(!prefs){try{prefs=JSON.parse(localStorage.getItem('ws-prefs:'+state.profile)||'null')}catch(e){prefs=null}}
+  const keep=(insightsLoadedForProfile===state.profile&&state.insights)?state.insights.prefs:null;
+  state.insights={daily,trained,vol,cardio,skinCount,diet,tplLog,pledge,prefs:keep||((prefs&&Array.isArray(prefs.off))?prefs:{off:[]})};
+  insightsLoadedForProfile=state.profile;insightsLoadedAt=Date.now();
+}
+function insSavePrefs(){
+  const p=state.insights.prefs;
+  try{localStorage.setItem('ws-prefs:'+state.profile,JSON.stringify(p))}catch(e){}
+  try{profileRef('hub-profiles','insightPrefs').set({json:JSON.stringify(p)}).catch(()=>{})}catch(e){}
 }
 
-function insightsMilestoneDates(){
-  const offset=daysBetween(SKIN_TEMPLATE_START, state.insights.programStartDate||SKIN_TEMPLATE_START);
-  return SKIN_REVIEW_DATES_TEMPLATE.map(d=>addDays(d,offset));
-}
-function milestoneHitOn(dateStr){
-  const prefix=dateStr+':';
-  return Object.keys(state.insights.milestoneLog).some(k=>k.indexOf(prefix)===0 && state.insights.milestoneLog[k]);
-}
-
-function computeInsights(){
-  const d=today();
-  const tasksAll=state.personalTasks.concat(state.sharedTasks);
-  const tasksByDate={}; tasksAll.forEach(t=>{ if(t.done&&t.completedOn){ tasksByDate[t.completedOn]=(tasksByDate[t.completedOn]||0)+1; } });
-  const choresMineByDate={}, choresAllByDate={}, choresTogetherByDate={};
-  (state.choreHistory||[]).forEach(h=>{
-    choresAllByDate[h.date]=(choresAllByDate[h.date]||0)+1;
-    if((h.by||'').indexOf(state.profile)!==-1) choresMineByDate[h.date]=(choresMineByDate[h.date]||0)+1;
-    if((h.by||'').indexOf('&')!==-1) choresTogetherByDate[h.date]=(choresTogetherByDate[h.date]||0)+1;
-  });
-  const ins=state.insights;
-  function dayTotal(dateStr){
-    const tasks=tasksByDate[dateStr]||0, chores=choresMineByDate[dateStr]||0;
-    const gym=ins.gymDates.has(dateStr)?1:0, skin=(ins.skinTouchedDates.has(dateStr)||ins.skinCheckedDates.has(dateStr))?1:0;
-    return {tasks,chores,gym,skin,total:tasks+chores+gym+skin};
+/* ---------- the plan: where the line says you should be ---------- */
+function insPlanPath(){
+  const g=INSIGHT_WEIGHT_GOALS[state.profile];if(!g)return null;
+  const pts=[{date:g.startDate,w:g.start,lo:g.start,hi:g.start,label:'Start'}];
+  const BP=window.BHARGAV_PLAN;
+  if(state.profile==='Bhargav'&&BP&&Array.isArray(BP.phases)){
+    BP.phases.forEach(ph=>{const m=/([\d.]+)\s*[–-]\s*([\d.]+)/.exec(ph.weight||'');if(m)pts.push({date:ph.end,w:(+m[1]+ +m[2])/2,lo:+m[1],hi:+m[2],label:'P'+ph.n+' end'})});
+    if(pts.length>1)pts[pts.length-1].w=g.target;
   }
-  // 60-day scan window for streaks / best-week comparisons.
-  const window=[]; for(let i=59;i>=0;i--) window.push(addDays(d,-i));
-  const totals=window.map(dayTotal);
-  const todayIdx=totals.length-1;
-  let streakThroughYesterday=0;
-  for(let i=todayIdx-1;i>=0;i--){ if(totals[i].total>0) streakThroughYesterday++; else break; }
-  const todayActive=totals[todayIdx].total>0;
-  const currentStreak=todayActive?streakThroughYesterday+1:streakThroughYesterday;
-  let longestStreak=0,run=0;
-  totals.forEach(t=>{ if(t.total>0){ run++; longestStreak=Math.max(longestStreak,run); } else run=0; });
-  const last7=totals.slice(-7), prev7=totals.slice(-14,-7);
-  const thisWeekTotal=last7.reduce((s,t)=>s+t.total,0), prevWeekTotal=prev7.reduce((s,t)=>s+t.total,0);
-  let bestWeekTotal=0;
-  for(let i=0;i<=totals.length-14;i++){ const sum=totals.slice(i,i+7).reduce((s,t)=>s+t.total,0); bestWeekTotal=Math.max(bestWeekTotal,sum); }
-  const thisWeekTasks=last7.reduce((s,t)=>s+t.tasks,0), thisWeekChores=last7.reduce((s,t)=>s+t.chores,0);
-  const thisWeekGymDays=last7.reduce((s,t)=>s+t.gym,0), thisWeekSkinDays=last7.reduce((s,t)=>s+t.skin,0);
-  const thisWeekTogether=window.slice(-7).reduce((s,dt)=>s+(choresTogetherByDate[dt]||0),0);
-  const tasksAllTime=tasksAll.filter(t=>t.done).length;
-  // Per-system "best week in the last 60 days" — used to turn each
-  // system into an honest 0-100% ring (this week vs your own best week
-  // for that same system), rather than an invented external target.
-  const bestWeekFor=key=>{let best=0;for(let i=0;i<=totals.length-7;i++){const sum=totals.slice(i,i+7).reduce((s,t)=>s+t[key],0);best=Math.max(best,sum);}return best};
-  const bestWeekTasks=Math.max(bestWeekFor('tasks'),thisWeekTasks,1);
-  const bestWeekChores=Math.max(bestWeekFor('chores'),thisWeekChores,1);
-  // Consistency score — the % of the last 7 days with *something* logged
-  // across any system. This is the page's headline "score", and it's a
-  // real, legible number rather than a composite index nobody could
-  // reconstruct.
-  const activeDaysThisWeek=last7.filter(t=>t.total>0).length;
-  const activeDaysPrevWeek=prev7.filter(t=>t.total>0).length;
-  const consistencyScore=Math.round(activeDaysThisWeek/7*100);
-  const consistencyDelta=Math.round((activeDaysThisWeek-activeDaysPrevWeek)/7*100);
-  return {
-    d, tasksByDate, choresMineByDate, choresTogetherByDate,
-    last7Dates:window.slice(-7), last28Dates:window.slice(-28), last60Dates:window, totals, todayActive, currentStreak, longestStreak,
-    thisWeekTotal, prevWeekTotal, bestWeekTotal,
-    thisWeekTasks, thisWeekChores, thisWeekGymDays, thisWeekSkinDays, thisWeekTogether,
-    bestWeekTasks, bestWeekChores, activeDaysThisWeek, consistencyScore, consistencyDelta,
-    tasksAllTime, gymDaysAllTime:ins.gymDates.size, skinNightsAllTime:ins.skinCheckedDates.size
-  };
+  if(pts.length<2){const b=g.band||1;pts.push({date:g.endDate,w:g.target,lo:g.target-b,hi:g.target+b,label:'Goal'})}
+  return pts;
 }
-
-function insightsBadges(m){
-  const badges=[
-    {id:'streak3',icon:'🔥',label:'Streak Starter',need:3,have:m.currentStreak,copy:h=>h>=3?'3+ days running':'Reach a 3-day streak'},
-    {id:'streak7',icon:'⚡',label:'Full Week',need:7,have:m.currentStreak,copy:h=>h>=7?'A full week straight':'Reach a 7-day streak'},
-    {id:'streak14',icon:'🏔️',label:'Two Weeks Strong',need:14,have:m.currentStreak,copy:h=>h>=14?'14 days and counting':'Reach a 14-day streak'},
-    {id:'record',icon:'🏆',label:'New Best Week',need:1,have:(m.thisWeekTotal>m.bestWeekTotal&&m.bestWeekTotal>=3)?1:0,copy:h=>h?'This week beat every week before it':'Beat your best week yet'},
-    {id:'teamwork',icon:'🤝',label:'Team Effort',need:3,have:m.thisWeekTogether,copy:h=>h>=3?'Tackled it together this week':'Do 3 chores together in a week'},
-    {id:'century',icon:'💯',label:'Century',need:100,have:m.tasksAllTime,copy:h=>h>=100?'100 tasks completed all-time':m.tasksAllTime+'/100 tasks completed'}
-  ];
-  return badges.map(b=>({...b,unlocked:b.have>=b.need,sub:b.copy(b.have)}));
-}
-
-// Deterministic-by-day so it doesn't reshuffle on every render, but still
-// feels different day to day.
-const MOMENTUM_QUOTES=[
-  'Motivation gets you started. A streak is what keeps you going when motivation doesn’t show up.',
-  'You don’t need a perfect week. You need today.',
-  'Consistency beats intensity — the small thing done daily always wins.',
-  'Nobody sees the days you almost didn’t. Those are the ones that count most.',
-  'Progress isn’t a straight line. Showing back up after a gap is still progress.'
-];
-function dayOfYear(dateStr){ const dt=new Date(dateStr+'T00:00:00'); const start=new Date(dt.getFullYear(),0,0); return Math.round((dt-start)/86400000); }
-
-function pickSurprise(m){
-  if(m.thisWeekTotal>m.bestWeekTotal && m.bestWeekTotal>=3){
-    return {icon:'🏆',title:'New personal best',body:'This is your best week yet — '+m.thisWeekTotal+' things done, past your previous best week of '+m.bestWeekTotal+'.'};
-  }
-  if([3,7,14,21,30,60].includes(m.currentStreak)){
-    return {icon:'🔥',title:m.currentStreak+'-day streak',body:'You’ve shown up '+m.currentStreak+' days in a row across tasks, chores, training and skin care. That’s not luck — that’s a habit now.'};
-  }
-  if(m.thisWeekTogether>=2){
-    return {icon:'🤝',title:'Team effort',body:'You and your partner knocked out '+m.thisWeekTogether+' chores together this week. The shared list is lighter because of both of you.'};
-  }
-  if(m.longestStreak>=5 && m.currentStreak===0){
-    return {icon:'💪',title:'You’ve done this before',body:'Your longest run in the last two months was '+m.longestStreak+' days. Whatever streak you build next, you’ve already proven you can do it again.'};
-  }
-  const facts=[
-    {icon:'✅',title:'Lifetime tally',body:'You’ve completed '+m.tasksAllTime+' tasks and shown up for training or care on '+(m.gymDaysAllTime+m.skinNightsAllTime)+' logged days. That adds up to more than it feels like day to day.'},
-    {icon:'✨',title:'A thought for today',body:MOMENTUM_QUOTES[dayOfYear(m.d)%MOMENTUM_QUOTES.length]}
-  ];
-  return facts[dayOfYear(m.d)%facts.length];
-}
-
-function heroMessage(m){
-  if(m.thisWeekTotal===0 && m.prevWeekTotal===0){
-    return {kicker:'No pressure',headline:'A quiet stretch — that’s alright',
-      sub:'Nothing logged the last two weeks. That doesn’t erase what came before it. Pick one thing today — one task, one chore, one workout — and let that be enough.'};
-  }
-  if(m.thisWeekTotal>=m.bestWeekTotal && m.bestWeekTotal>0){
-    return {kicker:'This week',headline:'Your best week yet',
-      sub:m.thisWeekTotal+' things done across tasks, chores, training and care — more than any 7-day stretch in the last two months.'};
-  }
-  if(m.thisWeekTotal<m.prevWeekTotal*0.6 && m.prevWeekTotal>=3){
-    return {kicker:'This week',headline:'A quieter week — still counts',
-      sub:'You did '+m.thisWeekTotal+' things this week versus '+m.prevWeekTotal+' last week. Slower weeks happen. What matters is you’re still here, checking this tab.'};
-  }
-  if(m.currentStreak===0 && m.thisWeekTotal>0){
-    return {kicker:'This week',headline:'Back at it',
-      sub:'The streak reset, but you’ve already logged '+m.thisWeekTotal+' things this week. A new streak starts the moment you stop waiting for the old one back.'};
-  }
-  if(m.thisWeekTotal>m.prevWeekTotal && m.prevWeekTotal>0){
-    return {kicker:'This week',headline:'Building real momentum',
-      sub:'Up from '+m.prevWeekTotal+' last week to '+m.thisWeekTotal+' this week, on a '+m.currentStreak+'-day streak. Keep stacking days.'};
-  }
-  return {kicker:'This week',headline:'Steady and showing up',
-    sub:m.thisWeekTotal+' things done this week, on a '+m.currentStreak+'-day streak. Consistency like this is what actually moves the needle.'};
-}
-
-/* ===== Insights — progress page =====
-   One question: "am I getting where I said I wanted to go?" Goal cards (weight, Pledge, skin plan, food) come first,
-   then this week against last week, what's next, a 60-day grid and badges. No animation: every number is a real
-   reading from the apps. */
-const INSIGHT_WEIGHT_GOALS={Bhargav:{start:94.885,target:76,startDate:'2026-10-26',endDate:'2027-04-15'},Anusha:{start:66,target:53,startDate:'2026-09-02',endDate:'2026-12-22'}};
-const SKIN_PROGRAM_DAYS=151;
-let insightsCurrentM=null;
-const kgFmt=n=>(Math.round(n*10)/10).toFixed(1).replace(/\.0$/,'');
-function insightsDateLabel(dt){ return new Date(dt+'T00:00:00').toLocaleDateString(undefined,{month:'short',day:'numeric'}); }
-function insightsActiveDaysThisWeek(m,key){ return m.totals.slice(-7).filter(t=>t[key]>0).length; }
-function insightsActiveDaysPrevWeek(m,key){ return m.totals.slice(-14,-7).filter(t=>t[key]>0).length; }
-
-/* ---- goal readings ---- */
-function insightsWeightInfo(){
-  const goal=INSIGHT_WEIGHT_GOALS[state.profile]; if(!goal) return null;
-  const logs=(state.insights.weights||[]);
-  if(!logs.length) return {goal,empty:true};
-  const latest=logs[logs.length-1], current=latest.weight;
-  const total=goal.start-goal.target, done=goal.start-current;
-  const pct=Math.max(0,Math.min(100,Math.round(done/total*100)));
-  const d=today(), weekAgoDate=addDays(d,-7);
-  const before=logs.filter(w=>w.date<=weekAgoDate); const ref=before.length?before[before.length-1]:logs[0];
-  const weekChange=ref&&ref!==latest?Math.round((current-ref.weight)*10)/10:null;
-  const recent=logs.filter(w=>w.date>=addDays(d,-28));
-  let pace=null; // kg per week, negative = losing (regression over the last 28 days)
-  if(recent.length>=3&&daysBetween(recent[0].date,recent[recent.length-1].date)>=7){
-    const pts=recent.map(w=>({x:daysBetween(recent[0].date,w.date),y:w.weight}));
-    const n=pts.length,mx=pts.reduce((s,p)=>s+p.x,0)/n,my=pts.reduce((s,p)=>s+p.y,0)/n;
-    let nu=0,de=0; pts.forEach(p=>{nu+=(p.x-mx)*(p.y-my);de+=(p.x-mx)*(p.x-mx)});
-    pace=de?(nu/de)*7:0;
-  }
-  const toGo=current-goal.target, weeksLeft=Math.max(0.1,daysBetween(d,goal.endDate)/7);
-  const needed=-(toGo/weeksLeft); // kg/week required (negative when losing)
-  let status='nodata';
-  if(toGo<=0) status='done'; else if(pace!==null) status=pace<=needed*1.25?'ahead':pace<=needed?'on':pace<=needed*0.5?'close':'behind';
-  let eta=null; if(pace!==null&&pace<0&&toGo>0){ eta=addDays(d,Math.round(toGo/(-pace)*7)); }
-  return {goal,current,pct,done,toGo,weekChange,pace,needed,status,eta,asOf:latest.date,count:logs.length};
-}
-function insightsPledgeInfo(){
-  const p=state.insights.pledge; if(!p) return null;
-  const goals=(p.goals||[]).filter(g=>g.profileId===state.profile&&g.status==='active');
-  const goal=goals.find(g=>g.id===p.activeGoalId)||goals[0]; if(!goal) return {none:true};
-  const lvl=goal.levels[goal.currentLevelIndex]||goal.levels[goal.levels.length-1];
-  const log=lvl.days_log||{}; const earned=Object.keys(log).filter(k=>log[k]&&log[k].complete).length;
-  const d=today(); let streak=0, cur=log[d]&&log[d].complete?d:addDays(d,-1);
-  while(log[cur]&&log[cur].complete){streak++;cur=addDays(cur,-1)}
-  const days=Math.max(1,lvl.days||1);
-  return {goal,lvl,stage:(goal.currentLevelIndex||0)+1,stages:goal.levels.length,earned,days,pct:Math.min(100,Math.round(earned/days*100)),streak,reward:lvl.reward&&lvl.reward.name};
-}
-function insightsSkinInfo(m){
-  const start=state.insights.programStartDate||SKIN_TEMPLATE_START, d=today();
-  const day=daysBetween(start,d)+1;
-  if(day<1) return {before:true,start};
-  const dayClamped=Math.min(SKIN_PROGRAM_DAYS,day);
-  const last7=m.totals.slice(-7).filter(t=>t.skin>0).length;
-  const dates=insightsMilestoneDates(); const next=dates.find(dt=>!milestoneHitOn(dt)&&dt>=d);
-  return {day:dayClamped,pct:Math.round(dayClamped/SKIN_PROGRAM_DAYS*100),last7,next,checkins:state.insights.skinCheckedDates.size};
-}
-function insightsFoodInfo(){
-  const ds=state.insights.diet; if(!ds) return null;
-  const d=today(), days=Array.from({length:7},(_,i)=>addDays(d,-i));
-  const per=days.map(dt=>ds.byDate[dt]).filter(Boolean);
-  if(!per.length) return {logged:0,goalKcal:ds.goalKcal,goalProtein:ds.goalProtein};
-  const avgK=Math.round(per.reduce((s,x)=>s+x.kcal,0)/per.length), avgP=Math.round(per.reduce((s,x)=>s+x.protein,0)/per.length);
-  const proteinDays=per.filter(x=>ds.goalProtein&&x.protein>=ds.goalProtein*0.9).length;
-  return {logged:per.length,avgK,avgP,proteinDays,goalKcal:ds.goalKcal,goalProtein:ds.goalProtein};
-}
-
-/* ---- rendering ---- */
-function progBar(pct,tone){ return '<div class="prog-bar"><i class="'+(tone||'')+'" style="width:'+Math.max(0,Math.min(100,pct))+'%"></i></div>'; }
-function progChip(text,tone){ return '<span class="prog-chip '+(tone||'')+'">'+esc(text)+'</span>'; }
-function progGoalCard(o){
-  return '<article class="prog-goal"><div class="prog-goal-top"><span class="prog-goal-icon"><i data-lucide="'+o.icon+'"></i></span><div><h3>'+esc(o.title)+'</h3><small>'+esc(o.sub||'')+'</small></div>'+(o.chip||'')+'</div>'+
-    '<div class="prog-goal-big">'+o.big+'</div>'+(o.pct!=null?progBar(o.pct,o.tone):'')+
-    '<div class="prog-goal-lines">'+(o.lines||[]).map(l=>'<span>'+l+'</span>').join('')+'</div>'+
-    (o.href?'<a class="prog-goal-link" href="'+o.href+'" data-profile-link>'+esc(o.cta||'Open')+' <i data-lucide="arrow-up-right"></i></a>':'')+'</article>';
-}
-function renderProgGoals(m){
-  const cards=[];
-  const w=insightsWeightInfo();
-  if(w){
-    if(w.empty) cards.push(progGoalCard({icon:'scale',title:'Weight goal',sub:INSIGHT_WEIGHT_GOALS[state.profile].start+' → '+INSIGHT_WEIGHT_GOALS[state.profile].target+' kg',big:'No weigh-ins yet',lines:['Log your weight in Gym and your progress shows up here.'],href:'gym/index.html',cta:'Open Gym'}));
-    else{
-      const statusMap={ahead:['Ahead of plan','good'],on:['On track','good'],close:['Slightly behind','warn'],behind:['Behind pace','bad'],done:['Goal reached','good'],nodata:['Keep logging','']};
-      const st=statusMap[w.status]||statusMap.nodata, lost=Math.abs(w.done), losing=w.done>=0;
-      const lines=[];
-      lines.push(kgFmt(Math.max(0,w.toGo))+' kg to go · target '+w.goal.target+' kg by '+insightsDateLabel(w.goal.endDate));
-      if(w.weekChange!=null) lines.push((w.weekChange<=0?'↓ ':'↑ ')+kgFmt(Math.abs(w.weekChange))+' kg in the last 7 days');
-      if(w.pace!=null) lines.push('Pace '+kgFmt(Math.abs(w.pace))+' kg/week '+(w.pace<0?'down':'up')+' · need '+kgFmt(Math.abs(w.needed))+' kg/week');
-      if(w.eta) lines.push('At this pace: '+insightsDateLabel(w.eta)+(w.eta>w.goal.endDate?' (after your date)':''));
-      cards.push(progGoalCard({icon:'scale',title:'Weight goal',sub:'Now '+kgFmt(w.current)+' kg · '+insightsDateLabel(w.asOf),big:(losing?'−':'+')+kgFmt(lost)+' kg <small>of '+kgFmt(w.goal.start-w.goal.target)+' kg</small>',pct:w.pct,tone:st[1],chip:progChip(st[0],st[1]),lines,href:'gym/index.html',cta:'Open Gym'}));
+function insExpected(pts,date){
+  if(date<=pts[0].date)return{w:pts[0].w,lo:pts[0].lo,hi:pts[0].hi};
+  for(let i=1;i<pts.length;i++){
+    if(date<=pts[i].date){
+      const a=pts[i-1],b=pts[i],span=daysBetween(a.date,b.date)||1,t=daysBetween(a.date,date)/span,L=(x,y)=>x+(y-x)*t;
+      return{w:L(a.w,b.w),lo:L(a.lo,b.lo),hi:L(a.hi,b.hi)};
     }
   }
-  const p=insightsPledgeInfo();
-  if(p){
-    if(p.none) cards.push(progGoalCard({icon:'flag',title:'Pledge',sub:'Commitment',big:'None active',lines:['Start one in Pledge to track it here.'],href:'apps/pledge.html',cta:'Open Pledge'}));
-    else cards.push(progGoalCard({icon:'flag',title:p.goal.title,sub:'Pledge · stage '+p.stage+' of '+p.stages,big:p.earned+' <small>of '+p.days+' days</small>',pct:p.pct,chip:p.streak>1?progChip(p.streak+'-day streak','good'):'',lines:[p.reward?'Reward: '+esc(p.reward):'Keep each day complete to finish the stage'],href:'apps/pledge.html',cta:'Open Pledge'}));
-  }
-  const s=insightsSkinInfo(m);
-  if(s.before) cards.push(progGoalCard({icon:'sparkles',title:'Skin plan',sub:'5-month program',big:'Starts '+insightsDateLabel(s.start),lines:['Your routine begins on that day.'],href:'apps/skin.html',cta:'Open Skin'}));
-  else cards.push(progGoalCard({icon:'sparkles',title:'Skin plan',sub:'5-month program',big:'Day '+s.day+' <small>of '+SKIN_PROGRAM_DAYS+'</small>',pct:s.pct,lines:['Routine done '+s.last7+' of the last 7 days','Check-ins saved: '+s.checkins].concat(s.next?['Next review '+insightsDateLabel(s.next)+' ('+Math.max(0,daysBetween(today(),s.next))+' days)']:[]),href:'apps/skin.html',cta:'Open Skin'}));
-  const f=insightsFoodInfo();
-  if(f){
-    if(!f.logged) cards.push(progGoalCard({icon:'utensils',title:'Food',sub:'Last 7 days',big:'Nothing logged',lines:['Tap “Ate as planned” in Diet to start.'],href:'apps/diet.html',cta:'Open Diet'}));
-    else cards.push(progGoalCard({icon:'utensils',title:'Food',sub:'Last 7 days, on days you logged',big:f.avgK.toLocaleString()+' <small>kcal avg</small>',pct:f.goalKcal?Math.min(100,Math.round(f.avgK/f.goalKcal*100)):null,lines:['Goal '+(f.goalKcal||'—').toLocaleString()+' kcal · protein avg '+f.avgP+' g of '+(f.goalProtein||'—'),'Logged '+f.logged+' of 7 days · protein goal hit '+f.proteinDays+' days'],href:'apps/diet.html',cta:'Open Diet'}));
-  }
-  $('prog-goals').innerHTML=cards.join('');
+  const e=pts[pts.length-1];return{w:e.w,lo:e.lo,hi:e.hi};
 }
-function renderProgWeek(m){
-  const rows=[
-    {label:'Training',now:insightsActiveDaysThisWeek(m,'gym'),prev:insightsActiveDaysPrevWeek(m,'gym')},
-    {label:'Skin routine',now:insightsActiveDaysThisWeek(m,'skin'),prev:insightsActiveDaysPrevWeek(m,'skin')},
-    {label:'Tasks',now:insightsActiveDaysThisWeek(m,'tasks'),prev:insightsActiveDaysPrevWeek(m,'tasks'),extra:m.thisWeekTasks+' done'},
-    {label:'Chores',now:insightsActiveDaysThisWeek(m,'chores'),prev:insightsActiveDaysPrevWeek(m,'chores'),extra:m.thisWeekChores+' done'}
-  ];
-  if(state.insights.diet){
-    const d=today(), has=(i)=>!!state.insights.diet.byDate[addDays(d,-i)];
-    rows.push({label:'Food logged',now:[0,1,2,3,4,5,6].filter(has).length,prev:[7,8,9,10,11,12,13].filter(has).length});
+function insTargets(d){
+  const BP=window.BHARGAV_PLAN;
+  if(state.profile==='Bhargav'&&BP&&BP.phaseFor){const ph=BP.phaseFor(d);if(ph)return{kcal:ph.cal,protein:ph.protein,phase:ph}}
+  const df=state.insights&&state.insights.diet;return{kcal:(df&&df.goalKcal)||0,protein:(df&&df.goalProtein)||0,phase:null};
+}
+function insStepGoal(d){
+  if(state.profile==='Bhargav'){
+    const BP=window.BHARGAV_PLAN,ph=BP&&BP.phaseFor?BP.phaseFor(d):null;
+    if(!ph)return 8000;
+    if(ph.n===1){const wk=Math.floor(daysBetween(ph.start,d)/7);return wk<=0?9000:wk===1?10000:11000}
+    return ph.n===2?11000:12000;
   }
-  $('prog-week').innerHTML=rows.map(r=>{
-    const diff=r.now-r.prev, dtxt=diff===0?'same as last week':(diff>0?'+':'−')+Math.abs(diff)+' vs last week';
-    return '<div class="prog-row"><b>'+esc(r.label)+'</b><div class="prog-bar"><i style="width:'+Math.round(r.now/7*100)+'%"></i></div><strong>'+r.now+'<small>/7 days</small></strong><span class="prog-delta '+(diff>0?'up':diff<0?'down':'')+'">'+esc(dtxt)+(r.extra?' · '+esc(r.extra):'')+'</span></div>';
+  return 8000;
+}
+
+/* ---------- gym / diet facts for one day (also feed the Gym and Diet panels) ---------- */
+function insFacts(d){
+  const cache=insCur.facts;if(cache[d])return cache[d];
+  const ins=state.insights,g=INSIGHT_WEIGHT_GOALS[state.profile],t=insTargets(d),day=ins.daily[d]||{},diet=ins.diet&&ins.diet.byDate[d];
+  const eatenN=diet?diet.eaten:0;
+  const f={d,inPlan:d>=g.startDate,planned:d>=g.startDate&&INS_TRAIN_DOWS.includes(insDow(d)),trained:ins.trained.has(d),
+    logged:eatenN>0,kcal:eatenN>0?diet.kcal:null,protein:eatenN>0?diet.protein:null,goalK:t.kcal,goalP:t.protein,
+    weight:day.weight||null,steps:day.steps||null,stepGoal:insStepGoal(d),vol:ins.vol[d]||0};
+  f.kcalState=!f.logged?'none':(f.goalK&&f.kcal<f.goalK*0.88)?'under':(f.goalK&&f.kcal>f.goalK*1.06)?'over':'ok';
+  f.kcalOk=f.kcalState==='ok';
+  f.proteinOk=f.logged&&f.goalP>0&&f.protein>=f.goalP*0.9;
+  f.stepsOk=f.steps!=null&&f.steps>=f.stepGoal*0.9;
+  f.trainOk=!f.planned||f.trained;
+  f.onPlan=f.kcalOk&&f.trainOk;
+  cache[d]=f;return f;
+}
+function insStreaks(){
+  const g=INSIGHT_WEIGHT_GOALS[state.profile],today=insCur.today;let run=0,best=0;
+  for(let d=g.startDate;d<today;d=addDays(d,1)){if(insFacts(d).onPlan){run++;best=Math.max(best,run)}else run=0}
+  let cur=run;if(insFacts(today).onPlan){cur++;best=Math.max(best,cur)}
+  return{cur,best};
+}
+
+/* ---------- weight: trend, pace, projection ---------- */
+function insWeight(pts){
+  const g=INSIGHT_WEIGHT_GOALS[state.profile],today=insCur.today,ins=state.insights;
+  const logs=Object.keys(ins.daily).filter(d=>ins.daily[d].weight&&d>=g.startDate&&d<=today).sort().map(d=>({date:d,weight:ins.daily[d].weight}));
+  const dayN=daysBetween(g.startDate,today)+1,total=daysBetween(g.startDate,g.endDate)+1;
+  const exp=insExpected(pts,today),half=Math.max(0.4,(exp.hi-exp.lo)/2);
+  const w={goal:g,pts,logs,dayN,total,daysLeft:Math.max(0,daysBetween(today,g.endDate)),exp,half,pctTime:Math.max(0,Math.min(100,Math.round(dayN/total*100))),totalKg:g.start-g.target};
+  const ph=state.profile==='Bhargav'&&window.BHARGAV_PLAN&&window.BHARGAV_PLAN.phaseFor?window.BHARGAV_PLAN.phaseFor(today):null;
+  w.phase=ph;
+  w.cp=pts.find(p=>p.date>=today&&p.label!=='Start')||pts[pts.length-1];
+  if(!logs.length){w.status='nodata';return w}
+  const last=logs[logs.length-1];w.last=last;w.staleDays=daysBetween(last.date,today);
+  const recent=logs.filter(l=>l.date>=addDays(today,-6));
+  w.trend=(recent.length?recent:[last]).reduce((s,l)=>s+l.weight,0)/(recent.length||1);
+  w.lost=g.start-w.trend;w.pctLost=Math.max(0,Math.min(100,Math.round(w.lost/w.totalKg*100)));
+  w.delta=w.trend-exp.w;
+  w.status=w.delta<=-half?'ahead':w.delta<=half?'on':w.delta<=half*2.5?'off':'behind';
+  if(w.trend<=g.target)w.status='done';
+  const rec=logs.filter(l=>l.date>=addDays(today,-21));
+  if(rec.length>=3&&daysBetween(rec[0].date,rec[rec.length-1].date)>=7){
+    const x0=rec[0].date,P=rec.map(l=>({x:daysBetween(x0,l.date),y:l.weight})),n=P.length,mx=P.reduce((s,p)=>s+p.x,0)/n,my=P.reduce((s,p)=>s+p.y,0)/n;
+    let nu=0,de=0;P.forEach(p=>{nu+=(p.x-mx)*(p.y-my);de+=(p.x-mx)*(p.x-mx)});
+    const slope=de?nu/de:0,xt=daysBetween(x0,today),fitNow=my+slope*(xt-mx);
+    w.pace=slope*7;w.fitNow=fitNow;w.projected=fitNow+slope*w.daysLeft;
+  }
+  w.needPace=w.daysLeft>0?-((w.trend-g.target)/(w.daysLeft/7)):0;
+  return w;
+}
+
+/* ---------- modules: every app answers "what did you tick out of what was due on day d?" ---------- */
+function insBuildMods(){
+  const ins=state.insights,me=state.profile,g=INSIGHT_WEIGHT_GOALS[me],today=insCur.today,out=[];
+  const minKey=obj=>{const k=Object.keys(obj).map(x=>x.split(':')[0]).filter(Boolean).sort();return k.length?k[0]:null};
+  const def=id=>WS_MODS.find(m=>m.id===id);
+  // schedule: routine blocks planned for that weekday vs ticks in templateLog
+  {const m=Object.assign({},def('schedule'));m.since=minKey(ins.tplLog);
+    m.get=d=>{const blocks=(state.templates&&state.templates[DAYS[insDow(d)]])||[],total=blocks.length;if(!total)return null;let done=0;for(let i=0;i<total;i++)if(ins.tplLog[d+':'+i])done++;return{done,total}};
+    m.detail=(d,v)=>v?v.done+' of '+v.total+' blocks ticked':'No routine planned';out.push(m)}
+  // gym: planned session + the daily weigh-in
+  {const m=Object.assign({},def('gym'));m.since=g.startDate;
+    m.get=d=>{const f=insFacts(d);if(!f.inPlan)return null;return{done:(f.planned&&f.trained?1:0)+(f.weight!=null?1:0),total:(f.planned?1:0)+1}};
+    m.detail=d=>{const f=insFacts(d);return (f.planned?(f.trained?'Session done ✓':'Session not done'):(f.trained?'Bonus session':'Rest day'))+' · '+(f.weight!=null?'weighed '+kgFmt(f.weight)+' kg':'no weigh-in')+(f.steps?' · '+insInt(f.steps)+' steps':'')};out.push(m)}
+  // diet: meals eaten of meals planned that day
+  {const m=Object.assign({},def('diet')),by=ins.diet?ins.diet.byDate:{};
+    const eatenDates=Object.keys(by).filter(d=>by[d].eaten>0).sort();m.since=eatenDates.length?eatenDates[0]:null;
+    m.get=d=>{const r=by[d];return r&&r.total?{done:r.eaten,total:r.total}:null};
+    m.detail=(d,v)=>{if(!v)return 'No meals planned';const r=by[d];return v.done+' of '+v.total+' meals eaten'+(r.eaten?' · '+insInt(r.kcal)+' kcal · '+insInt(r.protein)+' g protein':'')};out.push(m)}
+  // chores: assigned chores that were due that day vs done
+  {const m=Object.assign({},def('chores')),mine=(state.chores||[]).filter(c=>c.active!==false&&(!Array.isArray(c.assignedTo)||c.assignedTo.includes(me)));
+    const doneBy={};let first=null;
+    (state.choreHistory||[]).forEach(h=>{if(h.kind)return;const key=h.choreId||('n:'+h.task);(doneBy[key]=doneBy[key]||new Set()).add(h.date);if(!first||h.date<first)first=h.date});
+    m.since=first;
+    m.get=d=>{let total=0,done=0;
+      mine.forEach(c=>{const set=doneBy[c.id]||doneBy['n:'+c.name],did=!!(set&&set.has(d));let due=false;
+        if(c.freqType==='daily')due=true;
+        else if(c.freqType==='specificDays')due=(c.days||[]).includes(insDow(d));
+        else if(c.freqType==='everyNDays'){if(did)due=true;else{let last=null;if(set)set.forEach(x=>{if(x<d&&(!last||x>last))last=x});due=last!=null&&daysBetween(last,d)>=(Number(c.freqDays)||1)}}
+        if(due){total++;if(did)done++}else if(did){total++;done++}});
+      return total?{done,total}:null};
+    m.detail=(d,v)=>v?v.done+' of '+v.total+' chores done':'No chores due';out.push(m)}
+  // to-do: each task belongs to its due day; finishing it late counts on the day it was finished
+  {const m=Object.assign({},def('todo')),agg={};let first=null;
+    const bump=(d,done)=>{const r=agg[d]=agg[d]||{done:0,total:0};r.total++;if(done)r.done++;if(!first||d<first)first=d};
+    (state.personalTasks||[]).concat(state.sharedTasks||[]).forEach(t=>{
+      const c=t.done&&t.completedOn?t.completedOn:null;
+      if(t.due){bump(t.due,!!(c&&c<=t.due));if(c&&c>t.due)bump(c,true)}
+      else if(c)bump(c,true)});
+    m.since=first;m.get=d=>agg[d]?{done:agg[d].done,total:agg[d].total}:null;
+    m.detail=(d,v)=>v?v.done+' of '+v.total+' tasks finished':'No tasks due';out.push(m)}
+  // skin: routine steps ticked vs your fullest day
+  {const m=Object.assign({},def('skin')),sc=ins.skinCount,days=Object.keys(sc).sort(),peak=Math.max(0,...days.map(d=>sc[d]));
+    m.since=days.length?days[0]:null;m.get=d=>peak?{done:Math.min(peak,sc[d]||0),total:peak}:null;
+    m.detail=(d,v)=>v?v.done+' of '+v.total+' routine steps (your fullest day = '+peak+')':'No data';out.push(m)}
+  // water: litres vs goal (partial credit)
+  {const m=Object.assign({},def('water')),w=state.water;
+    if(w&&w.goal&&w.log){const ds=Object.keys(w.log).filter(d=>(w.log[d]||[]).length).sort();m.since=ds.length?ds[0]:null;
+      const tot=d=>{const a=w.log[d];return Array.isArray(a)?a.reduce((s,x)=>s+(Number(x)||0),0):0};
+      m.get=d=>{const f=Math.min(1,tot(d)/w.goal);return{done:f>=1?1:0,total:1,frac:f}};m.frac=true;
+      m.detail=d=>(tot(d)/1000).toFixed(1)+' of '+(w.goal/1000).toFixed(1)+' L'}
+    else{m.since=null;m.get=()=>null;m.detail=()=>'No data'}
+    m.link='#';out.push(m)}
+  // pledge: daily check-in complete
+  {const m=Object.assign({},def('pledge')),done=new Set();let first=null;
+    const p=ins.pledge;
+    if(p&&Array.isArray(p.goals))p.goals.filter(x=>x.profileId===me).forEach(goal=>(goal.levels||[]).forEach(l=>{const lg=l.days_log||{};Object.keys(lg).forEach(d=>{if(!first||d<first)first=d;if(lg[d]&&lg[d].complete)done.add(d)})}));
+    m.since=first;m.get=d=>first?{done:done.has(d)?1:0,total:1}:null;
+    m.detail=(d,v)=>v?(v.done?'Checked in ✓':'Not checked in'):'No data';out.push(m)}
+  return out;
+}
+function insDayData(d){
+  const c=insCur.dayCache;if(c[d])return c[d];
+  const r={d,mods:{}};let s=0,n=0;
+  insCur.enabled.forEach(m=>{const v=(m.since&&d>=m.since&&d<=insCur.today)?m.get(d):null;r.mods[m.id]=v;const x=insR(v);if(x!=null){s+=x;n++}});
+  r.overall=n?s/n:null;c[d]=r;return r;
+}
+function insModPeriod(m,from,to){
+  const last=addDays(insCur.today,-1);if(to>last)to=last;
+  let done=0,total=0,fs=0,fn=0;const days=[];
+  for(let d=from;d<=to;d=addDays(d,1)){
+    const v=(m.since&&d>=m.since)?m.get(d):null;days.push({d,v});
+    if(v){done+=v.done;total+=v.total;const r=insR(v);if(r!=null){fs+=r;fn++}}
+  }
+  return{from,to,days,done,total,n:fn,rate:fn?(m.frac?fs/fn:(total?done/total:null)):null};
+}
+function insMean(a){const x=a.filter(v=>v!=null);return x.length?x.reduce((s,v)=>s+v,0)/x.length:null}
+function insOverallStreaks(){
+  let first=null;insCur.enabled.forEach(m=>{if(m.since&&(!first||m.since<first))first=m.since});
+  if(!first)return{cur:0,best:0};
+  let run=0,best=0;
+  for(let d=first;d<insCur.today;d=addDays(d,1)){const o=insDayData(d).overall;if(o!=null&&o>=0.8){run++;best=Math.max(best,run)}else run=0}
+  let cur=run;const o=insDayData(insCur.today).overall;if(o!=null&&o>=0.8){cur++;best=Math.max(best,cur)}
+  return{cur,best};
+}
+function insWeakDay(m){
+  const names=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'],sum={},cnt={};
+  const p=insModPeriod(m,addDays(insCur.today,-28),addDays(insCur.today,-1));
+  p.days.forEach(x=>{const r=insR(x.v);if(r==null)return;const k=insDow(x.d);sum[k]=(sum[k]||0)+r;cnt[k]=(cnt[k]||0)+1});
+  let worst=null,wr=2;Object.keys(sum).forEach(k=>{if(cnt[k]>=2){const r=sum[k]/cnt[k];if(r<wr){wr=r;worst=names[k]}}});
+  return worst&&wr<0.9?{name:worst,rate:wr}:null;
+}
+
+/* ---------- small SVG pieces (no bar charts) ---------- */
+function wsRing(frac,color,size,sw,title){
+  const r=(size-sw)/2,c=size/2;
+  return '<svg class="ws-mini" width="'+size+'" height="'+size+'" viewBox="0 0 '+size+' '+size+'"><title>'+esc(title||'')+'</title><circle cx="'+c+'" cy="'+c+'" r="'+r+'" class="trk" stroke-width="'+sw+'"/>'+
+    (frac>0?'<circle cx="'+c+'" cy="'+c+'" r="'+r+'" pathLength="100" stroke="'+color+'" stroke-width="'+sw+'" stroke-dasharray="'+(Math.min(1,frac)*100)+' 100" stroke-linecap="round" transform="rotate(-90 '+c+' '+c+')" class="fil"/>':'')+'</svg>';
+}
+function wsPolar(cx,cy,r,deg){const a=deg*Math.PI/180;return[cx+r*Math.cos(a),cy+r*Math.sin(a)]}
+function wsGauge(done,total,frac,color,label){
+  const n=(frac==null&&total>0&&total<=24)?total:12,cx=80,cy=76,r=62,gap=n>12?2:3.2,step=180/n;
+  const filled=frac!=null?Math.round(frac*n):Math.min(n,done);
+  let s='<svg class="ws-gauge" viewBox="0 0 160 92" role="img" aria-label="'+esc(label||'')+'">';
+  for(let i=0;i<n;i++){
+    const a0=180+i*step+gap/2,a1=180+(i+1)*step-gap/2,p0=wsPolar(cx,cy,r,a0),p1=wsPolar(cx,cy,r,a1);
+    s+='<path d="M'+p0[0].toFixed(2)+' '+p0[1].toFixed(2)+' A'+r+' '+r+' 0 0 1 '+p1[0].toFixed(2)+' '+p1[1].toFixed(2)+'" class="seg'+(i<filled?' on':'')+'" '+(i<filled?'style="stroke:'+color+';color:'+color+'"':'')+'/>';
+  }
+  s+='<text x="80" y="70" text-anchor="middle" class="g-big">'+(frac!=null?Math.round(frac*100)+'%':done+'/'+total)+'</text><text x="80" y="86" text-anchor="middle" class="g-lab">'+esc(label||'')+'</text></svg>';
+  return s;
+}
+function wsTrace(days,color){
+  const W=300,H=70,n=days.length;if(!n)return'';
+  const X=i=>6+(n>1?i/(n-1):0)*(W-12),Y=r=>H-8-r*(H-18);
+  let s='<svg class="ws-trace" viewBox="0 0 '+W+' '+H+'" preserveAspectRatio="none" aria-hidden="true"><line x1="0" x2="'+W+'" y1="'+Y(0.8)+'" y2="'+Y(0.8)+'" class="tgt"/>';
+  let run=[];const flush=()=>{if(run.length>1){const pts=run.map(p=>X(p[0]).toFixed(1)+','+Y(p[1]).toFixed(1));
+      s+='<polygon points="'+X(run[0][0]).toFixed(1)+','+(H-8)+' '+pts.join(' ')+' '+X(run[run.length-1][0]).toFixed(1)+','+(H-8)+'" fill="'+color+'" class="area"/><polyline points="'+pts.join(' ')+'" stroke="'+color+'" class="ln"/>'}
+    else if(run.length===1)s+='<circle cx="'+X(run[0][0])+'" cy="'+Y(run[0][1])+'" r="2.5" fill="'+color+'"/>';run=[]};
+  days.forEach((x,i)=>{const r=insR(x.v);if(r==null)flush();else run.push([i,r])});flush();
+  const li=(()=>{for(let i=n-1;i>=0;i--)if(insR(days[i].v)!=null)return i;return -1})();
+  if(li>=0)s+='<circle cx="'+X(li)+'" cy="'+Y(insR(days[li].v))+'" r="3.4" fill="'+color+'" class="pt"/>';
+  return s+'</svg>';
+}
+
+/* ---------- module bar (switch apps on / off) ---------- */
+function renderWsBar(all){
+  const off=state.insights.prefs.off;
+  $('ws-modbar').innerHTML='<span class="ws-bar-label">Modules</span>'+all.map(m=>{const on=!off.includes(m.id),empty=!m.since;
+    return'<button type="button" class="ws-chip'+(on?' on':'')+(empty?' empty':'')+'" data-mod="'+m.id+'" style="--c:'+m.color+'" aria-pressed="'+on+'" title="'+esc(m.name+' — '+m.what+(empty?' (nothing recorded yet)':''))+'"><i></i>'+esc(m.name)+'<em>'+(on?'ON':'OFF')+'</em></button>'}).join('')+
+    '<button type="button" class="ws-chip-all" data-mod="__all">Show all</button>';
+}
+
+/* ---------- stage: the arc reactor + system list ---------- */
+function renderWsStage(rows,overall,prevOverall,streak){
+  const live=rows.filter(r=>r.p.rate!=null),n=Math.max(1,live.length),CX=190,CY=190,R0=148,R1=70,step=Math.min(15,(R0-R1)/n),sw=4;
+  let s='<svg class="ws-reactor" viewBox="0 0 380 380" role="img" aria-label="Overall consistency">';
+  for(let i=0;i<120;i++){const a=i*3,big=i%10===0,p0=wsPolar(CX,CY,174,a),p1=wsPolar(CX,CY,big?166:170,a);s+='<line x1="'+p0[0].toFixed(1)+'" y1="'+p0[1].toFixed(1)+'" x2="'+p1[0].toFixed(1)+'" y2="'+p1[1].toFixed(1)+'" class="tick'+(big?' big':'')+'"/>'}
+  s+='<circle cx="'+CX+'" cy="'+CY+'" r="160" class="rim"/>';
+  live.forEach((row,i)=>{const r=R0-step*i;
+    s+='<circle cx="'+CX+'" cy="'+CY+'" r="'+r.toFixed(1)+'" class="trk" stroke-width="'+sw+'"/><circle cx="'+CX+'" cy="'+CY+'" r="'+r.toFixed(1)+'" pathLength="100" stroke="'+row.m.color+'" stroke-width="'+sw+'" stroke-dasharray="'+(row.p.rate*100).toFixed(2)+' 100" stroke-linecap="round" transform="rotate(-90 '+CX+' '+CY+')" class="fil"><title>'+esc(row.m.name+': '+insPct(row.p.rate))+'</title></circle><text x="'+(CX-7)+'" y="'+(CY-r+2.6).toFixed(1)+'" text-anchor="end" class="rl" fill="'+row.m.color+'">'+esc(row.m.code)+'</text>'});
+  s+='<circle cx="'+CX+'" cy="'+CY+'" r="52" class="core"/>';
+  s+='<text x="'+CX+'" y="'+(CY+13)+'" text-anchor="middle" class="r-big">'+(overall==null?'—':Math.round(overall*100))+'</text><text x="'+CX+'" y="'+(CY+34)+'" text-anchor="middle" class="r-lab">SYNC</text></svg>';
+  const st=insStatus(overall),delta=overall!=null&&prevOverall!=null?Math.round((overall-prevOverall)*100):null;
+  const list=rows.map(r=>{const stt=insStatus(r.p.rate),t=r.today;
+    return'<div class="ws-sys '+stt+'" style="--c:'+r.m.color+'"><span class="dot"></span><div class="nm"><b>'+esc(r.m.name)+'</b><small>'+esc(r.m.code)+'</small></div><div class="bar"><i style="width:'+Math.round((r.p.rate||0)*100)+'%"></i></div><div class="pc">'+insPct(r.p.rate)+'</div><div class="td"><b>'+(t?t.done+'/'+t.total:'—')+'</b><small>today</small></div></div>'}).join('');
+  $('ws-stage').innerHTML='<div class="ws-stage-core">'+s+'<div class="ws-stage-cap"><span class="ws-status '+st+'">'+INS_STATUS_WORD[st]+'</span>'+(delta!=null?'<span class="ws-delta '+(delta>=0?'up':'down')+'">'+(delta>=0?'+':'−')+Math.abs(delta)+' vs prior 7 days</span>':'')+'</div></div>'+
+    '<div class="ws-stage-side"><div class="ws-stage-head"><h2>Life systems</h2><p>Share of ticks done over the last 7 finished days</p></div><div class="ws-syslist">'+(list||'<p class="ws-empty">No module is switched on.</p>')+'</div>'+
+    '<div class="ws-streak"><div><b>'+streak.cur+'<small>days</small></b><span>current streak at 80%+</span></div><div><b>'+streak.best+'<small>days</small></b><span>best streak</span></div></div></div>';
+}
+
+/* ---------- mission: weight vs. the plan ---------- */
+function renderWsMission(w){
+  const g=w.goal,tone={ahead:'good',on:'good',off:'warn',behind:'bad',done:'good',nodata:''}[w.status];
+  let kicker='Day '+w.dayN+' of '+w.total+(w.phase?' · Phase '+w.phase.n+' '+w.phase.name:'');if(w.dayN<1)kicker='Starts '+insLabel(g.startDate);
+  let head,sub;
+  if(w.status==='nodata'){
+    if(w.dayN<=1){head='Day 1. Baseline '+kgFmt(g.start)+' kg.';sub='The line to '+kgFmt(g.target)+' kg by '+insLabel(g.endDate,{month:'short',day:'numeric',year:'numeric'})+' starts here. It fills in from Gym by itself.'}
+    else{head='No weigh-in since the start.';sub='Without a number the line can’t be judged. Save a weight in Gym; trend, pace and projection appear here on their own.'}
+  }else if(w.status==='done'){head='Goal weight reached.';sub='7-day average '+kgFmt(w.trend)+' kg against a target of '+kgFmt(g.target)+' kg.'}
+  else{
+    const d=Math.abs(w.delta);
+    head=w.status==='on'?'On the line.':w.status==='ahead'?kgFmt(d)+' kg ahead of the line.':w.status==='off'?kgFmt(d)+' kg above the line.':kgFmt(d)+' kg behind the line.';
+    sub='The plan says '+kgFmt(w.exp.w)+' kg today. Your 7-day average is '+kgFmt(w.trend)+' kg.';
+    if(w.projected!=null){const gap=w.projected-g.target;sub+=' At the current pace you finish at '+kgFmt(w.projected)+' kg on '+insLabel(g.endDate)+(gap>0.3?' — '+kgFmt(gap)+' kg short.':'.')}
+  }
+  const chips=[];
+  if(w.phase)chips.push('<span class="ws-tag">'+insInt(w.phase.cal)+' kcal · '+w.phase.protein+' g protein</span>');
+  if(w.cp&&w.cp.label!=='Start'){const dl=Math.max(0,daysBetween(insCur.today,w.cp.date));chips.push('<span class="ws-tag">Next checkpoint '+kgFmt(w.cp.w)+' kg · '+esc(insLabel(w.cp.date))+' · '+dl+'d</span>')}
+  if(w.staleDays>=3)chips.push('<span class="ws-tag warn">Last weigh-in '+w.staleDays+' days ago</span>');
+  const lost=w.status==='nodata'?'—':(w.lost>=0?'−':'+')+kgFmt(Math.abs(w.lost));
+  const raceTone=w.status==='nodata'?'':w.pctLost+5>=w.pctTime?'good':w.pctLost+15>=w.pctTime?'warn':'bad';
+  const pts=w.pts,today=insCur.today,W=720,H=290,pl=40,pr=16,pt=28,pb=26,t0=g.startDate,t1=g.endDate,span=Math.max(1,daysBetween(t0,t1));
+  const X=d=>pl+Math.max(0,Math.min(1,daysBetween(t0,d)/span))*(W-pl-pr);
+  const vals=[];pts.forEach(p=>vals.push(p.lo,p.hi));w.logs.forEach(l=>vals.push(l.weight));if(w.projected!=null)vals.push(w.projected);vals.push(g.target);
+  const lo=Math.min.apply(null,vals),hi=Math.max.apply(null,vals),stp=(hi-lo)>14?4:(hi-lo)>6?2:1,y0=Math.floor((lo-0.5)/stp)*stp,y1=Math.ceil((hi+0.5)/stp)*stp,Y=v=>pt+(1-(v-y0)/(y1-y0))*(H-pt-pb);
+  let s='<svg class="ws-svg" viewBox="0 0 '+W+' '+H+'" role="img" aria-label="Weight against the plan line">';
+  for(let v=y0;v<=y1+1e-6;v+=stp)s+='<line class="c-grid" x1="'+pl+'" x2="'+(W-pr)+'" y1="'+Y(v)+'" y2="'+Y(v)+'"/><text class="c-axis" x="'+(pl-6)+'" y="'+(Y(v)+4)+'" text-anchor="end">'+v+'</text>';
+  if(state.profile==='Bhargav'&&window.BHARGAV_PLAN&&window.BHARGAV_PLAN.phases)window.BHARGAV_PLAN.phases.forEach(ph=>{const xa=X(ph.start),xb=X(ph.end);s+='<line class="c-div" x1="'+xb+'" x2="'+xb+'" y1="'+pt+'" y2="'+(H-pb)+'"/><text class="c-phase'+(w.phase&&w.phase.n===ph.n?' on':'')+'" x="'+((xa+xb)/2)+'" y="'+(pt-12)+'" text-anchor="middle">P'+ph.n+'</text>'});
+  s+='<polygon class="c-band" points="'+pts.map(p=>X(p.date)+','+Y(p.hi)).concat(pts.slice().reverse().map(p=>X(p.date)+','+Y(p.lo))).join(' ')+'"/><polyline class="c-plan" points="'+pts.map(p=>X(p.date)+','+Y(p.w)).join(' ')+'"/>';
+  s+='<line class="c-target" x1="'+pl+'" x2="'+(W-pr)+'" y1="'+Y(g.target)+'" y2="'+Y(g.target)+'"/><text class="c-axis" x="'+(pl+8)+'" y="'+(Y(g.target)-6)+'">goal '+kgFmt(g.target)+' kg</text>';
+  if(today>=t0&&today<=t1){const tx=X(today);s+='<line class="c-today" x1="'+tx+'" x2="'+tx+'" y1="'+pt+'" y2="'+(H-pb)+'"/>'+((tx-pl>60&&(W-pr)-tx>60)?'<text class="c-axis" x="'+tx+'" y="'+(H-8)+'" text-anchor="middle">today</text>':'')}
+  if(w.projected!=null&&today<=t1)s+='<line class="c-proj" x1="'+X(today)+'" y1="'+Y(w.fitNow)+'" x2="'+X(t1)+'" y2="'+Y(w.projected)+'"/><text class="c-projt" x="'+(X(t1)-4)+'" y="'+(Y(w.projected)+(w.projected>g.target?16:-8))+'" text-anchor="end">'+kgFmt(w.projected)+' kg</text>';
+  s+='<circle class="c-start" cx="'+X(t0)+'" cy="'+Y(g.start)+'" r="4.5"/>';
+  const ma=w.logs.map(l=>{const win=w.logs.filter(m=>m.date<=l.date&&m.date>=addDays(l.date,-6));return{date:l.date,v:win.reduce((a,m)=>a+m.weight,0)/win.length}});
+  if(ma.length>1)s+='<polyline class="c-avg" points="'+ma.map(m=>X(m.date)+','+Y(m.v)).join(' ')+'"/>';
+  w.logs.forEach(l=>{s+='<circle class="c-dot" cx="'+X(l.date)+'" cy="'+Y(l.weight)+'" r="3"/>'});
+  s+='<text class="c-axis" x="'+pl+'" y="'+(H-8)+'">'+esc(insLabel(t0))+'</text><text class="c-axis" x="'+(W-pr)+'" y="'+(H-8)+'" text-anchor="end">'+esc(insLabel(t1))+'</text></svg>';
+  const facts=[];
+  if(w.status!=='nodata'){
+    if(w.pace!=null)facts.push('<span>Pace <b>'+(w.pace<=0?'−':'+')+kgFmt(Math.abs(w.pace))+' kg/week</b> · needed <b>'+kgFmt(Math.abs(w.needPace))+' kg/week</b></span>');
+    else facts.push('<span>Pace appears after 3 weigh-ins across 7 days</span>');
+    if(w.cp&&w.cp.label!=='Start')facts.push('<span>To reach '+kgFmt(w.cp.w)+' kg by '+esc(insLabel(w.cp.date))+': <b>'+kgFmt(Math.max(0,w.trend-w.cp.w))+' kg to go</b></span>');
+  }else facts.push('<span>No weigh-ins yet. The plan line is drawn from your starting weight.</span>');
+  const st=insStreaks();
+  $('ws-mission').innerHTML='<div class="ws-ph"><span class="ws-code">MISSION</span><h3>'+kgFmt(g.start)+' → '+kgFmt(g.target)+' kg</h3><span class="ws-kick">'+esc(kicker)+'</span></div>'+
+    '<div class="ws-mission-top"><div><h2 class="'+tone+'">'+esc(head)+'</h2><p>'+esc(sub)+'</p><div class="ws-tags">'+chips.join('')+'</div></div>'+
+    '<div class="ws-tiles"><div><b>'+lost+'<small>kg</small></b><span>lost of '+kgFmt(w.totalKg)+'</span></div><div><b>'+st.cur+'<small>d</small></b><span>on-plan streak · best '+st.best+'</span></div></div></div>'+
+    '<div class="ws-race"><div><span>Time used</span><div class="ws-meter"><i style="width:'+w.pctTime+'%"></i></div><b>'+w.pctTime+'%</b></div><div><span>Weight lost</span><div class="ws-meter"><i class="'+raceTone+'" style="width:'+(w.status==='nodata'?0:w.pctLost)+'%"></i></div><b>'+(w.status==='nodata'?'—':w.pctLost+'%')+'</b></div></div>'+
+    '<div class="ws-chart">'+s+'</div><div class="ws-legend"><span><i class="k plan"></i>Plan line</span><span><i class="k band"></i>Allowed range</span><span><i class="k dot"></i>Weigh-in</span><span><i class="k avg"></i>7-day average</span><span><i class="k proj"></i>If nothing changes</span></div><div class="ws-facts">'+facts.join('')+'</div>';
+}
+
+/* ---------- 12-week honeycomb + day inspector ---------- */
+function renderWsHex(){
+  const today=insCur.today;let first=null;insCur.enabled.forEach(m=>{if(m.since&&(!first||m.since<first))first=m.since});
+  const start=insMonday(addDays(today,-77)),last=addDays(insMonday(today),6);
+  let cols='',col='',n=0;
+  for(let d=start;d<=last;d=addDays(d,1)){
+    let cls='na';
+    if(d>today)cls='future';else{const o=insDayData(d).overall;cls=o==null?'na':o<0.34?'c1':o<0.67?'c2':o<0.9?'c3':'c4'}
+    col+='<button type="button" class="ws-hx '+cls+(d===today?' today':'')+'" data-d="'+d+'" aria-label="'+esc(insLabel(d))+'"'+(d>today?' disabled':'')+'></button>';
+    if(++n%7===0){cols+='<div class="ws-hxc">'+col+'</div>';col=''}
+  }
+  if(col)cols+='<div class="ws-hxc">'+col+'</div>';
+  $('ws-hex').innerHTML='<div class="ws-ph"><span class="ws-code">LOG</span><h3>12-week map</h3><span class="ws-kick">One dot per day · tap to inspect</span></div><div class="ws-hex-scroll"><div class="ws-hex-grid"><div class="ws-hxl"><span>Mon</span><span></span><span>Wed</span><span></span><span>Fri</span><span></span><span></span></div>'+cols+'</div></div><div class="ws-hex-leg"><span>Missed</span><i class="ws-hx c1"></i><i class="ws-hx c2"></i><i class="ws-hx c3"></i><i class="ws-hx c4"></i><span>Everything hit</span></div>';
+  {const sc=$('ws-hex').querySelector('.ws-hex-scroll');if(sc)sc.scrollLeft=sc.scrollWidth}
+  showWsDay(insCur.sel||today);
+}
+function showWsDay(d){
+  insCur.sel=d;const dd=insDayData(d),today=insCur.today;
+  document.querySelectorAll('#ws-hex .ws-hx[data-d]').forEach(b=>b.classList.toggle('sel',b.dataset.d===d));
+  const rows=insCur.enabled.map(m=>{const v=dd.mods[m.id],r=insR(v);
+    return'<div class="ws-drow" style="--c:'+m.color+'"><div class="rg">'+(r!=null?wsRing(r,m.color,32,3.5,m.name+' '+insPct(r)):'<span class="ws-nodata">–</span>')+'</div><div class="tx"><b>'+esc(m.name)+'</b><small>'+(v?esc(m.detail(d,v)):(m.since&&d<m.since?'Before this app had data':'Nothing due / recorded'))+'</small></div><div class="fr">'+(v?(v.frac!=null?Math.round(v.frac*100)+'%':v.done+'/'+v.total):'—')+'</div></div>'}).join('');
+  $('ws-day').innerHTML='<div class="ws-ph"><span class="ws-code">'+(d===today?'LIVE':'DAY')+'</span><h3>'+esc(insLabel(d,{weekday:'long',month:'short',day:'numeric'}))+'</h3><span class="ws-kick">'+(dd.overall==null?'no data':Math.round(dd.overall*100)+'% overall')+'</span></div>'+(rows||'<p class="ws-empty">Switch on a module to see it here.</p>');
+}
+
+/* ---------- radar + alerts ---------- */
+function renderWsRadar(rows,prevRates){
+  const el=$('ws-radar'),live=rows.filter(r=>r.p.rate!=null);
+  if(live.length<3){el.innerHTML='<div class="ws-ph"><span class="ws-code">RADAR</span><h3>Balance</h3></div><p class="ws-empty">The balance radar appears once three apps have data.</p>';return}
+  const W=340,H=300,cx=170,cy=150,R=108,n=live.length,ang=i=>-90+i*360/n,pt=(i,f)=>wsPolar(cx,cy,R*f,ang(i)).map(v=>v.toFixed(1)).join(',');
+  let s='<svg class="ws-radar" viewBox="0 0 '+W+' '+H+'" role="img" aria-label="Balance across apps">';
+  [0.25,0.5,0.75,1].forEach(f=>{s+='<polygon points="'+live.map((_,i)=>pt(i,f)).join(' ')+'" class="ring"/>'});
+  live.forEach((_,i)=>{s+='<line x1="'+cx+'" y1="'+cy+'" x2="'+pt(i,1).split(',')[0]+'" y2="'+pt(i,1).split(',')[1]+'" class="spoke"/>'});
+  s+='<polygon points="'+live.map((r,i)=>pt(i,Math.max(0.02,prevRates[r.m.id]||0))).join(' ')+'" class="prev"/><polygon points="'+live.map((r,i)=>pt(i,Math.max(0.02,r.p.rate))).join(' ')+'" class="now"/>';
+  live.forEach((r,i)=>{const p=wsPolar(cx,cy,R*Math.max(0.02,r.p.rate),ang(i)),l=wsPolar(cx,cy,R+22,ang(i));s+='<circle cx="'+p[0].toFixed(1)+'" cy="'+p[1].toFixed(1)+'" r="3.4" fill="'+r.m.color+'"/><text x="'+l[0].toFixed(1)+'" y="'+(l[1]+3).toFixed(1)+'" text-anchor="middle" class="lab" fill="'+r.m.color+'">'+esc(r.m.code)+'</text><text x="'+l[0].toFixed(1)+'" y="'+(l[1]+15).toFixed(1)+'" text-anchor="middle" class="val">'+insPct(r.p.rate)+'</text>'});
+  el.innerHTML='<div class="ws-ph"><span class="ws-code">RADAR</span><h3>Balance</h3><span class="ws-kick">last 7 days vs the 7 before</span></div>'+s+'</svg><div class="ws-legend"><span><i class="k now"></i>Last 7 days</span><span><i class="k prev"></i>Prior 7 days</span></div>';
+}
+function renderWsAlerts(rows){
+  const el=$('ws-alerts'),weak=rows.filter(r=>r.p.rate!=null&&r.p.rate<0.8).sort((a,b)=>a.p.rate-b.p.rate);
+  if(!rows.some(r=>r.p.rate!=null)){el.innerHTML='<div class="ws-ph"><span class="ws-code">ALERTS</span><h3>Systems check</h3></div><p class="ws-empty">Nothing has been recorded yet. Ticks from your apps show up here by themselves.</p>';return}
+  if(!weak.length){el.innerHTML='<div class="ws-ph"><span class="ws-code">ALERTS</span><h3>Systems check</h3></div><div class="ws-alert ok"><b>All systems at 80% or better.</b><span>Hold the same week again.</span></div>';return}
+  el.innerHTML='<div class="ws-ph"><span class="ws-code">ALERTS</span><h3>Where it is leaking</h3><span class="ws-kick">below 80% over 7 days</span></div>'+weak.map(r=>{const wd=insWeakDay(r.m);
+    return'<div class="ws-alert '+insStatus(r.p.rate)+'" style="--c:'+r.m.color+'"><div><b>'+esc(r.m.name)+' · '+insPct(r.p.rate)+'</b><span>'+r.p.done+' of '+r.p.total+(r.m.frac?' goal-days':' ticked')+' in 7 days'+(wd?' · weakest day '+wd.name+' ('+insPct(wd.rate)+')':'')+'</span></div>'+(r.m.link&&r.m.link!=='#'?'<a href="'+r.m.link+'" data-profile-link>Open</a>':'')+'</div>'}).join('');
+}
+
+/* ---------- one panel per app ---------- */
+function insModExtras(m,p7,p28){
+  const lines=[];
+  if(m.id==='gym'){
+    const days=p7.days.map(x=>insFacts(x.d)).filter(f=>f.inPlan),pl=days.filter(f=>f.planned);
+    lines.push('Sessions '+pl.filter(f=>f.trained).length+' of '+pl.length+' · weigh-ins '+days.filter(f=>f.weight!=null).length+' of '+days.length);
+    const lifted=Array.from({length:7},(_,k)=>insFacts(addDays(insCur.today,-k)).vol).reduce((a,b)=>a+b,0);
+    if(lifted)lines.push('Lifted '+(lifted/1000).toFixed(1)+' t in 7 days');
+  }
+  if(m.id==='diet'){
+    const days=p7.days.map(x=>insFacts(x.d)).filter(f=>f.logged);
+    if(days.length)lines.push('Calories on target '+days.filter(f=>f.kcalOk).length+' of '+days.length+' · protein goal '+days.filter(f=>f.proteinOk).length+' of '+days.length);
+    if(days.length)lines.push('Average '+insInt(days.reduce((s,f)=>s+f.kcal,0)/days.length)+' kcal · '+insInt(days.reduce((s,f)=>s+f.protein,0)/days.length)+' g protein');
+  }
+  const wd=insWeakDay(m);if(wd)lines.push('Weakest day: '+wd.name+' ('+insPct(wd.rate)+')');
+  if(p28.rate!=null&&p28.days.length>=3)lines.push((p28.days.length>=28?'28-day':p28.days.length+'-day')+' average '+insPct(p28.rate));
+  return lines;
+}
+function renderWsMods(rows,prevRates){
+  const el=$('ws-mods');
+  el.innerHTML=rows.map(r=>{
+    const m=r.m,p=r.p,st=insStatus(p.rate),t=r.today,p14=insModPeriod(m,addDays(insCur.today,-14),addDays(insCur.today,-1)),p28=insModPeriod(m,(m.since&&m.since>addDays(insCur.today,-28))?m.since:addDays(insCur.today,-28),addDays(insCur.today,-1)),prev=prevRates[m.id];
+    const delta=p.rate!=null&&prev!=null?Math.round((p.rate-prev)*100):null,ex=insModExtras(m,p,p28);
+    const strip=p14.days.map(x=>{const rr=insR(x.v);return rr==null?'<span class="ws-mini na"></span>':wsRing(rr,m.color,18,2.6,insShortDay(x.d)+' '+(x.v.frac!=null?Math.round(x.v.frac*100)+'%':x.v.done+'/'+x.v.total))}).join('');
+    const body=m.since?
+      '<div class="ws-mbody"><div class="ws-gwrap">'+(t?wsGauge(t.done,t.total,t.frac,m.color,'TODAY'):'<div class="ws-none">Nothing due today</div>')+'</div><div class="ws-mstats"><div class="big">'+insPct(p.rate)+'<small>7 days</small></div><div class="sub">'+(m.frac?p.n+' days tracked':p.done+' of '+p.total+' ticks')+(delta!=null?' · <span class="'+(delta>=0?'up':'down')+'">'+(delta>=0?'▲ +':'▼ ')+delta+'</span>':'')+'</div>'+ex.map(l=>'<div class="ln">'+esc(l)+'</div>').join('')+'</div></div>'+
+      '<div class="ws-strip" aria-label="Last 14 days">'+strip+'</div>'+wsTrace(p28.days,m.color)
+      :'<p class="ws-empty">Nothing recorded yet. Ticks from '+esc(m.name)+' will show up here automatically.</p>';
+    return'<article class="ws-mod '+st+'" style="--c:'+m.color+'"><div class="ws-ph"><span class="ws-code">'+esc(m.code)+'</span><h3>'+esc(m.name)+'</h3><span class="ws-status '+st+'">'+INS_STATUS_WORD[st]+'</span></div>'+body+
+      (m.link&&m.link!=='#'?'<a class="ws-open" href="'+m.link+'" data-profile-link>Open '+esc(m.name)+' <i data-lucide="arrow-up-right"></i></a>':'')+'</article>';
   }).join('');
 }
-/* what is actually going well — only real, current facts */
-function insightsWins(m){
-  const wins=[]; const w=insightsWeightInfo();
-  if(w&&!w.empty&&w.weekChange!=null&&w.weekChange<0) wins.push({pri:1,icon:'↓',text:'Down '+kgFmt(-w.weekChange)+' kg in the last 7 days'});
-  if(w&&!w.empty&&w.done>0) wins.push({pri:2,icon:'⚖️',text:kgFmt(w.done)+' kg lost since you started — '+w.pct+'% of the way'});
-  const p=insightsPledgeInfo(); if(p&&!p.none&&p.streak>=2) wins.push({pri:2,icon:'🚩',text:'Pledge: '+p.streak+' days in a row'});
-  if(m.currentStreak>=2) wins.push({pri:3,icon:'🔥',text:m.currentStreak+'-day streak across everything'});
-  if(m.thisWeekGymDays>=1) wins.push({pri:3,icon:'🏋️',text:'Trained '+m.thisWeekGymDays+' day'+(m.thisWeekGymDays===1?'':'s')+' this week'});
-  const f=insightsFoodInfo(); if(f&&f.proteinDays>=3) wins.push({pri:3,icon:'🥚',text:'Hit your protein goal '+f.proteinDays+' of the last 7 days'});
-  if(m.thisWeekTasks>=3) wins.push({pri:4,icon:'✅',text:m.thisWeekTasks+' tasks finished this week'});
-  if(m.thisWeekChores>=3) wins.push({pri:4,icon:'🧺',text:m.thisWeekChores+' chores done this week'});
-  if(m.thisWeekTotal>m.prevWeekTotal&&m.prevWeekTotal>0) wins.push({pri:4,icon:'📈',text:'More done than last week ('+m.thisWeekTotal+' vs '+m.prevWeekTotal+')'});
-  return wins.sort((a,b)=>a.pri-b.pri).slice(0,4);
-}
-/* the next concrete thing to aim for */
-function insightsNext(m){
-  const out=[]; const w=insightsWeightInfo();
-  if(w&&!w.empty&&w.toGo>0){ const mark=Math.floor((w.current-0.01)/1)*1; const next=Math.max(w.goal.target,mark); out.push({icon:'⚖️',text:'Next mark: '+kgFmt(next)+' kg',sub:kgFmt(w.current-next)+' kg away'}); }
-  const b=insightsBadges(m).filter(x=>!x.unlocked&&(x.id.indexOf('streak')===0)).sort((a,c)=>a.need-c.need)[0];
-  if(b) out.push({icon:b.icon,text:b.label,sub:(b.need-b.have)+' more day'+((b.need-b.have)===1?'':'s')+' in a row'});
-  const p=insightsPledgeInfo(); if(p&&!p.none) out.push({icon:'🚩',text:'Finish stage '+p.stage+' of “'+p.goal.title+'”',sub:Math.max(0,p.days-p.earned)+' day'+(p.days-p.earned===1?'':'s')+' left'});
-  const s=insightsSkinInfo(m); if(s&&!s.before&&s.next) out.push({icon:'✨',text:'Skin review',sub:insightsDateLabel(s.next)+' · '+Math.max(0,daysBetween(today(),s.next))+' days'});
-  if(!m.todayActive) out.push({icon:'👉',text:'Log one thing today',sub:m.currentStreak>0?'Keeps your '+m.currentStreak+'-day streak alive':'Starts a new streak'});
-  return out.slice(0,4);
-}
-/* ---- "Your move": a ranked list of things to actually do, each with a button ---- */
-function insightsPushes(m){
-  const out=[], d=today(), ins=state.insights, hr=new Date().getHours();
-  const tasks=dueTasks().slice().sort((a,b)=>((a.due&&a.due<d)?0:1)-((b.due&&b.due<d)?0:1)||(b.priority||0)-(a.priority||0));
-  tasks.slice(0,3).forEach(t=>{
-    const late=t.due&&t.due<d, days=late?daysBetween(t.due,d):0;
-    out.push({pri:late?1:3,icon:'✅',title:t.title,why:late?(days+' day'+(days===1?'':'s')+' overdue — every day it sits, it gets harder to start'):(t.due===d?'Due today':'On today’s priority list'),btn:'Done',act:{type:'task',id:t.id}});
-  });
-  if(tasks.length>3) out.push({pri:5,icon:'📋',title:(tasks.length-3)+' more on your list',why:'Clear them in one sitting',btn:'Open',href:'apps/todo.html'});
-  choresDueToday().slice(0,3).forEach(c=>out.push({pri:c.overdue?2:4,icon:'🧺',title:c.name,why:c.overdue?'Overdue chore — the longer it waits, the bigger it gets':'Due today',btn:'Done',act:{type:'chore',id:c.id}}));
-  if(!state.dailyLog && !ins.gymDates.has(d)) out.push({pri:2,icon:'🏋️',title:'Train today',why:m.thisWeekGymDays?('You’ve trained '+m.thisWeekGymDays+' day'+(m.thisWeekGymDays===1?'':'s')+' this week — add one more'):'No training logged this week yet',btn:'Start workout',href:'gym/index.html'});
-  const s=insightsSkinInfo(m);
-  if(s&&!s.before&&!(ins.skinTouchedDates.has(d)||ins.skinCheckedDates.has(d))) out.push({pri:3,icon:'✨',title:'Skin routine',why:s.last7+' of the last 7 days done — skipping breaks the program’s momentum',btn:'Do routine',href:'apps/skin.html'});
-  const f=insightsFoodInfo();
-  if(f && hr>=12 && !(ins.diet.byDate[d])) out.push({pri:3,icon:'🥗',title:'Log your food',why:'Nothing logged today — unlogged days are the ones that drift',btn:'Log meals',href:'apps/diet.html'});
-  const w=insightsWeightInfo();
-  if(w && !w.empty){ const gap=daysBetween(w.asOf,d); if(gap>=4) out.push({pri:3,icon:'⚖️',title:'Weigh in',why:'Last weigh-in was '+gap+' days ago — you can’t steer what you don’t measure',btn:'Log weight',href:'gym/index.html'}); }
-  else if(w && w.empty) out.push({pri:3,icon:'⚖️',title:'Log your first weigh-in',why:'Your pace and projection start the moment there is a number',btn:'Log weight',href:'gym/index.html'});
-  const p=insightsPledgeInfo();
-  if(p && !p.none){ const lg=p.lvl.days_log||{}; if(!(lg[d]&&lg[d].complete)) out.push({pri:2,icon:'🚩',title:'Pledge: '+p.goal.title,why:p.streak>0?('Today keeps your '+p.streak+'-day run alive'):'Today restarts your run',btn:'Check in',href:'apps/pledge.html'}); }
-  return out.sort((a,b)=>a.pri-b.pri);
-}
-function insightsTimeLeft(){ const n=new Date(), end=new Date(n.getFullYear(),n.getMonth(),n.getDate()+1); const mins=Math.max(0,Math.round((end-n)/60000)); return {h:Math.floor(mins/60),m:mins%60}; }
-function insightsBtn(x){
-  if(x.href) return '<a class="prog-act" href="'+x.href+'" data-profile-link>'+esc(x.btn)+' <i data-lucide="arrow-up-right"></i></a>';
-  return '<button type="button" class="prog-act" data-push-type="'+x.act.type+'" data-push-id="'+esc(x.act.id)+'">'+esc(x.btn)+'</button>';
-}
-function renderProgHero(m){
-  const pushes=insightsPushes(m), top=pushes[0], tl=insightsTimeLeft();
-  let kicker, headline, sub, cta='';
-  if(!m.todayActive){
-    kicker=m.currentStreak>0?'⏳ '+m.currentStreak+'-day streak ends in '+tl.h+'h '+tl.m+'m':'⏳ '+tl.h+'h '+tl.m+'m left today';
-    headline=top?'Next: '+top.title:'Log one thing — anything';
-    sub=top?top.why+'. One action counts and saves the day.':'Complete a task, a chore, a workout or your routine. One is enough.';
-    if(top) cta=insightsBtn(top);
-  }else if(top){
-    kicker='✓ Today is on the board'+(m.currentStreak>1?' · '+m.currentStreak+'-day streak':'');
-    headline='Don’t stop at one: '+top.title;
-    sub=top.why+'.';
-    cta=insightsBtn(top);
-  }else{
-    kicker='✓ Everything done for today';
-    headline='Get ahead of tomorrow';
-    sub='Nothing is due. Add tomorrow’s first task now so you start moving the second you open the app.';
-    cta='<a class="prog-act" href="apps/todo.html" data-profile-link>Plan tomorrow <i data-lucide="arrow-up-right"></i></a>';
+
+/* ---------- week by week ---------- */
+function renderWsWeeks(){
+  const today=insCur.today,thisMon=insMonday(today);let first=null;insCur.enabled.forEach(m=>{if(m.since&&(!first||m.since<first))first=m.since});
+  if(!first||!insCur.enabled.length){$('ws-weeks').innerHTML='<div class="ws-ph"><span class="ws-code">WEEKS</span><h3>Week by week</h3></div><p class="ws-empty">Weekly history appears after the first finished day.</p>';return}
+  const rows=[];
+  for(let i=0;i<8;i++){
+    const ws=addDays(thisMon,-7*i),we=addDays(ws,6);if(we<first)break;
+    const per=insCur.enabled.map(m=>insModPeriod(m,ws<first?first:ws,we));
+    const sc=insMean(per.map(p=>p.rate));
+    rows.push({ws,i,per,sc});
   }
-  $('prog-hero').innerHTML='<div class="prog-hero-main"><p class="prog-kicker" id="prog-kicker" data-late="'+(m.todayActive?0:1)+'" data-streak="'+m.currentStreak+'">'+esc(kicker)+'</p><h2>'+esc(headline)+'</h2><p>'+esc(sub)+'</p>'+(cta?'<div class="prog-hero-cta">'+cta+'</div>':'')+'</div>'+
-    '<div class="prog-hero-stats"><div><b>'+m.currentStreak+'</b><span>day streak</span></div><div><b>'+m.activeDaysThisWeek+'<small>/7</small></b><span>active days this week</span></div><div><b>'+pushes.length+'</b><span>to do now</span></div></div>';
+  if(!rows.some(r=>r.sc!=null)){$('ws-weeks').innerHTML='<div class="ws-ph"><span class="ws-code">WEEKS</span><h3>Week by week</h3></div><p class="ws-empty">Weekly history appears after the first finished day.</p>';return}
+  const head='<tr><th>Week</th><th>Overall</th>'+insCur.enabled.map(m=>'<th style="--c:'+m.color+'">'+esc(m.code)+'</th>').join('')+'</tr>';
+  const body=rows.map(r=>'<tr><th>'+(r.i===0?'This week':esc(insLabel(r.ws)))+'</th><td><span class="ws-sc '+insStatus(r.sc)+'">'+(r.sc==null?'—':Math.round(r.sc*100))+'</span></td>'+r.per.map((p,k)=>'<td class="'+insStatus(p.rate)+'">'+(p.rate==null?'—':(insCur.enabled[k].frac?insPct(p.rate):p.done+'/'+p.total))+'</td>').join('')+'</tr>').join('');
+  $('ws-weeks').innerHTML='<div class="ws-ph"><span class="ws-code">WEEKS</span><h3>Week by week</h3><span class="ws-kick">ticks done / ticks due, per app</span></div><div class="ws-table-wrap"><table class="ws-table"><thead>'+head+'</thead><tbody>'+body+'</tbody></table></div>';
 }
-function renderProgPush(m){
-  const pushes=insightsPushes(m);
-  const el=$('prog-push');
-  if(!pushes.length){ el.innerHTML='<div class="prog-clear"><b>All clear.</b> Nothing overdue, nothing waiting. Use the time to get ahead: plan tomorrow, or stretch toward the challenges below.</div>'; return; }
-  el.innerHTML=pushes.map(x=>'<div class="prog-push-row p'+Math.min(x.pri,4)+'"><span class="prog-push-icon">'+x.icon+'</span><div class="prog-push-body"><b>'+esc(x.title)+'</b><small>'+esc(x.why)+'</small></div>'+insightsBtn(x)+'</div>').join('');
-}
-/* concrete targets with a number to hit, not a vague "keep going" */
-function renderProgChallenges(m){
-  const rows=[], d=today();
-  const nextStreak=[3,7,14,21,30,60].find(n=>n>m.currentStreak);
-  if(nextStreak){ const days=nextStreak-m.currentStreak;
-    rows.push({icon:'🔥',title:nextStreak+'-day streak',sub:days+' more day'+(days===1?'':'s')+' in a row — lands on '+insightsDateLabel(addDays(d,m.todayActive?days:days-1))+(m.todayActive?'':' if you act today'),pct:Math.round(m.currentStreak/nextStreak*100)}); }
-  if(m.bestWeekTotal>0){ const gap=m.bestWeekTotal-m.thisWeekTotal;
-    rows.push({icon:'🏆',title:gap>0?'Beat your best week':'You’re at your best week',sub:gap>0?gap+' more thing'+(gap===1?'':'s')+' in the last 7 days to set a new record ('+m.thisWeekTotal+' vs '+m.bestWeekTotal+')':'Keep going: '+m.thisWeekTotal+' vs previous best '+m.bestWeekTotal,pct:Math.min(100,Math.round(m.thisWeekTotal/Math.max(1,m.bestWeekTotal)*100))}); }
-  else rows.push({icon:'🎯',title:'Set your first benchmark',sub:'Finish 3 things this week so there is a best week to beat',pct:Math.min(100,Math.round(m.thisWeekTotal/3*100))});
-  const tgt=Math.min(7,Math.max(5,m.activeDaysThisWeek+1));
-  rows.push({icon:'📅',title:'Be active '+tgt+' of 7 days',sub:m.activeDaysThisWeek>=7?'Perfect week — every day counted':m.activeDaysThisWeek>=tgt?'Target hit — one more day makes it '+(m.activeDaysThisWeek+1):(tgt-m.activeDaysThisWeek)+' more active day'+(tgt-m.activeDaysThisWeek===1?'':'s')+' needed (last week: '+m.totals.slice(-14,-7).filter(t=>t.total>0).length+')',pct:Math.round(Math.min(m.activeDaysThisWeek,tgt)/tgt*100)});
-  const w=insightsWeightInfo();
-  if(w&&!w.empty&&w.toGo>0&&w.status!=='done'){
-    const behind=w.pace==null||w.pace>w.needed; 
-    rows.push({icon:'⚖️',title:behind?'Get back on weight pace':'Hold your weight pace',sub:'Plan needs '+kgFmt(Math.abs(w.needed))+' kg/week down'+(w.pace!=null?'; you’re at '+kgFmt(Math.abs(w.pace))+' kg/week '+(w.pace<0?'down':'up'):'; log 3+ weigh-ins over 7+ days to see your pace'),pct:w.pct});
-  }
-  $('prog-challenges').innerHTML=rows.map(r=>'<div class="prog-next-row"><span class="prog-next-icon">'+r.icon+'</span><div class="prog-ch-body"><b>'+esc(r.title)+'</b><small>'+esc(r.sub)+'</small>'+progBar(r.pct)+'</div></div>').join('');
-}
-function insightsTickCountdown(){
-  const k=$('prog-kicker'); if(!k||k.dataset.late!=='1'||!$('page-insights').classList.contains('active')) return;
-  const tl=insightsTimeLeft(), st=Number(k.dataset.streak)||0;
-  k.textContent='⏳ '+(st>0?st+'-day streak ends in ':'')+tl.h+'h '+tl.m+'m'+(st>0?'':' left today');
-}
-setInterval(insightsTickCountdown,30000);
-function renderProgGrid(m){
-  const dates=m.last60Dates, first=new Date(dates[0]+'T00:00:00'); const pad=(first.getDay()+6)%7; // Monday first
-  const maxT=Math.max(3,...m.totals.map(t=>t.total)); let html='';
-  for(let i=0;i<pad;i++) html+='<span class="prog-cell blank"></span>';
-  dates.forEach((dt,i)=>{ const t=m.totals[i].total, lvl=t===0?0:t<=1?1:t<=3?2:3; html+='<button type="button" class="prog-cell l'+lvl+(i===dates.length-1?' today':'')+'" data-day-idx="'+i+'" aria-label="'+esc(insightsDateLabel(dates[i]))+': '+t+' things"></button>'; });
-  $('prog-grid').innerHTML=html;
-  showProgDay(m,dates.length-1);
-}
-function showProgDay(m,idx){
-  const t=m.totals[idx], dt=m.last60Dates[idx];
-  const label=new Date(dt+'T00:00:00').toLocaleDateString(undefined,{weekday:'long',month:'short',day:'numeric'});
-  const parts=[]; if(t.tasks) parts.push(t.tasks+' task'+(t.tasks===1?'':'s')); if(t.chores) parts.push(t.chores+' chore'+(t.chores===1?'':'s')); if(t.gym) parts.push('training'); if(t.skin) parts.push('skin routine');
-  const diet=state.insights.diet&&state.insights.diet.byDate[dt]; if(diet) parts.push('food logged ('+Math.round(diet.kcal)+' kcal)');
-  $('prog-day-detail').innerHTML='<b>'+esc(label)+'</b> — '+esc(parts.length?parts.join(' · '):'nothing logged');
-}
-function renderProgBadges(m){
-  const badges=insightsBadges(m);
-  $('prog-badges').innerHTML=badges.map(b=>{
-    const pct=Math.min(100,Math.round(b.have/b.need*100));
-    return '<div class="prog-badge'+(b.unlocked?' on':'')+'"><span class="prog-badge-icon">'+b.icon+'</span><div><b>'+esc(b.label)+'</b><small>'+esc(b.sub)+'</small>'+(b.unlocked?'':progBar(pct))+'</div><strong>'+(b.unlocked?'✓':Math.min(b.have,b.need)+'/'+b.need)+'</strong></div>';
-  }).join('');
-}
-function wireInsightsInteractions(){
-  if(wireInsightsInteractions._wired) return; wireInsightsInteractions._wired=true;
-  $('page-insights').addEventListener('click',async e=>{
-    const b=e.target.closest('button[data-push-type]'); if(!b) return;
-    b.disabled=true; b.textContent='…';
-    const again=()=>renderInsightsPage().catch(()=>{});
-    if(b.dataset.pushType==='task') await completeTask(b.dataset.pushId).then(again);
-    else if(b.dataset.pushType==='chore') await completeChoreFromWidget(b.dataset.pushId,null,again);
+
+function wireInsights(){
+  if(wireInsights._wired)return;wireInsights._wired=true;
+  $('page-insights').addEventListener('click',e=>{
+    const hx=e.target.closest('.ws-hx[data-d]');if(hx&&insCur){showWsDay(hx.dataset.d);return}
+    const chip=e.target.closest('[data-mod]');
+    if(chip&&state.insights){
+      const off=state.insights.prefs.off,id=chip.dataset.mod;
+      if(id==='__all')state.insights.prefs.off=[];else{const i=off.indexOf(id);if(i>=0)off.splice(i,1);else off.push(id)}
+      insSavePrefs();renderInsightsPage(false);
+    }
   });
-  $('prog-grid').addEventListener('click',e=>{ const c=e.target.closest('.prog-cell[data-day-idx]'); if(c&&insightsCurrentM) showProgDay(insightsCurrentM,Number(c.dataset.dayIdx)); });
-  $('insights-thread-btn').addEventListener('click',()=>{ $('insights-recovery').hidden=false; });
-  $('insights-close-reset').addEventListener('click',()=>{ $('insights-recovery').hidden=true; });
-  $('insights-begin-reset').addEventListener('click',()=>{
-    $('insights-recovery').hidden=true; showRoute('today');
-    setTimeout(()=>{ const pr=document.querySelector('.widget-card[data-widget-type="priorities"]'); if(pr) pr.scrollIntoView({behavior:'smooth',block:'center'}); },80);
-  });
+  $('ws-refresh').addEventListener('click',()=>{insightsLoadedAt=0;const b=$('ws-refresh');b.disabled=true;renderInsightsPage(true).finally(()=>{b.disabled=false})});
 }
-async function renderInsightsPage(){
-  await ensureInsightsLoaded();
-  const m=computeInsights();
-  insightsCurrentM=m;
-  wireInsightsInteractions();
-  renderProgHero(m); renderProgPush(m); renderProgChallenges(m); renderProgGoals(m); renderProgWeek(m); renderProgGrid(m); renderProgBadges(m);
-  $('insights-thread-body').textContent=m.currentStreak>0
-    ? 'You’re '+m.currentStreak+' day'+(m.currentStreak===1?'':'s')+' in. On a day it feels pointless, do one small thing before it ends.'
-    : 'No streak right now — that’s a fact, not a verdict. Do one small thing today and a new one starts.';
+async function renderInsightsPage(force){
+  if(!INSIGHT_WEIGHT_GOALS[state.profile])return;
+  await ensureInsightsLoaded(force);
+  const tdy=today();
+  insCur={today:tdy,facts:{},dayCache:{},sel:insCur&&insCur.sel&&insCur.sel<=tdy?insCur.sel:null};
+  const all=insBuildMods(),off=state.insights.prefs.off;
+  insCur.enabled=all.filter(m=>!off.includes(m.id)&&m.since);
+  wireInsights();
+  renderWsBar(all);
+  const last7=[addDays(tdy,-7),addDays(tdy,-1)],prev7=[addDays(tdy,-14),addDays(tdy,-8)];
+  const rows=insCur.enabled.map(m=>({m,p:insModPeriod(m,last7[0],last7[1]),today:m.get(tdy)}));
+  const prevRates={};insCur.enabled.forEach(m=>{prevRates[m.id]=insModPeriod(m,prev7[0],prev7[1]).rate});
+  const overall=insMean(rows.map(r=>r.p.rate)),prevOverall=insMean(Object.keys(prevRates).map(k=>prevRates[k]));
+  renderWsStage(rows,overall,prevOverall,insOverallStreaks());
+  const gymOn=!off.includes('gym');
+  $('ws-mission').hidden=!gymOn;if(gymOn)renderWsMission(insWeight(insPlanPath()));
+  renderWsHex();renderWsRadar(rows,prevRates);renderWsAlerts(rows);
+  renderWsMods(all.filter(m=>!off.includes(m.id)).map(m=>({m,p:insModPeriod(m,last7[0],last7[1]),today:m.since?m.get(tdy):null})),prevRates);
+  renderWsWeeks();
+  const t=new Date();$('ws-foot').textContent='Read-only. Fed by Schedule, Gym, Diet, Chores, To-Do, Skin, Water and Pledge. Switch apps on or off with the module bar. Updated '+t.toLocaleTimeString([],{hour:'numeric',minute:'2-digit'})+'.';
   if(window.lucide)lucide.createIcons();
   updateProfileLinks();
 }

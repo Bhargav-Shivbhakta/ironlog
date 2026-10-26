@@ -238,41 +238,25 @@
 
       <section class="page" id="page-insights" data-page="insights">
         <header class="page-header">
-          <div><p class="eyebrow">Your move</p><h1>Insights</h1><p class="page-subtitle">What to do next, and what it takes to hit your goals.</p></div>
+          <div><p class="eyebrow">The workshop</p><h1>Insights</h1><p class="page-subtitle">Every app feeds this page by itself. Switch any app on or off below.</p></div>
+          <button type="button" class="ins-refresh" id="ws-refresh"><i data-lucide="refresh-cw"></i>Refresh</button>
         </header>
 
-        <div class="prog" id="prog">
-          <section class="prog-hero" id="prog-hero"></section>
-
-          <div class="prog-section-head"><h2>Do these now</h2><p>Ranked by what costs you most if you skip it. Tap to finish it.</p></div>
-          <section class="prog-card prog-push" id="prog-push"></section>
-
-          <div class="prog-section-head"><h2>Targets to hit</h2><p>Numbers to chase, based on your own history</p></div>
-          <section class="prog-card" id="prog-challenges"></section>
-
-          <div class="prog-section-head"><h2>Your goals</h2><p>Where each one stands, and what it takes</p></div>
-          <div class="prog-goals" id="prog-goals"></div>
-
-          <details class="prog-more">
-            <summary>History, last 60 days &amp; badges</summary>
-            <div class="prog-section-head"><h2>This week</h2><p>Days active out of 7, compared with last week</p></div>
-            <section class="prog-card" id="prog-week"></section>
-
-            <div class="prog-section-head"><h2>Last 60 days</h2><p>Darker = more done that day. Tap a day.</p></div>
-            <section class="prog-card">
-              <div class="prog-grid-scroll"><div class="prog-grid" id="prog-grid"></div></div>
-              <div class="prog-legend"><span>Less</span><i class="prog-cell l0"></i><i class="prog-cell l1"></i><i class="prog-cell l2"></i><i class="prog-cell l3"></i><span>More</span></div>
-              <div class="prog-day-detail" id="prog-day-detail"></div>
-            </section>
-
-            <div class="prog-section-head"><h2>Badges</h2><p>Earned from real days, not given</p></div>
-            <section class="prog-card prog-badges" id="prog-badges"></section>
-          </details>
-
-          <section class="prog-card prog-thread">
-            <div><h3>Hard day?</h3><p id="insights-thread-body">Do one small thing before the day ends.</p></div>
-            <button type="button" id="insights-thread-btn">Pick my smallest next step</button>
+        <div class="ws" id="ws">
+          <div class="ws-modbar" id="ws-modbar"></div>
+          <section class="ws-stage" id="ws-stage"></section>
+          <section class="ws-panel ws-mission" id="ws-mission"></section>
+          <section class="ws-inspect">
+            <div class="ws-panel" id="ws-hex"></div>
+            <div class="ws-panel" id="ws-day"></div>
           </section>
+          <section class="ws-two">
+            <div class="ws-panel" id="ws-radar"></div>
+            <div class="ws-panel" id="ws-alerts"></div>
+          </section>
+          <div class="ws-mods" id="ws-mods"></div>
+          <section class="ws-panel" id="ws-weeks"></section>
+          <p class="ws-foot" id="ws-foot"></p>
         </div>
       </section>
 
@@ -394,23 +378,6 @@
     <i data-lucide="mic"></i>
   </button>
 
-  <div class="insights-recovery" id="insights-recovery" hidden>
-    <div class="insights-recovery-card">
-      <div class="insights-pulse-orb">◇</div>
-      <h2>Nothing is over. We begin smaller.</h2>
-      <p id="insights-recovery-sub">Today has been reduced to three actions. Completing one is enough to restart movement.</p>
-      <div class="insights-reset-steps">
-        <div class="insights-reset-step"><b>01</b><div><strong>Close the open loops</strong><span>Open Priorities and pick the single task that will make tomorrow lighter.</span></div></div>
-        <div class="insights-reset-step"><b>02</b><div><strong>Protect one basic routine</strong><span>Complete the shortest care or training action already planned.</span></div></div>
-        <div class="insights-reset-step"><b>03</b><div><strong>Prepare the first step</strong><span>Add tomorrow's first task now, before today ends.</span></div></div>
-      </div>
-      <div class="insights-recovery-actions">
-        <button type="button" class="insights-begin-reset" id="insights-begin-reset">Take me to Priorities</button>
-        <button type="button" class="insights-close-reset" id="insights-close-reset">Close</button>
-      </div>
-    </div>
-  </div>
-
   <div class="modal-backdrop" id="widget-add-modal" hidden>
     <div class="modal" role="dialog" aria-modal="true" aria-labelledby="widget-add-title">
       <div class="modal-head"><div><p class="eyebrow">Today page</p><h2 id="widget-add-title">Add a widget</h2></div><button class="icon-button" id="widget-add-close" type="button" aria-label="Close"><i data-lucide="x"></i></button></div>
@@ -456,6 +423,7 @@
   <script src="assets/firebase-config.js"></script>
   <script src="assets/waterpantry.js"></script>
   <script src="assets/fscache.js"></script>
+  <script src="assets/bhargav-plan.js"></script>
   <script src="assets/app.js"></script>
   <script src="assets/voice.js"></script>
 </body>
