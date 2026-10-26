@@ -28,6 +28,7 @@ if(typeof Chart==='undefined'){ window.Chart=function(){ this.destroy=function()
 <script src="../assets/motion.js" defer></script>
 <script src="../assets/waterpantry.js"></script>
 <script src="../assets/fscache.js"></script>
+<script src="../assets/bhargav-plan.js"></script>
 <style>
   /* Hub design tokens — identical to assets/app.css / schedule.html's
      :root, so Gym reads as part of the same suite. Anusha's profile gets
@@ -272,6 +273,25 @@ if(typeof Chart==='undefined'){ window.Chart=function(){ this.destroy=function()
   .day-chip.active{background:var(--accent);border-color:var(--accent);color:#fff;}
   .day-chip.active .day-chip-rest-tag{color:rgba(255,255,255,.85);}
 
+  .plan-banner{background:var(--surface);border:1px solid var(--border-soft);border-radius:var(--radius-lg);padding:12px 16px;margin-bottom:12px;box-shadow:var(--shadow);}
+  .plan-banner .pb-top{display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:14px;}
+  .plan-banner .pb-chip{font-size:11px;font-weight:800;padding:2px 9px;border-radius:99px;background:var(--accent);color:var(--bg,#fff);letter-spacing:.2px;}
+  .plan-banner .pb-sub{color:var(--text-soft);font-size:12.5px;line-height:1.5;margin-top:4px;}
+  .warmup-card,.cooldown-card{background:var(--surface);border:1px solid var(--border-soft);border-radius:var(--radius-lg);margin-bottom:12px;box-shadow:var(--shadow);}
+  .warmup-card summary,.cooldown-card summary{list-style:none;cursor:pointer;padding:12px 16px;display:flex;align-items:center;gap:8px;font-weight:800;font-size:14px;}
+  .warmup-card summary::-webkit-details-marker,.cooldown-card summary::-webkit-details-marker{display:none;}
+  .warmup-card summary::after,.cooldown-card summary::after{content:'▾';margin-left:auto;color:var(--text-faint);}
+  .warmup-card[open] summary::after,.cooldown-card[open] summary::after{content:'▴';}
+  .wu-count{font-weight:700;font-size:12px;color:var(--text-faint);}
+  .wu-body{padding:0 16px 14px;}
+  .wu-row{display:flex;align-items:flex-start;gap:10px;padding:7px 0;border-top:1px solid var(--border-soft);font-size:13.5px;line-height:1.4;cursor:pointer;}
+  .wu-row:first-child{border-top:0;}
+  .wu-row input{margin-top:3px;width:18px;height:18px;flex:none;accent-color:var(--accent);}
+  .wu-row.done span{color:var(--text-faint);text-decoration:line-through;}
+  .wu-row small{display:block;color:var(--text-faint);font-size:11.5px;}
+  .wu-note{color:var(--text-soft);font-size:12.5px;line-height:1.5;margin-top:8px;}
+  .set-num.top{color:var(--accent);}
+  .ex-plan{color:var(--accent);font-size:12px;font-weight:700;margin-top:3px;}
   .ex-card{background:var(--surface);border:1px solid var(--border-soft);border-radius:var(--radius-lg);padding:14px 16px;margin-bottom:12px;box-shadow:var(--shadow);transition:transform .15s ease, opacity .15s ease, box-shadow .15s ease;}
   .ex-card.dragging{opacity:.4;}
   .ex-card.drag-over-top{border-top:3px solid var(--accent);}
@@ -1493,6 +1513,73 @@ let liftMode = 'regular';
 let currentLiftDay = null;
 
 /* =====================================================================
+   BHARGAV'S FIVE-PHASE PLAN (assets/bhargav-plan.js)
+   Dates before 26 Oct 2026 keep the original plan exactly as it was (p.workouts / p.weekSchedule below);
+   planAt(date) hands every plan-reading screen the right version for the date it is showing.
+===================================================================== */
+(function applyBhargavPlan(){
+  const BP = window.BHARGAV_PLAN, p = PROFILES.bhargav;
+  if(!BP || !p) return;
+  p.fixedPlan = true;
+  p.program = { startDate:BP.effective, endDate:BP.end, startWeight:BP.startWeight, targetWeight:BP.targetCentral };
+  p.tagline = '5-Phase Plan';
+  p.brand.b2 = 'Bhargav · 5-Phase Plan';
+  p.heroText = 'Fat loss with muscle retention, 26 Oct 2026 → 15 Apr 2027. Start 94.9 kg → target 75–77 kg. Weekly consistency beats a perfect day.';
+  p.phases = BP.phases.map(function(ph){
+    return { n:ph.n, name:ph.name, start:ph.start, end:ph.end, target:ph.weight, bf:ph.cal.toLocaleString('en-US')+' kcal · '+ph.protein+' g protein',
+      nutrition:ph.carbs+' g carbs · '+ph.fat+' g fat', training:ph.training+' · cardio '+ph.cardio, decision:ph.purpose };
+  });
+  p.plateauRules = BP.rules;
+  const STEPS = {1:'9,000–12,000/day',2:'11,000–13,000/day',3:'12,000–14,000/day',4:'12,000–15,000/day',5:'12,000–15,000/day'};
+  p.dietTargetsFor = function(date){
+    const ph = BP.phaseFor(date) || BP.phases[0];
+    return [
+      {label:'Calories',val:ph.cal.toLocaleString('en-US')+' kcal'},{label:'Protein',val:ph.protein+' g'},
+      {label:'Carbs',val:ph.carbs+' g'},{label:'Fat',val:ph.fat+' g'},
+      {label:'Lifting',val:'5 sessions/week'},{label:'Cardio',val:'5 sessions/week'},
+      {label:'Steps',val:STEPS[ph.n]},{label:'Sleep',val:'7–8 h/night'}
+    ];
+  };
+  p.dietTargets = p.dietTargetsFor(todayStrEarly());
+  p.dietRules = [
+    {t:'Cooking',b:'Batch-boil eggs and batch-cook dal. Keep added oil untracked at zero. Rice, dal and yogurt are weighed as eaten (cooked weights).'},
+    {t:'Daily meal split',b:BP.mealSplit.map(function(m){ return m.slot+' '+m.kcal+' kcal, '+m.protein+' protein'; }).join(' · ')},
+    {t:'Hydration',b:'3–3.5 L water daily. No dehydration, ever. Avoid crash dieting: with mild fatty liver, gradual loss is the safe kind.'},
+    {t:'Substitutions',b:'Record every substitution. Keep calories and protein equivalent.'},
+    {t:'Phase changes',b:'The menu and daily targets switch automatically on Nov 23, Jan 4, Feb 15 and Mar 22. Change calories only by the Sunday weight-trend rule in the Phase Roadmap; never below about 1,600 kcal without a physician or dietitian.'}
+  ];
+  p.trainingRules = '• Effort follows the phase: about 3 reps in reserve in Phase 1 (2 by week 4), 1–2 from Phase 2. No set goes to failure.<br>• Add reps first. When every set reaches the top of the rep range on two sessions, add the smallest plate next time.<br>• Phases 3–5: one controlled top set on chest press, lat pulldown and leg press, then back-off sets with the weight reduced 5–10% (leg press 10–15%). Never test a one-rep max.<br>• Deload weeks (Dec 28–Jan 3, Feb 8–14, Mar 15–21) and the final taper (Apr 12–15): half the sets, weights 10–15% lighter, at least 4 reps in reserve, no top sets.<br>• Leg press: pain-free depth only, and only when the knee feels comfortable. Discomfort above 2/10: shorten the range or stop. Swelling, instability or persistent pain needs professional assessment.<br>• Dizziness or persistent exhaustion: stop cutting and contact a clinician.';
+  const ph0 = BP.phaseFor(todayStrEarly()) || BP.phases[0];
+  p.habits.forEach(function(h){
+    if(h.key==='protein') h.sub = ph0.protein+' g / day';
+    if(h.key==='cardio'){ h.name = ph0.cardio+' cardio'; h.sub = 'After lifting'; }
+    ['breakfast','lunch','snack','dinner'].forEach(function(k){ if(h.key===k) h.sub = 'Per Phase '+ph0.n+' plan'; });
+  });
+})();
+function todayStrEarly(){ const d = new Date(); return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
+/* The plan a date follows: Bhargav from 26 Oct 2026 uses the phase plan, everything else the profile's own plan. */
+const _planCache = {};
+function planAt(date){
+  date = date || todayStr();
+  const p = activeProfile, BP = window.BHARGAV_PLAN;
+  if(p && p.id==='bhargav' && BP && BP.active(date)){
+    const r = BP.resolve(date);
+    if(r) return { workouts:r.workouts, weekSchedule:r.weekSchedule, restDayNotes:r.restDayNotes, phase:r.phase, deload:r.deload, legacy:false };
+  }
+  return { workouts:p.workouts, weekSchedule:p.weekSchedule, restDayNotes:p.restDayNotes, phase:null, deload:null, legacy:true };
+}
+/* every exercise of every version of the plan (old + all phases), for lists that span all history */
+function mergedWorkouts(){
+  const out = {}, BP = window.BHARGAV_PLAN;
+  Object.keys(activeProfile.workouts).forEach(function(d){ out[d] = (activeProfile.workouts[d]||[]).slice(); });
+  if(activeProfile.id==='bhargav' && BP){
+    const all = BP.allWorkouts();
+    Object.keys(all).forEach(function(d){ out[d] = (out[d]||[]).concat(all[d]); });
+  }
+  return out;
+}
+
+/* =====================================================================
    PROGRAM START DATE — editable. We snapshot the original hardcoded
    dates once at load, so shifting the start date always computes from
    that fixed baseline (never from an already-shifted value), which
@@ -1887,7 +1974,7 @@ function effectiveDayFor(date){
 // the weekSchedule entry a date follows (a swapped rest day gets a plain one)
 function scheduleEntryFor(date){
   if(isRestOverride(date)) return {main:'Rest day', purpose:'Swapped for this day only', cardio:'Recover — a walk if you like', status:'Rest'};
-  return activeProfile.weekSchedule[effectiveDayFor(date)];
+  return planAt(date).weekSchedule[effectiveDayFor(date)];
 }
 function weekDatesMonFirst(){
   const t = new Date(todayStr()+'T00:00:00'); const off = (t.getDay()+6)%7; const out = {};
@@ -1901,12 +1988,13 @@ function openSwapWorkout(date){
   const p = activeProfile, scheduled = dayNameFor(date), current = isRestOverride(date) ? '__rest' : effectiveDayFor(date);
   const mount = document.getElementById('preview-modal-mount');
   const order = ['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'];
-  const keys = Object.keys(p.workouts).sort(function(a,b){ return order.indexOf(a)-order.indexOf(b); });
+  const pl = planAt(date);
+  const keys = Object.keys(pl.workouts).sort(function(a,b){ return order.indexOf(a)-order.indexOf(b); });
   const opt = function(val, label, sub, active){
     return '<button type="button" class="swap-opt'+(active?' active':'')+'" data-swap="'+val+'"><b>'+label+'</b><span>'+sub+'</span></button>';
   };
   const rows = keys.map(function(dn){
-    const s = p.weekSchedule[dn]; const rest = !(p.workouts[dn]||[]).length;
+    const s = pl.weekSchedule[dn]; const rest = !(pl.workouts[dn]||[]).length;
     return opt(dn, dn+(dn===scheduled?' (planned)':''), (s?s.main:'')+(rest?' · rest':''), current===dn);
   }).join('')
     + opt('__rest', 'Rest day', 'Skip training for this day only', current==='__rest');
@@ -2022,7 +2110,7 @@ async function getTargetsOverride(){
   try{ const doc = await targetsOverrideDoc().get(); return doc.exists ? (doc.data()||{}) : {}; }catch(e){ return {}; }
 }
 async function saveTargetOverride(label, num){
-  try{ await targetsOverrideDoc().set({[label]: num}, {merge:true}); return true; }catch(e){ return false; }
+  try{ const upd = {[label]: num}; if(activeProfile.fixedPlan && window.BHARGAV_PLAN){ const ph = window.BHARGAV_PLAN.phaseFor(todayStr()); if(ph) upd['__ph_'+label] = ph.n; } await targetsOverrideDoc().set(upd, {merge:true}); return true; }catch(e){ return false; }
 }
 function wireTodayTargetEdits(){
   document.querySelectorAll('#today-target-bars .tg-edit').forEach(function(btn){
@@ -2052,7 +2140,7 @@ async function renderTodayTargets(){
   const panel = document.getElementById('today-targets-panel');
   if(!wrap || !panel) return;
   const p = activeProfile;
-  const defs = p.dietTargets || [];
+  const defs = (p.dietTargetsFor ? p.dietTargetsFor(todayStr()) : p.dietTargets) || [];
   if(!defs.length){ panel.style.display = 'none'; return; }
   panel.style.display = '';
   const today = todayStr();
@@ -2077,7 +2165,9 @@ async function renderTodayTargets(){
   wrap.innerHTML = defs.map(function(t){
     const unit = TARGET_UNITS[t.label];
     const defaultNum = parseTargetNumber(t.val);
-    const targetNum = (override[t.label]!=null) ? override[t.label] : defaultNum;
+    const phN = (window.BHARGAV_PLAN && p.fixedPlan && window.BHARGAV_PLAN.phaseFor(today)) ? window.BHARGAV_PLAN.phaseFor(today).n : null;
+    const ovOk = override[t.label]!=null && (!p.fixedPlan || override['__ph_'+t.label]===phN);
+    const targetNum = ovOk ? override[t.label] : defaultNum;
     const current = liveVal[t.label];
     if(current==null || unit==null || !targetNum){
       return '<div class="target-row" data-label="'+escHtml(t.label)+'"><span class="tg-name">'+escHtml(t.label)+'</span><span></span><span class="tg-plain">'+escHtml(t.val)+'</span></div>';
@@ -2099,15 +2189,15 @@ async function renderDashboard(){
   renderTodayTargets().catch(function(e){ console.error('renderTodayTargets failed', e); });
   const today = todayStr();
   const total = daysBetween(p.program.startDate, p.program.endDate);
-  const elapsed = Math.max(0, Math.min(total, daysBetween(p.program.startDate, today)));
+  const elapsed = Math.max(0, Math.min(total, daysBetween(p.program.startDate, today) + (p.fixedPlan && today>=p.program.startDate ? 1 : 0)));
   document.getElementById('stat-progday').innerHTML = elapsed+'<small>/ '+total+'</small>';
   // Compact phase readout, right in the tile — just "P<n> · <name>", no
   // separate expanded card. The ✎ opens the small inline start-date form
   // below the metrics row (wired via delegation in wireStartDateControls).
   const phaseText = p.phases
-    ? (function(){ const ph = phaseForDate(today) || p.phases[p.phases.length-1]; return 'P'+ph.n+' · '+ph.name; })()
+    ? (function(){ if(p.fixedPlan && today < p.program.startDate) return 'Starts '+fmtHuman(p.program.startDate); const ph = phaseForDate(today) || p.phases[p.phases.length-1]; return 'P'+ph.n+' · '+ph.name; })()
     : (today < p.program.startDate ? 'Starts '+fmtHuman(p.program.startDate) : 'Ends '+fmtHuman(p.program.endDate));
-  document.getElementById('stat-progday-foot').innerHTML = escHtml(phaseText)+' <button type="button" class="edit-start-btn tg-edit" title="Change start date">✎</button>';
+  document.getElementById('stat-progday-foot').innerHTML = escHtml(phaseText)+(activeProfile.fixedPlan?'':' <button type="button" class="edit-start-btn tg-edit" title="Change start date">✎</button>');
 
   const daily = await listDaily();
   let latestWeight = null;
@@ -2233,7 +2323,7 @@ function readinessFor(log){
 }
 async function renderFitnessCommand(todayLog, sched){
   const date = todayStr(), day = effectiveDayFor(date);
-  const planned = isRestOverride(date) ? [] : visibleExercises((activeProfile.workouts && activeProfile.workouts[day]) || [], day, date).concat(customExercisesFor(day));
+  const planned = isRestOverride(date) ? [] : visibleExercises((planAt(date).workouts && planAt(date).workouts[day]) || [], day, date).concat(customExercisesFor(day));
   const saved = await getLift(date, 'regular:'+day);
   const ready = readinessFor(todayLog);
   const completed = saved?.exercises?.length || 0, total = planned.length;
@@ -2346,10 +2436,10 @@ function scienceOrderedExercises(list){
 }
 function openWorkoutPreview(dayKey){
   const p = activeProfile;
-  const defaultExercises = visibleExercises((p.workouts && p.workouts[dayKey]) || [], dayKey, todayStr());
+  const defaultExercises = visibleExercises((planAt(todayStr()).workouts[dayKey]) || [], dayKey, todayStr());
   const customList = customExercisesFor(dayKey).map(e=>Object.assign({}, e, {custom:true}));
   const ordered = scienceOrderedExercises(defaultExercises.concat(customList));
-  const s = p.weekSchedule ? p.weekSchedule[dayKey] : null;
+  const s = planAt(todayStr()).weekSchedule[dayKey] || null;
   const mount = document.getElementById('preview-modal-mount');
   if(!ordered.length){
     mount.innerHTML = `<div class="preview-overlay" id="preview-overlay"><div class="preview-sheet">
@@ -2522,7 +2612,7 @@ document.querySelectorAll('.mode-btn').forEach(btn=>{
   });
 });
 
-function activeWorkoutSet(){ return liftMode === 'period' ? activeProfile.periodWorkouts : activeProfile.workouts; }
+function activeWorkoutSet(date){ return liftMode === 'period' ? activeProfile.periodWorkouts : planAt(date || (document.getElementById('lift-date') && document.getElementById('lift-date').value) || todayStr()).workouts; }
 
 function renderDayPicker(){
   const picker = document.getElementById('lift-day-picker');
@@ -2541,7 +2631,7 @@ function renderDayPicker(){
     const swappedHere = swapped && dn===ownDay;
     const target = swappedHere ? effDay : dn;
     if(swappedHere){
-      const sc = activeProfile.weekSchedule && activeProfile.weekSchedule[effDay];
+      const sc = planAt(pickDate).weekSchedule[effDay];
       chip.innerHTML = dn+'<span class="day-chip-rest-tag">'+(sc?sc.main:effDay)+' · from '+effDay.slice(0,3)+'</span>';
     }else chip.innerHTML = restNotes[dn] ? dn+'<span class="day-chip-rest-tag">'+restNotes[dn]+'</span>' : dn;
     if(swappedHere ? currentLiftDay===effDay : (dn === currentLiftDay && !(swapped && dn===effDay))) chip.classList.add('active');
@@ -2557,11 +2647,61 @@ function renderDayPicker(){
     document.getElementById('lift-rules').innerHTML = swapped ?
       `<div class="empty-note">${ownDay} is following ${effDay}'s workout — this day only. Change it with “Swap today” on the Today tab.</div>` : restNote ?
       `<div class="empty-note">${scheduledDay} is normally a ${restNote.toLowerCase()} — pick it above only if you're choosing to log a workout anyway.</div>` :
-      (activeProfile.workouts[scheduledDay] ? '' :
+      (planAt(document.getElementById('lift-date').value || todayStr()).workouts[scheduledDay] ? '' :
       `<div class="empty-note">${scheduledDay} is a scheduled rest / recovery day. Pick a day above to log anyway.</div>`);
   } else {
     document.getElementById('lift-rules').innerHTML='';
   }
+}
+
+/* ---------------- Phase banner, warm-up and cool-down (Bhargav's phase plan) ----------------
+   Warm-up ticks live in profiles/{id}/meta/warmups ({byDate:{date:{done:[...]}}}) - deliberately NOT inside the
+   workout log, so a warm-up never shows up as a "workout" in History or Analytics. */
+let warmupCache = null;
+function warmupsDoc(){ return db.collection('users').doc(currentUser.uid).collection('profiles').doc(activeProfile.id).collection('meta').doc('warmups'); }
+async function loadWarmups(){
+  if(warmupCache) return warmupCache;
+  try{ const d = await warmupsDoc().get(); warmupCache = (d.exists && d.data().byDate) || {}; }catch(e){ warmupCache = {}; }
+  return warmupCache;
+}
+let _wuSaveT = null;
+function saveWarmup(date, done){
+  warmupCache = warmupCache || {};
+  if(done.length) warmupCache[date] = {done:done}; else delete warmupCache[date];
+  const cut = addDaysStr(todayStr(), -150);
+  Object.keys(warmupCache).forEach(function(k){ if(k<cut) delete warmupCache[k]; });
+  clearTimeout(_wuSaveT);
+  _wuSaveT = setTimeout(function(){ warmupsDoc().set({byDate:warmupCache}).catch(function(e){ console.error('warmup save', e); }); }, 450);
+}
+function planExtrasHtml(date, dayKey, allLifts){
+  const BP = window.BHARGAV_PLAN, pl = planAt(date);
+  if(pl.legacy || liftMode!=='regular' || !BP) return {top:'', bottom:''};
+  const ph = pl.phase, dl = pl.deload;
+  const banner = '<div class="plan-banner"><div class="pb-top"><b>Phase '+ph.n+' · '+escHtml(ph.name)+'</b>'+(dl?'<span class="pb-chip">'+escHtml(dl.label)+'</span>':'')+'</div>'
+    +'<div class="pb-sub">'+(dl ? (dl.taper ? 'Taper: no top sets, half the sets, weights 10–15% lighter, 3–4 reps in reserve.' : 'Deload: half the sets, weights 10–15% lighter, at least 4 reps in reserve, no top sets.') : escHtml(ph.effort)+'.')
+    +' Cardio '+(dl?'15–20 min easy':escHtml(ph.cardio))+' · steps '+escHtml(ph.steps)+'.</div></div>';
+  const idx = new Set((allLifts||[]).filter(function(w){ return w.date>=BP.effective && w.date<date && (w.exercises||[]).some(function(e){ return (e.sets||[]).length; }); }).map(function(w){ return w.date; })).size + 1;
+  const wu = BP.warmupFor(date, dayKey, idx);
+  if(!wu) return {top:banner, bottom:''};
+  const done = new Set(((warmupCache||{})[date]||{}).done || []);
+  const rows = [{id:'sn', label:'Surya Namaskar — '+wu.rounds+' round'+(wu.rounds==='1'?'':'s'), sub:wu.roundsNote}].concat(wu.items.map(function(t,i){ return {id:'i'+i, label:t, sub:''}; }));
+  const doneCount = rows.filter(function(r){ return done.has(r.id); }).length;
+  const warm = '<details class="warmup-card" id="warmup-card" data-date="'+date+'"'+(doneCount===rows.length?'':' open')+'><summary>Warm-up <span class="wu-count" id="wu-count">'+doneCount+'/'+rows.length+' done</span></summary><div class="wu-body">'
+    + rows.map(function(r){ return '<label class="wu-row'+(done.has(r.id)?' done':'')+'"><input type="checkbox" data-wu="'+r.id+'"'+(done.has(r.id)?' checked':'')+'><span>'+escHtml(r.label)+(r.sub?'<small>'+escHtml(r.sub)+'</small>':'')+'</span></label>'; }).join('')
+    + '<div class="wu-note">'+escHtml(wu.prep)+' Warm-ups never go near failure.</div></div></details>';
+  const cool = '<details class="cooldown-card"><summary>Cool-down after cardio</summary><div class="wu-body"><div class="wu-note" style="margin-top:0"><b>'+escHtml(wu.cool)+'.</b> '+escHtml(wu.coolNote)+'</div></div></details>';
+  return {top:banner+warm, bottom:cool};
+}
+function wireWarmup(container, date){
+  const card = container.querySelector('#warmup-card'); if(!card) return;
+  card.querySelectorAll('input[data-wu]').forEach(function(cb){
+    cb.addEventListener('change', function(){
+      cb.closest('.wu-row').classList.toggle('done', cb.checked);
+      const all = [...card.querySelectorAll('input[data-wu]')], done = all.filter(function(x){ return x.checked; }).map(function(x){ return x.dataset.wu; });
+      const cnt = card.querySelector('#wu-count'); if(cnt) cnt.textContent = done.length+'/'+all.length+' done';
+      saveWarmup(date, done);
+    });
+  });
 }
 
 let renderListSeq = 0;
@@ -2571,14 +2711,14 @@ async function renderExerciseList(date, dayKey){
   const container = document.getElementById('exercise-list');
   const seq = ++renderListSeq;
   container.innerHTML = '<div class="empty-note">Loading...</div>';
-  const set = activeWorkoutSet();
+  const set = activeWorkoutSet(date);
   const exercises = set[dayKey];
   if(!exercises){ container.innerHTML = '<div class="empty-note">No workout for this selection.</div>'; document.getElementById('recovery-notice').innerHTML=''; renderLiveSessionBar(); return; }
 
   renderCardio(date, dayKey);
 
   const cardioMap = liftMode === 'period' ? activeProfile.periodCardio : null;
-  const [existing, allLifts] = await Promise.all([getLift(date, liftMode+':'+dayKey), listLift()]);
+  const [existing, allLifts] = await Promise.all([getLift(date, liftMode+':'+dayKey), listLift(), loadWarmups()]);
   if(seq !== renderListSeq) return; // a newer render has started — let it win
   const savedExFor = (id) => existing?.exercises?.find(e=>e.id===id);
 
@@ -2590,6 +2730,8 @@ async function renderExerciseList(date, dayKey){
     container.appendChild(note);
   }
 
+  const extras = planExtrasHtml(date, dayKey, allLifts);
+  if(extras.top){ const topWrap = document.createElement('div'); topWrap.innerHTML = extras.top; while(topWrap.firstChild) container.appendChild(topWrap.firstChild); }
   const customList = customExercisesFor(dayKey).map(e=>Object.assign({}, e, {custom:true}));
   const hiddenHere = exercises.filter(function(e){ return exerciseHiddenFor(e.id, dayKey, date); });
   let allExercises = visibleExercises(exercises, dayKey, date).concat(customList);
@@ -2602,7 +2744,7 @@ async function renderExerciseList(date, dayKey){
     const unit = unitForExercise(ex.id);
     const group = muscleGroupFor(ex);
     const card = document.createElement('div');
-    card.className = 'ex-card'; card.dataset.exid = ex.id;
+    card.className = 'ex-card'; card.dataset.exid = ex.id; if(ex.topSet) card.dataset.topset = '1';
     card.dataset.lastSets = JSON.stringify((last && last.ex && last.ex.sets) || []);
     card.dataset.prior = JSON.stringify(collectPriorSets(ex.id, date, allLifts, ex.name));
     card.dataset.baseRest = ex.rest || 60;
@@ -2621,7 +2763,7 @@ async function renderExerciseList(date, dayKey){
       const ph = lastSet ? `${lastSet.weight||''}` : '', phR = lastSet ? `${lastSet.reps||''}` : '';
       const lastCellText = lastTimeCellText(lastSet);
       rowsHtml += `<tr>
-        <td class="set-num">${i+1}</td>
+        <td class="set-num${ex.topSet&&i===0?' top':''}">${ex.topSet ? (i===0?'Top':'B'+i) : i+1}</td>
         <td class="last-time-cell">${lastCellText}</td>
         <td><input type="number" step="${unit==='kg'?'0.5':'2.5'}" class="inp-weight" value="${w}" placeholder="${ph}"></td>
         <td><input type="number" class="inp-reps" value="${r}" placeholder="${phR}"></td>
@@ -2632,7 +2774,8 @@ async function renderExerciseList(date, dayKey){
     }
     const repRangeText = (ex.repMin!=null && ex.repMax!=null) ? (ex.repMin === ex.repMax ? `${ex.repMin} ${ex.repUnit||'reps'}` : `${ex.repMin}–${ex.repMax} ${ex.repUnit||'reps'}`) : '';
     const metaBits = [];
-    if(ex.sets) metaBits.push(`${ex.sets} sets`+(repRangeText?` × ${repRangeText}`:''));
+    if(ex.planText) metaBits.push(ex.planText);
+    else if(ex.sets) metaBits.push(`${ex.sets} sets`+(repRangeText?` × ${repRangeText}`:''));
     else if(repRangeText) metaBits.push(repRangeText);
     if(ex.equip) metaBits.push(ex.equip);
     if(ex.target) metaBits.push('target '+ex.target);
@@ -2674,6 +2817,8 @@ async function renderExerciseList(date, dayKey){
     `;
     container.appendChild(card);
   }
+  if(extras.bottom){ const botWrap = document.createElement('div'); botWrap.innerHTML = extras.bottom; while(botWrap.firstChild) container.appendChild(botWrap.firstChild); }
+  wireWarmup(container, date);
   wireExerciseCardHandlers(container, date, dayKey, orderKey);
   // Badge any already-saved sets that were PRs when they were logged.
   container.querySelectorAll('.ex-card').forEach(card=> card.querySelectorAll('tbody tr').forEach(tr=> evaluatePR(card, tr, false)));
@@ -2789,7 +2934,7 @@ function wireExerciseCardHandlers(container, date, dayKey, orderKey){
       renderExerciseList(document.getElementById('lift-date').value || todayStr(), currentLiftDay);
     });
   });
-  const hiddenHere = ((activeWorkoutSet()||{})[dayKey]||[]).filter(function(e){ return exerciseHiddenFor(e.id, dayKey, date); });
+  const hiddenHere = ((activeWorkoutSet(date)||{})[dayKey]||[]).filter(function(e){ return exerciseHiddenFor(e.id, dayKey, date); });
   container.querySelectorAll('[data-removeplan]').forEach(btn=>{
     btn.addEventListener('click', ()=> openRemoveExercise(btn.dataset.removeplan, btn.dataset.exname, dayKey, date));
   });
@@ -2854,7 +2999,7 @@ function wireDeleteSetButton(btn){
 function refreshSetNumbersAndLastTime(card){
   const lastSets = JSON.parse(card.dataset.lastSets || '[]');
   card.querySelectorAll('tbody tr').forEach((row,i)=>{
-    row.querySelector('.set-num').textContent = i+1;
+    row.querySelector('.set-num').textContent = card.dataset.topset==='1' ? (i===0?'Top':'B'+i) : i+1;
     const lastSet = lastSets[i];
     const cell = row.querySelector('.last-time-cell');
     if(cell) cell.textContent = lastTimeCellText(lastSet);
@@ -3078,7 +3223,7 @@ document.getElementById('cardio-watch-toggle').addEventListener('click', functio
 });
 document.getElementById('cardio-effort').innerHTML = effortOptionsHtml('');
 function renderCardio(date, dayKey){
-  const schedule = activeProfile.weekSchedule ? activeProfile.weekSchedule[dayKey] : null;
+  const schedule = planAt(date).weekSchedule[dayKey] || null;
   const targetText = (liftMode==='period')
     ? (activeProfile.periodCardio ? activeProfile.periodCardio[dayKey] : '')
     : (schedule ? schedule.cardio : '');
@@ -3500,6 +3645,7 @@ async function loadLiveDietData(){
     const doc = await dietStateDoc().get();
     dietStateLive = (doc.exists && doc.data().json) ? JSON.parse(doc.data().json) : null;
     const profileId = activeProfile.id; // 'bhargav' / 'anusha' — matches Diet's own profileId values exactly
+    if(dietStateLive && activeProfile.id==='bhargav' && window.BHARGAV_PLAN){ try{ window.BHARGAV_PLAN.applyDietPhase(dietStateLive, todayStr()); }catch(e){} } // display-only: Diet itself saves the switch when opened
     dietFoodsLive = dietStateLive ? (dietStateLive.foods||[]) : null;
     dietRecipesLive = dietStateLive ? (dietStateLive.recipes||[]) : null;
     dietMealsLive = dietStateLive ? (dietStateLive.meals||[]).filter(function(m){ return m.profileId===profileId; }) : null;
@@ -3753,9 +3899,10 @@ async function renderDietToday(){
 async function renderDiet(){
   const p = activeProfile;
   renderDietToday().catch(function(e){ console.error('renderDietToday failed', e); });
-  document.getElementById('diet-title').textContent = p.id === 'bhargav' ? 'Phase 1 Diet' : 'Daily Diet Plan';
+  const _bph = (p.id==='bhargav' && window.BHARGAV_PLAN) ? (window.BHARGAV_PLAN.phaseFor(todayStr()) || window.BHARGAV_PLAN.phases[0]) : null;
+  document.getElementById('diet-title').textContent = p.id === 'bhargav' ? ('Phase '+(_bph?_bph.n:1)+' Diet'+(_bph?' · '+_bph.name:'')) : 'Daily Diet Plan';
   document.getElementById('diet-sub').textContent = p.id === 'bhargav'
-    ? fmtHuman(p.phases[0].start).replace(', 2026','')+' – '+fmtHuman(p.phases[0].end)+' · All rice and dal weights are cooked weights.'
+    ? (_bph ? fmtHuman(_bph.start).replace(', 2026','')+' – '+fmtHuman(_bph.end)+' · '+_bph.cal.toLocaleString('en-US')+' kcal · '+_bph.protein+' g protein · rice, dal and yogurt are weighed as eaten.' : '')
     : 'Same foods, portioned for the goal — five meals, spaced through the day.';
 
   const wrap = document.getElementById('diet-meals');
@@ -3790,10 +3937,13 @@ async function renderDiet(){
           if(!f) return null;
           return n2gym(it.qty)+' '+it.unit+' '+f.name;
         }).filter(Boolean);
-        return { name:r.name, qty:(r.servings||1)===1?'1 serving':n2gym(r.servings)+'× servings', cal:Math.round(mac.cal), protein:mac.protein, isRecipe:true, ingredients:ingredients, instructions:r.method||'' };
+        return { name:r.name, qty:(r.servings||1)===1?'1 serving':n2gym(r.servings)+'× servings', cal:Math.round(mac.cal), protein:mac.protein, isRecipe:true, ingredients:ingredients, instructions:r.method||'', group:r.group||null };
       }).filter(Boolean);
-      const calSub = items.reduce((s,i)=>s+i.cal,0);
-      const proSub = items.reduce((s,i)=>s+i.protein,0);
+      // "pick one" options (e.g. the three snack fruits) count once, not all together
+      const _seenGroups = {};
+      const counted = items.filter(function(i){ if(!i.group) return true; if(_seenGroups[i.group]) return false; _seenGroups[i.group]=true; return true; });
+      const calSub = counted.reduce((s,i)=>s+i.cal,0);
+      const proSub = counted.reduce((s,i)=>s+i.protein,0);
       grandCal += calSub; grandProtein += proSub;
       const block = document.createElement('div');
       block.className='meal-block';
@@ -3845,7 +3995,7 @@ async function renderDiet(){
 
   if(p.phases){
     document.getElementById('roadmap-wrap').style.display='block';
-    document.getElementById('roadmap-table').innerHTML = `<tr><th>Phase</th><th>Dates</th><th>Target</th><th>Body-fat</th><th>Nutrition</th><th>Training</th></tr>` +
+    document.getElementById('roadmap-table').innerHTML = `<tr><th>Phase</th><th>Dates</th><th>Projected weight</th><th>Kcal · Protein</th><th>Carbs · Fat</th><th>Training</th></tr>` +
       p.phases.map(ph=>`<tr><td>P${ph.n} — ${ph.name}</td><td>${ph.start} → ${ph.end}</td><td>${ph.target}</td><td>${ph.bf}</td><td>${ph.nutrition}</td><td>${ph.training}</td></tr>`).join('');
     document.getElementById('plateau-table').innerHTML = `<tr><th>Step</th><th>Definition / Action</th><th>Calories</th><th>Hold</th><th>Reason</th></tr>` +
       p.plateauRules.map(r=>`<tr><td>${r.step}</td><td>${r.def}</td><td>${r.cal}</td><td>${r.hold}</td><td>${r.reason}</td></tr>`).join('');
@@ -3948,7 +4098,8 @@ async function renderAnalytics(){
   // schedule — Tuesday/Saturday are intentionally empty by default (rest
   // days you can still log a custom exercise on), so they'd otherwise
   // vanish from analytics the moment something's actually logged there.
-  const workoutDays = Object.keys(activeProfile.workouts);
+  const allWk = mergedWorkouts();
+  const workoutDays = Object.keys(allWk);
   const orderedDays = DAY_NAMES.filter(d=>workoutDays.includes(d));
   const periodOption = (activeProfile.periodWorkouts && Object.keys(activeProfile.periodWorkouts).length) ? ['Period'] : [];
   const dayOptions = ['All'].concat(orderedDays).concat(periodOption);
@@ -3960,7 +4111,7 @@ async function renderAnalytics(){
     // let both slots through as if they were different exercises.
     if(day==='All'){
       const all = [];
-      const groups = [Object.values(activeProfile.workouts)];
+      const groups = [Object.values(allWk)];
       if(activeProfile.periodWorkouts) groups.push(Object.values(activeProfile.periodWorkouts));
       groups.forEach(group => group.forEach(list => list.forEach(e => { if(!all.find(x=>exKey(x.name)===exKey(e.name))) all.push(e); })));
       // Custom exercises live outside the default schedule entirely — a
@@ -3974,7 +4125,7 @@ async function renderAnalytics(){
       Object.values(activeProfile.periodWorkouts||{}).forEach(list => list.forEach(e => { if(!all.find(x=>exKey(x.name)===exKey(e.name))) all.push(e); }));
       return all;
     }
-    const dayList = (activeProfile.workouts[day] || []).concat(customExercisesFor(day));
+    const dayList = (allWk[day] || []).concat(customExercisesFor(day));
     const seen = [];
     return dayList.filter(e=>{ const k=exKey(e.name); if(seen.includes(k)) return false; seen.push(k); return true; });
   }
@@ -5727,8 +5878,9 @@ async function renderProgressExtras(){
    INIT
 ===================================================================== */
 async function init(){
+  warmupCache = null;
   const savedStart = await getStartOverride(activeProfile.id);
-  if(savedStart && savedStart !== activeProfile.program.startDate) applyStartDateOverride(activeProfile.id, savedStart);
+  if(savedStart && savedStart !== activeProfile.program.startDate && !activeProfile.fixedPlan) applyStartDateOverride(activeProfile.id, savedStart);
   wireStartDateControls();
   document.getElementById('header-b2').textContent = activeProfile.brand.b2;
   const today = todayStr();
@@ -5747,7 +5899,7 @@ async function init(){
   // up where it was — unless it's stale (> 18 h old).
   let live = readLive();
   if(live && (!live.startedAt || Date.now()-live.startedAt > 18*3600*1000)){ writeLive(null); live = null; }
-  const resume = live && live.profileId===activeProfile.id && activeWorkoutSetFor(live.mode||'regular') && activeWorkoutSetFor(live.mode||'regular')[live.day];
+  const resume = live && live.profileId===activeProfile.id && activeWorkoutSetFor(live.mode||'regular', live.date) && activeWorkoutSetFor(live.mode||'regular', live.date)[live.day];
   if(resume){
     applyLiftMode(live.mode||'regular');
     currentLiftDay = live.day;
@@ -5760,7 +5912,7 @@ async function init(){
   await renderDashboard();
   if(resume && live.floor) openFloorMode();
 }
-function activeWorkoutSetFor(mode){ return mode === 'period' ? activeProfile.periodWorkouts : activeProfile.workouts; }
+function activeWorkoutSetFor(mode, date){ return mode === 'period' ? activeProfile.periodWorkouts : planAt(date || todayStr()).workouts; }
 
 if('serviceWorker' in navigator){
   // Service worker is registered once from the hub page (../index.html); its

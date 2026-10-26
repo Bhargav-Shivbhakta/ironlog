@@ -11,6 +11,7 @@
 <script src="../assets/firebase-config.js"></script>
 <script src="../assets/theme.js"></script>
 <script src="../assets/fscache.js"></script>
+<script src="../assets/bhargav-plan.js"></script>
 <link rel="stylesheet" href="../assets/motion.css">
 <script src="../assets/motion.js" defer></script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -588,7 +589,19 @@ function selectToday(){selectDate(localToday())}function moveWeek(n){state.weekA
 function copyPreviousDay(){let src=addDaysISO(state.selectedDate,-1),old=state.diary.filter(x=>x.date===src&&x.profileId===state.activeProfile),existingNames=new Set(state.diary.filter(x=>x.date===state.selectedDate&&x.profileId===state.activeProfile).map(x=>x.name)),toCopy=old.filter(x=>!existingNames.has(x.name));if(!old.length)return toast('Previous day has no entries');if(!toCopy.length)return toast('Every meal from the previous day is already on this date');toCopy.forEach((x,i)=>state.diary.push({...clone(x),id:`d-copy-${Date.now()}-${i}`,date:state.selectedDate,status:'planned',note:'Copied from previous day'}));persist();renderAll();toast(`${toCopy.length} meal${toCopy.length===1?'':'s'} copied as planned`)}
 // Each day (today or later) gets the standard meal plan as one-tap "planned" rows the first time it is opened —
 // otherwise a new day looked empty until you dug into the Week tab. Done once per profile+date, so deleting a row sticks.
+/* Bhargav's five-phase plan (assets/bhargav-plan.js): at each phase start his daily goals and menu amounts switch over.
+   Past days, eaten/skipped/replaced entries and Anusha's plan are never touched. */
+function applyBhargavPhase(){
+  try{
+    const BP=window.BHARGAV_PLAN;if(!BP||!state||!state.recipes)return false;
+    if(!BP.applyDietPhase(state,localToday()))return false;
+    persist();
+    try{const ph=BP.phaseFor(localToday());toast('Phase '+ph.n+' menu applied · '+ph.cal.toLocaleString()+' kcal, '+ph.protein+' g protein')}catch(e){}
+    return true;
+  }catch(e){console.warn('phase menu',e);return false}
+}
 function seedPlanForDate(){
+  applyBhargavPhase();
   if(!state.meals||!state.diary)return;const d=state.selectedDate,p=state.activeProfile;if(!d||d<localToday())return;
   state.planSeeded=state.planSeeded||{};const k=p+'|'+d;if(state.planSeeded[k])return;state.planSeeded[k]=true;
   const old=addDaysISO(localToday(),-14);Object.keys(state.planSeeded).forEach(x=>{if(x.split('|')[1]<old)delete state.planSeeded[x]});
@@ -1105,7 +1118,7 @@ async function saveAmounts(){
   // their own copy of "the plan" (Diet has its own calorie/protein goals,
   // Gym has the workout program) rather than one file reaching into the
   // other's source, so this follows the same pattern.
-  const WEIGHT_GOALS={bhargav:{start:98.3,target:77,startDate:'2026-09-02',endDate:'2027-05-21'},anusha:{start:66,target:53,startDate:'2026-09-02',endDate:'2026-12-22'}};
+  const WEIGHT_GOALS={bhargav:{start:94.885,target:76,startDate:'2026-10-26',endDate:'2027-04-15'},anusha:{start:66,target:53,startDate:'2026-09-02',endDate:'2026-12-22'}};
   const ACTIVITY_MULTIPLIERS={desk:1.2,onfeet:1.35,active:1.5};
   const ACTIVITY_LABELS={desk:'Mostly desk / sitting',onfeet:'On your feet sometimes',active:'On your feet most of the day'};
   // Age from a stored birthdate (not a typed-in number) so it never goes

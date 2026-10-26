@@ -1854,7 +1854,7 @@ function heroMessage(m){
    One question: "am I getting where I said I wanted to go?" Goal cards (weight, Pledge, skin plan, food) come first,
    then this week against last week, what's next, a 60-day grid and badges. No animation: every number is a real
    reading from the apps. */
-const INSIGHT_WEIGHT_GOALS={Bhargav:{start:98.3,target:77,startDate:'2026-09-02',endDate:'2027-05-21'},Anusha:{start:66,target:53,startDate:'2026-09-02',endDate:'2026-12-22'}};
+const INSIGHT_WEIGHT_GOALS={Bhargav:{start:94.885,target:76,startDate:'2026-10-26',endDate:'2027-04-15'},Anusha:{start:66,target:53,startDate:'2026-09-02',endDate:'2026-12-22'}};
 const SKIN_PROGRAM_DAYS=151;
 let insightsCurrentM=null;
 const kgFmt=n=>(Math.round(n*10)/10).toFixed(1).replace(/\.0$/,'');
