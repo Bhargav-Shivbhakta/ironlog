@@ -7,6 +7,7 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
 <script src="../assets/firebase-config.js"></script>
+<script src="../assets/bhargav-plan.js"></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -74,6 +75,14 @@ button.stamp:hover{border-color:var(--ember2)}
 .stub .k{font-size:10.5px;font-weight:800;letter-spacing:.18em;text-transform:uppercase;color:var(--ember2)}
 .stub .p{font-family:Fraunces,serif;font-size:22px;line-height:1.15;font-weight:600}
 .stub .s{font-size:12.5px;color:var(--muted)}
+.stub.hasimg{padding:0;gap:0;justify-content:flex-start}
+.stub .pic{height:132px;background-size:cover;background-position:center;position:relative}
+.stub .pic::after{content:"";position:absolute;inset:0;background:linear-gradient(180deg,transparent 45%,rgba(14,13,12,.55))}
+.stub .txt{padding:14px 18px 18px;display:flex;flex-direction:column;gap:5px}
+.stub a.go{color:var(--ember2);font-size:12.5px;font-weight:700;text-decoration:none}.stub a.go:hover{text-decoration:underline}
+.ph{display:flex;gap:12px;align-items:center}
+.ph .pv{width:76px;height:76px;border-radius:12px;border:1px dashed var(--line);background:var(--card2) center/cover no-repeat;flex:none;display:grid;place-items:center;color:var(--faint);font-size:11px;text-align:center}
+.ph .btns{display:flex;gap:8px;flex-wrap:wrap}
 .ticket.earned{border-color:var(--gold)}.ticket.earned .stub{background:linear-gradient(160deg,color-mix(in srgb,var(--gold) 20%,var(--card2)),var(--card2))}
 .ticket.earned .stub .k{color:var(--gold)}
 .ticket.failed{opacity:.9}
@@ -83,6 +92,12 @@ button.stamp:hover{border-color:var(--ember2)}
 .empty{border:1px dashed var(--line);border-radius:var(--r);padding:44px 24px;text-align:center}
 .empty h3{font-size:30px;margin-bottom:8px}.empty p{color:var(--muted);max-width:430px;margin:0 auto 20px}
 details.done-sec summary{cursor:pointer;color:var(--muted);font-weight:700;letter-spacing:.14em;text-transform:uppercase;font-size:13px;margin:26px 0 12px}
+.picks{display:flex;flex-wrap:wrap;gap:7px;align-items:center}
+.pick{background:var(--card2);border:1px solid var(--line);border-radius:999px;padding:7px 13px;font-size:13px;font-weight:600;color:var(--muted)}
+.pick:hover{border-color:var(--faint);color:var(--text)}.pick.on{background:var(--ember);border-color:var(--ember);color:#1a0d05}
+.in.dn{width:84px;padding:7px 10px;border-radius:999px;text-align:center}
+.hint{font-size:12.5px;color:var(--muted);margin-top:8px}
+.grp{margin-bottom:9px}.grp>span{display:block;font-size:10.5px;font-weight:800;letter-spacing:.14em;text-transform:uppercase;color:var(--faint);margin-bottom:5px}
 /* form */
 .scrim{position:fixed;inset:0;background:rgba(5,4,3,.72);backdrop-filter:blur(6px);z-index:50;display:grid;place-items:center;padding:14px}
 .modal{background:var(--card);border:1px solid var(--line);border-radius:22px;width:100%;max-width:520px;max-height:92vh;overflow:auto;padding:24px}
@@ -107,6 +122,7 @@ details.adv summary{cursor:pointer;color:var(--muted);font-size:13px;font-weight
 .load{position:fixed;inset:0;display:grid;place-items:center;background:var(--bg);z-index:90;text-align:center;color:var(--muted)}
 .load b{font-family:Fraunces,serif;font-size:26px;color:var(--text)}
 @media(max-width:700px){
+ .stub .pic{height:150px}
  .wrap{padding:16px 14px 80px}
  .hero{grid-template-columns:1fr;gap:12px}.hero .big{font-size:84px}
  .ticket{grid-template-columns:1fr}.ticket::before,.ticket::after{display:none}
@@ -184,50 +200,102 @@ function paintWho(){$('pB').classList.toggle('on',state.profile==='Bhargav');$('
 const mine=()=>state.pledges.filter(p=>!p.deleted&&p.owner===state.profile);
 
 /* ---------- the maths: ticks out of what was due ---------- */
+const plen=p=>p.length||(p.weeks||4)*7;
+const pend=p=>addDays(p.start,plen(p)-1);
+function weekBlocks(p){const out=[],end=pend(p);for(let s=p.start;s<=end;s=addDays(s,7)){const e=addDays(s,6)>end?end:addDays(s,6);out.push({s,e,n:between(s,e)+1})}return out}
+function weekTicks(p,w){let t=0;for(let d=w.s;d<=w.e;d=addDays(d,1))if(p.log[d])t++;return t}
 function calc(p){
-  const T=today(),end=addDays(p.start,p.weeks*7-1);
-  let totalDue=0,done=0,missed=0,left=0;
-  for(let d=p.start;d<=end;d=addDays(d,1)){
-    if(!p.days.includes(dow(d)))continue;
-    totalDue++;
-    if(p.log[d])done++;else if(d<T)missed++;else left++;
+  const T=today(),end=pend(p),allowed=p.misses||0,daysLeft=Math.max(0,between(T,end)+1);
+  let totalDue=0,done=0,missed=0,left=0,streak=0;
+  if(p.mode==='milestone'){
+    const reached=Object.keys(p.log).length>0;
+    const status=p.claimed?'claimed':reached?'earned':T>end?'failed':'active';
+    return{end,totalDue:1,done:reached?1:0,missed:0,left:reached?0:1,allowed:0,status,streak:0,daysLeft,need:reached?0:1,unit:'day',milestone:true};
   }
-  const allowed=p.misses||0;let status='active';
+  if(p.mode==='perweek'){
+    const need=Math.max(1,p.perWeek||1);let run=0;
+    weekBlocks(p).forEach(w=>{
+      const q=Math.min(need,w.n),t=weekTicks(p,w);
+      totalDue+=q;done+=Math.min(q,t);
+      if(w.e<T){missed+=Math.max(0,q-t);run=t>=q?run+1:0}
+      else if(w.s<=T){const rem=between(T,w.e)+1,gap=Math.max(0,q-t);if(gap>rem)missed+=gap-rem;left+=gap;if(t>=q)run++}
+      else left+=q;
+    });
+    streak=run;
+  }else{
+    for(let d=p.start;d<=end;d=addDays(d,1)){
+      if(!p.days.includes(dow(d)))continue;
+      totalDue++;
+      if(p.log[d])done++;else if(d<T)missed++;else left++;
+    }
+    for(let d=T>end?end:T;d>=p.start;d=addDays(d,-1)){
+      if(!p.days.includes(dow(d)))continue;
+      if(p.log[d])streak++;else if(d===T)continue;else break;
+    }
+  }
+  let status='active';
   if(p.claimed)status='claimed';
   else if(totalDue&&done>=Math.max(1,totalDue-allowed))status='earned';
   else if(missed>allowed)status='failed';
-  let streak=0;
-  for(let d=T>end?end:T;d>=p.start;d=addDays(d,-1)){
-    if(!p.days.includes(dow(d)))continue;
-    if(p.log[d])streak++;else if(d===T)continue;else break;
-  }
-  return{end,totalDue,done,missed,left,allowed,status,streak,daysLeft:Math.max(0,between(T,end)+1),need:Math.max(0,Math.max(1,totalDue-allowed)-done)};
+  return{end,totalDue,done,missed,left,allowed,status,streak,daysLeft,need:Math.max(0,Math.max(1,totalDue-allowed)-done),unit:p.mode==='perweek'?'week':'day'};
 }
-function isDue(p,d){return d>=p.start&&d<=addDays(p.start,p.weeks*7-1)&&p.days.includes(dow(d))}
+function inWindow(p,d){return d>=p.start&&d<=pend(p)}
+function isDue(p,d){if(!inWindow(p,d))return false;if(p.mode==='milestone')return false;if(p.mode==='perweek')return true;return p.days.includes(dow(d))}
+/* counts toward "kept today": still has something to do (or did it) today */
+function dueToday(p,T){
+  if(!isDue(p,T))return false;
+  if(p.mode==='perweek'){if(p.log[T])return true;const w=weekBlocks(p).find(x=>T>=x.s&&T<=x.e);return !!w&&weekTicks(p,w)<Math.min(Math.max(1,p.perWeek||1),w.n)}
+  return true;
+}
 
 /* ---------- linked sources: read the other apps ---------- */
 const SRC={
-  schedule:{label:'A Schedule block',sub:'Ticks when you tick it in Schedule'},
-  gym:{label:'A Gym session',sub:'Ticks when you log a workout'},
-  weigh:{label:'Weigh-in',sub:'Ticks when you log your weight'},
-  water:{label:'Water goal',sub:'Ticks when you reach your goal'},
-  diet:{label:'Diet',sub:'Ticks when every planned meal is eaten'},
-  chore:{label:'A chore',sub:'Ticks when that chore is done'}
+  schedule:{g:'Schedule',label:'One block',sub:'Ticks when you tick that block in Schedule'},
+  daypct:{g:'Schedule',label:'Whole day',sub:'Ticks when enough of the day\'s blocks are done',p:'pct'},
+  morning:{g:'Schedule',label:'Morning blocks',sub:'Ticks when every block before your cut-off time is done',p:'before'},
+  gym:{g:'Gym',label:'Session',sub:'Ticks when you log a workout'},
+  cardio:{g:'Gym',label:'Cardio',sub:'Ticks when you log a cardio session'},
+  volume:{g:'Gym',label:'Lift more than last time',sub:'Ticks when your total lifted beats your last session of the same day'},
+  weigh:{g:'Gym',label:'Weigh-in',sub:'Ticks when you log your weight'},
+  pace:{g:'Gym',label:'On weight pace',sub:'Ticks when your 7-day average weight is on or under the plan line'},
+  weightgoal:{g:'Gym',label:'Reach a weight',sub:'One milestone: get to your target weight'},
+  steps:{g:'Gym',label:'Steps',sub:'Ticks when you reach your step count',p:'steps'},
+  diet:{g:'Diet',label:'All meals',sub:'Ticks when every planned meal is eaten'},
+  protein:{g:'Diet',label:'Protein target',sub:'Ticks when you reach 90% or more of that day\'s protein goal'},
+  calories:{g:'Diet',label:'Calorie range',sub:'Ticks when a finished day lands within about 88–106% of the calorie target'},
+  skin:{g:'Skin',label:'Any step',sub:'Ticks when you do a routine step'},
+  skinfull:{g:'Skin',label:'Full routine',sub:'Ticks when you match your fullest routine day'},
+  chore:{g:'Home',label:'One chore',sub:'Ticks when that chore is done'},
+  chores_all:{g:'Home',label:'All chores due',sub:'Ticks when every chore due that day is done'},
+  todo:{g:'Home',label:'To-do all done',sub:'Ticks when everything due that day is done'},
+  todon:{g:'Home',label:'Finish N tasks',sub:'Ticks when you finish at least N tasks that day',p:'n'},
+  water:{g:'Home',label:'Water goal',sub:'Ticks when you reach your usual water goal'},
+  watern:{g:'Home',label:'Water amount',sub:'Ticks when you drink at least a set number of litres',p:'litres'},
+  overall:{g:'Overall',label:'Overall score',sub:'Ticks when your Insights overall score is high enough (updates when you open Insights)',p:'opct'}
 };
+const SRC_GROUPS=['Schedule','Gym','Diet','Skin','Home','Overall'];
 function srcText(s){
   if(!s)return'';
-  if(s.type==='schedule')return'Schedule · '+s.name;
-  if(s.type==='chore')return'Chore · '+s.name;
-  return SRC[s.type]?SRC[s.type].label.replace(/^An? /,''):'';
+  const d=SRC[s.type];if(!d)return'';
+  if(s.type==='schedule')return'Schedule · '+(s.name||'');
+  if(s.type==='chore')return'Chore · '+(s.name||'');
+  if(s.type==='steps')return'Steps · '+Number(s.min||10000).toLocaleString()+'+';
+  if(s.type==='weightgoal')return'Weight · '+(s.dir==='up'?'up to ':'down to ')+s.target+' kg';
+  if(s.type==='daypct')return'Schedule · '+(s.pct||80)+'% of the day';
+  if(s.type==='morning')return'Schedule · before '+(s.before||'07:00');
+  if(s.type==='todon')return'To-do · '+(s.n||3)+'+ tasks';
+  if(s.type==='watern')return'Water · '+(s.litres||3)+' L';
+  if(s.type==='overall')return'Overall · '+(s.pct||80)+'%+';
+  return d.g+' · '+d.label;
 }
 async function gymData(owner,start,C){
   const k='gym:'+owner+start;if(C[k])return C[k];
   const base=uref().collection('profiles').doc(owner.toLowerCase()),FP=firebase.firestore.FieldPath.documentId();
   const [w,dl]=await Promise.all([base.collection('workoutLogs').where(FP,'>=',start).get(),base.collection('dailyLogs').where(FP,'>=',start).get()]);
-  const trained=new Set(),weighed=new Set();
+  const trained=new Set(),weighed=new Set(),steps={},weights={};
   w.forEach(s=>{const v=s.data()||{},date=v.date||String(s.id).split(':')[0];let any=false;(Array.isArray(v.exercises)?v.exercises:[]).forEach(e=>(e.sets||[]).forEach(()=>{any=true}));if(any)trained.add(date)});
-  dl.forEach(s=>{const v=s.data()||{},date=v.date||s.id;if(v.habits&&v.habits.workout)trained.add(date);if(Number(v.weight)>0)weighed.add(date)});
-  return C[k]={trained,weighed};
+  dl.forEach(s=>{const v=s.data()||{},date=v.date||s.id;if(v.habits&&v.habits.workout)trained.add(date);if(Number(v.weight)>0){weighed.add(date);weights[date]=Number(v.weight)}if(Number(v.steps)>0)steps[date]=Number(v.steps)});
+  return C[k]={trained,weighed,steps,weights};
 }
 async function sourceDone(p,C){
   const out=new Set(),s=p.src||{},T=today();
@@ -244,6 +312,13 @@ async function sourceDone(p,C){
     }
   }else if(s.type==='gym'||s.type==='weigh'){
     const g=await gymData(p.owner,p.start,C);(s.type==='gym'?g.trained:g.weighed).forEach(d=>{if(d>=p.start)out.add(d)});
+  }else if(s.type==='steps'){
+    const g=await gymData(p.owner,p.start,C),min=Number(s.min)||10000;
+    Object.keys(g.steps).forEach(d=>{if(d>=p.start&&g.steps[d]>=min)out.add(d)});
+  }else if(s.type==='weightgoal'){
+    const g=await gymData(p.owner,p.start,C),ds=Object.keys(g.weights).filter(d=>d>=p.start).sort(),t=Number(s.target);
+    ds.forEach(d=>{if(s.dir==='up'?g.weights[d]>=t:g.weights[d]<=t)out.add(d)});
+    p.meta={first:ds.length?g.weights[ds[0]]:null,now:ds.length?g.weights[ds[ds.length-1]]:null};
   }else if(s.type==='water'){
     const w=await readJson(uref().collection('hub-profiles').doc(p.owner).collection('data').doc('water'),null);
     if(w&&w.log){const goal=Number(w.goal)>0?Number(w.goal):(p.owner==='Anusha'?3000:3500);
@@ -253,11 +328,106 @@ async function sourceDone(p,C){
     const pid=p.owner.toLowerCase(),by={};
     ((C.diet&&C.diet.diary)||[]).forEach(x=>{if(x.profileId!==pid||x.replaced)return;const r=by[x.date]=by[x.date]||{t:0,e:0};r.t++;if((x.status||'eaten')==='eaten')r.e++});
     Object.keys(by).forEach(d=>{if(d>=p.start&&by[d].t&&by[d].e===by[d].t)out.add(d)});
+  }else if(s.type==='todo'){
+    const list=await readJson(uref().collection('todo-profiles').doc(p.owner).collection('data').doc('tasks'),[]),by={};
+    (Array.isArray(list)?list:[]).forEach(t=>{if(!t.due)return;const r=by[t.due]=by[t.due]||{t:0,d:0};r.t++;if(t.done)r.d++});
+    Object.keys(by).forEach(d=>{if(d>=p.start&&by[d].t&&by[d].d===by[d].t)out.add(d)});
+  }else if(s.type==='skin'){
+    const lg=await readJson(uref().collection('skin-profiles').doc(p.owner).collection('data').doc('stepLog'),{});
+    Object.keys(lg).forEach(k=>{if(lg[k]){const d=k.split(':')[0];if(d>=p.start)out.add(d)}});
   }else if(s.type==='chore'){
     const h=await readJson(uref().collection('apps').doc('chores').collection('data').doc('history'),[]);
     h.forEach(x=>{if(!x.kind&&(x.choreId===s.id||(!x.choreId&&x.task===s.name))&&x.date>=p.start)out.add(x.date)});
+  }else if(s.type==='daypct'||s.type==='morning'){
+    const base=uref().collection('schedule-profiles').doc(p.owner).collection('data');
+    const [tpl,log]=await Promise.all([readJson(base.doc('dayTemplates'),{}),readJson(base.doc('templateLog'),{})]);
+    for(let d=p.start;d<=T;d=addDays(d,1)){
+      const blocks=tpl[FULL[dow(d)]]||[];
+      let idx=blocks.map((b,i)=>i);
+      if(s.type==='morning'){const cut=s.before||'07:00';idx=idx.filter(i=>String(blocks[i].start||'99:99')<cut)}
+      if(!idx.length)continue;
+      const dn=idx.filter(i=>log[d+':'+i]).length;
+      if(s.type==='morning'?dn===idx.length:dn/idx.length>=(Number(s.pct)||80)/100)out.add(d);
+    }
+  }else if(s.type==='cardio'){
+    const base=uref().collection('profiles').doc(p.owner.toLowerCase()),FP=firebase.firestore.FieldPath.documentId();
+    const sn=await base.collection('cardioLogs').where(FP,'>=',p.start).get();
+    sn.forEach(x=>{const v=x.data()||{},date=v.date||x.id;if(date>=p.start&&((Array.isArray(v.entries)&&v.entries.length)||v.machine))out.add(date)});
+  }else if(s.type==='volume'){
+    const base=uref().collection('profiles').doc(p.owner.toLowerCase());
+    const sn=await base.collection('workoutLogs').get(),rows=[];
+    sn.forEach(x=>{const v=x.data()||{},parts=String(x.id).split(':'),date=v.date||parts[0],label=v.day||parts[2]||'';let vol=0;(Array.isArray(v.exercises)?v.exercises:[]).forEach(e=>(e.sets||[]).forEach(st=>{vol+=(Number(st.weight)||0)*(Number(st.reps)||0)}));if(vol>0)rows.push({date,label,vol})});
+    rows.sort((a,b)=>a.date<b.date?-1:1);const last={};
+    rows.forEach(r=>{const prev=last[r.label];if(prev!=null&&r.vol>prev&&r.date>=p.start)out.add(r.date);last[r.label]=r.vol});
+  }else if(s.type==='pace'){
+    const g=await gymData(p.owner,addDays(p.start,-7),C),pts=planPath(p.owner);
+    if(pts)for(let d=p.start;d<=T;d=addDays(d,1)){
+      const ws=[];for(let k=0;k<7;k++){const w=g.weights[addDays(d,-k)];if(w)ws.push(w)}
+      if(!ws.length)continue;
+      const avg=ws.reduce((x,y)=>x+y,0)/ws.length,e=planExpected(pts,d),half=Math.max(0.4,(e.hi-e.lo)/2);
+      if(avg<=e.w+half)out.add(d);
+    }
+  }else if(s.type==='protein'||s.type==='calories'){
+    if(!C.diet)C.diet=await readJson(uref().collection('apps').doc('nourish-diet-v2').collection('data').doc('state'),null);
+    const pid=p.owner.toLowerCase(),by={},BP=window.BHARGAV_PLAN;
+    ((C.diet&&C.diet.diary)||[]).forEach(x=>{if(x.profileId!==pid||x.replaced||(x.status||'eaten')!=='eaten')return;const f=(x.servings||1)/(x.recipeServings||1),n=x.nutrition||{},r=by[x.date]=by[x.date]||{k:0,p:0};r.k+=(n.calories||0)*f;r.p+=(n.protein||0)*f});
+    const gl=(C.diet&&C.diet.profiles&&C.diet.profiles[pid]&&C.diet.profiles[pid].goals)||{};
+    Object.keys(by).forEach(d=>{
+      if(d<p.start)return;
+      let gk=gl.calories||0,gp=gl.protein||0;
+      if(p.owner==='Bhargav'&&BP&&BP.phaseFor){const ph=BP.phaseFor(d);if(ph){gk=ph.cal;gp=ph.protein}}
+      if(s.type==='protein'){if(gp&&by[d].p>=gp*0.9)out.add(d)}
+      else if(d<T&&gk&&by[d].k>=gk*0.88&&by[d].k<=gk*1.06)out.add(d);
+    });
+  }else if(s.type==='skinfull'){
+    const lg=await readJson(uref().collection('skin-profiles').doc(p.owner).collection('data').doc('stepLog'),{}),cnt={};
+    Object.keys(lg).forEach(k=>{if(lg[k]){const d=k.split(':')[0];cnt[d]=(cnt[d]||0)+1}});
+    const peak=Math.max(0,...Object.keys(cnt).map(d=>cnt[d]));
+    if(peak)Object.keys(cnt).forEach(d=>{if(d>=p.start&&cnt[d]>=peak)out.add(d)});
+  }else if(s.type==='chores_all'){
+    const [cl,h]=await Promise.all([readJson(uref().collection('apps').doc('chores').collection('data').doc('chores'),[]),readJson(uref().collection('apps').doc('chores').collection('data').doc('history'),[])]);
+    const mineC=(Array.isArray(cl)?cl:[]).filter(c=>c.active!==false&&(!Array.isArray(c.assignedTo)||c.assignedTo.includes(p.owner))),doneBy={};
+    h.forEach(x=>{if(x.kind)return;const key=x.choreId||('n:'+x.task);(doneBy[key]=doneBy[key]||new Set()).add(x.date)});
+    for(let d=p.start;d<=T;d=addDays(d,1)){
+      let total=0,done=0;
+      mineC.forEach(c=>{const set=doneBy[c.id]||doneBy['n:'+c.name],did=!!(set&&set.has(d));let due=false;
+        if(c.freqType==='daily')due=true;
+        else if(c.freqType==='specificDays')due=(c.days||[]).includes(dow(d));
+        else if(c.freqType==='everyNDays'){if(did)due=true;else{let last=null;if(set)set.forEach(x=>{if(x<d&&(!last||x>last))last=x});due=last!=null&&between(last,d)>=(Number(c.freqDays)||1)}}
+        if(due){total++;if(did)done++}});
+      if(total&&done===total)out.add(d);
+    }
+  }else if(s.type==='todon'){
+    const [a1,a2]=await Promise.all([readJson(uref().collection('todo-profiles').doc(p.owner).collection('data').doc('tasks'),[]),readJson(uref().collection('todo-shared').doc('tasks'),[])]);
+    const cnt={};(Array.isArray(a1)?a1:[]).concat(Array.isArray(a2)?a2:[]).forEach(t=>{if(t.done&&t.completedOn)cnt[t.completedOn]=(cnt[t.completedOn]||0)+1});
+    Object.keys(cnt).forEach(d=>{if(d>=p.start&&cnt[d]>=(Number(s.n)||1))out.add(d)});
+  }else if(s.type==='watern'){
+    const w=await readJson(uref().collection('hub-profiles').doc(p.owner).collection('data').doc('water'),null),need=(Number(s.litres)||1)*1000;
+    if(w&&w.log)Object.keys(w.log).forEach(d=>{const a=w.log[d],t=Array.isArray(a)?a.reduce((x,y)=>x+(Number(y)||0),0):0;if(d>=p.start&&t>=need)out.add(d)});
+  }else if(s.type==='overall'){
+    const o=await readJson(uref().collection('hub-profiles').doc(p.owner).collection('data').doc('overallLog'),{}),need=Number(s.pct)||80;
+    Object.keys(o).forEach(d=>{if(d>=p.start&&Number(o[d])>=need)out.add(d)});
   }
   return out;
+}
+/* weight plan line, same maths as Insights */
+const PLAN_GOALS={Bhargav:{start:94.885,target:76,startDate:'2026-10-26',endDate:'2027-04-15'},Anusha:{start:66,target:53,startDate:'2026-09-02',endDate:'2026-12-22',band:1}};
+function planPath(owner){
+  const g=PLAN_GOALS[owner];if(!g)return null;
+  const pts=[{date:g.startDate,w:g.start,lo:g.start,hi:g.start}],BP=window.BHARGAV_PLAN;
+  if(owner==='Bhargav'&&BP&&Array.isArray(BP.phases)){
+    BP.phases.forEach(ph=>{const m=/([\d.]+)\s*[–-]\s*([\d.]+)/.exec(ph.weight||'');if(m)pts.push({date:ph.end,w:(+m[1]+ +m[2])/2,lo:+m[1],hi:+m[2]})});
+    if(pts.length>1)pts[pts.length-1].w=g.target;
+  }
+  if(pts.length<2){const b=g.band||1;pts.push({date:g.endDate,w:g.target,lo:g.target-b,hi:g.target+b})}
+  return pts;
+}
+function planExpected(pts,date){
+  if(date<=pts[0].date)return{w:pts[0].w,lo:pts[0].lo,hi:pts[0].hi};
+  for(let i=1;i<pts.length;i++){
+    if(date<=pts[i].date){const a=pts[i-1],b=pts[i],span=between(a.date,b.date)||1,t=between(a.date,date)/span,L=(x,y)=>x+(y-x)*t;return{w:L(a.w,b.w),lo:L(a.lo,b.lo),hi:L(a.hi,b.hi)}}
+  }
+  const e=pts[pts.length-1];return{w:e.w,lo:e.lo,hi:e.hi};
 }
 async function syncLinked(){
   if(!user||syncing)return;
@@ -265,20 +435,40 @@ async function syncLinked(){
   syncing=true;const C={};let changed=false;
   for(const p of list){
     try{
-      const set=await sourceDone(p,C),log={};
+      const before=JSON.stringify([p.log,p.meta||null]),set=await sourceDone(p,C),log={};
       Array.from(set).sort().forEach(d=>{log[d]=1});
-      if(JSON.stringify(log)!==JSON.stringify(p.log)){p.log=log;p.u=Date.now();changed=true}
+      p.log=log;
+      if(JSON.stringify([p.log,p.meta||null])!==before){p.u=Date.now();changed=true}
     }catch(e){}
   }
   syncing=false;if(changed)save();
 }
+
+/* ---------- prize picture + link ---------- */
+const safeUrl=u=>/^https?:\/\//i.test(u||'')?u:'';
+const safeImg=u=>/^(data:image\/(jpeg|png|webp);base64,|https:\/\/)/i.test(u||'')?u:'';
+function shrink(file,max,q){
+  return new Promise((res,rej)=>{
+    const fr=new FileReader();
+    fr.onerror=()=>rej(new Error('read'));
+    fr.onload=()=>{const im=new Image();im.onerror=()=>rej(new Error('img'));
+      im.onload=()=>{const k=Math.min(1,max/Math.max(im.width,im.height)),w=Math.round(im.width*k),h=Math.round(im.height*k),c=document.createElement('canvas');c.width=w;c.height=h;c.getContext('2d').drawImage(im,0,0,w,h);res(c.toDataURL('image/jpeg',q))};
+      im.src=fr.result};
+    fr.readAsDataURL(file);
+  });
+}
+async function pickPhoto(inp){
+  const f=inp.files&&inp.files[0];if(!f)return;
+  try{nf.prize.image=await shrink(f,600,0.72);drawForm()}catch(e){toast('Could not read that photo')}
+}
+function clearPhoto(){nf.prize.image='';drawForm()}
 
 /* ---------- screen ---------- */
 function render(){
   paintWho();
   const all=mine(),T=today();
   const active=all.filter(p=>calc(p).status!=='claimed'),past=all.filter(p=>calc(p).status==='claimed');
-  const dueNow=active.filter(p=>isDue(p,T)&&calc(p).status==='active'),doneNow=dueNow.filter(p=>p.log[T]);
+  const dueNow=active.filter(p=>calc(p).status==='active'&&dueToday(p,T)),doneNow=dueNow.filter(p=>p.log[T]);
   let h='';
   if(!all.length){
     h='<div class="empty"><h3>Make a promise worth keeping.</h3><p>Pick something you will do — wake at 4:30, lift five days, hit your water — name the prize you get for keeping it, and Pledge counts every tick.</p><button class="btn" onclick="openForm()">+ New pledge</button></div>';
@@ -293,43 +483,54 @@ function render(){
   $('view').innerHTML=h;
 }
 function ticket(p){
-  const c=calc(p),T=today(),linked=p.kind==='linked';
-  const prize=p.prize&&p.prize.name;
+  const c=calc(p),T=today(),linked=p.kind==='linked',mode=p.mode||'days';
+  const prize=p.prize&&(p.prize.name||p.prize.image);
   const mon=addDays(T,-((dow(T)+6)%7));
-  let wk='<div class="week">';
-  for(let i=0;i<7;i++){
-    const d=addDays(mon,i),due=isDue(p,d),done=!!p.log[d];
-    let cls='stamp',sym='✓',tip=pretty(d);
-    if(!due&&!done){cls+=' off';sym=''}
-    else if(done){cls+=' done'}
-    else if(d>T){cls+=' up';sym=''}
-    else if(d===T){cls+=' now';sym=''}
-    else{cls+=' miss';sym='✕'}
-    const canTap=!linked&&c.status!=='claimed'&&due&&d<=T;
-    wk+='<div class="day">'+DOW[dow(d)]+(canTap?'<button class="'+cls+'" title="'+tip+'" onclick="tick(\''+p.id+'\',\''+d+'\')">'+sym+'</button>':'<div class="'+cls+'" title="'+tip+'">'+sym+'</div>')+'</div>';
+  let wk='';
+  if(mode!=='milestone'){
+    wk='<div class="week">';
+    for(let i=0;i<7;i++){
+      const d=addDays(mon,i),due=isDue(p,d),done=!!p.log[d];
+      let cls='stamp',sym='✓',tip=pretty(d);
+      if(!due&&!done){cls+=' off';sym=''}
+      else if(done){cls+=' done'}
+      else if(d>T){cls+=' up';sym=''}
+      else if(d===T){cls+=' now';sym=''}
+      else if(mode==='perweek'){cls+=' up';sym=''}
+      else{cls+=' miss';sym='✕'}
+      const canTap=!linked&&c.status!=='claimed'&&(due||done)&&d<=T;
+      wk+='<div class="day">'+DOW[dow(d)]+(canTap?'<button class="'+cls+'" title="'+tip+'" onclick="tick(\''+p.id+'\',\''+d+'\')">'+sym+'</button>':'<div class="'+cls+'" title="'+tip+'">'+sym+'</div>')+'</div>';
+    }
+    wk+='</div>';
   }
-  wk+='</div>';
-  const dueToday=isDue(p,T);
+  const dueTodayNow=dueToday(p,T);
   let act='';
   if(c.status==='active'){
-    if(linked)act='<span class="auto"><i>●</i> Ticks itself from '+esc(srcText(p.src))+(dueToday?(p.log[T]?' — done today':' — not yet today'):' — rest day')+'</span>';
-    else if(dueToday)act=p.log[T]?'<button class="btn ghost sm" onclick="tick(\''+p.id+'\',\''+T+'\')">✓ Kept today · undo</button>':'<button class="btn" onclick="tick(\''+p.id+'\',\''+T+'\')">Mark today kept</button>';
-    else act='<span class="auto">Rest day today</span>';
+    if(mode==='milestone'){
+      act='<span class="auto"><i>●</i> Watches your weigh-ins'+(p.meta&&p.meta.now!=null?' — latest '+p.meta.now+' kg':' — no weigh-in yet')+'</span>';
+    }else if(linked){
+      const extra=mode==='perweek'?(dueTodayNow?(p.log[T]?' — done today':' — not yet today'):' — this week\'s target is met'):(dueTodayNow?(p.log[T]?' — done today':' — not yet today'):' — rest day');
+      act='<span class="auto"><i>●</i> Ticks itself from '+esc(srcText(p.src))+extra+'</span>';
+    }else if(dueTodayNow||p.log[T])act=p.log[T]?'<button class="btn ghost sm" onclick="tick(\''+p.id+'\',\''+T+'\')">✓ Kept today · undo</button>':'<button class="btn" onclick="tick(\''+p.id+'\',\''+T+'\')">Mark today kept</button>';
+    else act='<span class="auto">'+(mode==='perweek'?'This week\'s target is met':'Rest day today')+'</span>';
   }else if(c.status==='failed'){
-    act='<span class="auto">Too many missed days.</span> <button class="btn sm" onclick="restart(\''+p.id+'\')">Start over today</button>';
+    act='<span class="auto">'+(mode==='milestone'?'Time ran out.':'Too many missed days.')+'</span> <button class="btn sm" onclick="restart(\''+p.id+'\')">Start over today</button>';
   }
   let stub='';
   if(prize){
     const k=c.status==='claimed'?'Claimed':c.status==='earned'?'Earned':'The prize';
-    let s=c.status==='earned'?'<button class="btn gold sm" onclick="claim(\''+p.id+'\')">Claim it</button>':c.status==='claimed'?'Enjoy it.':c.status==='failed'?'Not this round.':c.need+' more tick'+(c.need===1?'':'s')+' to unlock';
-    stub='<div class="stub"><div class="k">'+k+'</div><div class="p">'+esc(p.prize.name)+'</div><div class="s">'+s+'</div></div>';
+    let sx=c.status==='earned'?'<button class="btn gold sm" onclick="claim(\''+p.id+'\')">Claim it</button>':c.status==='claimed'?'Enjoy it.':c.status==='failed'?'Not this round.':(mode==='milestone'?'Reach it to unlock':c.need+' more tick'+(c.need===1?'':'s')+' to unlock');
+    const img=safeImg(p.prize.image),url=safeUrl(p.prize.url);
+    const link=url?'<a class="go" href="'+esc(url)+'" target="_blank" rel="noopener noreferrer">View it ↗</a>':'';
+    if(img)stub='<div class="stub hasimg"><div class="pic" style="background-image:url(\''+esc(img)+'\')"></div><div class="txt"><div class="k">'+k+'</div><div class="p">'+esc(p.prize.name)+'</div><div class="s">'+sx+'</div>'+link+'</div></div>';
+    else stub='<div class="stub"><div class="k">'+k+'</div><div class="p">'+esc(p.prize.name)+'</div><div class="s">'+sx+'</div>'+link+'</div>';
   }else if(c.status==='earned'){
     stub='<div class="stub"><div class="k">Pledge kept</div><div class="p">Done.</div><div class="s"><button class="btn gold sm" onclick="claim(\''+p.id+'\')">Mark complete</button></div></div>';
   }
   return '<div class="ticket '+c.status+(stub?'':' nostub')+'"><div class="main">'+
-    '<div class="chips"><span class="chip'+(linked?' link':'')+'">'+(linked?'Linked · '+esc(srcText(p.src)):'Tick it myself')+'</span><span class="chip">'+p.days.map(d=>DOW[d]).join(' ')+'</span></div>'+
+    '<div class="chips"><span class="chip'+(linked?' link':'')+'">'+(linked?'Linked · '+esc(srcText(p.src)):'Tick it myself')+'</span><span class="chip">'+(mode==='perweek'?(p.perWeek||1)+'× a week':mode==='milestone'?'By '+pretty(c.end):(p.days.length===7?'Every day':p.days.map(d=>DOW[d]).join(' ')))+'</span></div>'+
     '<h3>'+esc(p.title)+'</h3>'+(p.why?'<p class="why">“'+esc(p.why)+'”</p>':'')+wk+
-    '<div class="stats"><div><b>'+c.done+' / '+c.totalDue+'</b>ticks</div><div><b>'+c.streak+'</b>day streak</div><div><b>'+(c.status==='active'?c.daysLeft:'—')+'</b>days left</div></div>'+
+    (mode==='milestone'?'<div class="stats"><div><b>'+(p.meta&&p.meta.now!=null?p.meta.now:'—')+'</b>kg now</div><div><b>'+esc(p.src.target)+'</b>kg target</div><div><b>'+(c.status==='active'?c.daysLeft:'—')+'</b>days left</div></div>':'<div class="stats"><div><b>'+c.done+' / '+c.totalDue+'</b>ticks</div><div><b>'+c.streak+'</b>'+c.unit+' streak</div><div><b>'+(c.status==='active'?c.daysLeft:'—')+'</b>days left</div></div>')+
     '<div class="row">'+act+'<div class="menu"><button class="link-btn" onclick="openForm(\''+p.id+'\')">Edit</button><button class="link-btn" onclick="remove(\''+p.id+'\')">Delete</button></div></div>'+
   '</div>'+stub+'</div>';
 }
@@ -350,49 +551,82 @@ async function loadChoices(){
   const mineC=(Array.isArray(chores)?chores:[]).filter(c=>c.active!==false&&(!Array.isArray(c.assignedTo)||c.assignedTo.includes(state.profile)));
   return srcCache={owner:state.profile,blocks:Object.values(blocks).map(b=>({name:b.name,days:Array.from(b.days).sort()})).sort((a,b)=>a.name.localeCompare(b.name)),chores:mineC.map(c=>({id:c.id,name:c.name}))};
 }
+const QS=[
+  {t:'Eat breakfast',kind:'own',len:7},
+  {t:'Weigh in every day',src:{type:'weigh'},len:30},
+  {t:'Lift 5× a week',src:{type:'gym'},days:GYM_DAYS,len:28},
+  {t:'Hit 10,000 steps',src:{type:'steps',min:10000},len:14},
+  {t:'Drink my water',src:{type:'water'},len:14},
+  {t:'Wake up at 4:30',src:{type:'schedule'},len:28},
+  {t:'Reach my goal weight',src:{type:'weightgoal',dir:'down'},mode:'milestone',len:28},
+  {t:'No sugar',kind:'own',len:14}
+];
+const DURS=[7,14,21,30,60,90];
 async function openForm(id){
   const p=id?find(id):null;
-  nf=p?JSON.parse(JSON.stringify(p)):{id:'p-'+Date.now().toString(36)+Math.random().toString(36).slice(2,5),owner:state.profile,title:'',why:'',kind:'own',src:null,days:[0,1,2,3,4,5,6],start:today(),weeks:4,misses:0,prize:{name:''},log:{},claimed:null,createdAt:Date.now()};
+  nf=p?JSON.parse(JSON.stringify(p)):{id:'p-'+Date.now().toString(36)+Math.random().toString(36).slice(2,5),owner:state.profile,title:'',why:'',kind:'own',src:null,days:[0,1,2,3,4,5,6],mode:'days',perWeek:3,length:28,start:today(),misses:0,prize:{name:'',url:'',image:''},log:{},claimed:null,createdAt:Date.now()};
+  if(!nf.mode)nf.mode='days';if(!nf.perWeek)nf.perWeek=3;if(!nf.length)nf.length=plen(nf);if(!nf.prize)nf.prize={name:'',url:'',image:''};
   nf._edit=!!p;
   await loadChoices().catch(()=>null);
   drawForm();
 }
+function quick(i){
+  const q=QS[i];
+  nf.title=q.t;nf.kind=q.kind||'linked';nf.src=q.src?JSON.parse(JSON.stringify(q.src)):null;
+  nf.mode=q.mode||'days';nf.days=(q.days||[0,1,2,3,4,5,6]).slice();nf.length=q.len;
+  drawForm();
+}
 function drawForm(){
-  const ch=srcCache||{blocks:[],chores:[]};
+  const ch=srcCache||{blocks:[],chores:[]},t=nf.src&&nf.src.type,ms=nf.mode==='milestone';
   let srcPick='';
   if(nf.kind==='linked'){
-    srcPick='<div class="f"><label>What does it track?</label><div class="seg" style="grid-template-columns:1fr 1fr">'+
-      Object.keys(SRC).map(k=>'<button class="opt'+(nf.src&&nf.src.type===k?' on':'')+'" onclick="pickSrc(\''+k+'\')"><b>'+SRC[k].label+'</b><span>'+SRC[k].sub+'</span></button>').join('')+'</div></div>';
-    if(nf.src&&nf.src.type==='schedule'){
-      srcPick+='<div class="f"><label>Which block?</label>'+(ch.blocks.length?'<select class="in" onchange="pickBlock(this.value)"><option value="">Choose a block…</option>'+ch.blocks.map(b=>'<option value="'+esc(b.name)+'"'+(nf.src.name===b.name?' selected':'')+'>'+esc(b.name)+' ('+b.days.map(d=>DOW[d]).join(' ')+')</option>').join('')+'</select>':'<div class="sub">No blocks found in Schedule for '+esc(state.profile)+'. Add one there first.</div>')+'</div>';
-    }
-    if(nf.src&&nf.src.type==='chore'){
-      srcPick+='<div class="f"><label>Which chore?</label>'+(ch.chores.length?'<select class="in" onchange="pickChore(this.value)"><option value="">Choose a chore…</option>'+ch.chores.map(c=>'<option value="'+esc(c.id)+'"'+(nf.src.id===c.id?' selected':'')+'>'+esc(c.name)+'</option>').join('')+'</select>':'<div class="sub">No chores found for '+esc(state.profile)+'.</div>')+'</div>';
-    }
+    srcPick='<div class="f"><label>What does it track?</label>'+SRC_GROUPS.map(g=>'<div class="grp"><span>'+g+'</span><div class="picks">'+Object.keys(SRC).filter(k=>SRC[k].g===g).map(k=>'<button class="pick'+(t===k?' on':'')+'" onclick="pickSrc(\''+k+'\')">'+SRC[k].label+'</button>').join('')+'</div></div>').join('')+(t?'<div class="hint">'+SRC[t].sub+'</div>':'')+'</div>';
+    if(t==='schedule')srcPick+='<div class="f"><label>Which block?</label>'+(ch.blocks.length?'<select class="in" onchange="pickBlock(this.value)"><option value="">Choose a block…</option>'+ch.blocks.map(b=>'<option value="'+esc(b.name)+'"'+(nf.src.name===b.name?' selected':'')+'>'+esc(b.name)+' ('+b.days.map(d=>DOW[d]).join(' ')+')</option>').join('')+'</select>':'<div class="sub">No blocks found in Schedule for '+esc(state.profile)+'. Add one there first.</div>')+'</div>';
+    if(t==='chore')srcPick+='<div class="f"><label>Which chore?</label>'+(ch.chores.length?'<select class="in" onchange="pickChore(this.value)"><option value="">Choose a chore…</option>'+ch.chores.map(c=>'<option value="'+esc(c.id)+'"'+(nf.src.id===c.id?' selected':'')+'>'+esc(c.name)+'</option>').join('')+'</select>':'<div class="sub">No chores found for '+esc(state.profile)+'.</div>')+'</div>';
+    if(t==='daypct')srcPick+='<div class="f"><label>Share of the day\'s blocks</label><div class="picks">'+[50,80,100].map(n=>'<button class="pick'+((nf.src.pct||80)===n?' on':'')+'" onclick="nf.src.pct='+n+';drawForm()">'+n+'%</button>').join('')+'</div></div>';
+    if(t==='morning')srcPick+='<div class="f"><label>Every block that starts before</label><input class="in" type="time" value="'+esc(nf.src.before||'07:00')+'" onchange="nf.src.before=this.value||\'07:00\'"></div>';
+    if(t==='todon')srcPick+='<div class="f"><label>Tasks to finish each day</label><input class="in" type="number" min="1" max="50" value="'+esc(nf.src.n||3)+'" oninput="nf.src.n=Math.max(1,parseInt(this.value)||1)"></div>';
+    if(t==='watern')srcPick+='<div class="f"><label>Litres each day</label><input class="in" type="number" min="0.5" max="10" step="0.5" value="'+esc(nf.src.litres||3)+'" oninput="nf.src.litres=Math.max(0.5,parseFloat(this.value)||1)"></div>';
+    if(t==='overall')srcPick+='<div class="f"><label>Overall score to reach</label><div class="picks">'+[60,70,80,90].map(n=>'<button class="pick'+((nf.src.pct||80)===n?' on':'')+'" onclick="nf.src.pct='+n+';drawForm()">'+n+'%</button>').join('')+'</div></div>';
+    if(t==='steps')srcPick+='<div class="f"><label>Steps to reach each day</label><input class="in" type="number" min="1000" step="500" value="'+esc(nf.src.min||10000)+'" oninput="nf.src.min=Math.max(0,parseInt(this.value)||0)"></div>';
+    if(t==='weightgoal')srcPick+='<div class="two"><div class="f"><label>Direction</label><div class="seg"><button class="opt'+(nf.src.dir!=='up'?' on':'')+'" onclick="nf.src.dir=\'down\';drawForm()"><b>Get down to</b></button><button class="opt'+(nf.src.dir==='up'?' on':'')+'" onclick="nf.src.dir=\'up\';drawForm()"><b>Get up to</b></button></div></div><div class="f"><label>Target (kg)</label><input class="in" type="number" step="0.1" min="20" value="'+esc(nf.src.target||'')+'" placeholder="e.g. 91.5" oninput="nf.src.target=parseFloat(this.value)||\'\'"></div></div>';
   }
-  $('modal').innerHTML='<div class="scrim" onclick="if(event.target===this)closeForm()"><div class="modal"><h2>'+(nf._edit?'Edit pledge':'New pledge')+'</h2><div class="sub">One promise, the days it counts, and what you get for keeping it.</div>'+
-    '<div class="f"><label>I pledge to…</label><input class="in" id="fTitle" value="'+esc(nf.title)+'" placeholder="e.g. Wake up at 4:30" oninput="nf.title=this.value"></div>'+
-    '<div class="f"><label>How do you tick it?</label><div class="seg"><button class="opt'+(nf.kind==='linked'?' on':'')+'" onclick="setKind(\'linked\')"><b>Track an app</b><span>It ticks itself</span></button><button class="opt'+(nf.kind==='own'?' on':'')+'" onclick="setKind(\'own\')"><b>I tick it</b><span>Own pledge, any promise</span></button></div></div>'+srcPick+
-    '<div class="f"><label>Counts on</label><div class="dows">'+MONFIRST.map(d=>'<button class="'+(nf.days.includes(d)?'on':'')+'" onclick="toggleDay('+d+')">'+DOW[d]+'</button>').join('')+'</div></div>'+
-    '<div class="two"><div class="f"><label>For how many weeks</label><input class="in" type="number" min="1" max="52" value="'+nf.weeks+'" oninput="nf.weeks=Math.max(1,Math.min(52,parseInt(this.value)||1))"></div>'+
-    '<div class="f"><label>Prize when kept</label><input class="in" value="'+esc(nf.prize.name)+'" placeholder="e.g. New headphones" oninput="nf.prize.name=this.value"></div></div>'+
+  const quicks=nf._edit?'':'<div class="f"><label>Quick start</label><div class="picks">'+QS.map((q,i)=>'<button class="pick" onclick="quick('+i+')">'+esc(q.t)+'</button>').join('')+'</div></div>';
+  const cadence=ms?'':'<div class="f"><label>How often</label><div class="seg"><button class="opt'+(nf.mode==='days'?' on':'')+'" onclick="nf.mode=\'days\';drawForm()"><b>On chosen days</b><span>e.g. every day, or Mon–Fri</span></button><button class="opt'+(nf.mode==='perweek'?' on':'')+'" onclick="nf.mode=\'perweek\';drawForm()"><b>Times a week</b><span>Any days you like</span></button></div></div>'+
+    (nf.mode==='perweek'?'<div class="f"><label>Times each week</label><div class="dows">'+[1,2,3,4,5,6,7].map(n=>'<button class="'+(nf.perWeek===n?'on':'')+'" onclick="nf.perWeek='+n+';drawForm()">'+n+'</button>').join('')+'</div></div>':'<div class="f"><label>Counts on</label><div class="dows">'+MONFIRST.map(d=>'<button class="'+(nf.days.includes(d)?'on':'')+'" onclick="toggleDay('+d+')">'+DOW[d]+'</button>').join('')+'</div></div>');
+  const dur='<div class="f"><label>For how many days</label><div class="picks">'+DURS.map(n=>'<button class="pick'+(nf.length===n?' on':'')+'" onclick="nf.length='+n+';drawForm()">'+n+'</button>').join('')+'<input class="in dn" type="number" min="1" max="365" value="'+nf.length+'" oninput="nf.length=Math.max(1,Math.min(365,parseInt(this.value)||1))" onchange="drawForm()"></div></div>';
+  const img=safeImg(nf.prize.image);
+  const prize='<div class="f"><label>Prize when kept</label><input class="in" value="'+esc(nf.prize.name)+'" placeholder="e.g. New headphones" oninput="nf.prize.name=this.value"></div>'+
+    '<div class="f"><label>See your prize</label><div class="ph"><div class="pv"'+(img?' style="background-image:url(\''+esc(img)+'\')"':'')+'>'+(img?'':'No photo')+'</div><div class="btns"><label class="btn ghost sm" style="cursor:pointer;margin:0;text-transform:none;letter-spacing:0;font-size:12.5px;color:var(--text)">Add photo<input type="file" accept="image/*" hidden onchange="pickPhoto(this)"></label>'+(img?'<button class="btn ghost sm" onclick="clearPhoto()">Remove</button>':'')+'</div></div>'+
+    '<input class="in" style="margin-top:10px" value="'+esc(nf.prize.url||'')+'" placeholder="Paste a link to it (optional)" oninput="nf.prize.url=this.value"><div class="sub" style="margin:6px 0 0">Tip: if the link ends in .jpg or .png, it shows as the picture.</div></div>';
+  $('modal').innerHTML='<div class="scrim" onclick="if(event.target===this)closeForm()"><div class="modal"><h2>'+(nf._edit?'Edit pledge':'New pledge')+'</h2><div class="sub">Anything you can promise: a habit, a count, a weight. Pick how it is ticked and what you get.</div>'+quicks+
+    '<div class="f"><label>I pledge to…</label><input class="in" id="fTitle" value="'+esc(nf.title)+'" placeholder="e.g. Eat breakfast every day" oninput="nf.title=this.value"></div>'+
+    '<div class="f"><label>How do you tick it?</label><div class="seg"><button class="opt'+(nf.kind==='linked'?' on':'')+'" onclick="setKind(\'linked\')"><b>Track an app</b><span>It ticks itself</span></button><button class="opt'+(nf.kind==='own'?' on':'')+'" onclick="setKind(\'own\')"><b>I tick it</b><span>Any promise, you mark it</span></button></div></div>'+srcPick+cadence+dur+prize+
     '<details class="adv"><summary>More options</summary><div class="f"><label>Why does this matter?</label><textarea class="in" rows="2" placeholder="Shown back to you on the card" oninput="nf.why=this.value">'+esc(nf.why)+'</textarea></div>'+
-    '<div class="f"><label>Days you may miss</label><input class="in" type="number" min="0" max="20" value="'+(nf.misses||0)+'" oninput="nf.misses=Math.max(0,parseInt(this.value)||0)"></div></details>'+
+    '<div class="two"><div class="f"><label>Start date</label><input class="in" type="date" value="'+esc(nf.start)+'" onchange="if(this.value){nf.start=this.value}"></div>'+
+    '<div class="f"><label>Misses allowed</label><input class="in" type="number" min="0" max="30" value="'+(nf.misses||0)+'" oninput="nf.misses=Math.max(0,parseInt(this.value)||0)"></div></div></details>'+
     '<div class="mfoot"><button class="btn ghost" onclick="closeForm()">Cancel</button><button class="btn" onclick="submitForm()">'+(nf._edit?'Save':'Make the pledge')+'</button></div></div></div>';
 }
 function closeForm(){$('modal').innerHTML='';nf=null}
-function setKind(k){nf.kind=k;if(k==='own')nf.src=null;drawForm()}
+function setKind(k){nf.kind=k;if(k==='own'){nf.src=null;if(nf.mode==='milestone')nf.mode='days'}drawForm()}
 function pickSrc(t){
+  const prev=nf.src&&nf.src.type;
   nf.src={type:t};
-  if(t==='gym')nf.days=GYM_DAYS.slice();
-  if(t==='schedule'||t==='chore'){}
-  if(!nf.title){nf.title={gym:'Train as planned',weigh:'Weigh in every day',water:'Hit my water goal',diet:'Eat every planned meal'}[t]||''}
+  if(t==='steps')nf.src.min=10000;
+  if(t==='daypct'||t==='overall')nf.src.pct=80;
+  if(t==='morning')nf.src.before='07:00';
+  if(t==='todon')nf.src.n=3;
+  if(t==='watern')nf.src.litres=3;
+  if(t==='weightgoal'){nf.src.dir='down';nf.mode='milestone'}else if(nf.mode==='milestone')nf.mode='days';
+  if(t==='gym'&&prev!=='gym'&&nf.mode==='days')nf.days=GYM_DAYS.slice();
+  const dflt={daypct:'Finish the day\'s blocks',morning:'Own my mornings',cardio:'Do my cardio',volume:'Lift more than last time',pace:'Stay on weight pace',protein:'Hit my protein',calories:'Stay in my calorie range',skinfull:'Do my full skin routine',chores_all:'Do every chore due',todon:'Finish my tasks',watern:'Drink enough water',overall:'Keep my whole system running',gym:'Train as planned',weigh:'Weigh in every day',water:'Hit my water goal',diet:'Eat every planned meal',steps:'Hit my steps',todo:'Finish my to-dos',skin:'Do my skin routine',weightgoal:'Reach my goal weight'};
+  if(!nf.title||Object.values(dflt).includes(nf.title))nf.title=dflt[t]||nf.title||'';
   drawForm();
 }
 function pickBlock(v){
   if(!v){nf.src={type:'schedule'};drawForm();return}
   const b=srcCache.blocks.find(x=>x.name===v);nf.src={type:'schedule',name:v};
-  if(b)nf.days=b.days.slice();
+  if(b&&nf.mode==='days')nf.days=b.days.slice();
   if(!nf.title)nf.title=v;
   drawForm();
 }
@@ -404,14 +638,21 @@ function toggleDay(d){const i=nf.days.indexOf(d);if(i>=0)nf.days.splice(i,1);els
 function submitForm(){
   nf.title=(nf.title||'').trim();
   if(!nf.title)return toast('Give the pledge a name');
-  if(!nf.days.length)return toast('Pick at least one day');
+  if(nf.mode==='days'&&!nf.days.length)return toast('Pick at least one day');
   if(nf.kind==='linked'){
     const s=nf.src;
     if(!s||!s.type)return toast('Choose what it tracks');
     if(s.type==='schedule'&&!s.name)return toast('Choose a Schedule block');
     if(s.type==='chore'&&!s.id)return toast('Choose a chore');
+    if(s.type==='steps'&&!(s.min>0))return toast('Enter a step count');
+    if(s.type==='weightgoal'&&!(Number(s.target)>0))return toast('Enter your target weight');
   }
-  const n=JSON.parse(JSON.stringify(nf));delete n._edit;n.u=Date.now();n.prize={name:(n.prize.name||'').trim()};
+  const n=JSON.parse(JSON.stringify(nf));delete n._edit;n.u=Date.now();
+  {const u=(n.prize.url||'').trim();let link=u&&!/^https?:\/\//i.test(u)?'https://'+u:u,img=n.prize.image||'';
+    if(link&&!img&&/\.(jpe?g|png|webp|gif)(\?.*)?$/i.test(link)&&/^https:/i.test(link))img=link;
+    n.prize={name:(n.prize.name||'').trim(),url:safeUrl(link),image:safeImg(img)}}
+  delete n.weeks;if(n.mode==='milestone')n.days=[0,1,2,3,4,5,6];
+  if(n.prize.image&&n.prize.image.length>20000&&JSON.stringify(state.pledges).length+n.prize.image.length>900000)return toast('Too many photos saved — use an image link instead');
   const i=state.pledges.findIndex(p=>p.id===n.id);
   if(i>=0){if(n.kind==='own')n.log=state.pledges[i].log||{};state.pledges[i]=n}else state.pledges.push(n);
   closeForm();save();render();
@@ -425,7 +666,7 @@ auth.onAuthStateChanged(async u=>{
   try{await load();paintWho();render();$('app').style.visibility='visible';$('load').style.display='none';$('sync').textContent='';syncLinked().then(render)}
   catch(e){$('loadText').textContent='Could not open Pledge: '+e.message}
 });
-window.setProfile=setProfile;window.openForm=openForm;window.closeForm=closeForm;window.setKind=setKind;window.pickSrc=pickSrc;window.pickBlock=pickBlock;window.pickChore=pickChore;window.toggleDay=toggleDay;window.submitForm=submitForm;window.tick=tick;window.claim=claim;window.restart=restart;window.remove=remove;
+window.quick=quick;window.pickPhoto=pickPhoto;window.clearPhoto=clearPhoto;window.setProfile=setProfile;window.openForm=openForm;window.closeForm=closeForm;window.setKind=setKind;window.pickSrc=pickSrc;window.pickBlock=pickBlock;window.pickChore=pickChore;window.toggleDay=toggleDay;window.submitForm=submitForm;window.tick=tick;window.claim=claim;window.restart=restart;window.remove=remove;
 Object.defineProperty(window,'nf',{get:()=>nf,set:v=>{nf=v}});
 }
 </script>

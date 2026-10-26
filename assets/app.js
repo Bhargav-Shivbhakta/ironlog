@@ -933,7 +933,7 @@ const WIDGET_TYPES={
         const snap=await db.collection('users').doc(state.user.uid).collection('apps').doc('pledge-v3').collection('data').doc('state').get();
         const ps=(snap.exists&&snap.data().json)?safeJson(snap.data().json,null):null;
         const t=(()=>{const d=new Date();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')})();
-        const due=((ps&&ps.pledges)||[]).filter(p=>!p.deleted&&!p.claimed&&p.owner===state.profile&&p.start&&t>=p.start&&t<=addDays(p.start,p.weeks*7-1)&&(p.days||[]).includes(new Date(t+'T12:00:00').getDay()));
+        const due=((ps&&ps.pledges)||[]).filter(p=>!p.deleted&&!p.claimed&&p.owner===state.profile&&p.start&&t>=p.start&&t<=addDays(p.start,(p.length||(p.weeks||4)*7)-1)&&p.mode!=='milestone'&&(p.mode==='perweek'||(p.days||[]).includes(new Date(t+'T12:00:00').getDay())));
         if(!due.length){el.innerHTML='<div class="empty-state"><strong>Nothing pledged for today</strong>Make a pledge, or enjoy the rest day.</div><a class="widget-card-link" href="apps/pledge.html" data-profile-link>Open Pledge <i data-lucide="arrow-up-right"></i></a>';updateProfileLinks();if(window.lucide)lucide.createIcons();return}
         const done=due.filter(p=>p.log&&p.log[t]).length;
         el.innerHTML='<strong style="display:block;font-size:26px;font-weight:700;letter-spacing:-.02em">'+done+' / '+due.length+'</strong>'+
@@ -1886,9 +1886,10 @@ function insBuildMods(){
     else{m.since=null;m.get=()=>null;m.detail=()=>'No data'}
     m.link='#';out.push(m)}
   // pledge: each pledge counts only on the weekdays you chose, inside its window
-  {const m=Object.assign({},def('pledge')),P=ins.pledge,end=p=>addDays(p.start,p.weeks*7-1);
+  {const m=Object.assign({},def('pledge')),P=ins.pledge,end=p=>addDays(p.start,(p.length||(p.weeks||4)*7)-1);
     const list=(P&&Array.isArray(P.pledges)?P.pledges:[]).filter(p=>!p.deleted&&p.owner===me&&p.start);
-    const dueOn=d=>list.filter(p=>d>=p.start&&d<=end(p)&&(p.days||[]).includes(insDow(d)));
+    // weekly-count and milestone pledges are due only on a day you actually ticked (extra effort, never a miss)
+    const dueOn=d=>list.filter(p=>d>=p.start&&d<=end(p)&&((p.mode==='perweek'||p.mode==='milestone')?!!(p.log&&p.log[d]):(p.days||[]).includes(insDow(d))));
     m.since=list.length?list.map(p=>p.start).sort()[0]:null;
     m.get=d=>{const l=dueOn(d);return l.length?{done:l.filter(p=>p.log&&p.log[d]).length,total:l.length}:null};
     m.detail=(d,v)=>v?v.done+' of '+v.total+' pledges kept':'Nothing pledged for this day';out.push(m)}
@@ -2149,6 +2150,15 @@ async function renderInsightsPage(force){
   const all=insBuildMods(),off=state.insights.prefs.off;
   insCur.enabled=all.filter(m=>!off.includes(m.id)&&m.since);
   wireInsights();
+  // Pledge can link to this score: save each finished day's overall % (all apps, ignoring the on/off chips)
+  try{
+    const log={};
+    for(let k=1;k<=60;k++){const d=addDays(tdy,-k);let sum=0,n=0;
+      all.forEach(m=>{if(m.since&&d>=m.since){const v=m.get(d),r=v?insR(v):null;if(r!=null){sum+=r;n++}}});
+      if(n)log[d]=Math.round(sum/n*100)}
+    const js=JSON.stringify(log);
+    if(state.insights._ovl!==js){state.insights._ovl=js;profileRef('hub-profiles','overallLog').set({json:js}).catch(()=>{})}
+  }catch(e){}
   renderWsBar(all);
   const last7=[addDays(tdy,-7),addDays(tdy,-1)],prev7=[addDays(tdy,-14),addDays(tdy,-8)];
   const rows=insCur.enabled.map(m=>({m,p:insModPeriod(m,last7[0],last7[1]),today:m.get(tdy)}));

@@ -1,4 +1,4 @@
-const CACHE_NAME = 'fit-hub-v37';
+const CACHE_NAME = 'fit-hub-v39';
 // Every page + shared asset the Hub actually needs to work offline on a
 // completely fresh install — not just the Hub shell itself. Before this,
 // only 7 files were pre-cached at install; everything else (every app
