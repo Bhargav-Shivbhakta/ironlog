@@ -790,7 +790,7 @@ html.wallpaper-live{background-size:250% 250%;animation:wallpaper-drift 24s ease
 [hidden]{display:none!important}
 .ins-refresh{display:inline-flex;align-items:center;gap:7px;border:1px solid var(--line);background:var(--surface);color:var(--text);border-radius:10px;padding:8px 13px;font-size:12.5px;font-weight:600;cursor:pointer;flex:none}.ins-refresh svg{width:14px;height:14px}.ins-refresh:disabled{opacity:.55}
 .ws{--ws-bg:#0a0c10;--ws-panel:#0f1318;--ws-hair:rgba(255,255,255,.075);--ws-hair2:rgba(255,255,255,.045);--ws-acc:color-mix(in srgb,var(--accent) 62%,#fff);--ws-text:#e9eef3;--ws-dim:#808b97;--ws-soft:#aeb8c2;--ws-good:#67c8a0;--ws-warn:#dfaa55;--ws-bad:#e2695d;
-  position:relative;display:flex;flex-direction:column;gap:14px;max-width:1180px;padding:20px;border-radius:20px;color:var(--ws-text);isolation:isolate;overflow:hidden;font-family:Inter,system-ui,-apple-system,"Segoe UI",sans-serif;font-variant-numeric:tabular-nums;
+  position:relative;display:flex;flex-direction:column;gap:14px;width:100%;padding:20px;border-radius:20px;color:var(--ws-text);isolation:isolate;overflow:hidden;font-family:Inter,system-ui,-apple-system,"Segoe UI",sans-serif;font-variant-numeric:tabular-nums;
   background:radial-gradient(900px 380px at 85% -10%,color-mix(in srgb,var(--ws-acc) 11%,transparent),transparent 62%),var(--ws-bg);border:1px solid var(--ws-hair);box-shadow:0 24px 60px rgba(0,0,0,.28)}
 .ws:before{content:"";position:absolute;inset:0;z-index:-1;pointer-events:none;background-image:linear-gradient(var(--ws-hair2) 1px,transparent 1px),linear-gradient(90deg,var(--ws-hair2) 1px,transparent 1px);background-size:56px 56px;opacity:.55;-webkit-mask-image:radial-gradient(ellipse at 70% 0%,#000 0,transparent 70%);mask-image:radial-gradient(ellipse at 70% 0%,#000 0,transparent 70%)}
 .ws button,.ws a{font-family:inherit}
@@ -868,7 +868,7 @@ button.ws-hx:hover{transform:scale(1.18)}.ws-hx.na{background:rgba(255,255,255,.
 .ws-mini .trk{fill:none;stroke:rgba(255,255,255,.09)}.ws-mini .fil{fill:none}.ws-mini.na{display:inline-block;width:18px;height:18px;border-radius:50%;border:1px dashed rgba(255,255,255,.12)}
 /* radar + alerts */
 .ws-two{display:grid;grid-template-columns:1fr 1fr;gap:14px}
-.ws-radar{width:100%;height:auto;display:block}.ws-radar .ring{fill:none;stroke:rgba(255,255,255,.07)}.ws-radar .spoke{stroke:rgba(255,255,255,.07)}.ws-radar .now{fill:color-mix(in srgb,var(--ws-acc) 14%,transparent);stroke:var(--ws-acc);stroke-width:1.6}.ws-radar .prev{fill:none;stroke:#8d98a4;stroke-width:1.2;stroke-dasharray:4 4}.ws-radar .lab{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:9.5px;font-weight:600;letter-spacing:.12em}.ws-radar .val{font-size:10px;fill:var(--ws-dim)}
+.ws-radar{width:100%;max-width:440px;margin:0 auto;height:auto;display:block}.ws-radar .ring{fill:none;stroke:rgba(255,255,255,.07)}.ws-radar .spoke{stroke:rgba(255,255,255,.07)}.ws-radar .now{fill:color-mix(in srgb,var(--ws-acc) 14%,transparent);stroke:var(--ws-acc);stroke-width:1.6}.ws-radar .prev{fill:none;stroke:#8d98a4;stroke-width:1.2;stroke-dasharray:4 4}.ws-radar .lab{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:9.5px;font-weight:600;letter-spacing:.12em}.ws-radar .val{font-size:10px;fill:var(--ws-dim)}
 .ws-alert{display:flex;justify-content:space-between;align-items:center;gap:14px;padding:12px 0;border-bottom:1px solid var(--ws-hair2)}.ws-alert:last-child{border-bottom:0}
 .ws-alert b{display:flex;align-items:center;gap:9px;font-size:13.5px;font-weight:600}.ws-alert b:before{content:"";width:7px;height:7px;border-radius:50%;background:var(--ws-bad);flex:none}.ws-alert.degraded b:before{background:var(--ws-warn)}.ws-alert.ok b:before{background:var(--ws-good)}
 .ws-alert span{display:block;font-size:12px;color:var(--ws-dim);margin:3px 0 0 16px;line-height:1.5}
@@ -895,7 +895,11 @@ button.ws-hx:hover{transform:scale(1.18)}.ws-hx.na{background:rgba(255,255,255,.
 .ws-table td.critical{color:var(--ws-bad)}.ws-table td.degraded{color:var(--ws-warn)}.ws-table td.nominal{color:var(--ws-text)}.ws-table td.offline{color:var(--ws-dim)}
 .ws-sc{display:inline-block;min-width:38px;text-align:center;padding:3px 9px;border-radius:999px;font-weight:600;background:rgba(255,255,255,.05)}.ws-sc.nominal{color:var(--ws-good)}.ws-sc.degraded{color:var(--ws-warn)}.ws-sc.critical{color:var(--ws-bad)}.ws-sc.offline{color:var(--ws-dim)}
 .ws-foot{margin:2px 2px 0;color:var(--ws-dim);font-size:11.5px}
-@media(max-width:900px){
+@container ws-page (max-width:1180px){
+  .ws-stage{grid-template-columns:minmax(220px,320px) 1fr;gap:24px}
+  .ws-mods{grid-template-columns:repeat(auto-fill,minmax(300px,1fr))}
+}
+@container ws-page (max-width:900px){
   .ws{padding:12px;border-radius:16px}
   .ws-stage{grid-template-columns:minmax(0,1fr);gap:18px;padding:16px}.ws-inspect,.ws-two,.ws-mission-top{grid-template-columns:minmax(0,1fr)}
   .ws-sys{grid-template-columns:8px minmax(70px,1fr) minmax(40px,1fr) 46px 48px;gap:10px}
@@ -903,6 +907,18 @@ button.ws-hx:hover{transform:scale(1.18)}.ws-hx.na{background:rgba(255,255,255,.
   .ws-mbody{grid-template-columns:128px 1fr}
   .ws-race>div{grid-template-columns:78px 1fr 38px}
 }
+@container ws-page (max-width:560px){
+  .ws{padding:10px}
+  .ws-panel,.ws-mod,.ws-stage{padding:14px}
+  .ws-mods{grid-template-columns:minmax(0,1fr)}
+  .ws-mbody{grid-template-columns:112px 1fr}
+  .ws-chart{margin:0 -4px}
+}
+@container ws-page (min-width:1500px){
+  .ws-mods{grid-template-columns:repeat(auto-fill,minmax(360px,1fr))}
+  .ws-stage{grid-template-columns:minmax(300px,440px) 1fr;gap:46px;padding:32px}
+}
+#page-insights{container-type:inline-size;container-name:ws-page}
 
 .water-top{display:flex;align-items:baseline;gap:8px;flex-wrap:wrap}.water-num{font-size:26px;font-weight:700;letter-spacing:-.02em}.water-goal{color:var(--muted);font-size:13px}
 .water-track{height:10px;border-radius:99px;background:var(--surface-soft);border:1px solid var(--line);overflow:hidden;margin:10px 0}.water-track i{display:block;height:100%;border-radius:99px;background:#3b8fd9;transition:width .3s}

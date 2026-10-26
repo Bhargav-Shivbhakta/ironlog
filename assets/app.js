@@ -926,27 +926,20 @@ const WIDGET_TYPES={
         updateProfileLinks();if(window.lucide)lucide.createIcons();
       }catch(e){el.innerHTML='<div class="empty-state"><strong>Unavailable</strong>Could not load your budget.</div>'}
     }},
-  pledge:{title:'Pledge',icon:'flag',desc:"Today's requirements for your active commitment, and the reward riding on it.",defaultSize:'md',
+  pledge:{title:'Pledge',icon:'flag',desc:"Today's pledges, ticked automatically from your apps, and the prizes riding on them.",defaultSize:'md',
     async render(el){
       wLoading(el);
       try{
-        const uid=state.user.uid;
-        const snap=await db.collection('users').doc(uid).collection('apps').doc('pledge-v2').collection('data').doc('state').get();
-        const pState=(snap.exists&&snap.data().json)?safeJson(snap.data().json,null):null;
-        const goals=(pState&&pState.goals)||[];
-        const mine=goals.filter(g=>g.profileId===state.profile&&g.status==='active');
-        const goal=mine.find(g=>g.id===pState.activeGoalId)||mine[0];
-        if(!goal){el.innerHTML='<div class="empty-state"><strong>No active commitment</strong>Start one in Pledge.</div>';updateProfileLinks();if(window.lucide)lucide.createIcons();return}
-        const level=goal.levels[goal.currentLevelIndex]||goal.levels[goal.levels.length-1];
-        const todayKey=(()=>{const d=new Date();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')})();
-        const rec=level.days_log&&level.days_log[todayKey];
-        const doneIds=(rec&&rec.doneTaskIds)||[];
-        const total=level.tasks.length;
-        const done=level.tasks.filter(t=>doneIds.includes(t.id)||(t.frequency==='once'&&t.doneOnce)).length;
-        el.innerHTML='<strong style="display:block;font-size:26px;font-weight:700;letter-spacing:-.02em">'+done+' / '+total+'</strong>'+
-          '<p style="margin:4px 0 10px;color:var(--muted)">today’s requirements for “'+esc(goal.title)+'”</p>'+
-          (level.reward&&level.reward.name?'<div style="font-size:12px;color:var(--muted);margin-bottom:10px">Reward: <strong style="color:var(--text)">'+esc(level.reward.name)+'</strong></div>':'')+
-          '<a class="widget-card-link" href="apps/pledge.html" data-profile-link>Open Pledge <i data-lucide="arrow-up-right"></i></a>';
+        const snap=await db.collection('users').doc(state.user.uid).collection('apps').doc('pledge-v3').collection('data').doc('state').get();
+        const ps=(snap.exists&&snap.data().json)?safeJson(snap.data().json,null):null;
+        const t=(()=>{const d=new Date();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')})();
+        const due=((ps&&ps.pledges)||[]).filter(p=>!p.deleted&&!p.claimed&&p.owner===state.profile&&p.start&&t>=p.start&&t<=addDays(p.start,p.weeks*7-1)&&(p.days||[]).includes(new Date(t+'T12:00:00').getDay()));
+        if(!due.length){el.innerHTML='<div class="empty-state"><strong>Nothing pledged for today</strong>Make a pledge, or enjoy the rest day.</div><a class="widget-card-link" href="apps/pledge.html" data-profile-link>Open Pledge <i data-lucide="arrow-up-right"></i></a>';updateProfileLinks();if(window.lucide)lucide.createIcons();return}
+        const done=due.filter(p=>p.log&&p.log[t]).length;
+        el.innerHTML='<strong style="display:block;font-size:26px;font-weight:700;letter-spacing:-.02em">'+done+' / '+due.length+'</strong>'+
+          '<p style="margin:4px 0 10px;color:var(--muted)">pledges kept today</p>'+
+          due.slice(0,4).map(p=>'<div style="font-size:13px;margin-bottom:4px">'+((p.log&&p.log[t])?'✓ ':'○ ')+esc(p.title)+'</div>').join('')+
+          '<a class="widget-card-link" href="apps/pledge.html" data-profile-link style="margin-top:8px">Open Pledge <i data-lucide="arrow-up-right"></i></a>';
         updateProfileLinks();if(window.lucide)lucide.createIcons();
       }catch(e){el.innerHTML='<div class="empty-state"><strong>Unavailable</strong>Could not load Pledge.</div>'}
     }},
@@ -1683,7 +1676,7 @@ const WS_MODS=[
   {id:'todo',name:'To-Do',code:'OPS',color:'#a898d2',link:'apps/todo.html',what:'tasks finished'},
   {id:'skin',name:'Skin',code:'DERM',color:'#cd96b4',link:'apps/skin.html',what:'routine steps'},
   {id:'water',name:'Water',code:'HYDRO',color:'#7aa6d6',link:'#',what:'litres vs goal'},
-  {id:'pledge',name:'Pledge',code:'OATH',color:'#cdbb77',link:'apps/pledge.html',what:'daily check-in'}
+  {id:'pledge',name:'Pledge',code:'OATH',color:'#cdbb77',link:'apps/pledge.html',what:'pledges kept'}
 ];
 let insightsLoadedForProfile=null,insightsLoadedAt=0,insCur=null;
 
@@ -1711,7 +1704,7 @@ async function ensureInsightsLoaded(force){
     skinDataRef(state.profile,'trackingLog').get().catch(()=>null),
     db.collection('users').doc(uid).collection('apps').doc('nourish-diet-v2').collection('data').doc('state').get().catch(()=>null),
     profileRef('schedule-profiles','templateLog').get().catch(()=>null),
-    db.collection('users').doc(uid).collection('apps').doc('pledge-v2').collection('data').doc('state').get().catch(()=>null),
+    db.collection('users').doc(uid).collection('apps').doc('pledge-v3').collection('data').doc('state').get().catch(()=>null),
     profileRef('hub-profiles','insightPrefs').get().catch(()=>null)
   ]);
   const daily={},trained=new Set(),vol={},cardio=new Set();
@@ -1848,7 +1841,10 @@ function insBuildMods(){
     m.detail=(d,v)=>v?v.done+' of '+v.total+' blocks ticked':'No routine planned';out.push(m)}
   // gym: planned session + the daily weigh-in
   {const m=Object.assign({},def('gym'));m.since=g.startDate;
-    m.get=d=>{const f=insFacts(d);if(!f.inPlan)return null;return{done:(f.planned&&f.trained?1:0)+(f.weight!=null?1:0),total:(f.planned?1:0)+1}};
+    // Rest days are not due: nothing counts against you. Anything you still logged counts as a bonus.
+    m.get=d=>{const f=insFacts(d);if(!f.inPlan)return null;
+      if(f.planned)return{done:(f.trained?1:0)+(f.weight!=null?1:0),total:2};
+      const bonus=(f.trained?1:0)+(f.weight!=null?1:0);return bonus?{done:bonus,total:bonus}:null};
     m.detail=d=>{const f=insFacts(d);return (f.planned?(f.trained?'Session done ✓':'Session not done'):(f.trained?'Bonus session':'Rest day'))+' · '+(f.weight!=null?'weighed '+kgFmt(f.weight)+' kg':'no weigh-in')+(f.steps?' · '+insInt(f.steps)+' steps':'')};out.push(m)}
   // diet: meals eaten of meals planned that day
   {const m=Object.assign({},def('diet')),by=ins.diet?ins.diet.byDate:{};
@@ -1889,12 +1885,13 @@ function insBuildMods(){
       m.detail=d=>(tot(d)/1000).toFixed(1)+' of '+(w.goal/1000).toFixed(1)+' L'}
     else{m.since=null;m.get=()=>null;m.detail=()=>'No data'}
     m.link='#';out.push(m)}
-  // pledge: daily check-in complete
-  {const m=Object.assign({},def('pledge')),done=new Set();let first=null;
-    const p=ins.pledge;
-    if(p&&Array.isArray(p.goals))p.goals.filter(x=>x.profileId===me).forEach(goal=>(goal.levels||[]).forEach(l=>{const lg=l.days_log||{};Object.keys(lg).forEach(d=>{if(!first||d<first)first=d;if(lg[d]&&lg[d].complete)done.add(d)})}));
-    m.since=first;m.get=d=>first?{done:done.has(d)?1:0,total:1}:null;
-    m.detail=(d,v)=>v?(v.done?'Checked in ✓':'Not checked in'):'No data';out.push(m)}
+  // pledge: each pledge counts only on the weekdays you chose, inside its window
+  {const m=Object.assign({},def('pledge')),P=ins.pledge,end=p=>addDays(p.start,p.weeks*7-1);
+    const list=(P&&Array.isArray(P.pledges)?P.pledges:[]).filter(p=>!p.deleted&&p.owner===me&&p.start);
+    const dueOn=d=>list.filter(p=>d>=p.start&&d<=end(p)&&(p.days||[]).includes(insDow(d)));
+    m.since=list.length?list.map(p=>p.start).sort()[0]:null;
+    m.get=d=>{const l=dueOn(d);return l.length?{done:l.filter(p=>p.log&&p.log[d]).length,total:l.length}:null};
+    m.detail=(d,v)=>v?v.done+' of '+v.total+' pledges kept':'Nothing pledged for this day';out.push(m)}
   return out;
 }
 function insDayData(d){

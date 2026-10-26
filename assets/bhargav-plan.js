@@ -251,30 +251,61 @@
   };
   function clone(o){return JSON.parse(JSON.stringify(o))}
 
-  /* Brings a Diet state object in line with the phase for `today`. Idempotent; returns true when it changed anything.
-     Only touches Bhargav's goals + his default recipes, and removes his *unlogged, auto-planned* entries from today on
-     (they are re-created from the new recipes). Eaten, skipped and replaced entries and all past days stay as they are. */
+  /* OPT-IN ONLY. Nothing here runs by itself any more: Diet's "Phase menu" card calls these when you press a button.
+     applyDietPhase swaps Bhargav's goals and his default recipes' amounts to the phase menu and first saves exactly
+     what was there (state.bMenuBackup) so restoreDietMenu can put it back. Eaten/skipped/replaced entries and past days
+     are never touched; only his unlogged auto-planned entries from today on are rebuilt. */
+  var DEFAULT_RECIPES=Object.keys(RECIPE_FOR);
   function applyDietPhase(state,today){
-    var ph=phaseFor(today);if(!ph||!state||!state.recipes||!state.meals) return false;
-    if(state.bPhaseApplied===ph.n) return false;
+    var ph=phaseFor(today)||PHASES[0];
+    if(!state||!state.recipes||!state.meals) return false;
     var m=MENUS[ph.n];if(!m) return false;
+    if(state.bPhaseApplied==null){ // back up only before the FIRST apply, so repeated applies never overwrite the original
+      state.bMenuBackup={
+        goals:clone((state.profiles&&state.profiles.bhargav&&state.profiles.bhargav.goals)||{}),
+        recipes:state.recipes.filter(function(r){return DEFAULT_RECIPES.indexOf(r.id)!==-1}).map(clone),
+        dinnerRule:(state.meals.find(function(x){return x.id==='b-dinner'})||{}).rule||''
+      };
+    }
     state.profiles=state.profiles||{};state.profiles.bhargav=state.profiles.bhargav||{name:'Bhargav'};
     state.profiles.bhargav.goals={calories:ph.cal,protein:ph.protein,carbs:ph.carbs,fat:ph.fat};
-    Object.keys(RECIPE_FOR).forEach(function(rid){
+    DEFAULT_RECIPES.forEach(function(rid){
       var r=state.recipes.find(function(x){return x.id===rid});if(!r) return;
       r.items=clone(m[RECIPE_FOR[rid]]);
       var t=RECIPE_TEXT[rid];if(t){if(t.name)r.name=t.name;if(t.method)r.method=t.method}
     });
     var dinner=state.meals.find(function(x){return x.id==='b-dinner'});
     if(dinner) dinner.rule='Phase '+ph.n+' menu: '+ph.cal+' kcal and '+ph.protein+' g protein a day. Weigh rice, dal and yogurt as eaten.';
+    rebuildPlanned(state,today);
+    state.bPhaseApplied=ph.n;
+    return true;
+  }
+  function rebuildPlanned(state,today){
     if(Array.isArray(state.diary)){
       state.diary=state.diary.filter(function(e){
         return !(e.profileId==='bhargav'&&e.date>=today&&e.status==='planned'&&!e.replaced&&e.mealId&&String(e.id).indexOf('d-plan-')===0);
       });
     }
     if(state.planSeeded){Object.keys(state.planSeeded).forEach(function(k){var p=k.split('|');if(p[0]==='bhargav'&&p[1]>=today) delete state.planSeeded[k]})}
-    state.bPhaseApplied=ph.n;
-    return true;
+  }
+  /* Puts back what applyDietPhase replaced. If there is no backup (the menu was applied by the first version of this
+     feature, which did not keep one), falls back to the app's original starting recipes/goals passed in as `seed`
+     ({recipes:[...], goals:{...}, dinnerRule:'...'}). Returns 'backup' | 'seed' | false. */
+  function restoreDietMenu(state,today,seed){
+    if(!state||!state.recipes) return false;
+    var src=null,how=false;
+    if(state.bMenuBackup&&state.bMenuBackup.recipes&&state.bMenuBackup.recipes.length){src=state.bMenuBackup;how='backup'}
+    else if(seed&&seed.recipes){src=seed;how='seed'}
+    if(!src) return false;
+    src.recipes.forEach(function(br){
+      var r=state.recipes.find(function(x){return x.id===br.id});
+      if(r){Object.keys(r).forEach(function(k){delete r[k]});Object.assign(r,clone(br))}
+    });
+    if(src.goals&&Object.keys(src.goals).length){state.profiles=state.profiles||{};state.profiles.bhargav=state.profiles.bhargav||{name:'Bhargav'};state.profiles.bhargav.goals=clone(src.goals)}
+    var dinner=state.meals.find(function(x){return x.id==='b-dinner'});if(dinner&&src.dinnerRule!=null) dinner.rule=src.dinnerRule;
+    rebuildPlanned(state,today);
+    delete state.bPhaseApplied;delete state.bMenuBackup;
+    return how;
   }
   function menuTotals(n,nut){ /* optional helper for tests: nut(items)->{cal,p,f,c} */
     var m=MENUS[n];if(!m||!nut) return null;
@@ -286,6 +317,6 @@
     effective:EFFECTIVE,end:END,startWeight:94.885,heightCm:173,targetLow:75,targetHigh:77,targetCentral:76,
     phases:PHASES,deloads:DELOADS,days:DAYS,rules:RULES,mealSplit:MEAL_SPLIT,menus:MENUS,
     active:active,phaseFor:phaseFor,deloadFor:deloadFor,resolve:resolve,allWorkouts:allWorkouts,
-    suryaFor:suryaFor,warmupFor:warmupFor,applyDietPhase:applyDietPhase,menuTotals:menuTotals,addDays:addDays
+    suryaFor:suryaFor,warmupFor:warmupFor,applyDietPhase:applyDietPhase,restoreDietMenu:restoreDietMenu,menuTotals:menuTotals,addDays:addDays
   };
 })();

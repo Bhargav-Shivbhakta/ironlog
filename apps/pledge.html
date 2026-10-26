@@ -2,1322 +2,431 @@
 <html lang="en">
 <head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Pledge — Turn ambition into a kept promise</title>
+<title>Pledge — Keep the promise, earn the prize</title>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
 <script src="../assets/firebase-config.js"></script>
-<script src="../assets/theme.js"></script>
-<link rel="stylesheet" href="../assets/motion.css">
-<script src="../assets/motion.js" defer></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
-/* Pledge — built entirely on the Hub's theme tokens (--bg --surface
-   --surface-soft --line --text --muted --faint --ink --shadow + --accent),
-   which HubTheme.applyHubAppearance / applyHubTheme set at runtime. So it
-   follows the Hub's mode, palette, wallpaper and each person's accent. */
-:root{--bg:#f4f4f0;--surface:#fff;--surface-soft:#f8f8f5;--line:#e3e3dc;--text:#20211e;--muted:#74766f;--faint:#9c9e97;--ink:#171714;
---accent:#ad7b20;--on-accent:#fff;--radius:16px;--shadow:0 18px 50px rgba(37,38,32,.08);
---green:var(--accent);--lime:var(--accent);--gold:var(--accent);
---panel:var(--surface);--panel2:var(--surface-soft);
---green2:color-mix(in srgb,var(--accent) 14%,var(--surface));
---line-accent:color-mix(in srgb,var(--accent) 40%,var(--line));
---ok:#2f9d6b;--ok2:color-mix(in srgb,var(--ok) 14%,var(--surface));
---warn:#d9822b;--warn2:color-mix(in srgb,var(--warn) 14%,var(--surface));
---bad:#c4493f;--bad2:color-mix(in srgb,var(--bad) 12%,var(--surface));
---info:#4a78c9;--info2:color-mix(in srgb,var(--info) 12%,var(--surface))}
-:root[data-theme="dark"],:root[data-theme="dark"] body{color-scheme:dark}
-:root[data-theme="dark"]{--ok:#4cc58d;--warn:#f0a050;--bad:#ef7a70;--info:#7ea7ee}
-body.embedded .topbar-wrap{display:none}
-*{box-sizing:border-box}html{background:var(--bg)}
-body{margin:0;background:transparent;color:var(--text);font:14.5px/1.5 Inter,ui-sans-serif,system-ui,-apple-system,Segoe UI,sans-serif;-webkit-font-smoothing:antialiased}
-html{background-attachment:fixed;background-size:300% 300%}
-html.wallpaper-live{animation:wp-drift 40s ease-in-out infinite alternate}
-@keyframes wp-drift{from{background-position:0% 50%}to{background-position:100% 50%}}
-h1,h2,h3,h4{font-family:Manrope,Inter,system-ui,sans-serif;letter-spacing:-.01em;margin:0}
-button,input,select,textarea{font:inherit}button{cursor:pointer}.app{min-height:100vh;display:flex;flex-direction:column}
-.topbar-wrap{padding:14px 20px 4px}
-.topbar-inner{max-width:1100px;margin:0 auto;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
-.brand-cluster{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
-.brand{display:flex;align-items:center;gap:9px;font-size:18px;font-weight:800;font-family:Manrope,sans-serif}
-.mark{width:32px;height:32px;border-radius:10px;display:grid;place-items:center;background:var(--accent);color:var(--on-accent);font-size:16px;font-weight:800}
-.hub-link{color:var(--muted);text-decoration:none;font-size:12.5px;font-weight:600}.hub-link:hover{color:var(--text)}
-.profile-buttons{display:flex;gap:3px;background:var(--surface);border:1px solid var(--line);border-radius:4px;padding:3px}
-.profile-buttons button{border:0;border-radius:4px;background:transparent;color:var(--muted);padding:6px 13px;font-weight:700;font-size:12.5px}
-.profile-buttons button.active{background:var(--accent);color:var(--on-accent)}
-.sync-box{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--muted)}.sync-box b{font-weight:600}
-.sync-dot{width:8px;height:8px;border-radius:50%;background:var(--faint);display:inline-block}.sync-dot.on{background:var(--ok);box-shadow:0 0 0 4px color-mix(in srgb,var(--ok) 22%,transparent)}
-.navbar-wrap{position:sticky;top:0;z-index:60;padding:10px 20px;backdrop-filter:blur(10px);background:color-mix(in srgb,var(--bg) 78%,transparent)}
-.nav-row{max-width:1100px;margin:0 auto;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
-.nav{display:flex;gap:4px;background:var(--surface);border:1px solid var(--line);border-radius:4px;padding:4px}
-.nav button{border:0;background:transparent;color:var(--muted);border-radius:4px;padding:9px 16px;font-weight:700;white-space:nowrap;font-size:13.5px;display:flex;align-items:center;gap:7px}
-.nav button .ni{font-size:15px;line-height:1}
-.nav button.active{background:var(--accent);color:var(--on-accent)}.nav button:not(.active):hover{color:var(--text)}
-.goal-switch{display:flex;align-items:center;gap:8px}
-.goal-switch select{min-width:150px;max-width:230px}
-.main{width:100%;max-width:1100px;margin:auto;padding:18px 20px 70px}
-.top{margin-bottom:18px}.eyebrow{text-transform:uppercase;letter-spacing:.14em;color:var(--accent);font-size:10.5px;font-weight:800}
-.top h1{font-size:28px;line-height:1.15;margin:4px 0}.top .sub{color:var(--muted);font-size:13.5px}
-.page{display:none}.page.active{display:block}
-.cards{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:16px}
-.metric{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:15px}
-.metric span{font-size:12px;color:var(--muted);font-weight:600}.metric b{font-size:24px;display:block;margin-top:3px;font-family:Manrope,sans-serif}
-.btn{white-space:nowrap;border:0;border-radius:12px;background:var(--accent);color:var(--on-accent);padding:10px 15px;font-weight:700;text-decoration:none;display:inline-flex;align-items:center;justify-content:center;gap:6px}
-.btn.soft{background:var(--green2);color:var(--accent);color:color-mix(in srgb,var(--accent) 70%,var(--text))}
-.btn.ghost{background:var(--surface);border:1px solid var(--line);color:var(--text)}
-.btn.danger{background:var(--bad2);color:var(--bad);border:1px solid color-mix(in srgb,var(--bad) 30%,var(--line))}
-.btn.gold{background:var(--accent);color:var(--on-accent)}.btn.big{padding:13px 20px;font-size:15px;border-radius:8px}
-.btn.sm{padding:7px 11px;font-size:12.5px;border-radius:10px}.btn:disabled{opacity:.45;cursor:default}
-.input,select,textarea{width:100%;background:var(--surface);color:var(--text);border:1px solid var(--line);border-radius:12px;padding:10px 12px;outline:none}
-.input:focus,select:focus,textarea:focus{border-color:var(--accent);box-shadow:0 0 0 3px color-mix(in srgb,var(--accent) 20%,transparent)}
-.label{font-size:12px;color:var(--muted);font-weight:700;margin-bottom:4px}
-.hint{font-size:12px;color:var(--faint);margin-top:4px}
-.grid-2{display:grid;grid-template-columns:1fr 1fr;gap:12px}.grid-3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px}
-.card{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:18px;margin-bottom:14px;box-shadow:var(--shadow)}
-.card h2,.card h3{margin:0 0 4px}.card>h3:first-child{font-size:16px}
-.head{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:12px;flex-wrap:wrap}
-.sub{color:var(--muted);font-size:13px}
-/* ---- reward hero: the thing you are working toward ---- */
-.prize{position:relative;overflow:hidden;border-radius:8px;margin-bottom:16px;color:#fff;background:linear-gradient(160deg,#16181d,#0e1013);border-top:3px solid var(--accent);box-shadow:var(--shadow)}
-.prize-img{position:absolute;inset:0;background-size:cover;background-position:center;transition:filter .6s,transform .6s}
-.prize:after{content:"";position:absolute;inset:0;background:linear-gradient(180deg,rgba(0,0,0,.15) 0%,rgba(0,0,0,.72) 100%)}
-.prize-body{position:relative;z-index:2;padding:22px;display:grid;grid-template-columns:1fr auto;gap:18px;align-items:end;min-height:250px}
-.prize-kicker{font-size:11px;letter-spacing:.14em;text-transform:uppercase;font-weight:800;opacity:.9;display:flex;align-items:center;gap:6px}
-.prize h1{font-size:30px;line-height:1.1;margin:8px 0 6px;color:#fff}
-.prize-sub{font-size:13.5px;opacity:.92;max-width:460px}
-.prize-chips{display:flex;gap:7px;flex-wrap:wrap;margin-top:12px}
-.pchip{background:rgba(255,255,255,.18);backdrop-filter:blur(6px);border:1px solid rgba(255,255,255,.28);border-radius:4px;padding:5px 11px;font-size:12px;font-weight:700}
-.ring{width:132px;height:132px;position:relative;flex:none}.ring svg{width:100%;height:100%;transform:rotate(-90deg)}
-.ring .rt{stroke:rgba(255,255,255,.25)}.ring .rf{stroke:#fff;transition:stroke-dashoffset .8s}
-.ring-c{position:absolute;inset:0;display:grid;place-items:center;text-align:center;line-height:1.1}
-.ring-c b{font-size:30px;font-family:Manrope,sans-serif}.ring-c small{font-size:11px;opacity:.9;display:block;margin-top:2px}
-.prize-empty{font-size:64px;position:absolute;right:26px;top:18px;z-index:2;filter:drop-shadow(0 6px 16px rgba(0,0,0,.35))}
-.fund{margin-top:12px;max-width:420px}.fund .bar{background:rgba(255,255,255,.22);border:0;height:8px}.fund .bar i{background:#fff}.fund small{font-size:12px;opacity:.92;display:flex;justify-content:space-between;margin-bottom:5px}
-.prize .btn.ghost{background:rgba(255,255,255,.16);border-color:rgba(255,255,255,.3);color:#fff}
-.prize .btn.gold{background:#fff;color:#1c1a14}
-.prize-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
-.earned-glow{animation:glow 2.2s ease-in-out infinite alternate}@keyframes glow{from{box-shadow:0 0 0 0 color-mix(in srgb,var(--accent) 45%,transparent),var(--shadow)}to{box-shadow:0 0 0 10px transparent,var(--shadow)}}
-/* ---- player strip ---- */
-.player{display:flex;align-items:center;gap:14px;flex-wrap:wrap;background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:13px 16px;margin-bottom:14px}
-.rank-badge{width:46px;height:46px;border-radius:4px;background:var(--accent);color:var(--on-accent);display:grid;place-items:center;font-family:Manrope,sans-serif;font-weight:800;font-size:19px;flex:none}
-.player-main{flex:1;min-width:180px}.player-main b{font-size:15px}.player-main .bar{margin-top:6px}
-.stat-chips{display:flex;gap:7px;flex-wrap:wrap}
-.chip{display:inline-flex;align-items:center;gap:5px;border-radius:4px;padding:5px 11px;font-weight:700;font-size:12.5px;white-space:nowrap;background:var(--green2);color:color-mix(in srgb,var(--accent) 70%,var(--text))}
-.chip.ok{background:var(--ok2);color:var(--ok)}.chip.info{background:var(--info2);color:var(--info)}.chip.warn{background:var(--warn2);color:var(--warn)}
-.streak-chip{display:inline-flex;align-items:center;gap:4px;background:var(--green2);color:color-mix(in srgb,var(--accent) 70%,var(--text));border-radius:4px;padding:4px 10px;font-weight:800;font-size:12px;white-space:nowrap}
-/* ---- checklist ---- */
-.today-head{display:flex;justify-content:space-between;align-items:baseline;gap:10px;flex-wrap:wrap;margin-bottom:6px}
-.today-head h2{font-size:19px}.today-head span{font-size:13px;color:var(--muted);font-weight:600}
-.task-row{display:flex;align-items:center;gap:12px;padding:13px 4px;border-bottom:1px solid var(--line)}.task-row:last-child{border:0}
-.chk{width:32px;height:32px;flex:none;border-radius:50%;border:2px solid var(--line);background:var(--surface);color:transparent;font-size:17px;display:grid;place-items:center;transition:transform .2s cubic-bezier(.2,0,0,1),background .15s}
-.chk:hover{border-color:var(--accent)}.chk.done{background:var(--accent);border-color:var(--accent);color:var(--on-accent);transform:scale(1.06)}
-.task-row.all-done .task-label{text-decoration:line-through;color:var(--muted)}
-.task-label{font-weight:700;font-size:15px}.task-sub{font-size:12.5px;color:var(--muted);margin-top:1px}
-.task-tags{display:flex;gap:5px;flex-wrap:wrap;margin-top:5px}
-.tag-pill{font-size:11px;font-weight:700;padding:2px 8px;border-radius:4px;background:var(--green2);color:color-mix(in srgb,var(--accent) 70%,var(--text))}
-.tag-pill.peer{background:var(--info2);color:var(--info)}.tag-pill.proof{background:var(--warn2);color:var(--warn)}
-.alldone{text-align:center;padding:16px 8px 6px;font-weight:700}.alldone big{display:block;font-size:34px}
-/* ---- banners ---- */
-.recovery-banner{background:var(--bad2);border:1px solid color-mix(in srgb,var(--bad) 35%,var(--line));border-radius:var(--radius);padding:16px;margin:0 0 14px}
-.recovery-banner h3{margin:0 0 4px;color:var(--bad)}
-.recovery-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
-.checkpoint-banner{background:var(--info2);border:1px solid color-mix(in srgb,var(--info) 35%,var(--line));border-radius:var(--radius);padding:15px;margin:0 0 14px}
-.win-banner{background:var(--ok2);border:1px solid color-mix(in srgb,var(--ok) 35%,var(--line));border-radius:var(--radius);padding:15px;margin:0 0 14px}
-.stake-banner{background:var(--warn2);border:1px solid color-mix(in srgb,var(--warn) 40%,var(--line));border-radius:var(--radius);padding:13px 15px;margin:0 0 14px;font-size:13.5px}
-.commit-note{background:var(--green2);border-left:4px solid var(--accent);border-radius:12px;padding:12px 15px;font-size:14px;font-style:italic;margin:0 0 14px}
-.commit-note small{display:block;font-style:normal;font-weight:700;color:var(--muted);font-size:11px;margin-bottom:2px;letter-spacing:.06em;text-transform:uppercase}
-.deadline-pill{display:inline-flex;align-items:center;gap:5px;background:var(--surface-soft);border:1px solid var(--line);border-radius:4px;padding:5px 12px;font-size:12.5px;font-weight:600;color:var(--muted)}
-.deadline-pill.danger{background:var(--bad2);color:var(--bad);border-color:color-mix(in srgb,var(--bad) 30%,var(--line))}
-/* ---- stage path ---- */
-.ladder{display:flex;gap:10px;overflow-x:auto;padding:4px 2px 8px;margin:0 0 14px;scroll-snap-type:x proximity}
-.rung{flex:0 0 168px;scroll-snap-align:start;border:1px solid var(--line);border-radius:8px;padding:13px;background:var(--surface);cursor:pointer;position:relative}
-.rung.current{border-color:var(--accent);background:var(--green2)}
-.rung.done{border-color:color-mix(in srgb,var(--ok) 45%,var(--line));background:var(--ok2)}
-.rung.recovery{border-color:color-mix(in srgb,var(--bad) 45%,var(--line));background:var(--bad2)}
-.rung.upcoming{opacity:.7}
-.rung .rung-index{font-size:11px;color:var(--muted);font-weight:800}.rung h3{font-size:15px;margin:5px 0 3px}.rung .rung-meta{font-size:12px;color:var(--muted)}
-.rung .rg{position:absolute;right:10px;top:11px;font-size:10px;letter-spacing:.1em;text-transform:uppercase;font-weight:800;color:var(--muted)}
-.prize.noimg .prize-body{min-height:0}
-.rec-opts{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:8px}
-.rec-opt{display:flex;flex-direction:column;gap:3px;text-align:left;padding:11px 13px;border:1px solid var(--line);border-radius:6px;background:var(--surface);color:var(--text);cursor:pointer;font:inherit}
-.rec-opt b{font-size:14px}.rec-opt span{font-size:12px;color:var(--muted);line-height:1.4}.rec-opt:hover:not(:disabled){border-color:var(--accent)}.rec-opt:disabled{opacity:.5;cursor:not-allowed}
-.redo-row{display:flex;gap:10px;align-items:flex-start;padding:9px 0;border-bottom:1px solid var(--line);font-size:14px}.redo-row small{display:block;color:var(--muted);font-size:12px}
-/* ---- road chart / badges ---- */
-.road svg{width:100%;height:auto;display:block}
-.road-legend{display:flex;gap:14px;flex-wrap:wrap;font-size:12px;color:var(--muted);margin-top:6px}
-.road-legend i{display:inline-block;width:18px;height:3px;border-radius:2px;vertical-align:middle;margin-right:5px}
-.badges{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px}
-.badge{border:1px solid var(--line);border-radius:8px;padding:12px;text-align:center;background:var(--surface-soft)}
-.badge .bi{font-size:28px;filter:grayscale(1);opacity:.35}.badge b{display:block;font-size:13px;margin-top:4px}.badge small{color:var(--muted);font-size:11.5px;display:block}
-.badge.got{background:var(--green2);border-color:var(--line-accent)}.badge.got .bi{filter:none;opacity:1}
-.bar{height:9px;background:var(--surface-soft);border:1px solid var(--line);border-radius:4px;overflow:hidden}.bar i{display:block;height:100%;background:var(--accent);border-radius:4px;transition:width .4s}
-/* ---- goals / rewards ---- */
-.pledge-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:14px}
-.war-card{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:16px}
-.war-row{display:grid;grid-template-columns:1fr auto;gap:8px;align-items:start}
-.war-card.active{border-color:var(--accent)}
-.vault-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:14px}
-.vault-item{border:1px solid var(--line);border-radius:var(--radius);overflow:hidden;background:var(--surface)}
-.vault-image{height:130px;background:linear-gradient(135deg,color-mix(in srgb,var(--accent) 60%,#000),color-mix(in srgb,var(--accent) 30%,#000));background-size:cover;background-position:center;display:grid;place-items:center;font-size:40px;position:relative}
-.vault-image.locked{filter:grayscale(.85) blur(1.5px)}
-.vault-copy{padding:13px}.vault-copy small{color:var(--muted);font-weight:700;font-size:11.5px}
-.reward-status-chip{display:inline-block;font-size:11px;font-weight:800;padding:3px 9px;border-radius:4px;background:var(--green2);color:color-mix(in srgb,var(--accent) 70%,var(--text));letter-spacing:.04em}
-.reward-status-chip.earned,.reward-status-chip.claimed,.reward-status-chip.purchased{background:var(--ok2);color:var(--ok)}
-.timeline-strip{display:flex;gap:8px;overflow-x:auto;padding:4px 0}
-.timeline-thumb{width:72px;height:72px;border-radius:12px;background-size:cover;background-position:center;border:1px solid var(--line);flex:none}
-.history-item{display:flex;justify-content:space-between;gap:12px;padding:9px 0;border-bottom:1px solid var(--line);font-size:13px}.history-item:last-child{border:0}.history-item small{color:var(--muted)}
-/* ---- modal / forms ---- */
-.modal-wrap{position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:70;display:grid;place-items:center;padding:16px;overflow:auto}
-.modal{width:min(620px,100%);max-height:92vh;overflow:auto;background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:22px;box-shadow:var(--shadow);margin:auto}
-.modal h2{margin:0}.modal-actions{display:flex;justify-content:flex-end;gap:8px;margin-top:16px;flex-wrap:wrap}
-.steps{display:flex;gap:6px;margin:14px 0 16px}.steps i{flex:1;height:5px;border-radius:99px;background:var(--line)}.steps i.on{background:var(--accent)}
-.chips-row{display:flex;gap:7px;flex-wrap:wrap;margin:8px 0}
-.pick{border:1px solid var(--line);background:var(--surface);color:var(--text);border-radius:4px;padding:7px 13px;font-weight:600;font-size:13px}.pick:hover,.pick.on{border-color:var(--accent);background:var(--green2)}
-.stack{display:grid;gap:12px}
-details.sec{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);margin-bottom:12px;overflow:hidden}
-details.sec>summary{list-style:none;cursor:pointer;padding:15px 18px;font-weight:800;font-family:Manrope,sans-serif;font-size:15.5px;display:flex;justify-content:space-between;align-items:center;gap:10px}
-details.sec>summary::-webkit-details-marker{display:none}details.sec>summary:after{content:"＋";color:var(--muted);font-weight:400}details.sec[open]>summary:after{content:"–"}
-details.sec>summary small{font-weight:500;color:var(--muted);font-size:12.5px;font-family:Inter,sans-serif;margin-left:8px;margin-right:auto}
-details.sec>.sec-body{padding:2px 18px 18px}
-details.more{margin-top:8px}details.more>summary{cursor:pointer;color:var(--muted);font-size:12.5px;font-weight:700;padding:4px 0}
-.task-editor{border:1px solid var(--line);border-radius:8px;padding:13px;margin-bottom:10px;background:var(--surface-soft)}
-.reward-edit{border:1px dashed var(--line-accent);border-radius:8px;padding:13px;background:var(--green2);display:grid;gap:10px}
-.toast{position:fixed;left:50%;bottom:24px;transform:translate(-50%,12px);background:var(--ink);color:#fff;border-radius:12px;padding:11px 16px;z-index:80;opacity:0;transition:.2s;pointer-events:none;box-shadow:var(--shadow);max-width:min(340px,92vw);font-weight:600;font-size:13.5px}.toast.show{opacity:1;transform:translate(-50%,0)}
-.loading{position:fixed;inset:0;background:var(--bg);z-index:100;display:grid;place-items:center;text-align:center}.loading div{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:25px}
-.empty{text-align:center;color:var(--muted);padding:30px 14px}
-.welcome{text-align:center;padding:38px 18px;background:var(--surface);border:1px solid var(--line);border-radius:8px}
-.welcome .big-i{font-size:54px}.welcome h2{font-size:23px;margin:8px 0}.welcome p{color:var(--muted);max-width:420px;margin:0 auto 16px}
-.template-row{display:flex;gap:7px;flex-wrap:wrap;margin-top:10px}
-.focus-overlay{position:fixed;inset:0;background:rgba(0,0,0,.82);z-index:90;display:grid;place-items:center;padding:20px}
-.focus-dialog{width:min(440px,100%);background:var(--surface);color:var(--text);border-radius:8px;padding:30px;text-align:center;position:relative}
-.focus-dialog .eyebrow2{color:var(--accent);text-transform:uppercase;letter-spacing:.14em;font-size:11px;font-weight:800}
-.focus-timer{font-size:56px;font-weight:800;color:var(--accent);margin:14px 0;font-family:Manrope,sans-serif}
-.focus-close{position:absolute;top:10px;right:14px;background:none;border:0;color:var(--muted);font-size:24px}
-.spot-check-wrap{background:var(--green2);border-radius:12px;padding:10px;margin-top:8px}
-button,.btn{transition:transform .08s ease-out}button:active,.btn:active{transform:scale(.98)}
-@keyframes fade-in{from{opacity:0;transform:translateY(8px)}}.page.active>*{animation:fade-in .32s cubic-bezier(.16,1,.3,1) both}
-@media(max-width:760px){
- .task-editor .grid-3{grid-template-columns:1fr 1fr!important}.task-editor .grid-3>.re-field:first-child{grid-column:1/-1}
- .topbar-wrap{padding:12px 14px 2px}.main{padding:12px 14px 96px}
- .navbar-wrap{position:static;background:none;backdrop-filter:none;padding:6px 14px 0}.nav-row{flex-direction:column;align-items:stretch}
- .nav{position:fixed;left:10px;right:10px;bottom:10px;z-index:65;border-radius:8px;justify-content:space-around;box-shadow:0 10px 36px rgba(0,0,0,.28);padding:5px}
- .nav button{flex:1;flex-direction:column;gap:2px;padding:8px 4px;font-size:11.5px;border-radius:8px}.nav button .ni{font-size:19px}
- .goal-switch{width:100%}.goal-switch select{flex:1;max-width:none}
- .cards{grid-template-columns:1fr 1fr 1fr;gap:8px}.metric{padding:11px}.metric b{font-size:19px}
- .grid-2,.grid-3{grid-template-columns:1fr}.pledge-grid{grid-template-columns:1fr}
- .prize-body{grid-template-columns:1fr;min-height:300px;padding:18px}.ring{width:96px;height:96px;position:absolute;right:16px;top:16px}.ring-c b{font-size:22px}.ring-c small{display:none}
- .prize h1{font-size:25px;margin-top:70px}.prize-empty{font-size:46px;right:20px;top:14px}
- .top h1{font-size:23px}.toast{bottom:92px}
+/* Pledge has its own look on purpose: an ink-dark room, one ember colour,
+   big serif numerals, and every pledge drawn like a ticket with the prize
+   as the stub. It does not read the Hub theme. */
+:root{--bg:#0e0d0c;--card:#171513;--card2:#1e1b18;--line:#2d2925;--text:#f4eee5;--muted:#a1988c;--faint:#6f685f;
+--ember:#ff7a3d;--ember2:#ffb067;--gold:#f2c14e;--ok:#8fd694;--bad:#ea6a5e;--r:18px}
+*{box-sizing:border-box}
+html{background:var(--bg)}
+body{margin:0;color:var(--text);font:15px/1.5 Inter,system-ui,-apple-system,Segoe UI,sans-serif;-webkit-font-smoothing:antialiased;min-height:100vh;
+background:radial-gradient(900px 500px at 8% -10%,rgba(255,122,61,.16),transparent 60%),radial-gradient(700px 420px at 100% 0%,rgba(242,193,78,.07),transparent 60%),var(--bg);background-attachment:fixed}
+h1,h2,h3{font-family:Fraunces,Georgia,serif;margin:0;font-weight:600;letter-spacing:-.015em}
+button,input,select,textarea{font:inherit;color:inherit}button{cursor:pointer}
+.wrap{max-width:980px;margin:0 auto;padding:22px 20px 90px}
+.bar{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:26px}
+.brand{display:flex;align-items:baseline;gap:12px}
+.word{font-family:Fraunces,serif;font-weight:800;font-size:26px;letter-spacing:-.02em}
+.word i{color:var(--ember);font-style:normal}
+.back{color:var(--muted);text-decoration:none;font-size:13px;font-weight:600}.back:hover{color:var(--text)}
+body.embedded .back{display:none}
+.who{display:flex;gap:2px;background:var(--card);border:1px solid var(--line);border-radius:999px;padding:3px}
+.who button{border:0;background:transparent;color:var(--muted);padding:6px 15px;border-radius:999px;font-weight:600;font-size:13px}
+.who button.on{background:var(--text);color:var(--bg)}
+.btn{border:0;border-radius:999px;background:var(--ember);color:#1a0d05;padding:10px 18px;font-weight:700;font-size:14px;display:inline-flex;align-items:center;gap:7px;transition:transform .12s,filter .12s}
+.btn:hover{filter:brightness(1.08)}.btn:active{transform:scale(.97)}
+.btn.ghost{background:transparent;border:1px solid var(--line);color:var(--text)}.btn.ghost:hover{border-color:var(--faint)}
+.btn.sm{padding:6px 13px;font-size:12.5px}.btn.gold{background:var(--gold)}
+.btn.bad{background:transparent;border:1px solid color-mix(in srgb,var(--bad) 45%,var(--line));color:var(--bad)}
+.btn:disabled{opacity:.4;cursor:default}
+.hero{display:grid;grid-template-columns:auto 1fr;gap:26px;align-items:end;margin-bottom:30px;padding-bottom:26px;border-bottom:1px solid var(--line)}
+.hero .big{font-family:Fraunces,serif;font-weight:800;font-size:104px;line-height:.85;letter-spacing:-.05em}
+.hero .big small{font-size:46px;color:var(--faint);font-weight:600;letter-spacing:-.02em}
+.hero .lab{color:var(--ember2);font-size:11.5px;font-weight:700;letter-spacing:.16em;text-transform:uppercase;margin-bottom:8px}
+.hero p{margin:0;color:var(--muted);font-size:14.5px;max-width:420px}
+.hero p b{color:var(--text)}
+.sect{display:flex;justify-content:space-between;align-items:baseline;margin:0 0 12px}
+.sect h2{font-size:15px;font-family:Inter,sans-serif;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--muted)}
+.ticket{display:grid;grid-template-columns:1fr 210px;background:var(--card);border:1px solid var(--line);border-radius:var(--r);margin-bottom:16px;overflow:hidden;position:relative}
+.ticket::before,.ticket::after{content:"";position:absolute;right:197px;width:26px;height:26px;border-radius:50%;background:var(--bg);border:1px solid var(--line)}
+.ticket::before{top:-14px}.ticket::after{bottom:-14px}
+.ticket.nostub{grid-template-columns:1fr}.ticket.nostub::before,.ticket.nostub::after{display:none}
+.main{padding:20px 22px 18px}
+.chips{display:flex;gap:7px;flex-wrap:wrap;margin-bottom:9px}
+.chip{font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;padding:3px 9px;border-radius:999px;border:1px solid var(--line);color:var(--muted)}
+.chip.link{color:var(--ember2);border-color:color-mix(in srgb,var(--ember) 40%,var(--line))}
+.ticket h3{font-size:27px;line-height:1.15}
+.why{color:var(--muted);font-style:italic;font-family:Fraunces,serif;margin:6px 0 0;font-size:14.5px}
+.week{display:grid;grid-template-columns:repeat(7,1fr);gap:7px;margin:18px 0 14px}
+.day{display:flex;flex-direction:column;align-items:center;gap:5px;font-size:10.5px;color:var(--faint);font-weight:700;letter-spacing:.08em;text-transform:uppercase}
+.stamp{width:100%;max-width:46px;aspect-ratio:1;border-radius:50%;display:grid;place-items:center;border:1.5px solid var(--line);background:transparent;font-size:17px;font-weight:800;color:transparent;padding:0}
+.stamp.off{border-style:dashed;opacity:.4}
+.stamp.done{background:var(--ember);border-color:var(--ember);color:#1a0d05}
+.stamp.miss{border-color:color-mix(in srgb,var(--bad) 55%,var(--line));color:var(--bad)}
+.stamp.now{border-color:var(--ember);box-shadow:0 0 0 4px color-mix(in srgb,var(--ember) 18%,transparent)}
+.stamp.up{border-color:var(--line)}
+button.stamp:hover{border-color:var(--ember2)}
+.stats{display:flex;gap:22px;flex-wrap:wrap;align-items:baseline}
+.stats div{font-size:12px;color:var(--muted)}
+.stats b{display:block;font-family:Fraunces,serif;font-size:27px;color:var(--text);line-height:1.05;font-weight:600}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:14px}
+.auto{font-size:12.5px;color:var(--muted)}.auto i{color:var(--ok);font-style:normal}
+.stub{border-left:2px dashed var(--line);padding:22px 20px;display:flex;flex-direction:column;justify-content:center;gap:6px;background:linear-gradient(160deg,color-mix(in srgb,var(--ember) 8%,var(--card2)),var(--card2))}
+.stub .k{font-size:10.5px;font-weight:800;letter-spacing:.18em;text-transform:uppercase;color:var(--ember2)}
+.stub .p{font-family:Fraunces,serif;font-size:22px;line-height:1.15;font-weight:600}
+.stub .s{font-size:12.5px;color:var(--muted)}
+.ticket.earned{border-color:var(--gold)}.ticket.earned .stub{background:linear-gradient(160deg,color-mix(in srgb,var(--gold) 20%,var(--card2)),var(--card2))}
+.ticket.earned .stub .k{color:var(--gold)}
+.ticket.failed{opacity:.9}
+.ticket.claimed{opacity:.75}
+.menu{margin-left:auto;display:flex;gap:6px}
+.link-btn{background:none;border:0;color:var(--faint);font-size:12.5px;font-weight:600;padding:4px 6px}.link-btn:hover{color:var(--text)}
+.empty{border:1px dashed var(--line);border-radius:var(--r);padding:44px 24px;text-align:center}
+.empty h3{font-size:30px;margin-bottom:8px}.empty p{color:var(--muted);max-width:430px;margin:0 auto 20px}
+details.done-sec summary{cursor:pointer;color:var(--muted);font-weight:700;letter-spacing:.14em;text-transform:uppercase;font-size:13px;margin:26px 0 12px}
+/* form */
+.scrim{position:fixed;inset:0;background:rgba(5,4,3,.72);backdrop-filter:blur(6px);z-index:50;display:grid;place-items:center;padding:14px}
+.modal{background:var(--card);border:1px solid var(--line);border-radius:22px;width:100%;max-width:520px;max-height:92vh;overflow:auto;padding:24px}
+.modal h2{font-size:28px;margin-bottom:4px}.modal .sub{color:var(--muted);font-size:13.5px;margin-bottom:18px}
+.f{margin-bottom:16px}.f>label,.lab2{display:block;font-size:11px;font-weight:800;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);margin-bottom:6px}
+.in{width:100%;background:var(--card2);border:1px solid var(--line);border-radius:12px;padding:11px 13px;outline:none}
+.in:focus{border-color:var(--ember)}
+textarea.in{resize:vertical}
+.seg{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+.opt{background:var(--card2);border:1px solid var(--line);border-radius:12px;padding:11px 12px;text-align:left}
+.opt b{display:block;font-size:14px}.opt span{font-size:12px;color:var(--muted)}
+.opt.on{border-color:var(--ember);background:color-mix(in srgb,var(--ember) 10%,var(--card2))}
+.dows{display:grid;grid-template-columns:repeat(7,1fr);gap:5px}
+.dows button{background:var(--card2);border:1px solid var(--line);border-radius:10px;padding:9px 0;font-size:12px;font-weight:700;color:var(--muted)}
+.dows button.on{background:var(--ember);border-color:var(--ember);color:#1a0d05}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.mfoot{display:flex;gap:8px;justify-content:flex-end;margin-top:20px}
+details.adv summary{cursor:pointer;color:var(--muted);font-size:13px;font-weight:600;margin-bottom:10px}
+.toast{position:fixed;left:50%;bottom:28px;transform:translate(-50%,20px);background:var(--text);color:var(--bg);padding:10px 18px;border-radius:999px;font-weight:600;font-size:13.5px;opacity:0;pointer-events:none;transition:.25s;z-index:80}
+.toast.show{opacity:1;transform:translate(-50%,0)}
+.sync{font-size:12px;color:var(--faint)}
+.load{position:fixed;inset:0;display:grid;place-items:center;background:var(--bg);z-index:90;text-align:center;color:var(--muted)}
+.load b{font-family:Fraunces,serif;font-size:26px;color:var(--text)}
+@media(max-width:700px){
+ .wrap{padding:16px 14px 80px}
+ .hero{grid-template-columns:1fr;gap:12px}.hero .big{font-size:84px}
+ .ticket{grid-template-columns:1fr}.ticket::before,.ticket::after{display:none}
+ .stub{border-left:0;border-top:2px dashed var(--line);padding:16px 22px}
+ .ticket h3{font-size:24px}.two{grid-template-columns:1fr}
 }
 </style>
 </head>
 <body>
-<script>try{ if(window.self !== window.top) document.body.classList.add('embedded'); }catch(e){ document.body.classList.add('embedded'); }</script>
-<div class="loading" id="loading"><div><b style="font-size:18px">Opening Pledge</b><p class="sub" id="loadingText">Loading your goals…</p></div></div>
-<div class="app" id="shell" style="visibility:hidden">
-<div class="topbar-wrap"><div class="topbar-inner">
-  <div class="brand-cluster">
-    <div class="brand"><span class="mark">P</span> Pledge</div>
-    <a class="hub-link" href="../index.html">← Home hub</a>
-    <div class="profile-box"><div class="profile-buttons"><button id="profileBhargav" onclick="setProfile('Bhargav')">Bhargav</button><button id="profileAnusha" onclick="setProfile('Anusha')">Anusha</button></div></div>
+<script>try{if(window.self!==window.top)document.body.classList.add('embedded')}catch(e){document.body.classList.add('embedded')}</script>
+<div class="load" id="load"><div><b>Pledge</b><p id="loadText">Opening…</p></div></div>
+<div class="wrap" id="app" style="visibility:hidden">
+  <div class="bar">
+    <div class="brand"><div class="word">Pledge<i>.</i></div><a class="back" href="../index.html">← Home hub</a></div>
+    <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+      <span class="sync" id="sync"></span>
+      <div class="who"><button id="pB" onclick="setProfile('Bhargav')">Bhargav</button><button id="pA" onclick="setProfile('Anusha')">Anusha</button></div>
+      <button class="btn" onclick="openForm()">+ New pledge</button>
+    </div>
   </div>
-  <div class="sync-box"><span class="sync-dot" id="syncDot"></span><b id="syncLabel">Connecting</b></div>
-</div></div>
-<div class="navbar-wrap"><div class="nav-row">
-  <nav class="nav" id="nav">
-    <button data-page="today" class="active" onclick="go('today')"><svg class="ni" viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>Today</button>
-    <button data-page="rewards" onclick="go('rewards')"><svg class="ni" viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="8" width="18" height="4"/><path d="M12 8v13M19 12v9H5v-9M7.5 8a2.5 2.5 0 010-5C11 3 12 8 12 8s1-5 4.5-5a2.5 2.5 0 010 5"/></svg>Rewards</button>
-    <button data-page="progress" onclick="go('progress')"><svg class="ni" viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 3v18h18"/><path d="M7 15l4-4 3 3 5-6"/></svg>Record</button>
-    <button data-page="goals" onclick="go('goals')"><svg class="ni" viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="4.5"/><circle cx="12" cy="12" r="1"/></svg>Goals</button>
-  </nav>
-  <div class="goal-switch">
-    <select class="input" id="goalSelect" aria-label="Switch goal"></select>
-    <button class="btn soft sm" onclick="openNewGoal()">+ New goal</button>
-  </div>
-</div></div>
-<main class="main">
-<header class="top"><div><div class="eyebrow" id="eyebrow">Today</div><h1 id="pageTitle">Today</h1><div class="sub" id="pageSub"></div></div></header>
-
-<section class="page active" id="today"></section>
-<section class="page" id="rewards"></section>
-<section class="page" id="progress"></section>
-<section class="page" id="goals"></section>
-<section class="page" id="plan"></section>
-
-</main></div><div id="modal"></div><div class="toast" id="toast"></div><div id="focusHost"></div>
+  <div id="view"></div>
+</div>
+<div id="modal"></div><div class="toast" id="toast"></div>
 <script>
-window.addEventListener('error',e=>{const l=document.getElementById('loadingText');if(l&&document.getElementById('loading').style.display!=='none')l.textContent='Something went wrong: '+e.message});
-if(typeof firebase==='undefined'){document.getElementById('loadingText').textContent='Connected services could not load. Check your connection and refresh.'}else{
-const CONFIG=window.IRONLOG_FIREBASE;
-if(!firebase.apps.length)firebase.initializeApp(CONFIG);const auth=firebase.auth(),db=firebase.firestore();if(window.self===window.top){try{db.enablePersistence({synchronizeTabs:true}).catch(()=>{})}catch(e){}}
-const $=id=>document.getElementById(id),clone=x=>JSON.parse(JSON.stringify(x));
+window.addEventListener('error',e=>{const l=document.getElementById('loadText');if(l&&document.getElementById('load').style.display!=='none')l.textContent='Something went wrong: '+e.message});
+if(typeof firebase==='undefined'){document.getElementById('loadText').textContent='Could not load. Check your connection and refresh.'}else{
+const $=id=>document.getElementById(id);
 const esc=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-var user=null,state=null,saveTimer=null,evalDirty=false,baseline={},lastWrittenJson='';
+if(!firebase.apps.length)firebase.initializeApp(window.IRONLOG_FIREBASE);
+const auth=firebase.auth(),db=firebase.firestore();
+let user=null,state={profile:'Bhargav',pledges:[]},saveTimer=null,syncing=false;
+const DOW=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'],FULL=['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+const MONFIRST=[1,2,3,4,5,6,0];
+const GYM_DAYS=[0,1,3,4,5];
 
-/* ===================== dates ===================== */
-function pad2(n){return String(n).padStart(2,'0')}
-function todayKey(){const d=new Date(Date.now()-270*60000);return d.getFullYear()+'-'+pad2(d.getMonth()+1)+'-'+pad2(d.getDate())}
-function addDays(iso,n){const d=new Date(iso+'T12:00:00');d.setDate(d.getDate()+n);return d.toISOString().slice(0,10)}
-function formatDate(iso){return iso?new Date(iso+'T12:00:00').toLocaleDateString(undefined,{month:'short',day:'numeric',year:'numeric'}):'—'}
-function dowOf(iso){return new Date(iso+'T12:00:00').getDay()}
+/* ---------- dates (local calendar day, same as the other apps) ---------- */
+const p2=n=>String(n).padStart(2,'0');
+function today(){const d=new Date();return d.getFullYear()+'-'+p2(d.getMonth()+1)+'-'+p2(d.getDate())}
+function addDays(iso,n){const d=new Date(iso+'T12:00:00');d.setDate(d.getDate()+n);return d.getFullYear()+'-'+p2(d.getMonth()+1)+'-'+p2(d.getDate())}
+function dow(iso){return new Date(iso+'T12:00:00').getDay()}
+function between(a,b){return Math.round((new Date(b+'T12:00:00')-new Date(a+'T12:00:00'))/864e5)}
+function pretty(iso){return new Date(iso+'T12:00:00').toLocaleDateString(undefined,{month:'short',day:'numeric'})}
+function toast(t){$('toast').textContent=t;$('toast').classList.add('show');clearTimeout(toast.t);toast.t=setTimeout(()=>$('toast').classList.remove('show'),2400)}
 
-/* ===================== persistence ===================== */
-function doc(k){return db.collection('users').doc(user.uid).collection('apps').doc('pledge-v2').collection('data').doc(k)}
-function prefGet(k){try{return localStorage.getItem(k)}catch(e){return null}}
-function prefSet(k,v){try{localStorage.setItem(k,v)}catch(e){}}
-function save(){if(!user)return;$('syncLabel').textContent='Saving…';$('syncDot').classList.remove('on');clearTimeout(saveTimer);saveTimer=setTimeout(flushSave,300)}
-function flushNow(){if(saveTimer){clearTimeout(saveTimer);saveTimer=null;try{flushSave()}catch(e){}}}
-window.addEventListener('pagehide',flushNow);document.addEventListener('visibilitychange',()=>{if(document.hidden)flushNow()});window.addEventListener('message',e=>{if(e.data&&e.data.type==='hub-flush')flushNow()});
-function safeParse(j){try{return JSON.parse(j)}catch(e){return null}}
-/* Both profiles live in one document. Saving merges goal-by-goal so a second
-   device never overwrites goals it did not touch. */
-function mergeState(remote){
-  const out={version:2,goals:[],archivedGoals:[],history:[],reviews:{},activeProfile:state.activeProfile,activeGoalId:state.activeGoalId};
-  const taken=[],rById={},localIds=new Set(state.goals.map(g=>g.id));
-  ((remote&&remote.goals)||[]).forEach(g=>rById[g.id]=g);
-  const archLocal=new Set(state.archivedGoals.map(g=>g.id));
-  state.goals.forEach(g=>{
-    const dirty=baseline[g.id]===undefined||JSON.stringify(g)!==baseline[g.id];
-    if(dirty)out.goals.push(g);
-    else if(rById[g.id]){out.goals.push(rById[g.id]);taken.push(g.id)}
-  });
-  ((remote&&remote.goals)||[]).forEach(g=>{if(!localIds.has(g.id)&&baseline[g.id]===undefined&&!archLocal.has(g.id)){out.goals.push(g);taken.push(g.id)}});
-  const arch={};((remote&&remote.archivedGoals)||[]).forEach(g=>arch[g.id]=g);state.archivedGoals.forEach(g=>arch[g.id]=g);
-  out.archivedGoals=Object.values(arch);
-  const hist={};((remote&&remote.history)||[]).concat(state.history).forEach(e=>hist[e.id]=e);
-  out.history=Object.values(hist).sort((a,b)=>a.date<b.date?1:-1).slice(0,400);
-  const rv=(remote&&remote.reviews)||{};
-  Object.keys(Object.assign({},rv,state.reviews)).forEach(k=>{const m={};(rv[k]||[]).concat(state.reviews[k]||[]).forEach(r=>m[r.savedAt]=r);out.reviews[k]=Object.values(m).sort((a,b)=>b.savedAt-a.savedAt)});
-  return{out,taken};
-}
-function adopt(m,all){
-  state.goals=m.out.goals;state.archivedGoals=m.out.archivedGoals;state.history=m.out.history;state.reviews=m.out.reviews;
-  state.goals.forEach(g=>{if(all||m.taken.includes(g.id))baseline[g.id]=JSON.stringify(g)});
-  if(state.activeGoalId&&!state.goals.some(g=>g.id===state.activeGoalId)){const mine=myGoals()[0];state.activeGoalId=mine?mine.id:null}
-}
-async function flushSave(){
+/* ---------- storage: one document, merged pledge-by-pledge ---------- */
+const uref=()=>db.collection('users').doc(user.uid);
+const stateRef=()=>uref().collection('apps').doc('pledge-v3').collection('data').doc('state');
+async function readJson(ref,def){try{const s=await ref.get();return s.exists&&s.data().json?JSON.parse(s.data().json):def}catch(e){return def}}
+function save(){$('sync').textContent='Saving…';clearTimeout(saveTimer);saveTimer=setTimeout(flush,350)}
+async function flush(){
+  saveTimer=null;
   try{
-    const ref=doc('state');let merged=null,js='';
-    const build=remoteJson=>{merged=mergeState(remoteJson?safeParse(remoteJson):null);js=JSON.stringify(merged.out);return js};
-    if(typeof db.runTransaction==='function'){
-      await db.runTransaction(async tx=>{const sn=await tx.get(ref);const j=build(sn.exists?sn.data().json:null);tx.set(ref,{json:j,updatedAt:firebase.firestore.FieldValue.serverTimestamp()})});
-    }else{
-      const sn=await ref.get();await ref.set({json:build(sn.exists?sn.data().json:null),updatedAt:firebase.firestore.FieldValue.serverTimestamp()});
-    }
-    lastWrittenJson=js;
-    const changed=merged.taken.length>0;
-    adopt(merged,true);
-    $('syncLabel').textContent='Saved to cloud';$('syncDot').classList.add('on');
-    if(changed)softRefresh();
-  }catch(e){$('syncLabel').textContent='Save needs retry'}
+    const ref=stateRef();let merged;
+    const build=raw=>{
+      let remote=[];try{remote=raw?(JSON.parse(raw).pledges||[]):[]}catch(e){}
+      const by={};remote.forEach(p=>by[p.id]=p);
+      state.pledges.forEach(p=>{if(!by[p.id]||(p.u||0)>=(by[p.id].u||0))by[p.id]=p});
+      merged=Object.values(by);return JSON.stringify({version:3,pledges:merged});
+    };
+    await db.runTransaction(async tx=>{const sn=await tx.get(ref);tx.set(ref,{json:build(sn.exists?sn.data().json:null),updatedAt:firebase.firestore.FieldValue.serverTimestamp()})});
+    state.pledges=merged;$('sync').textContent='Saved';
+  }catch(e){$('sync').textContent='Save needs retry'}
 }
-function modalOpen(){return !!$('modal').innerHTML}
-function softRefresh(){
-  const a=document.activeElement;
-  if(modalOpen()||(a&&/^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName)))return;
-  renderGoalSelect();renderPage(document.querySelector('.page.active').id);
-}
-function watchState(){
-  try{
-    const ref=doc('state');if(typeof ref.onSnapshot!=='function')return;
-    ref.onSnapshot(sn=>{
-      if(!sn.exists||(sn.metadata&&sn.metadata.hasPendingWrites)||!state)return;
-      const j=sn.data().json;if(j===lastWrittenJson)return;
-      const remote=safeParse(j);if(!remote||!Array.isArray(remote.goals))return;
-      adopt(mergeState(remote),false);softRefresh();
-    },()=>{});
-  }catch(e){}
-}
-function toast(t){$('toast').textContent=t;$('toast').classList.add('show');clearTimeout(toast.t);toast.t=setTimeout(()=>$('toast').classList.remove('show'),2800)}
-
-/* ===================== templates ===================== */
-const TEMPLATES={
-  exam:{title:'Pass the certification',description:'Earn the result through disciplined preparation.',type:'Education',why:'This qualification opens the next door.',target:'Pass the exam',days:14,task:'Complete one focused study block',detail:'60 minutes with practice questions'},
-  fitness:{title:'Build the body',description:'Train consistently and earn the result.',type:'Fitness',why:'Strength and health compound over time.',target:'Complete the training block',days:30,task:"Complete today's training",detail:'Follow the planned session without skipping the final set'},
-  career:{title:'Advance the career',description:'Build the evidence and skill for the next role.',type:'Career',why:'The next opportunity requires a stronger standard.',target:'Complete the career milestone',days:30,task:'Complete one career-building block',detail:'90 minutes of deliberate work'},
-  project:{title:'Finish the project',description:'Turn the idea into a finished deliverable.',type:'Project',why:'Finished work creates leverage.',target:'Ship the defined project',days:21,task:'Move the project forward',detail:'Complete one clearly defined deliverable'}
-};
-
-/* ===================== model ===================== */
-function freshTask(over){return Object.assign({id:'t-'+Date.now()+'-'+Math.random().toString(36).slice(2,6),title:'New task',detail:'Define the exact requirement',xp:100,time:'',duration:'',priority:'Normal',minimum:'',frequency:'daily',selectedDays:[],peer:'',requiresPhoto:false,doneOnce:false},over||{})}
-function freshReward(over){return Object.assign({name:'Choose the reward',price:0,url:'',image:'',status:'committed',fundSaved:0},over||{})}
-function freshLevel(over){return Object.assign({id:'lv-'+Date.now()+'-'+Math.random().toString(36).slice(2,6),title:'Stage 1',days:7,rule:'Do every task each day, honestly. A missed day starts a recovery.',status:'upcoming',startedAt:null,shared:false,tasks:[freshTask()],reward:freshReward(),days_log:{},recoveryEvents:[],excusedDates:[],recoveryTriggerDate:null,pausedOn:null,difficultySuggestion:null,sunkCostCheckpoint:{shown:false,decision:null}},over||{})}
-function freshGoal(over){
-  const lvl=freshLevel({status:'current',startedAt:todayKey()});
-  return Object.assign({
-    id:'g-'+Date.now()+'-'+Math.random().toString(36).slice(2,6),profileId:state?state.activeProfile:'Bhargav',
-    title:'New goal',description:'',type:'Personal',why:'',startingPoint:'',target:'',deadline:'',priority:'High',
-    prepChecklist:'',reminderTime:'',reviewDay:'Sunday',background:'',
-    status:'active',currentLevelIndex:0,levels:[lvl],
-    milestones:[],commitNote:'',commitNoteSealedAt:null,
-    graceTokens:0,perfectDayStreak:0,xpBank:0,bonusRewards:[],
-    photoCheckins:[],
-    createdAt:Date.now()
-  },over||{});
-}
-function fresh(){return{version:2,activeProfile:'Bhargav',activeGoalId:null,goals:[],archivedGoals:[],history:[],reviews:{}}}
+window.addEventListener('pagehide',()=>{if(saveTimer){clearTimeout(saveTimer);flush()}});
+document.addEventListener('visibilitychange',()=>{if(document.hidden){if(saveTimer){clearTimeout(saveTimer);flush()}}else if(user){syncLinked().then(render)}});
 
 async function load(){
-  const snap=await doc('state').get();
-  state=snap.exists?JSON.parse(snap.data().json):null;
-  if(!state||!state.goals){state=fresh()}
-  state.archivedGoals=state.archivedGoals||[];state.history=state.history||[];state.reviews=state.reviews||{};
-  const qp=new URLSearchParams(location.search).get('profile'),lp=prefGet('pledge-profile');
-  state.activeProfile=qp==='Anusha'||qp==='Bhargav'?qp:(lp==='Anusha'||lp==='Bhargav'?lp:(state.activeProfile||'Bhargav'));
-  const lg=prefGet('pledge-goal');if(lg&&state.goals.some(g=>g.id===lg&&g.profileId===state.activeProfile))state.activeGoalId=lg;
-  baseline={};state.goals.forEach(g=>baseline[g.id]=JSON.stringify(g));
-  // No auto-created blank goal: every screen already has an empty-state
-  // prompting "+ New goal", so a first-time open starts genuinely empty
-  // instead of leaving an unwanted "New operation" cluttering the switcher.
-  if(state.activeGoalId&&!state.goals.some(g=>g.id===state.activeGoalId))state.activeGoalId=null;
-  if(!state.activeGoalId){const mine=state.goals.find(g=>g.profileId===state.activeProfile);if(mine)state.activeGoalId=mine.id}
-  evalDirty=false;state.goals.forEach(g=>evaluateGoal(g));if(evalDirty){evalDirty=false;save()}
+  const raw=await readJson(stateRef(),null);
+  state.pledges=(raw&&Array.isArray(raw.pledges))?raw.pledges:[];
+  const qp=new URLSearchParams(location.search).get('profile');let lp=null;try{lp=localStorage.getItem('pledge-profile')}catch(e){}
+  state.profile=qp==='Anusha'||qp==='Bhargav'?qp:(lp==='Anusha'||lp==='Bhargav'?lp:'Bhargav');
 }
+function setProfile(n){state.profile=n;try{localStorage.setItem('pledge-profile',n)}catch(e){}paintWho();render();syncLinked().then(render)}
+function paintWho(){$('pB').classList.toggle('on',state.profile==='Bhargav');$('pA').classList.toggle('on',state.profile==='Anusha')}
+const mine=()=>state.pledges.filter(p=>!p.deleted&&p.owner===state.profile);
 
-function myGoals(){return state.goals.filter(g=>g.profileId===state.activeProfile)}
-function activeGoal(){return state.goals.find(g=>g.id===state.activeGoalId)||myGoals()[0]}
-function genericTitle(t){return /^stage\s*\d+$/i.test(String(t||'').trim())}
-function stageLabel(goal,level){return genericTitle(level.title)?'Stage '+(goal.levels.indexOf(level)+1):level.title}
-function stageHeading(level){return genericTitle(level.title)?((level.tasks[0]&&level.tasks[0].title)||'Daily standard'):level.title}
-function currentLevel(g){return g.levels[g.currentLevelIndex]||g.levels[g.levels.length-1]}
-function extraDays(l){return(l.recoveryEvents||[]).reduce((n,e)=>n+(e.action==='extend'?1:(e.action==='pause'?(e.n||0):0)),0)}
-function levelProgress(l){
-  // Share of working days actually completed. Rest days (nothing due) are skipped,
-  // excused days are NOT counted as earned, days added by a recovery are not penalised.
-  if(!l.startedAt)return 0;
-  const end=addDays(l.startedAt,l.days-1);let req=0,earned=0,d=l.startedAt;
-  while(d<=end){if(!isRestDay(l,d)){req++;const rec=l.days_log[d];if(rec&&rec.complete)earned++}d=addDays(d,1)}
-  req=Math.max(1,req-extraDays(l));
-  return Math.min(100,Math.round(earned/req*100));
-}
-function dayHasTask(level,dateKey,taskId){const rec=level.days_log[dateKey];return !!(rec&&rec.doneTaskIds&&rec.doneTaskIds.includes(taskId))}
-function logEvent(goalId,action,detail){state.history.unshift({id:Date.now()+Math.random(),date:new Date().toISOString(),goalId,action,detail});state.history=state.history.slice(0,400)}
-
-/* ===================== task due-today logic ===================== */
-function taskDueToday(task,dateKey){
-  if(task.frequency==='once')return !task.doneOnce;
-  if(task.frequency==='weekdays'){const d=dowOf(dateKey);return d>=1&&d<=5}
-  if(task.frequency==='selected')return (task.selectedDays||[]).includes(dowOf(dateKey));
-  return true;
-}
-function dueTasksFor(level,dateKey){
-  const rec=level.days_log[dateKey];
-  return level.tasks.filter(t=>t.frequency==='once'?(!t.doneOnce||!!(rec&&rec.doneTaskIds&&rec.doneTaskIds.includes(t.id))):taskDueToday(t,dateKey));
-}
-/* A rest day has nothing scheduled. It can never be "missed". */
-function isRestDay(level,d){const rec=level.days_log[d];if(rec&&rec.doneTaskIds&&rec.doneTaskIds.length)return false;return dueTasksFor(level,d).length===0}
-function hasPending(rec){return !!(rec&&rec.pending&&Object.keys(rec.pending).length)}
-function anyPending(level){return Object.keys(level.days_log).some(d=>hasPending(level.days_log[d]))}
-function recomputeDay(level,rec,d){const due=dueTasksFor(level,d);rec.complete=due.length>0&&due.every(t=>rec.doneTaskIds.includes(t.id))&&!hasPending(rec)}
-
-/* ===================== evaluation / recovery engine =====================
-   Walks every fully-elapsed day of the stage. A day is fine if it is complete,
-   waiting on a referee, a rest day, or excused (recovery / pause). The first
-   unsatisfied day spends a banked grace day or flips the stage into 'recovery'.
-   The stage finishes the moment the last day's tasks are all done. */
-function evaluateLevel(goal,level){
-  if(level.status!=='current')return;
-  const today=todayKey(),end=addDays(level.startedAt,level.days-1);
-  const lastCheck=today<=end?addDays(today,-1):end;
-  let cursor=level.startedAt;
-  while(cursor<=lastCheck){
-    const rec=level.days_log[cursor];
-    const ok=(level.excusedDates||[]).includes(cursor)||(rec&&(rec.complete||hasPending(rec)))||isRestDay(level,cursor);
-    if(!ok){
-      if((goal.graceTokens||0)>0){
-        goal.graceTokens--;
-        level.graceDates=level.graceDates||[];level.graceDates.push(cursor);
-        logEvent(goal.id,'Grace day used',cursor+' was covered');
-        evalDirty=true;cursor=addDays(cursor,1);continue;
-      }
-      level.status='recovery';level.recoveryTriggerDate=cursor;evalDirty=true;return;
-    }
-    cursor=addDays(cursor,1);
+/* ---------- the maths: ticks out of what was due ---------- */
+function calc(p){
+  const T=today(),end=addDays(p.start,p.weeks*7-1);
+  let totalDue=0,done=0,missed=0,left=0;
+  for(let d=p.start;d<=end;d=addDays(d,1)){
+    if(!p.days.includes(dow(d)))continue;
+    totalDue++;
+    if(p.log[d])done++;else if(d<T)missed++;else left++;
   }
-  const lastRec=level.days_log[end];
-  const finishedLastDay=today===end&&lastRec&&lastRec.complete;
-  if((today>end||finishedLastDay)&&!anyPending(level)){
-    level.status='done';evalDirty=true;
-    if(level.reward.status==='committed'||level.reward.status==='in-progress')level.reward.status='earned';
-    computeDifficultySuggestion(level);
-    logEvent(goal.id,'Level completed',level.title);
-    advanceGoal(goal);
+  const allowed=p.misses||0;let status='active';
+  if(p.claimed)status='claimed';
+  else if(totalDue&&done>=Math.max(1,totalDue-allowed))status='earned';
+  else if(missed>allowed)status='failed';
+  let streak=0;
+  for(let d=T>end?end:T;d>=p.start;d=addDays(d,-1)){
+    if(!p.days.includes(dow(d)))continue;
+    if(p.log[d])streak++;else if(d===T)continue;else break;
   }
+  return{end,totalDue,done,missed,left,allowed,status,streak,daysLeft:Math.max(0,between(T,end)+1),need:Math.max(0,Math.max(1,totalDue-allowed)-done)};
 }
-function evaluateGoal(goal){(goal.levels||[]).forEach(l=>evaluateLevel(goal,l))}
-function computeDifficultySuggestion(level){
-  const n=(level.recoveryEvents||[]).filter(e=>e.action!=='pause'||e.n).length;
-  if(n===0)level.difficultySuggestion={days:Math.max(level.days,Math.round(level.days*1.3)),note:'Perfect run — raise the bar. Suggested a longer next level.'};
-  else if(n<=2)level.difficultySuggestion={days:level.days,note:'Solid run with a couple of recoveries — keep the same length next.'};
-  else level.difficultySuggestion={days:Math.max(3,Math.round(level.days*0.7)),note:'Several recoveries — suggested a shorter level next to rebuild momentum.'};
-}
-function advanceGoal(goal){
-  const next=goal.levels[goal.currentLevelIndex+1];
-  if(next){goal.currentLevelIndex++;next.status='current';next.startedAt=todayKey();}
-  else{toast(goal.title+' complete. Every stage done.');logEvent(goal.id,'Ladder complete','Every level finished');}
-}
+function isDue(p,d){return d>=p.start&&d<=addDays(p.start,p.weeks*7-1)&&p.days.includes(dow(d))}
 
-/* ===================== checklist interaction ===================== */
-/* Streak = consecutive satisfied days, recomputed from the logs, so ticking a
-   task on and off can never inflate it. Grace days are awarded once per date. */
-function syncStreak(goal,level,today,wasComplete){
-  const rec=level.days_log[today],key=level.id+':'+today;
-  goal.graceAwarded=goal.graceAwarded||[];
-  if(rec.complete&&!wasComplete){
-    const st=currentStreak(level);
-    if(st>0&&st%7===0&&!goal.graceAwarded.includes(key)){
-      goal.graceAwarded.push(key);goal.graceTokens=(goal.graceTokens||0)+1;
-      logEvent(goal.id,'Grace day earned','7 perfect days in a row');toast('Grace day earned. It covers one missed day.');
-    }
-  }else if(!rec.complete&&wasComplete&&goal.graceAwarded.includes(key)){
-    goal.graceAwarded=goal.graceAwarded.filter(k=>k!==key);goal.graceTokens=Math.max(0,(goal.graceTokens||0)-1);
-  }
-  goal.perfectDayStreak=currentStreak(level);
-}
-function maybeSpotCheck(cb){
-  if(Math.random()<0.2){openSpotCheck(cb)}else cb(null);
-}
-function toggleTask(goalId,levelId,taskId){
-  const goal=state.goals.find(g=>g.id===goalId),level=goal&&goal.levels.find(l=>l.id===levelId),task=level&&level.tasks.find(t=>t.id===taskId);
-  if(!goal||!level||!task||level.status!=='current')return;
-  const today=todayKey();
-  if(!dueTasksFor(level,today).some(t=>t.id===taskId))return;
-  const applyToggle=(note)=>{
-    level.days_log[today]=level.days_log[today]||{doneTaskIds:[],complete:false,spotCheckNotes:{},pending:{}};
-    const rec=level.days_log[today];rec.pending=rec.pending||{};
-    const wasComplete=!!rec.complete;
-    const idx=rec.doneTaskIds.indexOf(taskId);
-    const turningOn=idx===-1;
-    if(turningOn){
-      rec.doneTaskIds.push(taskId);if(note)rec.spotCheckNotes[taskId]=note;
-      if(task.frequency==='once')task.doneOnce=true;
-      goal.xpBank=(goal.xpBank||0)+(task.xp||0);
-      if(task.peer&&task.peer!==goal.profileId)rec.pending[taskId]=task.peer;
-    }else{
-      rec.doneTaskIds.splice(idx,1);delete rec.pending[taskId];
-      if(task.frequency==='once')task.doneOnce=false;
-      goal.xpBank=Math.max(0,(goal.xpBank||0)-(task.xp||0));
-    }
-    recomputeDay(level,rec,today);
-    syncStreak(goal,level,today,wasComplete);
-    logEvent(goal.id,turningOn?'Task completed':'Task reopened',task.title);
-    evaluateLevel(goal,level);
-    save();renderPage(document.querySelector('.page.active').id);
-    if(level.status==='done')renderPage('home');
-    if(turningOn&&rec.pending[taskId])toast('Sent to '+task.peer+' for approval');
-  };
-  const rec0=level.days_log[today];
-  const currentlyDone=!!(rec0&&rec0.doneTaskIds.includes(taskId));
-  if(currentlyDone){applyToggle(null);return}
-  maybeSpotCheck(note=>{
-    if(task.requiresPhoto)openPhotoCheckin(goal.id,level.id,taskId,()=>applyToggle(note));
-    else applyToggle(note);
-  });
-}
-function approveTask(goalId,levelId,date,taskId,ok){
-  const g=state.goals.find(x=>x.id===goalId),l=g&&g.levels.find(x=>x.id===levelId),rec=l&&l.days_log[date];
-  if(!rec||!rec.pending||!rec.pending[taskId])return;
-  const t=l.tasks.find(x=>x.id===taskId),was=!!rec.complete;
-  delete rec.pending[taskId];
-  if(!ok){
-    rec.doneTaskIds=rec.doneTaskIds.filter(x=>x!==taskId);
-    if(t){if(t.frequency==='once')t.doneOnce=false;g.xpBank=Math.max(0,(g.xpBank||0)-(t.xp||0))}
-  }
-  recomputeDay(l,rec,date);
-  if(date===todayKey())syncStreak(g,l,date,was);
-  logEvent(g.id,ok?'Task approved':'Task sent back',(t?t.title:'')+' · by '+state.activeProfile);
-  evaluateLevel(g,l);save();renderPage('today');toast(ok?'Approved':'Sent back to '+g.profileId);
-}
-
-/* ===================== recovery actions =====================
-   Every way back costs something, so a missed day is never free:
-   - Redo: once per stage, you actually do the day's tasks now. Logged late, streak stays broken.
-   - Minimum: say what you did. The day is excused, not earned, streak broken.
-   - Extra day: the stage gets one day longer. Streak broken.
-   - Pause: the paused days are added on to the end of the stage. */
-function recoveryAction(goalId,levelId,action){
-  const goal=state.goals.find(g=>g.id===goalId),level=goal&&goal.levels.find(l=>l.id===levelId);
-  if(!goal||!level||level.status!=='recovery')return;
-  const date=level.recoveryTriggerDate;
-  if(action==='pause'){level.status='paused';level.pausedOn=todayKey();level.recoveryEvents.push({date,action,note:'Paused intentionally'});logEvent(goal.id,'Recovery: paused',level.title);save();renderPage('mission');toast('Paused — resume any time, nothing is erased');return}
-  if(action==='repeat'){if(level.redoUsed){toast('The redo is already used for this stage');return}openRedo(goalId,levelId);return}
-  if(action==='minimum'){openMinimum(goalId,levelId);return}
-  if(action==='extend')finishRecovery(goal,level,'extend','Added a recovery day — the stage is one day longer');
-}
-function finishRecovery(goal,level,action,note){
-  const date=level.recoveryTriggerDate;
-  level.excusedDates=level.excusedDates||[];if(!level.excusedDates.includes(date))level.excusedDates.push(date);
-  if(action==='extend')level.days=Number(level.days||0)+1;
-  level.recoveryEvents.push({date,action,note:date+' · '+note});
-  level.status='current';level.recoveryTriggerDate=null;
-  goal.perfectDayStreak=currentStreak(level);
-  logEvent(goal.id,'Recovery: '+action,level.title+' · '+date);
-  evaluateLevel(goal,level);save();renderPage('mission');
-  toast('Recovery recorded. The streak restarts from here.');
-}
-function openRedo(goalId,levelId){
-  const goal=state.goals.find(g=>g.id===goalId),level=goal.levels.find(l=>l.id===levelId),date=level.recoveryTriggerDate;
-  const list=dueTasksFor(level,date).map(t=>'<label class="redo-row"><input type="checkbox" class="redoChk" onchange="redoCheck()"> <span>'+esc(t.title)+(t.detail?'<small>'+esc(t.detail)+'</small>':'')+'</span></label>').join('');
-  $('modal').innerHTML='<div class="modal-wrap"><div class="modal"><div class="head"><div><h2>Redo '+formatDate(date)+'</h2><div class="sub">You get this once per stage. Do the work now, then tick each task. It is logged as late and does not count toward your streak.</div></div></div>'+list
-    +'<div class="modal-actions"><button class="btn ghost" onclick="closeModal()">Cancel</button><button class="btn gold" id="redoGo" disabled onclick="confirmRedo(\''+goalId+'\',\''+levelId+'\')">Log it as done (late)</button></div></div></div>';
-}
-function redoCheck(){const all=[...document.querySelectorAll('.redoChk')];$('redoGo').disabled=!all.every(c=>c.checked)}
-function confirmRedo(goalId,levelId){
-  const goal=state.goals.find(g=>g.id===goalId),level=goal.levels.find(l=>l.id===levelId),date=level.recoveryTriggerDate;
-  if(!date||level.redoUsed)return;
-  const ids=dueTasksFor(level,date).map(t=>t.id);
-  level.days_log[date]={doneTaskIds:ids,complete:true,late:true,spotCheckNotes:{},pending:{}};
-  level.redoUsed=true;level.recoveryEvents.push({date,action:'repeat',note:date+' · Redone late (once per stage)'});
-  level.status='current';level.recoveryTriggerDate=null;goal.perfectDayStreak=currentStreak(level);
-  logEvent(goal.id,'Recovery: redo',level.title+' · '+date);
-  closeModal();evaluateLevel(goal,level);save();renderPage('mission');toast('Day redone and logged as late.');
-}
-function openMinimum(goalId,levelId){
-  const goal=state.goals.find(g=>g.id===goalId),level=goal.levels.find(l=>l.id===levelId),date=level.recoveryTriggerDate;
-  const mins=dueTasksFor(level,date).filter(t=>t.minimum).map(t=>'<li>'+esc(t.title)+': <b>'+esc(t.minimum)+'</b></li>').join('');
-  $('modal').innerHTML='<div class="modal-wrap"><div class="modal"><div class="head"><div><h2>Minimum version of '+formatDate(date)+'</h2><div class="sub">Say what you actually did that day. The day is excused, not earned, so it will not raise your progress and your streak restarts.</div></div></div>'
-    +(mins?'<ul class="sub" style="margin:0 0 10px 18px">'+mins+'</ul>':'')
-    +'<textarea class="input" id="minNote" rows="3" placeholder="What did you do?"></textarea>'
-    +'<div class="modal-actions"><button class="btn ghost" onclick="closeModal()">Cancel</button><button class="btn gold" onclick="confirmMinimum(\''+goalId+'\',\''+levelId+'\')">Excuse the day</button></div></div></div>';
-}
-function confirmMinimum(goalId,levelId){
-  const note=$('minNote').value.trim();
-  if(note.length<10){toast('Write at least a short sentence about what you did');return}
-  const goal=state.goals.find(g=>g.id===goalId),level=goal.levels.find(l=>l.id===levelId);
-  closeModal();finishRecovery(goal,level,'minimum','Minimum version: '+note);
-}
-function resumeLevel(goalId,levelId){
-  const goal=state.goals.find(g=>g.id===goalId),level=goal.levels.find(l=>l.id===levelId);
-  if(!goal||!level||level.status!=='paused')return;
-  const today=todayKey(),from=level.recoveryTriggerDate&&level.recoveryTriggerDate<level.pausedOn?level.recoveryTriggerDate:level.pausedOn;
-  level.excusedDates=level.excusedDates||[];
-  let cursor=from,n=0;
-  while(cursor<today){if(!level.excusedDates.includes(cursor)){level.excusedDates.push(cursor);n++}cursor=addDays(cursor,1)}
-  level.days=Number(level.days||0)+n;
-  level.recoveryEvents.push({date:today,action:'pause',n,note:today+' · Paused '+n+' day'+(n===1?'':'s')+'; stage lengthened by '+n});
-  level.status='current';level.pausedOn=null;level.recoveryTriggerDate=null;
-  goal.perfectDayStreak=currentStreak(level);
-  logEvent(goal.id,'Level resumed',level.title);
-  evaluateLevel(goal,level);save();renderPage('mission');toast('Resumed. The stage is '+n+' day'+(n===1?'':'s')+' longer.');
-}
-
-/* ===================== sunk-cost checkpoint ===================== */
-function daysElapsedIn(level){const today=todayKey(),end=addDays(level.startedAt,level.days-1),cap=today<end?today:end;const a=new Date(level.startedAt+'T12:00:00'),b=new Date(cap+'T12:00:00');return Math.max(0,Math.round((b-a)/86400000)+1)}
-function checkpointDue(level){return level.status==='current'&&!level.sunkCostCheckpoint.shown&&daysElapsedIn(level)>=Math.ceil(level.days/2)}
-function checkpointRespond(goalId,levelId,decision){
-  const goal=state.goals.find(g=>g.id===goalId),level=goal.levels.find(l=>l.id===levelId);
-  level.sunkCostCheckpoint={shown:true,decision,shownAt:Date.now()};
-  if(decision==='downgrade'){const remaining=level.days-daysElapsedIn(level);const cut=Math.max(1,Math.round(remaining*0.5));level.days=daysElapsedIn(level)+cut;toast('Scope downgraded — '+cut+' days left instead of '+remaining)}
-  else toast('Recommitted — full scope stays');
-  logEvent(goal.id,'Midpoint checkpoint',decision);
-  save();renderPage('mission');
-}
-
-/* ===================== reward lifecycle ===================== */
-function rewardAction(goalId,levelId,action){
-  const goal=state.goals.find(g=>g.id===goalId),level=goal.levels.find(l=>l.id===levelId);
-  if(action!=='abandoned'&&level.reward.status!=='earned'&&level.reward.status!=='purchased'){toast('Finish this stage before claiming its reward');return}
-  level.reward.status=action;logEvent(goal.id,'Reward status changed',action);save();renderPage(document.querySelector('.page.active').id);toast('Reward updated');
-}
-function depositToFund(goalId,levelId,amount){
-  const goal=state.goals.find(g=>g.id===goalId),level=goal.levels.find(l=>l.id===levelId);
-  level.reward.fundSaved=Math.max(0,(level.reward.fundSaved||0)+amount);save();renderPage(document.querySelector('.page.active').id);
-}
-
-/* ===================== bonus (XP bank) rewards ===================== */
-function addBonusReward(goalId){
-  const goal=state.goals.find(g=>g.id===goalId);
-  const name=prompt('Name this bonus treat');if(!name)return;
-  const xpRequired=Number(prompt('Points needed to unlock it','500'))||500;
-  goal.bonusRewards.push({id:'b-'+Date.now(),name,xpRequired,claimed:false});
-  save();renderPage('vault');
-}
-function claimBonus(goalId,bonusId){
-  const goal=state.goals.find(g=>g.id===goalId),b=goal.bonusRewards.find(x=>x.id===bonusId);
-  if(!b||b.claimed)return;if((goal.xpBank||0)<b.xpRequired){toast('Not enough points yet');return}
-  b.claimed=true;logEvent(goal.id,'Bonus reward claimed',b.name);save();renderPage('vault');toast(b.name+' claimed.');
-}
-
-/* ===================== goal CRUD (guided 3-step creator) ===================== */
-function switchGoal(id){state.activeGoalId=id;prefSet('pledge-goal',id);save();renderGoalSelect();go(document.querySelector('.page.active').id==='plan'?'plan':document.querySelector('.page.active').id)}
-var nd=null;
-function openNewGoal(){nd={step:1,title:'',why:'',type:'Personal',rewardName:'',rewardPrice:'',image:'',taskTitle:'',taskDetail:'',days:7,stakeText:'',stakeAmount:'',referee:''};renderNewGoal()}
-function ndTemplate(key){const t=TEMPLATES[key];nd.title=t.title;nd.why=t.why;nd.type=t.type;nd.taskTitle=t.task;nd.taskDetail=t.detail;nd.days=t.days;nd.target=t.target;renderNewGoal()}
-function ndNext(){
-  if(nd.step===1&&!nd.title.trim())return toast('Name the goal first');
-  if(nd.step===2&&!nd.rewardName.trim())return toast('Name the prize. It is what keeps you going.');
-  if(nd.step===3)return createGoalFromDraft();
-  nd.step++;renderNewGoal();
-}
-function ndImage(input){const f=input.files[0];if(!f)return;const r=new FileReader();r.onload=()=>{nd.image=r.result;renderNewGoal()};r.readAsDataURL(f)}
-function renderNewGoal(){
-  const other=state.activeProfile==='Bhargav'?'Anusha':'Bhargav';
-  const bar='<div class="steps">'+[1,2,3].map(i=>'<i class="'+(i<=nd.step?'on':'')+'"></i>').join('')+'</div>';
-  let body='';
-  if(nd.step===1){
-    body='<h2>Define the goal</h2><div class="sub">Step 1 of 3 · Start from a template or write your own.</div>'+bar
-    +'<div class="chips-row">'+Object.entries(TEMPLATES).map(([k,t])=>'<button class="pick'+(nd.type===t.type&&nd.title===t.title?' on':'')+'" onclick="ndTemplate(\''+k+'\')">'+esc(t.type)+'</button>').join('')+'</div>'
-    +'<div class="stack"><div><div class="label">Goal</div><input class="input" id="ndTitle" value="'+esc(nd.title)+'" placeholder="e.g. Run a half marathon" oninput="nd.title=this.value"></div>'
-    +'<div><div class="label">Why does this matter?</div><textarea class="input" rows="3" placeholder="Shown back to you when it gets hard" oninput="nd.why=this.value">'+esc(nd.why)+'</textarea></div></div>';
-  }else if(nd.step===2){
-    body='<h2>Name the prize</h2><div class="sub">Step 2 of 3 · Something you genuinely want. You only get it by finishing.</div>'+bar
-    +'<div class="stack"><div><div class="label">Prize</div><input class="input" value="'+esc(nd.rewardName)+'" placeholder="e.g. New running shoes" oninput="nd.rewardName=this.value"></div>'
-    +'<div class="grid-2"><div><div class="label">Price (optional)</div><input class="input" type="number" min="0" value="'+esc(nd.rewardPrice)+'" placeholder="0" oninput="nd.rewardPrice=this.value"></div>'
-    +'<div><div class="label">Picture (optional)</div><label class="btn ghost" style="cursor:pointer;width:100%">'+(nd.image?'✓ Picture added':'Add a picture')+'<input type="file" accept="image/*" style="display:none" onchange="ndImage(this)"></label></div></div>'
-    +(nd.image?'<div style="height:120px;border-radius:8px;background:url(\''+nd.image+'\') center/cover"></div>':'')
-    +'<div class="hint">A picture makes it concrete. It starts blurred and sharpens as you progress.</div></div>';
-  }else{
-    body='<h2>Set the daily standard</h2><div class="sub">Step 3 of 3 · What will you do each day, and for how many days?</div>'+bar
-    +'<div class="stack"><div><div class="label">Daily task</div><input class="input" value="'+esc(nd.taskTitle)+'" placeholder="e.g. Run 3 km" oninput="nd.taskTitle=this.value"></div>'
-    +'<div class="grid-2"><div><div class="label">Details (optional)</div><input class="input" value="'+esc(nd.taskDetail)+'" oninput="nd.taskDetail=this.value"></div>'
-    +'<div><div class="label">Days to complete</div><input class="input" type="number" min="1" value="'+esc(nd.days)+'" oninput="nd.days=this.value"></div></div>'
-    +'<details class="more"><summary>Add a stake and a referee (optional)</summary><div class="stack" style="margin-top:8px"><div class="grid-2"><div><div class="label">What do you lose if you quit?</div><input class="input" value="'+esc(nd.stakeText)+'" placeholder="e.g. Donate to a charity I dislike" oninput="nd.stakeText=this.value"></div>'
-    +'<div><div class="label">Amount ($)</div><input class="input" type="number" min="0" value="'+esc(nd.stakeAmount)+'" oninput="nd.stakeAmount=this.value"></div></div>'
-    +'<div><div class="label">Referee (approves before you claim your reward)</div><select class="input" onchange="nd.referee=this.value"><option value="">No referee</option><option value="'+other+'"'+(nd.referee===other?' selected':'')+'>'+other+'</option></select></div></div></details></div>';
-  }
-  $('modal').innerHTML='<div class="modal-wrap"><div class="modal">'+body+'<div class="modal-actions">'
-    +(nd.step>1?'<button class="btn ghost" onclick="nd.step--;renderNewGoal()">Back</button>':'<button class="btn ghost" onclick="closeModal()">Cancel</button>')
-    +'<button class="btn big" onclick="ndNext()">'+(nd.step===3?'Begin':'Next')+'</button></div></div></div>';
-}
-function createGoalFromDraft(){
-  const d=nd;
-  const days=Math.max(1,Number(d.days)||7);
-  const g=freshGoal({title:d.title.trim()||'My goal',why:d.why.trim(),type:d.type||'Personal',target:d.target||'',description:''});
-  g.levels=[freshLevel({title:'Stage 1',days,status:'current',startedAt:todayKey(),
-    tasks:[freshTask({title:d.taskTitle.trim()||'Do the daily work',detail:d.taskDetail.trim()})],
-    reward:freshReward({name:d.rewardName.trim()||'My reward',price:Number(d.rewardPrice)||0,image:d.image||''})})];
-  if(d.stakeText.trim()||Number(d.stakeAmount)||d.referee)g.stake={text:d.stakeText.trim(),amount:Number(d.stakeAmount)||0,referee:d.referee||''};
-  state.goals.push(g);state.activeGoalId=g.id;logEvent(g.id,'Goal created',g.title);
-  nd=null;save();closeModal();renderGoalSelect();go('today');toast('Committed. Day one starts now.');
-}
-function createBlankGoal(){openNewGoal()}
-function archiveGoal(goalId){
-  if(!confirm('Archive this goal? Its history and stages stay saved, just out of the active list.'))return;
-  const idx=state.goals.findIndex(g=>g.id===goalId),g=state.goals[idx];
-  g.status='archived';state.archivedGoals.push(g);state.goals.splice(idx,1);
-  state.activeGoalId=myGoals()[0]?myGoals()[0].id:null;
-  save();renderGoalSelect();go('goals');toast('Goal archived');
-}
-
-/* ===================== milestones ===================== */
-function addMilestone(goalId){
-  const goal=state.goals.find(g=>g.id===goalId);
-  goal.milestones.push({id:'m-'+Date.now(),title:'New milestone',criteria:'Define the exit condition',status:'upcoming'});
-  save();renderPage('editor');
-}
-function updateMilestone(goalId,mid,field,value){
-  const goal=state.goals.find(g=>g.id===goalId),m=goal.milestones.find(x=>x.id===mid);
-  m[field]=value;save();
-}
-function deleteMilestone(goalId,mid){const goal=state.goals.find(g=>g.id===goalId);goal.milestones=goal.milestones.filter(x=>x.id!==mid);save();renderPage('editor')}
-
-/* ===================== commit note ===================== */
-function sealCommitNote(goalId){
-  const goal=state.goals.find(g=>g.id===goalId),val=$('commitNoteInput').value.trim();
-  if(!val)return toast('Write the note before sealing it');
-  goal.commitNote=val;goal.commitNoteSealedAt=Date.now();
-  logEvent(goal.id,'Commit note sealed','');
-  save();renderPage('editor');toast('Sealed — it will remind you during any recovery moment');
-}
-function resealCommitNote(goalId){
-  if(!confirm('Reseal with a new note? The old one is replaced.'))return;
-  const goal=state.goals.find(g=>g.id===goalId);goal.commitNote='';goal.commitNoteSealedAt=null;save();renderPage('editor');
-}
-
-/* ===================== spot-check modal ===================== */
-let pendingSpotCheckCb=null;
-function openSpotCheck(cb){
-  pendingSpotCheckCb=cb;
-  $('modal').innerHTML='<div class="modal-wrap"><div class="modal"><div class="head"><div><h2>Quick spot-check</h2><div class="sub">Random integrity check — one line on what you actually did.</div></div></div><textarea class="input" id="spotCheckNote" placeholder="What did you actually do?" rows="3"></textarea><div class="modal-actions"><button class="btn ghost" onclick="cancelSpotCheck()">Not done yet</button><button class="btn gold" onclick="submitSpotCheck()">Confirm and check off</button></div></div></div>';
-}
-function cancelSpotCheck(){pendingSpotCheckCb=null;$('modal').innerHTML='';toast('Left unchecked')}
-function submitSpotCheck(){
-  const note=$('spotCheckNote').value.trim();
-  if(!note){toast('A quick line is required for this one');return}
-  const cb=pendingSpotCheckCb;pendingSpotCheckCb=null;$('modal').innerHTML='';if(cb)cb(note);
-}
-
-/* ===================== photo check-in (required when the task asks for it) ===================== */
-let pendingPhotoCb=null;
-function openPhotoCheckin(goalId,levelId,taskId,cb){
-  pendingPhotoCb=cb||null;
-  $('modal').innerHTML='<div class="modal-wrap"><div class="modal"><div class="head"><div><h2>Photo proof required</h2><div class="sub">This task only counts once you attach a photo of it.</div></div></div><input type="file" accept="image/*" class="input" id="photoFileInput"><div class="modal-actions"><button class="btn ghost" onclick="cancelPhoto()">Cancel</button><button class="btn gold" onclick="savePhotoCheckin(\''+goalId+'\',\''+levelId+'\',\''+taskId+'\')">Attach and check off</button></div></div></div>';
-}
-function cancelPhoto(){pendingPhotoCb=null;$('modal').innerHTML='';toast('Left unchecked')}
-function shrinkImage(file){
-  return new Promise((res,rej)=>{const r=new FileReader();r.onerror=()=>rej();
-    r.onload=()=>{const im=new Image();im.onerror=()=>rej();im.onload=()=>{const m=900,k=Math.min(1,m/Math.max(im.width,im.height)),c=document.createElement('canvas');c.width=Math.max(1,Math.round(im.width*k));c.height=Math.max(1,Math.round(im.height*k));c.getContext('2d').drawImage(im,0,0,c.width,c.height);res(c.toDataURL('image/jpeg',0.72))};im.src=r.result};
-    r.readAsDataURL(file)});
-}
-function savePhotoCheckin(goalId,levelId,taskId){
-  const file=$('photoFileInput').files[0];
-  if(!file){toast('Choose a photo first. This task requires one.');return}
-  shrinkImage(file).then(dataUrl=>{
-    const goal=state.goals.find(g=>g.id===goalId);
-    goal.photoCheckins.push({date:todayKey(),taskId,levelId,dataUrl});
-    const cb=pendingPhotoCb;pendingPhotoCb=null;$('modal').innerHTML='';
-    if(cb)cb();else{save();renderPage(document.querySelector('.page.active').id)}
-    toast('Photo added to the timeline');
-  }).catch(()=>toast('That file could not be read as an image'));
-}
-
-/* ===================== focus timer ===================== */
-let focusInterval=null,focusSeconds=0;
-function openFocus(goalId,levelId,taskId){
-  const goal=state.goals.find(g=>g.id===goalId),level=goal.levels.find(l=>l.id===levelId),task=level.tasks.find(t=>t.id===taskId);
-  focusSeconds=(Number(task.duration)||25)*60;
-  $('focusHost').innerHTML='<div class="focus-overlay" id="focusOverlay"><div class="focus-dialog"><button class="focus-close" onclick="closeFocus()">×</button><div class="eyebrow2">Focus mode</div><h2 style="margin:10px 0 4px">'+esc(task.title)+'</h2><p style="color:#C9C7D6;font-size:12px">'+esc(task.detail||'')+'</p><div class="focus-timer" id="focusTimer">'+pad2(Math.floor(focusSeconds/60))+':'+pad2(focusSeconds%60)+'</div><div class="modal-actions" style="justify-content:center"><button class="btn gold" id="focusStartBtn" onclick="startFocusTimer()">Start timer</button><button class="btn" onclick="completeFocusTask(\''+goalId+'\',\''+levelId+'\',\''+taskId+'\')">Complete task</button></div></div></div>';
-  logEvent(goalId,'Focus opened',task.title);
-}
-function startFocusTimer(){
-  clearInterval(focusInterval);
-  const tick=()=>{const el=$('focusTimer');if(!el)return;el.textContent=pad2(Math.floor(focusSeconds/60))+':'+pad2(focusSeconds%60);if(focusSeconds<=0){clearInterval(focusInterval);toast('Focus session complete')}else focusSeconds--};
-  tick();focusInterval=setInterval(tick,1000);toast('Focus session started');
-}
-function closeFocus(){clearInterval(focusInterval);$('focusHost').innerHTML=''}
-function completeFocusTask(goalId,levelId,taskId){
-  closeFocus();
-  const goal=state.goals.find(g=>g.id===goalId),level=goal.levels.find(l=>l.id===levelId),today=todayKey();
-  const alreadyDone=level.days_log[today]&&level.days_log[today].doneTaskIds.includes(taskId);
-  if(!alreadyDone)toggleTask(goalId,levelId,taskId);
-}
-
-/* ===================== export / import / calendar / print / reminder ===================== */
-function exportBackup(){const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([JSON.stringify(state,null,2)],{type:'application/json'}));a.download='pledge-backup.json';a.click();URL.revokeObjectURL(a.href);toast('Backup exported')}
-function importBackup(input){
-  const f=input.files[0];if(!f)return;
-  const r=new FileReader();
-  r.onload=()=>{
-    try{
-      const parsed=JSON.parse(r.result);if(!parsed||!Array.isArray(parsed.goals))throw new Error('bad file');
-      if(!confirm('Importing replaces everything in Pledge for both Bhargav and Anusha.\n\nHere now: '+state.goals.length+' goal(s). In the file: '+parsed.goals.length+' goal(s).\n\nExport a backup first if you are unsure. Replace everything?')){input.value='';return}
-      const keep=state.activeProfile;
-      state=Object.assign(fresh(),parsed);state.archivedGoals=state.archivedGoals||[];state.history=state.history||[];state.reviews=state.reviews||{};
-      state.activeProfile=keep;const mine=myGoals()[0];state.activeGoalId=mine?mine.id:null;
-      input.value='';save();renderGoalSelect();go('today');toast('Backup imported');
-    }catch(e){input.value='';toast('Import failed: invalid backup file')}
-  };
-  r.readAsText(f);
-}
-function icsEsc(x){return String(x||'').replace(/\\/g,'\\\\').replace(/[;,]/g,m=>'\\'+m).replace(/\r?\n/g,'\\n')}
-function exportCalendar(goal,level){
-  const today=todayKey(),end=addDays(level.startedAt,level.days-1);
-  if(end<today){toast('This stage has already ended.');return}
-  const from=level.startedAt>today?level.startedAt:today,ymd=x=>x.replace(/-/g,''),codes=['SU','MO','TU','WE','TH','FR','SA'];
-  const stamp=new Date().toISOString().replace(/[-:]/g,'').slice(0,15)+'Z';
-  const out=['BEGIN:VCALENDAR','VERSION:2.0','PRODID:-//Pledge//Goals//EN','CALSCALE:GREGORIAN'];
-  let n=0;
-  level.tasks.forEach(t=>{
-    let by=null;
-    if(t.frequency==='weekdays')by=[1,2,3,4,5];else if(t.frequency==='selected')by=(t.selectedDays||[]).slice();
-    if(by&&!by.length)return;
-    let first=from;
-    if(by){let k=0;while(k<7&&!by.includes(dowOf(first))){first=addDays(first,1);k++}}
-    if(first>end)return;
-    const tm=/^\d{1,2}:\d{2}$/.test(t.time||'')?(t.time.length===4?'0'+t.time:t.time).replace(':','')+'00':'080000';
-    const mins=Number(t.duration)||30;
-    out.push('BEGIN:VEVENT','UID:pledge-'+level.id+'-'+t.id+'@pledge','DTSTAMP:'+stamp,'DTSTART:'+ymd(first)+'T'+tm,'DURATION:PT'+mins+'M','SUMMARY:'+icsEsc(t.title||'Task'),'DESCRIPTION:'+icsEsc((t.detail||'')+' ('+goal.title+')'));
-    if(t.frequency!=='once')out.push('RRULE:'+(by?'FREQ=WEEKLY;BYDAY='+by.map(d=>codes[d]).join(','):'FREQ=DAILY')+';UNTIL='+ymd(end)+'T235959');
-    out.push('END:VEVENT');n++;
-  });
-  out.push('END:VCALENDAR');
-  if(!n){toast('No scheduled tasks left in this stage.');return}
-  const blob=new Blob([out.join('\r\n')+'\r\n'],{type:'text/calendar'});
-  const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='pledge-'+(goal.title||'goal').toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'')+'.ics';a.click();URL.revokeObjectURL(a.href);
-  toast('Calendar file ready: repeats until '+formatDate(end));
-}
-var remindedKey='';
-function checkReminder(){
-  const goal=state&&activeGoal();if(!goal||!goal.reminderTime||!('Notification' in window)||Notification.permission!=='granted')return;
-  const level=currentLevel(goal);if(level.status!=='current')return;
-  const now=new Date(),hm=pad2(now.getHours())+':'+pad2(now.getMinutes()),key=todayKey()+goal.id;
-  if(remindedKey===key||hm<goal.reminderTime)return;
-  const rec=level.days_log[todayKey()]||{doneTaskIds:[]},left=dueTasksFor(level,todayKey()).filter(t=>!rec.doneTaskIds.includes(t.id)).length;
-  remindedKey=key;
-  if(left)try{new Notification('Pledge',{body:left+(left===1?' task is':' tasks are')+' still open today.'})}catch(e){}
-}
-setInterval(checkReminder,30000);
-function requestReminder(){
-  const goal=activeGoal();if(!goal)return;
-  if(!('Notification' in window)){toast('This browser cannot show notifications.');return}
-  Notification.requestPermission().then(p=>{
-    if(p!=='granted'){toast('Notifications are blocked, so a reminder cannot be shown.');return}
-    const v=prompt('What time should the daily reminder fire? (24-hour, e.g. 19:30)',goal.reminderTime||'19:30');if(v===null)return;
-    const m=/^(\d{1,2}):(\d{2})$/.exec(v.trim());if(!m||+m[1]>23||+m[2]>59){toast('Use HH:MM, like 19:30');return}
-    goal.reminderTime=pad2(+m[1])+':'+m[2];remindedKey='';save();toast('Reminder set for '+goal.reminderTime+'. It fires while Pledge is open in a tab or installed app.');
-  });
-}
-function printReport(){window.print()}
-
-/* ===================== weekly review ===================== */
-function saveReview(goalId){
-  const worked=$('reviewWorked').value,friction=$('reviewFriction').value,changes=$('reviewChanges').value;
-  state.reviews[goalId]=state.reviews[goalId]||[];
-  state.reviews[goalId].unshift({worked,friction,changes,savedAt:Date.now()});
-  logEvent(goalId,'After-action review saved','Weekly review recorded');
-  save();renderPage('review');toast('Review saved');
-}
-
-/* ===================== nav / render dispatch ===================== */
-const PAGE_ALIAS={home:'today',mission:'today',editor:'plan',war:'goals',vault:'rewards',review:'progress'};
-const PAGE_INFO={
-  today:['Today','Today','Execute the standard. The prize is earned, not given.'],
-  rewards:['Rewards','Rewards','What you are earning, and what you have earned.'],
-  progress:['Record','Record','Rank, pace against the standard, and commendations.'],
-  goals:['Goals','Goals','Every commitment in one place.'],
-  plan:['Goals','Edit plan','Changes save as you type.']
+/* ---------- linked sources: read the other apps ---------- */
+const SRC={
+  schedule:{label:'A Schedule block',sub:'Ticks when you tick it in Schedule'},
+  gym:{label:'A Gym session',sub:'Ticks when you log a workout'},
+  weigh:{label:'Weigh-in',sub:'Ticks when you log your weight'},
+  water:{label:'Water goal',sub:'Ticks when you reach your goal'},
+  diet:{label:'Diet',sub:'Ticks when every planned meal is eaten'},
+  chore:{label:'A chore',sub:'Ticks when that chore is done'}
 };
-function go(page){
-  page=PAGE_ALIAS[page]||page;
-  document.querySelectorAll('.page').forEach(p=>p.classList.toggle('active',p.id===page));
-  const navKey=page==='plan'?'goals':page;
-  document.querySelectorAll('#nav button').forEach(b=>b.classList.toggle('active',b.dataset.page===navKey));
-  const info=PAGE_INFO[page];$('eyebrow').textContent=info[0];$('pageTitle').textContent=info[1];$('pageSub').textContent=info[2];
-  renderPage(page);window.scrollTo({top:0});
+function srcText(s){
+  if(!s)return'';
+  if(s.type==='schedule')return'Schedule · '+s.name;
+  if(s.type==='chore')return'Chore · '+s.name;
+  return SRC[s.type]?SRC[s.type].label.replace(/^An? /,''):'';
 }
-function renderPage(page){page=PAGE_ALIAS[page]||page;evalDirty=false;state.goals.forEach(g=>evaluateGoal(g));if(evalDirty){evalDirty=false;save()}renderGoalSelect();
-  if(page==='today')renderToday();else if(page==='plan')renderEditor();else if(page==='goals')renderGoals();else if(page==='rewards')renderRewards();else if(page==='progress')renderProgress();
+async function gymData(owner,start,C){
+  const k='gym:'+owner+start;if(C[k])return C[k];
+  const base=uref().collection('profiles').doc(owner.toLowerCase()),FP=firebase.firestore.FieldPath.documentId();
+  const [w,dl]=await Promise.all([base.collection('workoutLogs').where(FP,'>=',start).get(),base.collection('dailyLogs').where(FP,'>=',start).get()]);
+  const trained=new Set(),weighed=new Set();
+  w.forEach(s=>{const v=s.data()||{},date=v.date||String(s.id).split(':')[0];let any=false;(Array.isArray(v.exercises)?v.exercises:[]).forEach(e=>(e.sets||[]).forEach(()=>{any=true}));if(any)trained.add(date)});
+  dl.forEach(s=>{const v=s.data()||{},date=v.date||s.id;if(v.habits&&v.habits.workout)trained.add(date);if(Number(v.weight)>0)weighed.add(date)});
+  return C[k]={trained,weighed};
 }
-function renderGoalSelect(){
-  const sel=$('goalSelect');const mine=myGoals();
-  sel.innerHTML=mine.map(g=>'<option value="'+g.id+'" '+(g.id===state.activeGoalId?'selected':'')+'>'+esc(g.title)+'</option>').join('')||'<option>No goals yet</option>';
-  sel.onchange=()=>switchGoal(sel.value);
-}
-function closeModal(){pendingSpotCheckCb=null;pendingPhotoCb=null;$('modal').innerHTML=''}
-document.addEventListener('keydown',e=>{if(e.key==='Escape'&&$('modal').innerHTML)closeModal()});
-
-/* ===================== motivation helpers ===================== */
-const RANKS=['Recruit','Apprentice','Operator','Veteran','Specialist','Commander','Master'];
-const ROMAN=['I','II','III','IV','V','VI','VII','VIII','IX','X'];
-function lifetimeXp(){return myGoals().concat(state.archivedGoals.filter(g=>g.profileId===state.activeProfile)).reduce((s,g)=>s+(g.xpBank||0),0)}
-function rankInfo(xp){
-  const n=Math.floor(Math.sqrt(xp/150))+1,lo=150*(n-1)*(n-1),hi=150*n*n;
-  return{n,name:RANKS[Math.min(n-1,RANKS.length-1)],xp,lo,hi,pct:Math.round((xp-lo)/(hi-lo)*100),toNext:hi-xp};
-}
-function daySatisfied(level,d){
-  // for streaks: a real (on-time) completion, a grace-covered day, or a rest day. Excused/late days do NOT count.
-  const rec=level.days_log[d];
-  if(rec&&rec.complete)return !rec.late;
-  if((level.graceDates||[]).includes(d))return true;
-  return !!level.startedAt&&d>=level.startedAt&&isRestDay(level,d);
-}
-function dayCleared(level,d){return daySatisfied(level,d)||(level.excusedDates||[]).includes(d)||!!(level.days_log[d]&&level.days_log[d].complete)}
-function currentStreak(level){
-  if(!level.startedAt)return 0;const today=todayKey();let d=daySatisfied(level,today)?today:addDays(today,-1),n=0;
-  while(d>=level.startedAt&&daySatisfied(level,d)){n++;d=addDays(d,-1)}return n;
-}
-function longestStreak(goals){
-  let best=0;
-  goals.forEach(g=>g.levels.forEach(l=>{if(!l.startedAt)return;const end=addDays(l.startedAt,l.days-1),stop=end<todayKey()?end:todayKey();let run=0,d=l.startedAt;
-    while(d<=stop){const rec=l.days_log[d];if(rec&&rec.complete&&!rec.late){run++;best=Math.max(best,run)}else run=0;d=addDays(d,1)}}));
-  return best;
-}
-function satisfiedDays(level){if(!level.startedAt)return 0;const end=addDays(level.startedAt,level.days-1),t=todayKey(),stop=end<t?end:t;let d=level.startedAt,n=0;while(d<=stop){if(dayCleared(level,d))n++;d=addDays(d,1)}return n}
-function paceInfo(level){
-  // Beeminder-style: where you should be vs where you are.
-  if(level.status==='done')return{state:'done',text:'Stage complete'};
-  if(level.status==='recovery')return{state:'off',text:'Off track — pick a recovery option'};
-  if(level.status==='paused')return{state:'pause',text:'Paused'};
-  const elapsedBefore=Math.max(0,daysElapsedIn(level)-1);
-  let doneBefore=0,d=level.startedAt;while(d<todayKey()&&d<=addDays(level.startedAt,level.days-1)){if(dayCleared(level,d))doneBefore++;d=addDays(d,1)}
-  const behind=elapsedBefore-doneBefore;
-  return behind<=0?{state:'on',text:'On track'}:{state:'behind',text:behind+' day'+(behind>1?'s':'')+' behind'};
-}
-function badgesFor(goals){
-  const all=goals.concat(state.archivedGoals.filter(g=>g.profileId===state.activeProfile));
-  const ev=state.history.filter(e=>all.some(g=>g.id===e.goalId));
-  const has=a=>ev.some(e=>e.action===a);
-  const best=longestStreak(all);
-  const levels=all.flatMap(g=>g.levels);
-  return[
-    {i:'01',n:'Day one',d:'Complete your first task',got:has('Task completed')},
-    {i:'03',n:'Three straight',d:'Three perfect days in a row',got:best>=3},
-    {i:'07',n:'Full week',d:'Seven perfect days in a row',got:best>=7},
-    {i:'14',n:'Fortnight',d:'Fourteen days without a miss',got:best>=14},
-    {i:'30',n:'Thirty',d:'A full month without a miss',got:best>=30},
-    {i:'GD',n:'Grace earned',d:'Earn a grace day',got:all.some(g=>(g.graceTokens||0)>0)||has('Grace token earned')},
-    {i:'RC',n:'Recovery',d:'Miss a day, correct course, continue',got:levels.some(l=>(l.recoveryEvents||[]).length>0)},
-    {i:'SC',n:'Stage cleared',d:'Complete a full stage',got:levels.some(l=>l.status==='done')},
-    {i:'EV',n:'Evidence',d:'Log a photo check-in',got:all.some(g=>(g.photoCheckins||[]).length>0)},
-    {i:'PE',n:'Prize earned',d:'Earn a prize',got:levels.some(l=>['earned','purchased','claimed'].includes(l.reward.status))},
-    {i:'MC',n:'Mission complete',d:'Complete every stage of a goal',got:all.some(g=>g.levels.length&&g.levels.every(l=>l.status==='done'))}
-  ];
-}
-function rewardIsSet(r){return !!(r&&r.name&&r.name!=='Choose the reward')}
-function rewardStatusLabel(s){return{committed:'Committed',locked:'Locked','in-progress':'In progress',earned:'Earned',purchased:'Purchased',claimed:'Claimed',abandoned:'Forfeited'}[s]||s}
-function deadlineHtml(goal){
-  if(!goal.deadline)return '';
-  const days=Math.ceil((new Date(goal.deadline+'T23:59:59')-new Date())/86400000);
-  const txt=days<0?'Target date passed':days===0?'Target date is today':days+' days until '+formatDate(goal.deadline);
-  return '<span class="deadline-pill'+(days<=2?' danger':'')+'">'+txt+'</span>';
-}
-function refereeFor(goal){return goal.stake&&goal.stake.referee&&goal.stake.referee!==goal.profileId?goal.stake.referee:''}
-
-/* ===================== TODAY ===================== */
-function welcomeHtml(){
-  return '<div class="welcome"><div class="eyebrow">Pledge</div><h2>Set the goal. Name the prize. Earn it.</h2><p>Define what you are committing to and what you will reward yourself with when it is done. Takes about a minute.</p><button class="btn big" onclick="openNewGoal()">Set my first goal</button></div>';
-}
-function ringHtml(pct,label){
-  const r=56,c=2*Math.PI*r;
-  return '<div class="ring"><svg viewBox="0 0 132 132"><circle class="rt" cx="66" cy="66" r="'+r+'" fill="none" stroke-width="11"/><circle class="rf" cx="66" cy="66" r="'+r+'" fill="none" stroke-width="11" stroke-linecap="round" stroke-dasharray="'+c.toFixed(1)+'" stroke-dashoffset="'+(c*(1-pct/100)).toFixed(1)+'"/></svg><div class="ring-c"><div><b>'+pct+'%</b><small>'+label+'</small></div></div></div>';
-}
-function prizeHtml(goal,level){
-  const r=level.reward,pct=levelProgress(level),set=rewardIsSet(r),won=['earned','purchased','claimed'].includes(r.status)||level.status==='done';
-  const img=r.image||goal.background||'';
-  const blur=won?0:Math.round((100-pct)/100*12),gray=won?0:((100-pct)/100*0.85).toFixed(2);
-  const left=Math.max(0,level.days-satisfiedDays(level)),pace=paceInfo(level),fundPct=r.price>0?Math.min(100,Math.round((r.fundSaved||0)/r.price*100)):0;
-  const kicker=won?'Earned':set?'The prize':'Set the prize';
-  const title=set?r.name:'Define what you are earning.';
-  const chips=[];
-  if(!won&&level.status!=='recovery'&&level.status!=='paused')chips.push('<span class="pchip">'+left+' day'+(left===1?'':'s')+' remaining</span>');
-  chips.push('<span class="pchip">'+esc(pace.text)+'</span>');
-  if(r.price)chips.push('<span class="pchip">$'+r.price+(r.url?' · <a href="'+esc(r.url)+'" target="_blank" rel="noopener" style="color:#fff">link</a>':'')+'</span>');
-  chips.push('<span class="pchip">'+esc(rewardStatusLabel(r.status))+'</span>');
-  let actions='';
-  if(!set)actions='<button class="btn gold" onclick="go(\'plan\')">Set the prize</button>';
-  else if(won)actions=rewardActionsHtml(goal,level);
-  else if(r.price)actions='<button class="btn ghost sm" onclick="promptDeposit(\''+goal.id+'\',\''+level.id+'\')">+ Set money aside</button>';
-  return '<div class="prize'+(img?'':' noimg')+(won&&r.status==='earned'?' earned-glow':'')+'"><div class="prize-img" style="'+(img?'background-image:url(\''+img.replace(/'/g,"%27")+'\');filter:blur('+blur+'px) grayscale('+gray+');transform:scale(1.08)':'')+'"></div>'
-    +''
-    +'<div class="prize-body"><div><div class="prize-kicker">'+kicker+'</div><h1>'+esc(title)+'</h1><div class="prize-sub">'+esc(goal.title)+' · '+esc(stageLabel(goal,level))+'</div>'
-    +'<div class="prize-chips">'+chips.join('')+'</div>'
-    +(set&&r.price&&!won?'<div class="fund"><small><span>Saved $'+(r.fundSaved||0)+' of $'+r.price+'</span><span>'+fundPct+'%</span></small><div class="bar"><i style="width:'+fundPct+'%"></i></div></div>':'')
-    +(actions?'<div class="prize-actions">'+actions+'</div>':'')
-    +'</div>'+ringHtml(pct,'earned')+'</div></div>';
-}
-function rewardActionsHtml(goal,level){
-  if(level.status!=='done'&&level.reward.status!=='earned'&&level.reward.status!=='purchased'&&level.reward.status!=='claimed')return '';
-  const ref=refereeFor(goal);
-  if(ref&&!level.approvedBy&&level.reward.status==='earned')return '<span class="pchip">Awaiting approval from '+esc(ref)+'</span>';
-  if(level.reward.status==='claimed'||level.reward.status==='abandoned')return '';
-  return '<button class="btn gold" onclick="rewardAction(\''+goal.id+'\',\''+level.id+'\',\'claimed\')">Claim prize</button>'
-    +'<button class="btn ghost sm" onclick="rewardAction(\''+goal.id+'\',\''+level.id+'\',\'purchased\')">Mark purchased</button>'
-    +'<button class="btn ghost sm" onclick="rewardAction(\''+goal.id+'\',\''+level.id+'\',\'abandoned\')">Forfeit prize</button>';
-}
-function promptDeposit(goalId,levelId){const v=Number(prompt('How much are you putting aside for this reward?','10'));if(v)depositToFund(goalId,levelId,v)}
-function playerHtml(goal){
-  const rk=rankInfo(lifetimeXp()),lvl=currentLevel(goal),streak=currentStreak(lvl);
-  return '<div class="player"><div class="rank-badge" title="Rank '+rk.n+'">'+(ROMAN[rk.n-1]||rk.n)+'</div><div class="player-main"><b>'+rk.name+'</b> <span class="sub">· '+rk.xp+' pts · '+rk.toNext+' to next rank</span><div class="bar"><i style="width:'+rk.pct+'%"></i></div></div>'
-    +'<div class="stat-chips"><span class="chip"><b>'+streak+'</b> day streak</span><span class="chip ok" title="Covers one missed day without breaking the streak. Earned every 7 perfect days."><b>'+(goal.graceTokens||0)+'</b> grace day'+((goal.graceTokens||0)===1?'':'s')+'</span></div></div>';
-}
-function taskApprovalsHtml(){
-  let h='';
-  state.goals.filter(g=>g.profileId!==state.activeProfile).forEach(g=>g.levels.forEach(l=>Object.keys(l.days_log).forEach(d=>{
-    const rec=l.days_log[d];if(!hasPending(rec))return;
-    Object.keys(rec.pending).filter(tid=>rec.pending[tid]===state.activeProfile).forEach(tid=>{
-      const t=l.tasks.find(x=>x.id===tid);if(!t)return;
-      h+='<div class="stake-banner"><b>'+esc(g.profileId)+'</b> marked <b>'+esc(t.title)+'</b> done ('+formatDate(d)+') and asked for your approval.'+(rec.spotCheckNotes&&rec.spotCheckNotes[tid]?' Their note: “'+esc(rec.spotCheckNotes[tid])+'”':'')
-        +'<div class="prize-actions"><button class="btn sm" onclick="approveTask(\''+g.id+'\',\''+l.id+'\',\''+d+'\',\''+tid+'\',true)">✓ Approve</button><button class="btn ghost sm" onclick="approveTask(\''+g.id+'\',\''+l.id+'\',\''+d+'\',\''+tid+'\',false)">Send back</button></div></div>';
-    });
-  })));
-  return h;
-}
-function approvalsHtml(){
-  let h=taskApprovalsHtml();
-  state.goals.filter(g=>g.profileId!==state.activeProfile&&refereeFor(g)===state.activeProfile).forEach(g=>g.levels.forEach(l=>{
-    if(l.status==='done'&&!l.approvedBy){
-      const proofs=(g.photoCheckins||[]).filter(p=>p.levelId===l.id).length;
-      h+='<div class="stake-banner"><b>'+esc(g.profileId)+'</b> finished <b>'+esc(l.title)+'</b> of “'+esc(g.title)+'” and named you as referee. '+(proofs?proofs+' photo proof'+(proofs>1?'s':'')+' attached. ':'')+'Approve so they can claim their reward.<div class="prize-actions"><button class="btn sm" onclick="approveLevel(\''+g.id+'\',\''+l.id+'\')">✓ Approve</button></div></div>';
+async function sourceDone(p,C){
+  const out=new Set(),s=p.src||{},T=today();
+  if(s.type==='schedule'){
+    const base=uref().collection('schedule-profiles').doc(p.owner).collection('data');
+    const [tpl,log]=await Promise.all([readJson(base.doc('dayTemplates'),{}),readJson(base.doc('templateLog'),{})]);
+    const want=String(s.name||'').trim().toLowerCase();
+    for(let d=p.start;d<=T;d=addDays(d,1)){
+      const blocks=tpl[FULL[dow(d)]]||[];
+      for(let i=0;i<blocks.length;i++){
+        const nm=String(blocks[i].activity||blocks[i].title||'').trim().toLowerCase();
+        if(nm===want&&log[d+':'+i]){out.add(d);break}
+      }
     }
-  }));
-  return h;
-}
-function approveLevel(goalId,levelId){
-  const g=state.goals.find(x=>x.id===goalId),l=g&&g.levels.find(x=>x.id===levelId);if(!l)return;
-  l.approvedBy=state.activeProfile;l.approvedAt=Date.now();logEvent(g.id,'Referee approved',l.title+' · by '+state.activeProfile);
-  save();renderPage('today');toast('Approved. '+g.profileId+' can claim the prize.');
-}
-function stakeHonored(goalId){logEvent(goalId,'Stake honored','Paid up after a missed day');save();toast('Logged.')}
-function stakeHtml(goal,level){
-  const s=goal.stake;if(!s||(!s.text&&!s.amount))return '';
-  const ref=refereeFor(goal);
-  let h='<div class="stake-banner"><b>Stake:</b> '+(s.amount?'$'+s.amount+' ':'')+esc(s.text||'')+(ref?' · Referee: '+esc(ref):'');
-  if(level.status==='recovery')h+='<div style="margin-top:6px">Day missed. Correct course below, or settle up:</div><div class="prize-actions"><button class="btn sm" onclick="stakeHonored(\''+goal.id+'\')">I settled my stake</button></div>';
-  return h+'</div>';
-}
-function renderToday(){
-  const mine=myGoals();
-  let html=approvalsHtml();
-  if(!mine.length){$('today').innerHTML=html+welcomeHtml();return}
-  const goal=activeGoal();if(!goal){$('today').innerHTML=html+'<div class="empty">Pick a goal from the dropdown above.</div>';return}
-  const level=currentLevel(goal),today=todayKey();
-  html+=playerHtml(goal)+prizeHtml(goal,level);
-  const why=goal.commitNote||goal.why;
-  if(why)html+='<div class="commit-note"><small>Your reason</small>“'+esc(why)+'”</div>';
-  html+=stakeHtml(goal,level);
-
-  if(level.status==='recovery'){
-    const opt=(a,t,d,off)=>'<button class="rec-opt'+(a==='pause'?' pause':'')+'" '+(off?'disabled':'')+' onclick="recoveryAction(\''+goal.id+'\',\''+level.id+'\',\''+a+'\')"><b>'+t+'</b><span>'+d+'</span></button>';
-    html+='<div class="recovery-banner"><h3>Missed '+formatDate(level.recoveryTriggerDate)+'.</h3><p class="sub" style="margin:0 0 10px">Nothing is erased, but every way back has a cost. Choose one:</p>'
-      +'<div class="rec-opts">'
-      +opt('repeat','Redo that day',level.redoUsed?'Already used this stage.':'Do that day’s tasks now. Once per stage. Logged as late; streak restarts.',level.redoUsed)
-      +opt('extend','Add one extra day','Stage gets one day longer. The missed day earns nothing; streak restarts.')
-      +opt('minimum','Count the minimum version','Write what you did. Excused, not earned; streak restarts.')
-      +opt('pause','Pause','Stop the clock. The paused days are added to the end of the stage.')
-      +'</div></div>';
-  }else if(level.status==='paused'){
-    html+='<div class="recovery-banner"><h3>Paused since '+formatDate(level.pausedOn)+'</h3><p class="sub">Resuming adds the paused days to the end of the stage. Nothing is lost.</p><button class="btn" onclick="resumeLevel(\''+goal.id+'\',\''+level.id+'\')">Resume</button></div>';
-  }else if(level.status==='done'){
-    const nextLv=goal.levels[goal.currentLevelIndex+1];
-    html+='<div class="win-banner"><h3 style="margin:0 0 4px">Stage complete.</h3><p class="sub" style="margin:0 0 10px">'+(level.difficultySuggestion?esc(level.difficultySuggestion.note)+' ':'')+(nextLv?'':'Add a next stage to keep climbing.')+'</p>'+(nextLv?'':'<button class="btn sm" onclick="go(\'plan\')">Plan the next stage</button>')+'</div>';
-  }else{
-    if(checkpointDue(level))html+='<div class="checkpoint-banner"><h3 style="margin:0 0 4px">Halfway. Recommit or adjust.</h3><p class="sub" style="margin:0 0 10px">Hold the full standard, or deliberately reduce it. Either way the decision is logged, not quietly dropped.</p><div class="prize-actions" style="margin-top:0"><button class="btn sm" onclick="checkpointRespond(\''+goal.id+'\',\''+level.id+'\',\'recommit\')">Hold the standard</button><button class="btn ghost sm" onclick="checkpointRespond(\''+goal.id+'\',\''+level.id+'\',\'downgrade\')">Reduce scope</button></div></div>';
-    const due=dueTasksFor(level,today),rec=level.days_log[today]||{doneTaskIds:[]};
-    const done=due.filter(t=>rec.doneTaskIds.includes(t.id)).length,left=due.length-done;
-    const r=level.reward,rname=rewardIsSet(r)?r.name:'your reward';
-    html+='<div class="card"><div class="today-head"><h2>Today’s tasks</h2><span>'+done+' of '+due.length+' done</span></div>'
-      +(due.length?due.map(t=>taskRowHtml(goal,level,t,rec)).join(''):'<div class="empty">Nothing due today.</div>')
-      +(due.length&&!left&&hasPending(rec)?'<div class="sub" style="margin-top:10px">All ticked. Waiting for approval before the day counts.</div>':due.length&&!left?'<div class="alldone"><big>Day complete</big>One day closer to '+esc(rname)+'.</div>':(due.length?'<div class="sub" style="margin-top:10px">'+(left===1?'One task':left+' tasks')+' remaining today.</div>':''))
-      +'<div class="prize-actions" style="margin-top:12px"><button class="btn ghost sm" onclick="exportCalendar(activeGoal(),currentLevel(activeGoal()))">Add to calendar</button><button class="btn ghost sm" onclick="requestReminder()">Daily reminder</button></div></div>';
+  }else if(s.type==='gym'||s.type==='weigh'){
+    const g=await gymData(p.owner,p.start,C);(s.type==='gym'?g.trained:g.weighed).forEach(d=>{if(d>=p.start)out.add(d)});
+  }else if(s.type==='water'){
+    const w=await readJson(uref().collection('hub-profiles').doc(p.owner).collection('data').doc('water'),null);
+    if(w&&w.log){const goal=Number(w.goal)>0?Number(w.goal):(p.owner==='Anusha'?3000:3500);
+      Object.keys(w.log).forEach(d=>{const a=w.log[d];const t=Array.isArray(a)?a.reduce((x,y)=>x+(Number(y)||0),0):0;if(d>=p.start&&t>=goal)out.add(d)})}
+  }else if(s.type==='diet'){
+    if(!C.diet)C.diet=await readJson(uref().collection('apps').doc('nourish-diet-v2').collection('data').doc('state'),null);
+    const pid=p.owner.toLowerCase(),by={};
+    ((C.diet&&C.diet.diary)||[]).forEach(x=>{if(x.profileId!==pid||x.replaced)return;const r=by[x.date]=by[x.date]||{t:0,e:0};r.t++;if((x.status||'eaten')==='eaten')r.e++});
+    Object.keys(by).forEach(d=>{if(d>=p.start&&by[d].t&&by[d].e===by[d].t)out.add(d)});
+  }else if(s.type==='chore'){
+    const h=await readJson(uref().collection('apps').doc('chores').collection('data').doc('history'),[]);
+    h.forEach(x=>{if(!x.kind&&(x.choreId===s.id||(!x.choreId&&x.task===s.name))&&x.date>=p.start)out.add(x.date)});
   }
-  html+='<div class="head"><h3>The path</h3><span class="sub">'+goal.levels.length+' stage'+(goal.levels.length>1?'s':'')+(goal.deadline?' · '+deadlineHtml(goal).replace(/<[^>]+>/g,''):'')+'</span></div>';
-  html+='<div class="ladder">'+goal.levels.map((l,i)=>'<div class="rung '+l.status+'" onclick="go(\'rewards\')"><span class="rg">'+(l.status==='done'?'Done':l.status==='current'?'Now':l.status==='recovery'?'Off track':'Locked')+'</span><div class="rung-index">Stage '+(i+1)+'</div><h3>'+esc(stageHeading(l))+'</h3><div class="rung-meta">'+l.days+' days · '+levelProgress(l)+'%</div><div class="rung-meta" style="margin-top:4px">Prize: '+esc(rewardIsSet(l.reward)?l.reward.name:'not set')+'</div></div>').join('')+'</div>';
-  if(level.recoveryEvents&&level.recoveryEvents.length)html+='<div class="card"><h3>Recoveries in this stage</h3>'+level.recoveryEvents.map(e=>'<div class="history-item"><span>'+esc(e.note)+'</span><small>'+e.date+'</small></div>').join('')+'</div>';
-  $('today').innerHTML=html;
+  return out;
 }
-function taskRowHtml(goal,level,task,rec){
-  const done=rec.doneTaskIds.includes(task.id);
-  return '<div class="task-row'+(done?' all-done':'')+'"><button type="button" class="chk'+(done?' done':'')+'" aria-label="Mark done" onclick="toggleTask(\''+goal.id+'\',\''+level.id+'\',\''+task.id+'\')">'+(done?'✓':'')+'</button><div style="flex:1;min-width:0"><div class="task-label">'+esc(task.title)+'</div>'+(task.detail?'<div class="task-sub">'+esc(task.detail)+'</div>':'')+'<div class="task-tags"><span class="tag-pill">+'+task.xp+' pts</span>'+(task.peer&&task.peer!==goal.profileId?'<span class="tag-pill peer">'+(rec.pending&&rec.pending[task.id]?'Awaiting '+esc(task.peer):'Needs '+esc(task.peer)+'’s approval')+'</span>':'')+(task.requiresPhoto?'<span class="tag-pill proof">Photo required</span>':'')+(task.frequency!=='daily'?'<span class="tag-pill">'+({weekdays:'weekdays',selected:'chosen days',once:'one time'}[task.frequency]||task.frequency)+'</span>':'')+(task.time?'<span class="tag-pill">'+esc(task.time)+'</span>':'')+'</div></div><button class="btn ghost sm" onclick="openFocus(\''+goal.id+'\',\''+level.id+'\',\''+task.id+'\')">Focus</button></div>';
-}
-function changeBackground(goalId,input){
-  const f=input.files[0];if(!f)return;const r=new FileReader();r.onload=()=>{const goal=state.goals.find(g=>g.id===goalId);goal.background=r.result;save();renderPage(document.querySelector('.page.active').id);toast('Picture updated')};r.readAsDataURL(f);
-}
-
-/* ===================== MY GOALS ===================== */
-function renderGoals(){
-  const mine=myGoals();
-  let html='';
-  if(!mine.length)html=welcomeHtml();
-  else{
-    html+='<div class="head"><span class="sub">'+mine.length+' active goal'+(mine.length>1?'s':'')+'</span><button class="btn" onclick="openNewGoal()">+ New goal</button></div>';
-    html+='<div class="pledge-grid">'+mine.map(g=>{
-      const level=currentLevel(g),pct=levelProgress(level),pace=paceInfo(level);
-      return '<div class="war-card'+(g.id===state.activeGoalId?' active':'')+'"><div class="war-row"><div><b style="font-size:16px">'+esc(g.title)+'</b><div class="sub">'+esc(level.title)+' · '+esc(pace.text)+'</div></div><span class="streak-chip">'+pct+'%</span></div>'
-        +'<div class="bar" style="margin:10px 0"><i style="width:'+pct+'%"></i></div><div class="sub" style="margin-bottom:8px">Prize: '+esc(rewardIsSet(level.reward)?level.reward.name:'not set')+'</div>'+deadlineHtml(g)
-        +'<div class="prize-actions"><button class="btn sm" onclick="switchGoal(\''+g.id+'\');go(\'today\')">Open today</button><button class="btn ghost sm" onclick="switchGoal(\''+g.id+'\');go(\'plan\')">Edit plan</button>'
-        +'<label class="btn ghost sm" style="cursor:pointer">Change picture<input type="file" accept="image/*" style="display:none" onchange="changeBackground(\''+g.id+'\',this)"></label><button class="btn danger sm" onclick="archiveGoal(\''+g.id+'\')">Archive</button></div></div>';
-    }).join('')+'</div>';
+async function syncLinked(){
+  if(!user||syncing)return;
+  const list=mine().filter(p=>p.kind==='linked'&&!p.claimed);if(!list.length)return;
+  syncing=true;const C={};let changed=false;
+  for(const p of list){
+    try{
+      const set=await sourceDone(p,C),log={};
+      Array.from(set).sort().forEach(d=>{log[d]=1});
+      if(JSON.stringify(log)!==JSON.stringify(p.log)){p.log=log;p.u=Date.now();changed=true}
+    }catch(e){}
   }
-  html+='<details class="sec" style="margin-top:16px"><summary>Backup & import</summary><div class="sec-body"><p class="sub">Save a copy of everything in Pledge, or restore one.</p><div class="prize-actions"><button class="btn ghost sm" onclick="exportBackup()">Export backup</button><label class="btn ghost sm" style="cursor:pointer">Import backup<input type="file" accept="application/json" style="display:none" onchange="importBackup(this)"></label></div></div></details>';
-  $('goals').innerHTML=html;
+  syncing=false;if(changed)save();
 }
 
-/* ===================== REWARDS ===================== */
-function renderRewards(){
-  const goal=activeGoal();
-  if(!goal){$('rewards').innerHTML=welcomeHtml();return}
-  const ref=refereeFor(goal);
-  let html='<div class="head"><h3>Prizes · '+esc(goal.title)+'</h3><button class="btn ghost sm" onclick="go(\'plan\')">Edit prizes</button></div><div class="vault-grid">'
-    +goal.levels.map((l,i)=>{
-      const r=l.reward,set=rewardIsSet(r),won=['earned','purchased','claimed'].includes(r.status),pct=levelProgress(l);
-      return '<div class="vault-item"><div class="vault-image'+(won||l.status==='current'?'':' locked')+'" style="'+(r.image?'background-image:url(\''+r.image.replace(/\'/g,'%27')+'\');'+(won?'':'filter:blur('+(l.status==='current'?Math.round((100-pct)/100*8):8)+'px) grayscale(.6)'):'')+'">'+(r.image?'':(won?'EARNED':'LOCKED'))+'</div><div class="vault-copy"><small>Stage '+(i+1)+' · '+esc(l.title)+'</small><h3 style="font-size:16px;margin:4px 0">'+esc(set?r.name:'Not set')+'</h3><p class="sub" style="margin:0 0 8px">'+(r.price?'$'+r.price+' · ':'')+'<span class="reward-status-chip '+r.status+'">'+esc(rewardStatusLabel(r.status))+'</span></p>'
-        +(l.status==='current'?'<div class="bar"><i style="width:'+pct+'%"></i></div><div class="hint">'+pct+'% of the way there</div>':'')
-        +(won&&r.status==='earned'&&ref&&!l.approvedBy?'<div class="hint">Awaiting approval from '+esc(ref)+'</div>':'')
-        +(won||l.status==='done'?'<div class="prize-actions" style="margin-top:8px">'+rewardActionsHtml(goal,l).replace(/class="btn gold"/g,'class="btn sm"')+'</div>':'')
-        +'</div></div>';
-    }).join('')+'</div>';
-  html+='<div class="head" style="margin-top:22px"><div><h3>Bonus prizes</h3><span class="sub">Unlocked by points ('+(goal.xpBank||0)+' banked). Points are never lost, even after a missed day.</span></div><button class="btn soft sm" onclick="addBonusReward(\''+goal.id+'\')">+ Add bonus prize</button></div>';
-  html+=(goal.bonusRewards&&goal.bonusRewards.length)?'<div class="pledge-grid">'+goal.bonusRewards.map(b=>'<div class="war-card"><b>'+esc(b.name)+'</b><div class="sub">Requires '+b.xpRequired+' pts</div><div class="bar" style="margin:8px 0"><i style="width:'+Math.min(100,Math.round((goal.xpBank||0)/b.xpRequired*100))+'%"></i></div>'+(b.claimed?'<span class="reward-status-chip claimed">CLAIMED</span>':'<button class="btn sm" onclick="claimBonus(\''+goal.id+'\',\''+b.id+'\')" '+((goal.xpBank||0)<b.xpRequired?'disabled':'')+'>Claim</button>')+'</div>').join('')+'</div>':'<div class="empty">No bonus prizes set. Add one so every point counts toward something.</div>';
-  $('rewards').innerHTML=html;
+/* ---------- screen ---------- */
+function render(){
+  paintWho();
+  const all=mine(),T=today();
+  const active=all.filter(p=>calc(p).status!=='claimed'),past=all.filter(p=>calc(p).status==='claimed');
+  const dueNow=active.filter(p=>isDue(p,T)&&calc(p).status==='active'),doneNow=dueNow.filter(p=>p.log[T]);
+  let h='';
+  if(!all.length){
+    h='<div class="empty"><h3>Make a promise worth keeping.</h3><p>Pick something you will do — wake at 4:30, lift five days, hit your water — name the prize you get for keeping it, and Pledge counts every tick.</p><button class="btn" onclick="openForm()">+ New pledge</button></div>';
+    $('view').innerHTML=h;return;
+  }
+  const best=active.reduce((m,p)=>Math.max(m,calc(p).streak),0);
+  h+='<div class="hero"><div class="big">'+doneNow.length+'<small>/'+dueNow.length+'</small></div><div><div class="lab">Kept today</div>'+
+    '<p>'+(dueNow.length?(doneNow.length===dueNow.length?'<b>Every pledge kept today.</b> ':'<b>'+(dueNow.length-doneNow.length)+' still open.</b> ')+'':'<b>Nothing due today.</b> Rest days never count against you. ')+(best>1?'Longest streak running: <b>'+best+' days</b>.':'')+'</p></div></div>';
+  h+='<div class="sect"><h2>Active pledges</h2></div>';
+  h+=active.length?active.map(ticket).join(''):'<div class="empty"><p>No active pledges. Start a new one.</p></div>';
+  if(past.length)h+='<details class="done-sec"><summary>Earned ('+past.length+')</summary>'+past.map(ticket).join('')+'</details>';
+  $('view').innerHTML=h;
+}
+function ticket(p){
+  const c=calc(p),T=today(),linked=p.kind==='linked';
+  const prize=p.prize&&p.prize.name;
+  const mon=addDays(T,-((dow(T)+6)%7));
+  let wk='<div class="week">';
+  for(let i=0;i<7;i++){
+    const d=addDays(mon,i),due=isDue(p,d),done=!!p.log[d];
+    let cls='stamp',sym='✓',tip=pretty(d);
+    if(!due&&!done){cls+=' off';sym=''}
+    else if(done){cls+=' done'}
+    else if(d>T){cls+=' up';sym=''}
+    else if(d===T){cls+=' now';sym=''}
+    else{cls+=' miss';sym='✕'}
+    const canTap=!linked&&c.status!=='claimed'&&due&&d<=T;
+    wk+='<div class="day">'+DOW[dow(d)]+(canTap?'<button class="'+cls+'" title="'+tip+'" onclick="tick(\''+p.id+'\',\''+d+'\')">'+sym+'</button>':'<div class="'+cls+'" title="'+tip+'">'+sym+'</div>')+'</div>';
+  }
+  wk+='</div>';
+  const dueToday=isDue(p,T);
+  let act='';
+  if(c.status==='active'){
+    if(linked)act='<span class="auto"><i>●</i> Ticks itself from '+esc(srcText(p.src))+(dueToday?(p.log[T]?' — done today':' — not yet today'):' — rest day')+'</span>';
+    else if(dueToday)act=p.log[T]?'<button class="btn ghost sm" onclick="tick(\''+p.id+'\',\''+T+'\')">✓ Kept today · undo</button>':'<button class="btn" onclick="tick(\''+p.id+'\',\''+T+'\')">Mark today kept</button>';
+    else act='<span class="auto">Rest day today</span>';
+  }else if(c.status==='failed'){
+    act='<span class="auto">Too many missed days.</span> <button class="btn sm" onclick="restart(\''+p.id+'\')">Start over today</button>';
+  }
+  let stub='';
+  if(prize){
+    const k=c.status==='claimed'?'Claimed':c.status==='earned'?'Earned':'The prize';
+    let s=c.status==='earned'?'<button class="btn gold sm" onclick="claim(\''+p.id+'\')">Claim it</button>':c.status==='claimed'?'Enjoy it.':c.status==='failed'?'Not this round.':c.need+' more tick'+(c.need===1?'':'s')+' to unlock';
+    stub='<div class="stub"><div class="k">'+k+'</div><div class="p">'+esc(p.prize.name)+'</div><div class="s">'+s+'</div></div>';
+  }else if(c.status==='earned'){
+    stub='<div class="stub"><div class="k">Pledge kept</div><div class="p">Done.</div><div class="s"><button class="btn gold sm" onclick="claim(\''+p.id+'\')">Mark complete</button></div></div>';
+  }
+  return '<div class="ticket '+c.status+(stub?'':' nostub')+'"><div class="main">'+
+    '<div class="chips"><span class="chip'+(linked?' link':'')+'">'+(linked?'Linked · '+esc(srcText(p.src)):'Tick it myself')+'</span><span class="chip">'+p.days.map(d=>DOW[d]).join(' ')+'</span></div>'+
+    '<h3>'+esc(p.title)+'</h3>'+(p.why?'<p class="why">“'+esc(p.why)+'”</p>':'')+wk+
+    '<div class="stats"><div><b>'+c.done+' / '+c.totalDue+'</b>ticks</div><div><b>'+c.streak+'</b>day streak</div><div><b>'+(c.status==='active'?c.daysLeft:'—')+'</b>days left</div></div>'+
+    '<div class="row">'+act+'<div class="menu"><button class="link-btn" onclick="openForm(\''+p.id+'\')">Edit</button><button class="link-btn" onclick="remove(\''+p.id+'\')">Delete</button></div></div>'+
+  '</div>'+stub+'</div>';
+}
+function find(id){return state.pledges.find(p=>p.id===id)}
+function tick(id,d){const p=find(id);if(!p||p.kind==='linked')return;if(p.log[d])delete p.log[d];else p.log[d]=1;p.u=Date.now();save();render();if(p.log[d]&&calc(p).status==='earned')toast('Pledge kept — your prize is unlocked')}
+function claim(id){const p=find(id);if(!p)return;p.claimed=Date.now();p.u=Date.now();save();render();toast('Claimed. You earned it.')}
+function restart(id){const p=find(id);if(!p)return;p.start=today();p.log={};p.claimed=null;p.u=Date.now();save();syncLinked().then(render);render();toast('Fresh start')}
+function remove(id){const p=find(id);if(!p||!confirm('Delete “'+p.title+'”?'))return;p.deleted=true;p.u=Date.now();save();render()}
+
+/* ---------- the form ---------- */
+let nf=null,srcCache=null;
+async function loadChoices(){
+  if(srcCache&&srcCache.owner===state.profile)return srcCache;
+  const base=uref().collection('schedule-profiles').doc(state.profile).collection('data');
+  const [tpl,chores]=await Promise.all([readJson(base.doc('dayTemplates'),{}),readJson(uref().collection('apps').doc('chores').collection('data').doc('chores'),[])]);
+  const blocks={};
+  FULL.forEach((fn,i)=>(tpl[fn]||[]).forEach(b=>{const nm=String(b.activity||b.title||'').trim();if(!nm)return;const k=nm.toLowerCase();(blocks[k]=blocks[k]||{name:nm,days:new Set()}).days.add(i)}));
+  const mineC=(Array.isArray(chores)?chores:[]).filter(c=>c.active!==false&&(!Array.isArray(c.assignedTo)||c.assignedTo.includes(state.profile)));
+  return srcCache={owner:state.profile,blocks:Object.values(blocks).map(b=>({name:b.name,days:Array.from(b.days).sort()})).sort((a,b)=>a.name.localeCompare(b.name)),chores:mineC.map(c=>({id:c.id,name:c.name}))};
+}
+async function openForm(id){
+  const p=id?find(id):null;
+  nf=p?JSON.parse(JSON.stringify(p)):{id:'p-'+Date.now().toString(36)+Math.random().toString(36).slice(2,5),owner:state.profile,title:'',why:'',kind:'own',src:null,days:[0,1,2,3,4,5,6],start:today(),weeks:4,misses:0,prize:{name:''},log:{},claimed:null,createdAt:Date.now()};
+  nf._edit=!!p;
+  await loadChoices().catch(()=>null);
+  drawForm();
+}
+function drawForm(){
+  const ch=srcCache||{blocks:[],chores:[]};
+  let srcPick='';
+  if(nf.kind==='linked'){
+    srcPick='<div class="f"><label>What does it track?</label><div class="seg" style="grid-template-columns:1fr 1fr">'+
+      Object.keys(SRC).map(k=>'<button class="opt'+(nf.src&&nf.src.type===k?' on':'')+'" onclick="pickSrc(\''+k+'\')"><b>'+SRC[k].label+'</b><span>'+SRC[k].sub+'</span></button>').join('')+'</div></div>';
+    if(nf.src&&nf.src.type==='schedule'){
+      srcPick+='<div class="f"><label>Which block?</label>'+(ch.blocks.length?'<select class="in" onchange="pickBlock(this.value)"><option value="">Choose a block…</option>'+ch.blocks.map(b=>'<option value="'+esc(b.name)+'"'+(nf.src.name===b.name?' selected':'')+'>'+esc(b.name)+' ('+b.days.map(d=>DOW[d]).join(' ')+')</option>').join('')+'</select>':'<div class="sub">No blocks found in Schedule for '+esc(state.profile)+'. Add one there first.</div>')+'</div>';
+    }
+    if(nf.src&&nf.src.type==='chore'){
+      srcPick+='<div class="f"><label>Which chore?</label>'+(ch.chores.length?'<select class="in" onchange="pickChore(this.value)"><option value="">Choose a chore…</option>'+ch.chores.map(c=>'<option value="'+esc(c.id)+'"'+(nf.src.id===c.id?' selected':'')+'>'+esc(c.name)+'</option>').join('')+'</select>':'<div class="sub">No chores found for '+esc(state.profile)+'.</div>')+'</div>';
+    }
+  }
+  $('modal').innerHTML='<div class="scrim" onclick="if(event.target===this)closeForm()"><div class="modal"><h2>'+(nf._edit?'Edit pledge':'New pledge')+'</h2><div class="sub">One promise, the days it counts, and what you get for keeping it.</div>'+
+    '<div class="f"><label>I pledge to…</label><input class="in" id="fTitle" value="'+esc(nf.title)+'" placeholder="e.g. Wake up at 4:30" oninput="nf.title=this.value"></div>'+
+    '<div class="f"><label>How do you tick it?</label><div class="seg"><button class="opt'+(nf.kind==='linked'?' on':'')+'" onclick="setKind(\'linked\')"><b>Track an app</b><span>It ticks itself</span></button><button class="opt'+(nf.kind==='own'?' on':'')+'" onclick="setKind(\'own\')"><b>I tick it</b><span>Own pledge, any promise</span></button></div></div>'+srcPick+
+    '<div class="f"><label>Counts on</label><div class="dows">'+MONFIRST.map(d=>'<button class="'+(nf.days.includes(d)?'on':'')+'" onclick="toggleDay('+d+')">'+DOW[d]+'</button>').join('')+'</div></div>'+
+    '<div class="two"><div class="f"><label>For how many weeks</label><input class="in" type="number" min="1" max="52" value="'+nf.weeks+'" oninput="nf.weeks=Math.max(1,Math.min(52,parseInt(this.value)||1))"></div>'+
+    '<div class="f"><label>Prize when kept</label><input class="in" value="'+esc(nf.prize.name)+'" placeholder="e.g. New headphones" oninput="nf.prize.name=this.value"></div></div>'+
+    '<details class="adv"><summary>More options</summary><div class="f"><label>Why does this matter?</label><textarea class="in" rows="2" placeholder="Shown back to you on the card" oninput="nf.why=this.value">'+esc(nf.why)+'</textarea></div>'+
+    '<div class="f"><label>Days you may miss</label><input class="in" type="number" min="0" max="20" value="'+(nf.misses||0)+'" oninput="nf.misses=Math.max(0,parseInt(this.value)||0)"></div></details>'+
+    '<div class="mfoot"><button class="btn ghost" onclick="closeForm()">Cancel</button><button class="btn" onclick="submitForm()">'+(nf._edit?'Save':'Make the pledge')+'</button></div></div></div>';
+}
+function closeForm(){$('modal').innerHTML='';nf=null}
+function setKind(k){nf.kind=k;if(k==='own')nf.src=null;drawForm()}
+function pickSrc(t){
+  nf.src={type:t};
+  if(t==='gym')nf.days=GYM_DAYS.slice();
+  if(t==='schedule'||t==='chore'){}
+  if(!nf.title){nf.title={gym:'Train as planned',weigh:'Weigh in every day',water:'Hit my water goal',diet:'Eat every planned meal'}[t]||''}
+  drawForm();
+}
+function pickBlock(v){
+  if(!v){nf.src={type:'schedule'};drawForm();return}
+  const b=srcCache.blocks.find(x=>x.name===v);nf.src={type:'schedule',name:v};
+  if(b)nf.days=b.days.slice();
+  if(!nf.title)nf.title=v;
+  drawForm();
+}
+function pickChore(id){
+  const c=srcCache.chores.find(x=>x.id===id);nf.src=c?{type:'chore',id:c.id,name:c.name}:{type:'chore'};
+  if(c&&!nf.title)nf.title=c.name;drawForm();
+}
+function toggleDay(d){const i=nf.days.indexOf(d);if(i>=0)nf.days.splice(i,1);else nf.days.push(d);nf.days.sort();drawForm()}
+function submitForm(){
+  nf.title=(nf.title||'').trim();
+  if(!nf.title)return toast('Give the pledge a name');
+  if(!nf.days.length)return toast('Pick at least one day');
+  if(nf.kind==='linked'){
+    const s=nf.src;
+    if(!s||!s.type)return toast('Choose what it tracks');
+    if(s.type==='schedule'&&!s.name)return toast('Choose a Schedule block');
+    if(s.type==='chore'&&!s.id)return toast('Choose a chore');
+  }
+  const n=JSON.parse(JSON.stringify(nf));delete n._edit;n.u=Date.now();n.prize={name:(n.prize.name||'').trim()};
+  const i=state.pledges.findIndex(p=>p.id===n.id);
+  if(i>=0){if(n.kind==='own')n.log=state.pledges[i].log||{};state.pledges[i]=n}else state.pledges.push(n);
+  closeForm();save();render();
+  if(n.kind==='linked')syncLinked().then(render);
+  toast(i>=0?'Saved':'Pledge made');
 }
 
-/* ===================== PROGRESS ===================== */
-function roadHtml(level){
-  const N=Math.max(1,level.days),W=600,H=230,L=34,R=574,T=18,B=200,px=i=>L+(R-L)*i/N,py=v=>B-(B-T)*v/N;
-  const elapsed=Math.min(N,daysElapsedIn(level)),today=todayKey();
-  let pts=[[0,0]],cum=0;
-  for(let i=0;i<elapsed;i++){const d=addDays(level.startedAt,i);if(daySatisfied(level,d))cum++;if(d===today&&!daySatisfied(level,d))break;pts.push([i+1,cum])}
-  const path=pts.map((p,i)=>(i?'L':'M')+px(p[0]).toFixed(1)+' '+py(p[1]).toFixed(1)).join(' ');
-  const last=pts[pts.length-1];
-  let grid='';for(let i=0;i<=N;i+=Math.max(1,Math.ceil(N/7)))grid+='<text x="'+px(i)+'" y="'+(B+16)+'" font-size="10" fill="var(--faint)" text-anchor="middle">'+i+'</text>';
-  return '<svg viewBox="0 0 '+W+' '+H+'" role="img" aria-label="Road to reward"><line x1="'+L+'" y1="'+B+'" x2="'+R+'" y2="'+B+'" stroke="var(--line)"/><line x1="'+L+'" y1="'+T+'" x2="'+L+'" y2="'+B+'" stroke="var(--line)"/>'
-    +'<line x1="'+px(0)+'" y1="'+py(0)+'" x2="'+px(N)+'" y2="'+py(N)+'" stroke="var(--faint)" stroke-width="2" stroke-dasharray="6 6"/>'
-    +'<path d="'+path+'" fill="none" stroke="var(--accent)" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>'
-    +'<circle cx="'+px(last[0]).toFixed(1)+'" cy="'+py(last[1]).toFixed(1)+'" r="6" fill="var(--accent)" stroke="var(--surface)" stroke-width="3"/>'
-    +'<text x="'+px(N)+'" y="'+(py(N)-9)+'" font-size="10" font-weight="800" letter-spacing="1.5" fill="var(--accent)" text-anchor="end">PRIZE</text>'+grid
-    +'<text x="'+(L-6)+'" y="'+(T+4)+'" font-size="10" fill="var(--faint)" text-anchor="end">'+N+'</text><text x="'+(L-6)+'" y="'+(B+4)+'" font-size="10" fill="var(--faint)" text-anchor="end">0</text></svg>';
-}
-function renderProgress(){
-  const goal=activeGoal();
-  if(!goal){$('progress').innerHTML=welcomeHtml();return}
-  const level=currentLevel(goal),pct=levelProgress(level),events=state.history.filter(e=>e.goalId===goal.id),reviews=state.reviews[goal.id]||[],pace=paceInfo(level),rk=rankInfo(lifetimeXp());
-  let html=playerHtml(goal);
-  html+='<div class="cards"><div class="metric"><span>This stage</span><b>'+pct+'%</b></div><div class="metric"><span>Best streak</span><b>'+longestStreak(myGoals())+' d</b></div><div class="metric"><span>Points</span><b>'+(goal.xpBank||0)+'</b></div></div>';
-  html+='<div class="card road"><div class="head" style="margin-bottom:6px"><div><h3>Pace to the prize</h3><span class="sub">Stay on the dashed line to earn it on schedule.</span></div><span class="chip '+(pace.state==='on'||pace.state==='done'?'ok':'warn')+'">'+esc(pace.text)+'</span></div>'+roadHtml(level)
-    +'<div class="road-legend"><span><i style="background:var(--faint)"></i>Required pace</span><span><i style="background:var(--accent)"></i>Actual</span><span>Days in stage</span></div></div>';
-  const badges=badgesFor(myGoals()),got=badges.filter(b=>b.got).length;
-  html+='<div class="card"><div class="head"><h3>Commendations</h3><span class="sub">'+got+' of '+badges.length+' earned</span></div><div class="badges">'+badges.map(b=>'<div class="badge'+(b.got?' got':'')+'"><div class="bi">'+b.i+'</div><b>'+b.n+'</b><small>'+b.d+'</small></div>').join('')+'</div></div>';
-  const proofs=(goal.photoCheckins||[]);
-  html+='<div class="card"><h3>Evidence</h3>'+(proofs.length?'<div class="timeline-strip">'+proofs.slice().reverse().map(p=>'<div class="timeline-thumb" style="background-image:url(\''+p.dataUrl+'\')" title="'+p.date+'"></div>').join('')+'</div>':'<p class="sub" style="margin:0">Photo check-ins are logged here. Require photo evidence on a task in Edit plan to build a visual record.</p>')+'</div>';
-  html+='<details class="sec"><summary>Weekly review <small>'+esc(goal.reviewDay||'Sunday')+' is your review day</small></summary><div class="sec-body">'
-    +'<div class="label">What worked?</div><textarea class="input" id="reviewWorked" rows="2"></textarea>'
-    +'<div class="label" style="margin-top:9px">What got in the way?</div><textarea class="input" id="reviewFriction" rows="2"></textarea>'
-    +'<div class="label" style="margin-top:9px">What will you change next week?</div><textarea class="input" id="reviewChanges" rows="2"></textarea>'
-    +'<button class="btn sm" style="margin-top:10px" onclick="saveReview(\''+goal.id+'\')">Save review</button>'
-    +(reviews.length?'<div style="margin-top:14px">'+reviews.map(r=>'<div class="history-item" style="display:block"><small>'+new Date(r.savedAt).toLocaleString()+'</small><div><b>Worked:</b> '+esc(r.worked||'—')+'</div><div><b>In the way:</b> '+esc(r.friction||'—')+'</div><div><b>Change:</b> '+esc(r.changes||'—')+'</div></div>').join('')+'</div>':'')
-    +'</div></details>';
-  html+='<details class="sec"><summary>History <small>'+events.length+' records</small></summary><div class="sec-body"><div class="prize-actions" style="margin:0 0 8px"><button class="btn ghost sm" onclick="printReport()">Print report</button></div>'
-    +(events.length?events.slice(0,40).map(e=>'<div class="history-item"><span>'+esc(e.action)+(e.detail?' · '+esc(e.detail):'')+'</span><small>'+new Date(e.date).toLocaleString()+'</small></div>').join(''):'<div class="empty">Nothing recorded yet.</div>')+'</div></details>';
-  $('progress').innerHTML=html;
-}
-
-/* ===================== PLAN (edit everything) ===================== */
-const openSecs=new Set(['goal','stages']);
-function sec(key,title,sub,body){return '<details class="sec" data-k="'+key+'" '+(openSecs.has(key)?'open':'')+'><summary><span>'+title+(sub?'<small>'+sub+'</small>':'')+'</span></summary><div class="sec-body">'+body+'</div></details>'}
-function field(label,id,value,type,hint){return '<div class="re-field"><div class="label">'+label+'</div><input class="input" id="'+id+'" type="'+(type||'text')+'" value="'+esc(value==null?'':value)+'">'+(hint?'<div class="hint">'+hint+'</div>':'')+'</div>'}
-function selectField(label,id,opts,value){return '<div class="re-field"><div class="label">'+label+'</div><select class="input" id="'+id+'">'+opts.map(o=>{const v=Array.isArray(o)?o[0]:o,t=Array.isArray(o)?o[1]:o;return '<option value="'+esc(v)+'" '+(v===value?'selected':'')+'>'+esc(t)+'</option>'}).join('')+'</select></div>'}
-function renderEditor(){
-  const goal=activeGoal();
-  if(!goal){$('plan').innerHTML=welcomeHtml();return}
-  const cur=currentLevel(goal),other=goal.profileId==='Bhargav'?'Anusha':'Bhargav',st=goal.stake||{text:'',amount:0,referee:''};
-  let html='<div class="head"><div><h2 style="font-size:20px">'+esc(goal.title)+'</h2></div><button class="btn ghost sm" onclick="go(\'goals\')">← All goals</button></div>';
-  html+=sec('goal','The goal','name, why, target date','<div class="grid-2">'
-    +field('Goal name','gTitle',goal.title)
-    +selectField('Type','gType',['Personal','Fitness','Education','Career','Financial','Project','Employee development','Student plan'],goal.type)
-    +field('Short description','gDescription',goal.description)
-    +field('Why this matters to you','gWhy',goal.why,'text','Shown back to you on Today.')
-    +field('Where you are now','gStarting',goal.startingPoint)
-    +field('Result you want','gTarget',goal.target)
-    +field('Target date','gDeadline',goal.deadline,'date')
-    +selectField('Importance','gPriority',['Critical','High','Normal','Low'],goal.priority)
-    +'</div><div class="template-row">'+Object.entries(TEMPLATES).map(([k,t])=>'<button class="btn ghost sm" onclick="createFromTemplate(\''+k+'\')">New from '+esc(t.type)+' template</button>').join('')+'</div>');
-  html+=sec('stages','Stages, daily tasks & prizes',goal.levels.length+' stage'+(goal.levels.length>1?'s':''),
-    '<p class="sub" style="margin-top:0">Each stage has its own daily tasks and its own prize. Complete the days to earn it.</p>'
-    +goal.levels.map((l,i)=>levelEditorCard(goal,l,i)).join('')+'<button class="btn" onclick="addLevel(\''+goal.id+'\')">+ Add a stage</button>');
-  html+=sec('stake','Stake & referee','optional accountability',
-    '<p class="sub" style="margin-top:0">Put something on the line and name someone to confirm you really did it. Honor-based: Pledge reminds you, you follow through.</p><div class="grid-3">'
-    +field('What you lose if you quit','gStakeText',st.text)+field('Amount ($)','gStakeAmt',st.amount||'','number')
-    +selectField('Referee','gReferee',[['','No referee'],[other,other]],st.referee||'')+'</div>');
-  html+=sec('why','Letter to your future self',goal.commitNoteSealedAt?'sealed':'',goal.commitNoteSealedAt
-    ?'<div class="commit-note">“'+esc(goal.commitNote)+'”</div><p class="sub">Sealed '+new Date(goal.commitNoteSealedAt).toLocaleString()+'. Shown back to you whenever you slip.</p><button class="btn soft sm" onclick="resealCommitNote(\''+goal.id+'\')">Write a new one</button>'
-    :'<p class="sub" style="margin-top:0">Write why you will not give up. Once sealed it cannot be edited, so it stays honest.</p><textarea class="input" id="commitNoteInput" rows="3" placeholder="On the day you want to quit, remember…"></textarea><button class="btn sm" style="margin-top:8px" onclick="sealCommitNote(\''+goal.id+'\')">Seal this note</button>');
-  html+=sec('miles','Milestones','big markers along the way',
-    goal.milestones.map(m=>'<div class="grid-3" style="margin-bottom:8px"><input class="input" value="'+esc(m.title)+'" onchange="updateMilestone(\''+goal.id+'\',\''+m.id+'\',\'title\',this.value)"><input class="input" value="'+esc(m.criteria)+'" onchange="updateMilestone(\''+goal.id+'\',\''+m.id+'\',\'criteria\',this.value)"><div style="display:flex;gap:6px"><select class="input" onchange="updateMilestone(\''+goal.id+'\',\''+m.id+'\',\'status\',this.value)">'+['upcoming','active','complete'].map(s=>'<option '+(m.status===s?'selected':'')+'>'+s+'</option>').join('')+'</select><button class="btn danger sm" onclick="deleteMilestone(\''+goal.id+'\',\''+m.id+'\')">×</button></div></div>').join('')
-    +'<button class="btn soft sm" onclick="addMilestone(\''+goal.id+'\')">+ Add milestone</button>');
-  html+=sec('prep','Reminders & preparation','',
-    '<div class="grid-2"><div style="grid-column:1/-1"><div class="label">Get ready checklist</div><textarea class="input" id="gPrep" rows="3">'+esc(goal.prepChecklist)+'</textarea></div>'
-    +field('Daily reminder time','gReminder',goal.reminderTime,'time')+selectField('Weekly check-in day','gReviewDay',['Sunday','Monday','Friday','Saturday'],goal.reviewDay)+'</div>');
-  $('plan').innerHTML=html;
-  $('plan').querySelectorAll('details.sec').forEach(d=>d.addEventListener('toggle',()=>{d.open?openSecs.add(d.dataset.k):openSecs.delete(d.dataset.k)}));
-  wireEditorInputs(goal);
-}
-function levelEditorCard(goal,level,i){
-  const suggestion=level.difficultySuggestion,isCur=level.id===currentLevel(goal).id;
-  return '<div class="card" style="'+(isCur?'border-color:var(--accent)':'')+'">'
-    +'<div class="head"><div><div class="eyebrow">Stage '+(i+1)+(isCur?' · now':'')+'</div><h3 style="margin:4px 0">'+esc(stageHeading(level))+'</h3><p class="sub" style="margin:0">'+level.days+' days · '+level.tasks.length+' task'+(level.tasks.length>1?'s':'')+' · '+levelProgress(level)+'% · '+({current:'active',done:'complete',recovery:'needs recovery',paused:'paused',upcoming:'not started'}[level.status]||level.status)+'</p></div>'+(goal.levels.length>1?'<button class="btn danger sm" onclick="deleteLevel(\''+goal.id+'\',\''+level.id+'\')">Delete stage</button>':'')+'</div>'
-    +(suggestion?'<div class="checkpoint-banner"><b>Tip for the next stage:</b> '+esc(suggestion.note)+' ('+suggestion.days+' days)</div>':'')
-    +'<div class="grid-2">'+field('Stage name','lvTitle-'+level.id,level.title)+field('Days to complete','lvDays-'+level.id,level.days,'number')
-    +'<div class="re-field" style="grid-column:1/-1"><div class="label">The rule</div><textarea class="input" id="lvRule-'+level.id+'" rows="2">'+esc(level.rule)+'</textarea></div>'
-    +'<div class="hint" style="grid-column:1/-1">Once a stage has started, days can be added but not removed. To scale back, use the midpoint check-in so the decision is logged.</div></div>'
-    +'<div class="head" style="margin-top:14px"><h3 style="font-size:15px">Daily tasks</h3><button class="btn soft sm" onclick="addTask(\''+goal.id+'\',\''+level.id+'\')">+ Add task</button></div>'
-    +level.tasks.map(t=>taskEditorHtml(goal,level,t)).join('')
-    +'<div class="head" style="margin-top:14px"><h3 style="font-size:15px">Prize for this stage</h3></div>'+rewardEditorHtml(goal,level)+'</div>';
-}
-function taskEditorHtml(goal,level,t){
-  const dayBtns=t.frequency==='selected'?'<div class="chips-row" style="grid-column:1/-1">'+['Sun','Mon','Tue','Wed','Thu','Fri','Sat'].map((n,d)=>'<label class="pick'+((t.selectedDays||[]).includes(d)?' on':'')+'" style="cursor:pointer"><input type="checkbox" style="display:none" data-sd="'+t.id+'" data-d="'+d+'" '+((t.selectedDays||[]).includes(d)?'checked':'')+'>'+n+'</label>').join('')+'</div>':'';
-  return '<div class="task-editor" data-task="'+t.id+'"><div class="grid-3" style="grid-template-columns:2fr 1fr auto;align-items:end">'+field('Task','tt-'+t.id,t.title)+field('Points','tx-'+t.id,t.xp,'number')+'<button class="btn danger sm" onclick="deleteTask(\''+goal.id+'\',\''+level.id+'\',\''+t.id+'\')">Delete</button></div>'
-    +'<div style="margin-top:10px">'+field('Details (what counts as done)','td-'+t.id,t.detail)+'</div>'
-    +'<details class="more"><summary>More options</summary><div class="grid-2" style="margin-top:8px">'
-    +field('Time of day','tm-'+t.id,t.time)+field('Minutes','tu-'+t.id,t.duration,'number')
-    +selectField('Importance','tp-'+t.id,['Critical','High','Normal','Low'],t.priority)
-    +selectField('How often','tf-'+t.id,[['daily','Every day'],['weekdays','Weekdays'],['selected','Chosen days'],['once','One time']],t.frequency)+dayBtns
-    +selectField('Needs approval from','tr-'+t.id,[['','Nobody'],['Bhargav','Bhargav'],['Anusha','Anusha']],t.peer)
-    +field('Small version for a hard day','tn-'+t.id,t.minimum)
-    +'<label style="display:flex;align-items:center;gap:8px;font-size:13px;color:var(--muted);grid-column:1/-1"><input type="checkbox" id="tphoto-'+t.id+'" '+(t.requiresPhoto?'checked':'')+'> Require a photo before this counts as done</label></div>'
-    +'<button class="btn ghost sm" style="margin-top:8px" onclick="openFocus(\''+goal.id+'\',\''+level.id+'\',\''+t.id+'\')">Focus timer</button></details></div>';
-}
-function rewardEditorHtml(goal,level){
-  const r=level.reward;
-  return '<div class="reward-edit"><div class="grid-2">'+field('Prize','rn-'+level.id,rewardIsSet(r)?r.name:'')+field('Price ($)','rp-'+level.id,r.price||'','number')
-    +'<div style="grid-column:1/-1">'+field('Link to it (optional)','ru-'+level.id,r.url)+'</div></div>'
-    +'<div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">'+(r.image?'<div style="width:64px;height:64px;border-radius:12px;background:url(\''+r.image.replace(/\'/g,'%27')+'\') center/cover"></div>':'')
-    +'<label class="btn ghost sm" style="cursor:pointer">'+(r.image?'Change picture':'Add a picture')+'<input type="file" accept="image/*" style="display:none" onchange="uploadRewardImage(\''+goal.id+'\',\''+level.id+'\',this)"></label><span class="hint">A clear picture sharpens the drive.</span></div></div>';
-}
-function wireDays(goal,level){
-  const el=$('lvDays-'+level.id);if(!el)return;
-  if(level.status==='done'){el.disabled=true;return}
-  const locked=!!level.startedAt&&level.status!=='upcoming'&&(todayKey()>level.startedAt||Object.keys(level.days_log).length>0);
-  el.min=locked?level.days:1;el.max=365;
-  el.addEventListener('change',()=>{
-    let v=Math.round(Number(el.value)),lo=locked?level.days:1;
-    if(!(v>=lo)){v=lo;toast(locked?'A started stage can only be extended. Use the midpoint check-in to scale back.':'A stage needs at least 1 day.')}
-    if(v>365)v=365;
-    el.value=v;
-    if(v!==level.days){logEvent(goal.id,'Plan changed',level.title+': '+level.days+' → '+v+' days');level.days=v;save();el.min=locked?v:1}
-  });
-}
-function wireEditorInputs(goal){
-  const bind=(id,obj,key,num)=>{const el=$(id);if(!el)return;el.addEventListener('input',()=>{obj[key]=num?Number(el.value)||0:el.value;save()})};
-  bind('gTitle',goal,'title');bind('gType',goal,'type');bind('gDescription',goal,'description');bind('gWhy',goal,'why');bind('gStarting',goal,'startingPoint');bind('gTarget',goal,'target');bind('gDeadline',goal,'deadline');bind('gPriority',goal,'priority');bind('gPrep',goal,'prepChecklist');bind('gReminder',goal,'reminderTime');bind('gReviewDay',goal,'reviewDay');
-  ['gTitle'].forEach(id=>{const el=$(id);if(el)el.addEventListener('input',()=>renderGoalSelect())});
-  goal.stake=goal.stake||{text:'',amount:0,referee:''};
-  bind('gStakeText',goal.stake,'text');bind('gStakeAmt',goal.stake,'amount',true);bind('gReferee',goal.stake,'referee');
-  goal.levels.forEach(level=>{
-    bind('lvTitle-'+level.id,level,'title');wireDays(goal,level);bind('lvRule-'+level.id,level,'rule');
-    level.tasks.forEach(t=>{
-      bind('tt-'+t.id,t,'title');bind('tx-'+t.id,t,'xp',true);bind('td-'+t.id,t,'detail');bind('tm-'+t.id,t,'time');bind('tu-'+t.id,t,'duration',true);bind('tp-'+t.id,t,'priority');bind('tr-'+t.id,t,'peer');bind('tn-'+t.id,t,'minimum');
-      const tf=$('tf-'+t.id);if(tf)tf.addEventListener('change',()=>{t.frequency=tf.value;if(t.frequency==='selected'&&!(t.selectedDays||[]).length)t.selectedDays=[1,2,3,4,5];save();renderEditor();const m=$('plan').querySelector('[data-task="'+t.id+'"] details.more');if(m)m.open=true});
-      document.querySelectorAll('[data-sd="'+t.id+'"]').forEach(cb=>cb.addEventListener('change',()=>{const d=Number(cb.dataset.d),set=new Set(t.selectedDays||[]);cb.checked?set.add(d):set.delete(d);t.selectedDays=[...set].sort();cb.parentElement.classList.toggle('on',cb.checked);save()}));
-      const ph=$('tphoto-'+t.id);if(ph)ph.addEventListener('change',()=>{t.requiresPhoto=ph.checked;save()});
-    });
-    bind('rn-'+level.id,level.reward,'name');bind('rp-'+level.id,level.reward,'price',true);bind('ru-'+level.id,level.reward,'url');
-  });
-}
-function addTask(goalId,levelId){const goal=state.goals.find(g=>g.id===goalId),level=goal.levels.find(l=>l.id===levelId);level.tasks.push(freshTask());save();renderEditor();toast('Task added')}
-function deleteTask(goalId,levelId,taskId){const goal=state.goals.find(g=>g.id===goalId),level=goal.levels.find(l=>l.id===levelId);level.tasks=level.tasks.filter(t=>t.id!==taskId);save();renderEditor();toast('Task deleted')}
-function uploadRewardImage(goalId,levelId,input){const f=input.files[0];if(!f)return;const r=new FileReader();r.onload=()=>{const goal=state.goals.find(g=>g.id===goalId),level=goal.levels.find(l=>l.id===levelId);level.reward.image=r.result;save();renderEditor();toast('Picture saved')};r.readAsDataURL(f)}
-function addLevel(goalId){
-  const goal=state.goals.find(g=>g.id===goalId),prev=goal.levels[goal.levels.length-1];
-  const suggestion=prev&&prev.difficultySuggestion;
-  const carried=prev?prev.tasks.map(t=>freshTask({title:t.title,detail:t.detail,xp:t.xp,frequency:t.frequency,priority:t.priority})):[];
-  const nl=freshLevel({title:'Stage '+(goal.levels.length+1),days:suggestion?suggestion.days:7,tasks:carried.length?carried:[freshTask()]});
-  goal.levels.push(nl);save();renderEditor();toast(suggestion?'Stage added using the suggested length':'Stage added with your tasks carried forward');
-}
-function deleteLevel(goalId,levelId){
-  if(!confirm('Delete this stage and its reward?'))return;
-  const goal=state.goals.find(g=>g.id===goalId),idx=goal.levels.findIndex(l=>l.id===levelId);
-  goal.levels.splice(idx,1);goal.currentLevelIndex=Math.min(goal.currentLevelIndex,goal.levels.length-1);
-  if(!goal.levels.some(l=>l.status==='current')&&goal.levels[goal.currentLevelIndex]){goal.levels[goal.currentLevelIndex].status='current';goal.levels[goal.currentLevelIndex].startedAt=goal.levels[goal.currentLevelIndex].startedAt||todayKey()}
-  save();renderEditor();toast('Stage deleted');
-}
-function createFromTemplate(key){
-  const t=TEMPLATES[key];
-  const g=freshGoal({title:t.title,description:t.description,type:t.type,why:t.why,target:t.target});
-  g.levels=[freshLevel({title:'Stage 1',days:t.days,status:'current',startedAt:todayKey(),tasks:[freshTask({title:t.task,detail:t.detail})]})];
-  state.goals.push(g);state.activeGoalId=g.id;
-  save();closeModal();renderGoalSelect();go('plan');toast(t.type+' template loaded. Set the prize below.');
-}
-
-/* ===================== profile + live Hub look ===================== */
-let lookUnsubs=[];
-function applyLook(name){
-  if(!window.HubTheme)return;
-  HubTheme.applyHubTheme(name,{base:'--accent',deep:'--accent-deep',soft:'--accent-soft'}).then(sh=>{document.documentElement.style.setProperty('--on-accent',HubTheme.readableOn(sh.accent))}).catch(()=>{});
-  HubTheme.applyHubAppearance(name).catch(()=>{});
-}
-function watchLook(name){
-  lookUnsubs.forEach(f=>{try{f()}catch(e){}});lookUnsubs=[];applyLook(name);
-  try{
-    const u=firebase.auth().currentUser;if(!u)return;const fs=firebase.firestore();
-    const refs=[fs.collection('users').doc(u.uid).collection('hub-profiles').doc(name).collection('data').doc('appearance'),fs.collection('users').doc(u.uid).collection('apps').doc('hub').collection('data').doc('theme-accents')];
-    refs.forEach(r=>{let first=true;lookUnsubs.push(r.onSnapshot(()=>{if(first){first=false;return}applyLook(name)},()=>{}))});
-  }catch(e){}
-}
-document.addEventListener('visibilitychange',()=>{if(!document.hidden&&state)applyLook(state.activeProfile)});
-function setProfile(name){
-  state.activeProfile=name;prefSet('pledge-profile',name);
-  if(!myGoals().some(g=>g.id===state.activeGoalId))state.activeGoalId=myGoals()[0]?myGoals()[0].id:null;
-  if(state.activeGoalId)prefSet('pledge-goal',state.activeGoalId);
-  $('profileBhargav').classList.toggle('active',name==='Bhargav');$('profileAnusha').classList.toggle('active',name==='Anusha');
-  watchLook(name);
-  renderGoalSelect();go(document.querySelector('.page.active').id);
-}
-function wire(){
-  $('profileBhargav').classList.toggle('active',state.activeProfile==='Bhargav');
-  $('profileAnusha').classList.toggle('active',state.activeProfile==='Anusha');
-}
-auth.onAuthStateChanged(async u=>{if(!u){if(window.self!==window.top)return;location.href='../index.html';return}user=u;try{await load();wire();$('shell').style.visibility='visible';$('loading').style.display='none';$('syncLabel').textContent='Saved to cloud';$('syncDot').classList.add('on');go('today');watchLook(state.activeProfile);watchState()}catch(e){$('loadingText').textContent='Your goals could not load. Refresh to try again.';console.error(e)}})
+auth.onAuthStateChanged(async u=>{
+  if(!u){if(window.self!==window.top)return;location.href='../index.html';return}
+  user=u;
+  try{await load();paintWho();render();$('app').style.visibility='visible';$('load').style.display='none';$('sync').textContent='';syncLinked().then(render)}
+  catch(e){$('loadText').textContent='Could not open Pledge: '+e.message}
+});
+window.setProfile=setProfile;window.openForm=openForm;window.closeForm=closeForm;window.setKind=setKind;window.pickSrc=pickSrc;window.pickBlock=pickBlock;window.pickChore=pickChore;window.toggleDay=toggleDay;window.submitForm=submitForm;window.tick=tick;window.claim=claim;window.restart=restart;window.remove=remove;
+Object.defineProperty(window,'nf',{get:()=>nf,set:v=>{nf=v}});
 }
 </script>
 </body></html>
