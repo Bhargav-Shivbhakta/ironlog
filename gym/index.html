@@ -22,10 +22,12 @@ if(typeof Chart==='undefined'){ window.Chart=function(){ this.destroy=function()
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script src="../assets/firebase-config.js"></script>
 <script src="../assets/theme.js"></script>
 <link rel="stylesheet" href="../assets/motion.css">
 <script src="../assets/motion.js" defer></script>
 <script src="../assets/waterpantry.js"></script>
+<script src="../assets/fscache.js"></script>
 <style>
   /* Hub design tokens — identical to assets/app.css / schedule.html's
      :root, so Gym reads as part of the same suite. Anusha's profile gets
@@ -1569,14 +1571,7 @@ function wireStartDateControls(){
 /* =====================================================================
    FIREBASE
 ===================================================================== */
-const FIREBASE_CONFIG = {
-  apiKey: "AIzaSyBe01eR2RZwSbU_aoJMeh_2MMJ5mqkVuKk",
-  authDomain: "iron-log-bfc55.firebaseapp.com",
-  projectId: "iron-log-bfc55",
-  storageBucket: "iron-log-bfc55.firebasestorage.app",
-  messagingSenderId: "106586808946",
-  appId: "1:106586808946:web:f4736554ba9fc82c6fd8eb"
-};
+const FIREBASE_CONFIG = window.IRONLOG_FIREBASE;
 
 let db = null;
 let auth = null;
@@ -1736,14 +1731,14 @@ document.getElementById('bs-save').addEventListener('click', async ()=>{
   renderDashboard(); // refresh the Energy ring on Today with the new stats
 });
 async function getDaily(date){ try{ const doc = await userCol('dailyLogs').doc(date).get(); return doc.exists ? doc.data() : null; }catch(e){ return null; } }
-async function setDaily(date, obj){ try{ await userCol('dailyLogs').doc(date).set(obj); return true; }catch(e){ console.error(e); return null; } }
+async function setDaily(date, obj){ try{ await userCol('dailyLogs').doc(date).set(obj); FsCache.patch(userCol('dailyLogs').path, date, obj); return true; }catch(e){ console.error(e); return null; } }
 async function listDaily(){
-  try{ const snap = await userCol('dailyLogs').get(); const out=[]; snap.forEach(d=>out.push(d.data())); return out.sort((a,b)=> a.date<b.date?1:-1); }catch(e){ return []; }
+  try{ const snap = await FsCache.get(userCol('dailyLogs')); const out=[]; snap.forEach(d=>out.push(d.data())); return out.sort((a,b)=> a.date<b.date?1:-1); }catch(e){ return []; }
 }
 async function getLift(date, key){ try{ const doc = await userCol('workoutLogs').doc(date+':'+key).get(); return doc.exists ? doc.data() : null; }catch(e){ return null; } }
-async function setLift(date, key, obj){ try{ await userCol('workoutLogs').doc(date+':'+key).set(obj); return true; }catch(e){ console.error(e); return null; } }
+async function setLift(date, key, obj){ try{ await userCol('workoutLogs').doc(date+':'+key).set(obj); FsCache.patch(userCol('workoutLogs').path, date+':'+key, obj); return true; }catch(e){ console.error(e); return null; } }
 async function listLift(){
-  try{ const snap = await userCol('workoutLogs').get(); const out=[]; snap.forEach(d=>out.push(d.data())); return out.sort((a,b)=> a.date<b.date?1:-1); }catch(e){ return []; }
+  try{ const snap = await FsCache.get(userCol('workoutLogs')); const out=[]; snap.forEach(d=>out.push(d.data())); return out.sort((a,b)=> a.date<b.date?1:-1); }catch(e){ return []; }
 }
 /* ---------------- Per-exercise unit preference (kg/lbs stays consistent per exercise, independent of the profile default) ---------------- */
 let exerciseUnitsCache = null;
@@ -1828,12 +1823,12 @@ async function removeCustomExercise(dayKey, exId){
 
 /* ---------------- Cardio log (one entry per calendar date) ---------------- */
 async function getCardio(date){ try{ const doc = await userCol('cardioLogs').doc(date).get(); if(!doc.exists) return []; const data = doc.data(); return Array.isArray(data.entries) ? data.entries : (data.machine ? [data] : []); }catch(e){ return []; } }
-async function saveCardioEntries(date, entries){ try{ await userCol('cardioLogs').doc(date).set({date, entries}); return true; }catch(e){ console.error(e); return null; } }
+async function saveCardioEntries(date, entries){ try{ await userCol('cardioLogs').doc(date).set({date, entries}); FsCache.patch(userCol('cardioLogs').path, date, {date, entries}); return true; }catch(e){ console.error(e); return null; } }
 // One doc per date holding that day's cardio sessions — pulled for
 // History and Analytics the same way workout logs are.
 async function listCardio(){
   try{
-    const snap = await userCol('cardioLogs').get();
+    const snap = await FsCache.get(userCol('cardioLogs'));
     const out=[];
     snap.forEach(d=>{
       const data = d.data();
@@ -2290,7 +2285,7 @@ function profileCol(pid, name){
 async function readProfileTraining(pid){
   const logged = new Set(), trained = new Set();
   try{
-    const [dSnap, wSnap] = await Promise.all([profileCol(pid,'dailyLogs').get(), profileCol(pid,'workoutLogs').get()]);
+    const [dSnap, wSnap] = await Promise.all([FsCache.get(profileCol(pid,'dailyLogs')), FsCache.get(profileCol(pid,'workoutLogs'))]);
     dSnap.forEach(d=>{ const x = d.data()||{}; const date = x.date || d.id; logged.add(date); if(x.habits && x.habits.workout) trained.add(date); });
     wSnap.forEach(d=>{ const x = d.data()||{}; const date = x.date || String(d.id).split(':')[0]; if((x.exercises||[]).some(e=>(e.sets||[]).length)) trained.add(date); });
   }catch(e){}
@@ -2453,6 +2448,7 @@ async function waterWrite(){
   {
     try{
       await userCol('dailyLogs').doc(date).set({ date, day: dayNameFor(date), water: val }, { merge: true });
+      FsCache.patch(userCol('dailyLogs').path, date, { date, day: dayNameFor(date), water: val }, { merge: true });
       if(window.WaterPantry && date===todayStr()) WaterPantry.sync(db, currentUser.uid, activeProfile.id, date, Math.round((Number(val)||0)*1000));
       const msg = document.getElementById('save-msg-today');
       if(msg){
@@ -4330,6 +4326,7 @@ async function histCommit(ops, dir){
     });
     await batch.commit();
   }
+  FsCache.invalidateAll();
 }
 let histUndoOps = null, histUndoTimer = null;
 function showHistToast(msg, ops){
@@ -4509,6 +4506,7 @@ async function histRestoreTrash(trashId){
     } else {
       await userCol(HIST_COL[item.table]).doc(item.docId).set(item.data);
     }
+    FsCache.invalidateAll();
     await userCol('trash').doc(item.id).delete();
     showHistToast('Restored ✓');
     await renderHistory();
@@ -5368,6 +5366,7 @@ async function importBackup(file){
     entries.slice(i, i+400).forEach(e=> batch.set(profileCol(e.pid, e.col).doc(e.id), e.data));
     await batch.commit();
   }
+  FsCache.invalidateAll();
   return entries.length;
 }
 function openBackup(){

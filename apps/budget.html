@@ -9,6 +9,7 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script src="../assets/firebase-config.js"></script>
 <script src="https://unpkg.com/lucide@0.468.0/dist/umd/lucide.min.js"></script>
 <script src="../assets/theme.js"></script>
 <link rel="stylesheet" href="../assets/motion.css">
@@ -642,14 +643,7 @@
    Shared data (joint household spending, visible to both profiles,
    same pattern todo.html uses for sharedTasks): budget-shared/{key}
 ===================================================================== */
-const FIREBASE_CONFIG = {
-  apiKey: "AIzaSyBe01eR2RZwSbU_aoJMeh_2MMJ5mqkVuKk",
-  authDomain: "iron-log-bfc55.firebaseapp.com",
-  projectId: "iron-log-bfc55",
-  storageBucket: "iron-log-bfc55.firebasestorage.app",
-  messagingSenderId: "106586808946",
-  appId: "1:106586808946:web:f4736554ba9fc82c6fd8eb"
-};
+const FIREBASE_CONFIG = window.IRONLOG_FIREBASE;
 firebase.initializeApp(FIREBASE_CONFIG);
 const auth = firebase.auth();
 const db = firebase.firestore();

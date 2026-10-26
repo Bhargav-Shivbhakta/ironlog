@@ -6,6 +6,7 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script src="../assets/firebase-config.js"></script>
 <script src="../assets/theme.js"></script>
 <link rel="stylesheet" href="../assets/motion.css">
 <script src="../assets/motion.js" defer></script>
@@ -248,7 +249,7 @@ button,.btn{transition:transform .08s ease-out}button:active,.btn:active{transfo
 <script>
 window.addEventListener('error',e=>{const l=document.getElementById('loadingText');if(l&&document.getElementById('loading').style.display!=='none')l.textContent='Something went wrong: '+e.message});
 if(typeof firebase==='undefined'){document.getElementById('loadingText').textContent='Connected services could not load. Check your connection and refresh.'}else{
-const CONFIG={apiKey:'AIzaSyBe01eR2RZwSbU_aoJMeh_2MMJ5mqkVuKk',authDomain:'iron-log-bfc55.firebaseapp.com',projectId:'iron-log-bfc55',storageBucket:'iron-log-bfc55.firebasestorage.app',messagingSenderId:'106586808946',appId:'1:106586808946:web:f4736554ba9fc82c6fd8eb'};
+const CONFIG=window.IRONLOG_FIREBASE;
 if(!firebase.apps.length)firebase.initializeApp(CONFIG);const auth=firebase.auth(),db=firebase.firestore();if(window.self===window.top){try{db.enablePersistence({synchronizeTabs:true}).catch(()=>{})}catch(e){}}
 const $=id=>document.getElementById(id),clone=x=>JSON.parse(JSON.stringify(x));
 const esc=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));

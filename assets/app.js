@@ -1,4 +1,4 @@
-const FIREBASE_CONFIG={apiKey:"AIzaSyBe01eR2RZwSbU_aoJMeh_2MMJ5mqkVuKk",authDomain:"iron-log-bfc55.firebaseapp.com",projectId:"iron-log-bfc55",storageBucket:"iron-log-bfc55.firebasestorage.app",messagingSenderId:"106586808946",appId:"1:106586808946:web:f4736554ba9fc82c6fd8eb"};
+const FIREBASE_CONFIG=window.IRONLOG_FIREBASE;
 firebase.initializeApp(FIREBASE_CONFIG);
 const auth=firebase.auth(),db=firebase.firestore();
 try{db.enablePersistence({synchronizeTabs:true}).catch(()=>{});}catch(e){}
@@ -1054,15 +1054,16 @@ async function reconcileWater(days){
   if(changed) saveWater();
 }
 async function pushWaterToGym(prof,d,ml){
-  try{ await gymWaterDoc(prof,d).set({date:d,water:Math.round(ml/10)/100},{merge:true}); }catch(e){}
+  try{ await gymWaterDoc(prof,d).set({date:d,water:Math.round(ml/10)/100},{merge:true}); FsCache.patch(gymDailyLogsCol(prof).path,d,{date:d,water:Math.round(ml/10)/100},{merge:true}); }catch(e){}
 }
 function pantryWater(d){ if(window.WaterPantry&&state.user&&state.profile) WaterPantry.sync(db,state.user.uid,state.profile,d,waterTotal(d)); }
 function waterTotal(date){ const a=state.water.log[date]; return Array.isArray(a)?a.reduce((s,x)=>s+(Number(x)||0),0):0; }
 function waterFmt(ml){ return state.water.unit==='oz'?Math.round(ml/OZ_ML)+' oz':Math.round(ml).toLocaleString()+' ml'; }
+let waterPastDoneFor='';
 async function renderWaterInto(el){
   if(!el)return;
   await ensureWater();
-  { const dd=today(); await reconcileWater(Array.from({length:7},(_,i)=>addDays(dd,i-6))); pantryWater(dd); }
+  { const dd=today(); /* today every time (1 read); the six days before it only once per day per session, they rarely change */ const full=waterPastDoneFor!==dd; waterPastDoneFor=dd; await reconcileWater(full?Array.from({length:7},(_,i)=>addDays(dd,i-6)):[dd]); pantryWater(dd); }
   const w=state.water, d=today(), total=waterTotal(d), pct=Math.min(100,Math.round(total/w.goal*100));
   let streak=0, cur=total>=w.goal?d:addDays(d,-1);
   while(waterTotal(cur)>=w.goal&&streak<400){streak++;cur=addDays(cur,-1)}
@@ -1678,7 +1679,7 @@ let insightsLoadedForProfile=null,insightsLoadedAt=0;
 async function ensureInsightsLoaded(){
   if(insightsLoadedForProfile===state.profile && state.insights && Date.now()-insightsLoadedAt<60000) return;
   const [gymSnap,stepRes,trackRes,milestoneRes,startRes]=await Promise.all([
-    gymDailyLogsCol(state.profile).get().catch(()=>null),
+    FsCache.get(gymDailyLogsCol(state.profile)).catch(()=>null),
     skinDataRef(state.profile,'stepLog').get().catch(()=>null),
     skinDataRef(state.profile,'trackingLog').get().catch(()=>null),
     skinDataRef(state.profile,'milestoneLog').get().catch(()=>null),
