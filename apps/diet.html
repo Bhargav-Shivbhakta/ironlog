@@ -605,6 +605,7 @@ function copyPreviousDay(){let src=addDaysISO(state.selectedDate,-1),old=state.d
    Past days, eaten/skipped/replaced entries and Anusha's plan are never touched. */
 function applyBhargavPhase(){
   try{
+    return false; /* auto-apply OFF: your own recipes and goals are never changed */
     const BP=window.BHARGAV_PLAN;if(!BP||!state||!state.recipes)return false;
     if(!BP.applyDietPhase(state,localToday()))return false;
     persist();
