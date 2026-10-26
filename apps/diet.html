@@ -346,7 +346,19 @@ function logStep(i,direction){const it=logDraft.items[i],step=['piece','serving'
 function logChangeFood(i,id){const f=food(id);if(!f)return;logDraft.items[i]={foodId:id,qty:f.basis,unit:f.unit};renderLogEditor()}
 function removeLogItem(i){logDraft.items.splice(i,1);renderLogEditor()}
 function addLogItem(){const f=food($('logFoodSelect').value),qty=Number($('logFoodQty').value);if(!f||qty<=0)return toast('Enter a valid amount');logDraft.items.push({foodId:f.id,qty,unit:$('logFoodUnit').value});renderLogEditor()}
-function renderFoods(){let q=($('foodSearch').value||'').toLowerCase();$('foodRows').innerHTML=state.foods.filter(f=>f.name.toLowerCase().includes(q)).map(f=>`<tr><td><div class="food-name">${esc(f.name)}</div><span class="tag">${f.id.startsWith('custom')?'Custom':'Built-in'}</span></td><td>${f.basis} ${f.unit}</td><td class="num">${f.calories}</td><td class="num">${f.protein} g</td><td class="num">${f.carbs} g</td><td class="num">${f.fat} g</td><td class="num">${f.fiber} g</td><td><button class="btn ghost small" onclick="openFoodModal('${f.id}')">Edit</button></td></tr>`).join('')}
+function renderFoods(){let q=($('foodSearch').value||'').toLowerCase();$('foodRows').innerHTML=state.foods.filter(f=>f.name.toLowerCase().includes(q)).map(f=>`<tr><td><div class="food-name">${esc(f.name)}</div><span class="tag">${f.id.startsWith('custom')?'Custom':'Built-in'}</span></td><td>${f.basis} ${f.unit}</td><td class="num">${f.calories}</td><td class="num">${f.protein} g</td><td class="num">${f.carbs} g</td><td class="num">${f.fat} g</td><td class="num">${f.fiber} g</td><td><button class="btn ghost small" onclick="openFoodModal('${f.id}')">Edit</button> <button class="btn ghost small" style="color:#b3261e" onclick="deleteFood('${f.id}')">Delete</button></td></tr>`).join('')}
+/* Delete an ingredient from the Foods list. Refused (with the reason) while a recipe or a logged/planned entry still uses it, so nothing in your recipes or history can break. */
+function deleteFood(id){
+  const f=food(id);if(!f)return;
+  const inRecipes=state.recipes.filter(r=>(r.items||[]).some(i=>i.foodId===id));
+  if(inRecipes.length){const names=inRecipes.slice(0,4).map(r=>'“'+r.name+'”').join(', ')+(inRecipes.length>4?' and '+(inRecipes.length-4)+' more':'');return toast('“'+f.name+'” is still used in '+names+'. Remove it from there first, then delete it.')}
+  const inDiary=state.diary.filter(d=>(d.consumption||[]).some(c=>c.foodId===id)).length;
+  if(inDiary)return toast('“'+f.name+'” appears in '+inDiary+' logged or planned entr'+(inDiary===1?'y':'ies')+', so deleting it would break that history. It is kept.');
+  if(!confirm('Delete “'+f.name+'” from your ingredients? This cannot be undone.'))return;
+  state.foods=state.foods.filter(x=>x.id!==id);
+  state.pantry=(state.pantry||[]).filter(p=>p.foodId!==id);
+  persist();renderAll();toast('Ingredient deleted');
+}
 function closeFoodModal(){$('foodModal').classList.remove('open')}
 function num(id){return Math.max(0,Number($(id).value)||0)}
 function exportData(){let blob=new Blob([JSON.stringify(state,null,2)],{type:'application/json'}),a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='nourish-data.json';a.click();URL.revokeObjectURL(a.href)}
