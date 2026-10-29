@@ -258,6 +258,7 @@ async function voiceAiContext(){
   try{ if(typeof choresDueToday==='function') ctx.chores_due_today=choresDueToday().map(c=>c.name).slice(0,15); }catch(e){}
   try{ if(typeof ensureWater==='function'){ await ensureWater(); const d=today(); ctx.water_today_ml=waterTotal(d); ctx.water_goal_ml=state.water.goal; } }catch(e){}
   try{ const bl=(state.templates&&state.templates[DAYS[new Date().getDay()]])||[]; ctx.schedule_blocks_today=bl.map(b=>String(b.activity||b.title||'')).filter(Boolean).slice(0,25); }catch(e){}
+  try{ ctx.checklists=(await voiceClLoad()).slice(0,12).map(l=>({title:l.title,open_items:voiceClUnits(l).filter(u=>!u.done).slice(0,10).map(u=>u.t)})); }catch(e){}
   const el=id=>{const x=document.getElementById(id);return x?x.textContent.trim():''};
   ctx.next_event=el('stat-next'); ctx.tasks_remaining_today=el('stat-tasks');
   return ctx;
@@ -275,6 +276,9 @@ Allowed actions (use only these, in order, as many as the request needs):
  {"type":"log_steps","steps":number}
  {"type":"tick_block","name":"words from a schedule block today","done":true|false}
  {"type":"tick_pledge","name":"words from a pledge title"}
+ {"type":"add_checklist_item","list":"words from a checklist title","item":"item text"}
+ {"type":"tick_checklist_item","list":"words from a checklist title","item":"words from an item","done":true|false}
+ {"type":"create_checklist","name":"checklist title"}
  {"type":"insights_summary"}   // for "how am I doing / am I on track"
  {"type":"undo"}
  {"type":"open_app","app":"Gym|Diet|To-Do|Schedule|Grocery|Chores|Skin|Calendar|Clock"}
@@ -345,6 +349,9 @@ const VOICE_AI_ACTIONS={
   async tick_block(a){ const n=String(a.name||'').trim(); if(!n) return false; await voiceTickBlock(n,a.done!==false); return true; },
   async tick_pledge(a){ const n=String(a.name||'').trim(); if(!n) return false; await voiceTickPledge(n); return true; },
   async insights_summary(){ await voiceInsightsSummary(); return true; },
+  async add_checklist_item(a){ const l=String(a.list||'').trim(),i=String(a.item||'').trim(); if(!l||!i) return false; await voiceClAdd(i.slice(0,300),l.slice(0,80)); return true; },
+  async tick_checklist_item(a){ const l=String(a.list||'').trim(),i=String(a.item||'').trim(); if(!l||!i) return false; await voiceClTick(i.slice(0,200),l.slice(0,80),a.done!==false); return true; },
+  async create_checklist(a){ const n=String(a.name||'').trim(); if(!n) return false; await voiceClNew(n); return true; },
   async undo(){ await voiceUndo(); return true; },
   async open_app(a){ const app=VOICE_APPS.find(x=>x.title.toLowerCase()===String(a.app||'').toLowerCase()); if(!app) return false; voiceOpenApp(app); speak('Opening '+app.title+'.'); return true; },
   async go_route(a){
@@ -498,6 +505,122 @@ async function voiceTickPledge(name){
   });
 }
 
+
+// ---- checklists (apps/checklist) ----
+const VOICE_CL_SKIP=/^(?:my |the )?(?:grocery|groceries|shopping|task|tasks|to ?do|todo|chore|chores)$/;
+function voiceClParse(t){
+  let m=t.match(/^add (.+?) (?:to|on|onto|in) (?:my |the |our )?(.+?)(?: (?:check ?list|list))$/);
+  if(m&&!VOICE_CL_SKIP.test(m[2])) return {k:'add',item:m[1],list:m[2]};
+  m=t.match(/^(untick|uncheck|tick|check|tick off|check off) (?:off )?(?:the )?(.+?) (?:on|in|from|off) (?:my |the |our )?(.+?)(?: (?:check ?list|list))$/);
+  if(m&&!VOICE_CL_SKIP.test(m[3])) return {k:/^un/.test(m[1])?'untick':'tick',item:m[2],list:m[3]};
+  m=t.match(/^(?:what'?s|what is|what do i have|how many) (?:items? )?(?:left|remaining|still to do) (?:on|in|for) (?:my |the |our )?(.+?)(?: (?:check ?list|list))?$/);
+  if(m&&!VOICE_CL_SKIP.test(m[1])) return {k:'left',list:m[1]};
+  m=t.match(/^(?:create|make|start|new) (?:a |an )?(?:new )?check ?list(?: called| named| for)?\s+(.+)$/);
+  if(m) return {k:'new',list:m[1]};
+  return null;
+}
+async function voiceClLoad(){
+  let lists=[]; try{ const sn=await appRef('checklist','state').get(); if(sn.exists) lists=(JSON.parse(sn.data().json||'{}').lists)||[]; }catch(e){}
+  return lists.filter(l=>!l.deleted&&!l.gone&&!l.archived&&!l.template&&(l.owner==='shared'||l.owner===state.profile)&&Array.isArray(l.items));
+}
+// read-modify-write inside a transaction; returns what fn returns (and the list before the change, for undo)
+async function voiceClEdit(listId,fn){
+  const ref=appRef('checklist','state'); let out=null;
+  await db.runTransaction(async tx=>{
+    const sn=await tx.get(ref); const doc=sn.exists?JSON.parse(sn.data().json||'{}'):{}; const lists=Array.isArray(doc.lists)?doc.lists:[];
+    const l=lists.find(x=>x.id===listId); if(!l){ out=null; return; }
+    const before=JSON.parse(JSON.stringify(l)); fn(l); l.u=Date.now(); out={before,after:l};
+    tx.set(ref,{json:JSON.stringify({version:1,lists}),updatedAt:firebase.firestore.FieldValue.serverTimestamp()});
+  });
+  return out;
+}
+function voiceClUndoFor(listId,label,before){
+  voiceUndoPush(label,async()=>{
+    const ref=appRef('checklist','state');
+    await db.runTransaction(async tx=>{
+      const sn=await tx.get(ref); const doc=sn.exists?JSON.parse(sn.data().json||'{}'):{}; const lists=Array.isArray(doc.lists)?doc.lists:[];
+      const i=lists.findIndex(x=>x.id===listId); const restored=Object.assign({},before,{u:Date.now()});
+      if(i>=0) lists[i]=restored; else lists.push(restored);
+      tx.set(ref,{json:JSON.stringify({version:1,lists}),updatedAt:firebase.firestore.FieldValue.serverTimestamp()});
+    });
+  });
+}
+const voiceClCap=s=>{ s=String(s||'').trim().replace(/[.?!]+$/,''); return s.charAt(0).toUpperCase()+s.slice(1); };
+function voiceClResync(l){
+  const top=l.items.filter(i=>!i.parent||!l.items.some(x=>x.id===i.parent));
+  top.forEach(t=>{ const k=l.items.filter(c=>c.parent===t.id); if(k.length) t.done=k.every(x=>x.done); });
+}
+function voiceClUnits(l){
+  const top=l.items.filter(i=>!i.parent||!l.items.some(x=>x.id===i.parent)),u=[];
+  top.forEach(t=>{ const k=l.items.filter(c=>c.parent===t.id); if(k.length) u.push(...k); else u.push(t); });
+  return u;
+}
+async function voiceClPickList(name,then){
+  const lists=await voiceClLoad();
+  if(!lists.length){ speak("You don't have any checklists yet."); return false; }
+  return voicePickFrom(lists,'title',name,'a checklist',then);
+}
+async function voiceClAdd(itemText,listName){
+  const parts=String(itemText).split(/\s*(?:,|\band\b)\s*/).map(voiceClCap).filter(Boolean).slice(0,10);
+  if(!parts.length){ speak("I didn't catch what to add."); return false; }
+  return voiceClPickList(listName,async l=>{
+    const r=await voiceClEdit(l.id,x=>{ parts.forEach((p,i)=>{ x.items.push({id:'i-v'+Date.now().toString(36)+i,t:p.slice(0,200),done:false,parent:null}); }); x.hist=x.hist||[]; x.hist.push({at:Date.now(),by:state.profile,k:'add',t:parts.length===1?parts[0]:parts.length+' items'}); });
+    if(!r){ speak("I couldn't find that checklist any more."); return; }
+    voiceClUndoFor(l.id,'adding to '+l.title,r.before);
+    speak('Added '+parts.join(' and ')+' to '+l.title+'.');
+  });
+}
+async function voiceClTick(itemName,listName,done){
+  return voiceClPickList(listName,l=>{
+    const items=voiceClUnits(l).map(x=>({title:x.t,id:x.id}));
+    return voicePickFrom(items,'title',itemName,'an item on '+l.title,async it=>{
+      let finished=false;
+      const r=await voiceClEdit(l.id,x=>{
+        const m=x.items.find(y=>y.id===it.id); if(!m) return;
+        const had=voiceClUnits(x).every(u=>u.done);
+        m.done=done; m.at=done?Date.now():null; voiceClResync(x);
+        x.hist=x.hist||[]; x.hist.push({at:Date.now(),by:state.profile,k:done?'tick':'untick',t:m.t});
+        finished=done&&!had&&voiceClUnits(x).every(u=>u.done);
+      });
+      if(!r){ speak("I couldn't find that checklist any more."); return; }
+      voiceClUndoFor(l.id,(done?'ticking ':'unticking ')+it.title,r.before);
+      speak((done?'Ticked ':'Unticked ')+it.title+'.'+(finished?' That finishes '+l.title+'!':''));
+    });
+  });
+}
+async function voiceClLeft(listName){
+  return voiceClPickList(listName,l=>{
+    const left=voiceClUnits(l).filter(u=>!u.done);
+    if(!left.length) speak('Everything on '+l.title+' is done.');
+    else speak(left.length+' left on '+l.title+': '+left.slice(0,5).map(u=>u.t).join(', ')+(left.length>5?', and more.':'.'));
+  });
+}
+async function voiceClNew(name){
+  const title=voiceClCap(name).slice(0,80); if(!title){ speak("What should I call it?"); return false; }
+  const l={id:'cl-v'+Date.now().toString(36),title,owner:state.profile,items:[],due:null,archived:false,template:false,hide:'keep',createdAt:Date.now(),u:Date.now(),hist:[{at:Date.now(),by:state.profile,k:'new',t:'List created'}]};
+  const ref=appRef('checklist','state');
+  await db.runTransaction(async tx=>{
+    const sn=await tx.get(ref); const doc=sn.exists?JSON.parse(sn.data().json||'{}'):{}; const lists=Array.isArray(doc.lists)?doc.lists:[];
+    lists.push(l); tx.set(ref,{json:JSON.stringify({version:1,lists}),updatedAt:firebase.firestore.FieldValue.serverTimestamp()});
+  });
+  voiceUndoPush('creating '+title,async()=>{
+    await db.runTransaction(async tx=>{
+      const sn=await tx.get(ref); const doc=JSON.parse(sn.data().json||'{}'); const lists=doc.lists||[]; const x=lists.find(y=>y.id===l.id);
+      if(x){ x.deleted=true; x.u=Date.now(); } tx.set(ref,{json:JSON.stringify({version:1,lists}),updatedAt:firebase.firestore.FieldValue.serverTimestamp()});
+    });
+  });
+  speak('Created a checklist called '+title+'.'); return true;
+}
+async function voiceClRun(c){
+  try{
+    if(c.k==='add') return await voiceClAdd(c.item,c.list);
+    if(c.k==='tick') return await voiceClTick(c.item,c.list,true);
+    if(c.k==='untick') return await voiceClTick(c.item,c.list,false);
+    if(c.k==='left') return await voiceClLeft(c.list);
+    if(c.k==='new') return await voiceClNew(c.list);
+  }catch(e){ speak("I couldn't update that checklist."); }
+}
+
 // "tick X": try a Schedule block, then an open task, then a chore due today, then a pledge
 async function voiceTickAnything(name){
   const q=voiceNorm(name); if(!q){ speak('Tick what?'); return; }
@@ -536,6 +659,8 @@ function handleVoiceCommand(rawText){
   if(voicePending){ voiceHandlePending(t); return; }
 
   if(/^(undo|undo that|undo it|take that back|revert that)$/.test(t)){ voiceUndo(); return; }
+  const clCmd=voiceClParse(t);
+  if(clCmd){ voiceClRun(clCmd); return; }
   const wMatch=t.match(/^(?:log |record |set )?(?:my )?weight(?: is| was| today)?(?: to)?\s+([\d]+(?:\s*point\s*\d+|\.\d+)?)(?:\s*(?:kg|kgs|kilos?|kilograms?))?$|^i (?:weigh|weighed)\s+([\d]+(?:\s*point\s*\d+|\.\d+)?)/);
   if(wMatch){ voiceLogWeight(String(wMatch[1]||wMatch[2]).replace(/\s*point\s*/,'.').replace(/\s+/g,'')); return; }
   const stMatch=t.match(/^(?:log |record |set )?(?:my )?steps(?: today| are| is)?(?: to)?\s+([\d,]+)$|^i (?:walked|did)\s+([\d,]+)\s+steps$/);

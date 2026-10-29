@@ -1,4 +1,4 @@
-const CACHE_NAME = 'fit-hub-v42';
+const CACHE_NAME = 'fit-hub-v43';
 // Every page + shared asset the Hub actually needs to work offline on a
 // completely fresh install — not just the Hub shell itself. Before this,
 // only 7 files were pre-cached at install; everything else (every app
@@ -14,7 +14,7 @@ const ASSETS = [
   './assets/app.css', './assets/app.js', './assets/banners.css', './assets/banners.js', './assets/theme.js', './assets/schedcats.js', './assets/voice.js', './assets/motion.css', './assets/motion.js', './assets/waterpantry.js', './assets/fscache.js', './assets/bhargav-plan.js', './assets/firebase-config.js',
   './apps/todo.html', './apps/diet.html', './apps/schedule.html', './apps/grocery.html',
   './apps/chores.html', './apps/skin.html', './apps/calendar.html', './apps/clock.html',
-  './apps/budget.html', './apps/pledge.html',
+  './apps/budget.html', './apps/pledge.html', './apps/checklist.html',
   './gym/index.html',
   './tile-icons/gym.png', './tile-icons/diet.png', './tile-icons/todo.png', './tile-icons/schedule.png',
   './tile-icons/grocery.png', './tile-icons/chores.png', './tile-icons/skin.png', './tile-icons/calendar.png'

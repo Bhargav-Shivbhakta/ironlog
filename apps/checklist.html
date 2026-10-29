@@ -1,0 +1,401 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Checklists</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script src="../assets/firebase-config.js"></script>
+<script src="../assets/theme.js"></script>
+<style>
+  /* Same tokens as To-Do and the Hub shell so Checklists reads as one product. */
+  :root{
+    --bg:#F4F4F0;--surface:#FFFFFF;--surface-2:#F2F0E9;--border:#E3E3DC;--border-soft:#ECECE6;
+    --text:#20211E;--text-soft:#74766F;--text-faint:#9C9E97;
+    --accent:#AD7B20;--accent-soft:#F7EFD9;--accent-deep:#6F4A08;
+    --done:#2F7C5A;--done-soft:#E6F2EC;--danger:#B8493F;--danger-soft:#FAECEA;
+    --radius-lg:16px;--radius-md:11px;--radius-sm:8px;--shadow:0 18px 50px rgba(37,38,32,.08);
+  }
+  body[data-profile="anusha"]{--accent:#B25C78;--accent-soft:#FAEAF0;--accent-deep:#813B53}
+  *{box-sizing:border-box}
+  body{margin:0;font-family:'Inter',sans-serif;color:var(--text);min-height:100vh;padding:18px 14px 90px;-webkit-font-smoothing:antialiased;background:var(--bg)}
+  h1,h2,h3{font-family:'Manrope',sans-serif;margin:0}
+  button,input,select,textarea{font-family:inherit;font-size:inherit;color:inherit}
+  button{cursor:pointer;transition:transform .08s}button:active{transform:scale(.97)}
+  .wrap{max-width:min(94vw,980px);margin:0 auto}
+  body.embedded .back{display:none}
+  .back{font-size:12.5px;color:var(--text-faint);text-decoration:none}
+  .top{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin:6px 0 16px}
+  .top h1{font-size:26px;font-weight:800;letter-spacing:-.01em}
+  .who{display:flex;gap:2px;background:var(--surface);border:1px solid var(--border);border-radius:999px;padding:3px}
+  .who button{border:0;background:transparent;color:var(--text-soft);padding:6px 14px;border-radius:999px;font-weight:600;font-size:13px}
+  .who button.on{background:var(--accent);color:#fff}
+  .tools{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px;align-items:center}
+  .btn{border:1px solid var(--border);background:var(--surface);border-radius:var(--radius-sm);padding:8px 13px;font-weight:600;font-size:13px;display:inline-flex;align-items:center;gap:6px}
+  .btn:hover{border-color:var(--text-faint)}
+  .btn.pri{background:var(--accent);border-color:var(--accent);color:#fff}
+  .btn.bad{color:var(--danger)}.btn:disabled{opacity:.4;cursor:default}
+  .btn.sm{padding:5px 10px;font-size:12px}
+  .sync{font-size:12px;color:var(--text-faint);margin-left:auto}
+  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(270px,1fr));gap:14px}
+  .card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:16px 18px;box-shadow:var(--shadow);cursor:pointer;transition:transform .12s,border-color .12s}
+  .card:hover{transform:translateY(-2px);border-color:var(--accent)}
+  .card h3{font-size:17px;font-weight:700;margin-bottom:6px;word-break:break-word}
+  .meta{display:flex;gap:6px;flex-wrap:wrap;margin:0 0 10px}
+  .chip{font-size:11px;font-weight:700;padding:2px 8px;border-radius:999px;background:var(--surface-2);color:var(--text-soft)}
+  .chip.sh{background:var(--accent-soft);color:var(--accent-deep)}
+  .chip.warn{background:#FFF1D6;color:#8A5A00}.chip.over{background:var(--danger-soft);color:var(--danger)}.chip.ok{background:var(--done-soft);color:var(--done)}
+  .bar{height:8px;background:var(--surface-2);border-radius:99px;overflow:hidden}
+  .bar i{display:block;height:100%;background:var(--accent);border-radius:99px;transition:width .3s}
+  .bar.full i{background:var(--done)}
+  .cnt{display:flex;justify-content:space-between;font-size:12px;color:var(--text-soft);margin:5px 0 8px}
+  .prev{font-size:13px;color:var(--text-soft);margin:2px 0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .empty{text-align:center;color:var(--text-soft);padding:46px 16px;background:var(--surface);border:1px dashed var(--border);border-radius:var(--radius-lg)}
+  .empty strong{display:block;color:var(--text);font-size:16px;margin-bottom:4px}
+
+  .panel{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:18px 20px;box-shadow:var(--shadow)}
+  .ttl{width:100%;border:0;border-bottom:2px solid transparent;background:transparent;font:800 24px 'Manrope',sans-serif;padding:2px 0;outline:0}
+  .ttl:focus{border-bottom-color:var(--accent)}
+  .opts{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:10px 0 14px}
+  .opts select,.opts input[type=date]{border:1px solid var(--border);background:var(--surface-2);border-radius:var(--radius-sm);padding:6px 9px;font-size:12.5px}
+  .add{display:flex;gap:8px;margin:12px 0}
+  .add input{flex:1;min-width:0;border:1px solid var(--border);border-radius:var(--radius-sm);padding:10px 12px;background:var(--surface-2)}
+  .add input:focus{outline:2px solid var(--accent);background:#fff}
+  .it{display:flex;align-items:center;gap:10px;padding:8px 6px;border-bottom:1px solid var(--border-soft);border-radius:8px}
+  .it.sub{margin-left:30px}
+  .it.drag{opacity:.4}.it.over{background:var(--accent-soft)}
+  .cb{width:22px;height:22px;flex:none;border-radius:7px;border:2px solid var(--text-faint);background:#fff;display:flex;align-items:center;justify-content:center;padding:0;color:#fff;font-size:14px;line-height:1}
+  .cb.on{background:var(--done);border-color:var(--done)}
+  .cb.part{background:var(--accent-soft);border-color:var(--accent);color:var(--accent-deep)}
+  .txt{flex:1;min-width:84px;overflow-wrap:break-word;word-break:normal;cursor:text}
+  .it.done .txt{text-decoration:line-through;color:var(--text-faint)}
+  .txt-in{flex:1;border:1px solid var(--accent);border-radius:6px;padding:4px 8px;background:#fff}
+  .ic{border:0;background:transparent;color:var(--text-soft);padding:3px 6px;border-radius:6px;font-size:14px}
+  .ic:hover{background:var(--surface-2);color:var(--text)}.ic:disabled{opacity:.25;cursor:default}
+  .grab{cursor:grab;color:var(--text-faint);user-select:none;padding:0 2px}
+  .done-banner{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;background:var(--done-soft);color:var(--done);font-weight:700;border-radius:var(--radius-md);padding:10px 14px;margin:12px 0}
+  .hint{font-size:12px;color:var(--text-faint);margin-top:12px}
+  .row{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:11px 4px;border-bottom:1px solid var(--border-soft)}
+  .row b{display:block}.row small{color:var(--text-soft)}
+  .h2{font-size:13px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--text-soft);margin:22px 0 8px}
+  .log{display:flex;gap:10px;padding:7px 2px;font-size:13px;border-bottom:1px solid var(--border-soft)}
+  .log time{color:var(--text-faint);flex:none;width:112px;font-size:12px}
+  .toast{position:fixed;left:50%;bottom:22px;transform:translate(-50%,30px);background:#20211E;color:#fff;border-radius:99px;padding:10px 16px;font-size:13.5px;opacity:0;pointer-events:none;transition:.2s;z-index:50;display:flex;gap:12px;align-items:center;max-width:92vw}
+  .toast.show{opacity:1;transform:translate(-50%,0);pointer-events:auto}
+  .toast button{border:0;background:transparent;color:#F7D58A;font-weight:700}
+  .confetti{position:fixed;inset:0;pointer-events:none;overflow:hidden;z-index:60}
+  .confetti span{position:absolute;top:-20px;width:9px;height:14px;border-radius:2px;animation:fall 1.6s ease-in forwards}
+  @keyframes fall{to{transform:translateY(105vh) rotate(540deg);opacity:.9}}
+  #load{position:fixed;inset:0;background:var(--bg);display:flex;align-items:center;justify-content:center;color:var(--text-soft);z-index:100}
+  @media(max-width:560px){.it.sub{margin-left:18px}.log time{width:84px}.grab{display:none}.it{gap:6px}.ic{padding:3px 4px}.panel{padding:16px 14px}}
+  /* Inside the Today widget: no page chrome, the card around it is the frame. */
+  body.widget{padding:0;background:transparent}
+  body.widget .wrap{max-width:none}
+  body.widget .back,body.widget .top{display:none}
+  body.widget .panel{box-shadow:none;border:0;padding:6px 4px}
+  body.widget .card{box-shadow:none}
+  body.widget .grid{grid-template-columns:repeat(auto-fill,minmax(210px,1fr))}
+  body.widget .tools{position:sticky;top:0;background:var(--bg);z-index:5;padding:4px 0;margin-bottom:10px}
+  body.widget #load{background:transparent}
+</style>
+</head>
+<body>
+<script>try{if(window.self!==window.top)document.body.classList.add('embedded')}catch(e){document.body.classList.add('embedded')}try{if(/[?&]widget=1/.test(location.search))document.body.classList.add('widget')}catch(e){}</script>
+<div id="load"><span id="loadText">Loading checklists…</span></div>
+<div class="wrap" id="app" style="visibility:hidden">
+  <a class="back" href="../index.html">← Back to Home</a>
+  <div class="top">
+    <h1 id="head">Checklists</h1>
+    <div class="who"><button id="pB" onclick="setProfile('Bhargav')">Bhargav</button><button id="pA" onclick="setProfile('Anusha')">Anusha</button></div>
+  </div>
+  <div id="main"></div>
+</div>
+<div class="toast" id="toast"><span id="toastT"></span><button id="toastB" style="display:none"></button></div>
+<div class="confetti" id="conf"></div>
+
+<script>
+window.addEventListener('error',e=>{const l=document.getElementById('loadText');if(l&&document.getElementById('load').style.display!=='none')l.textContent='Something went wrong: '+e.message});
+if(typeof firebase==='undefined'){document.getElementById('loadText').textContent='Could not load. Check your connection and refresh.'}else{
+const $=id=>document.getElementById(id);
+const esc=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+if(!firebase.apps.length)firebase.initializeApp(window.IRONLOG_FIREBASE);
+const auth=firebase.auth(),db=firebase.firestore();
+let user=null,saveTimer=null,unsub=null;
+const S={profile:'Bhargav',lists:[],view:'lists',openId:null,edit:false,hfilter:null,undo:[]};
+const p2=n=>String(n).padStart(2,'0');
+const today=()=>{const d=new Date();return d.getFullYear()+'-'+p2(d.getMonth()+1)+'-'+p2(d.getDate())};
+const uid8=()=>Date.now().toString(36)+Math.random().toString(36).slice(2,6);
+function toast(t,actLabel,act){$('toastT').textContent=t;const b=$('toastB');if(act){b.style.display='';b.textContent=actLabel;b.onclick=()=>{act();$('toast').classList.remove('show')}}else b.style.display='none';
+  $('toast').classList.add('show');clearTimeout(toast.t);toast.t=setTimeout(()=>$('toast').classList.remove('show'),act?5000:2200)}
+
+/* ---------- storage: one doc, merged list-by-list on `u` (newest edit wins) ---------- */
+const stateRef=()=>db.collection('users').doc(user.uid).collection('apps').doc('checklist').collection('data').doc('state');
+const parse=raw=>{try{const o=JSON.parse(raw);return Array.isArray(o.lists)?o.lists:[]}catch(e){return[]}};
+function mergeLists(remote,local){const by={};remote.forEach(l=>by[l.id]=l);local.forEach(l=>{if(!by[l.id]||(l.u||0)>=(by[l.id].u||0))by[l.id]=l});return Object.values(by)}
+function save(){$('sync')&&($('sync').textContent='Saving…');clearTimeout(saveTimer);saveTimer=setTimeout(flush,350)}
+async function flush(){
+  saveTimer=null;
+  try{
+    let merged;
+    await db.runTransaction(async tx=>{const ref=stateRef(),sn=await tx.get(ref);
+      merged=mergeLists(sn.exists&&sn.data().json?parse(sn.data().json):[],S.lists);
+      tx.set(ref,{json:JSON.stringify({version:1,lists:merged}),updatedAt:firebase.firestore.FieldValue.serverTimestamp()})});
+    S.lists=merged;if($('sync'))$('sync').textContent='Saved';
+  }catch(e){if($('sync'))$('sync').textContent='Save needs retry'}
+}
+window.addEventListener('pagehide',()=>{if(saveTimer){clearTimeout(saveTimer);flush()}});
+document.addEventListener('visibilitychange',()=>{if(document.hidden&&saveTimer){clearTimeout(saveTimer);flush()}});
+
+/* ---------- model helpers ---------- */
+const mine=l=>!l.deleted&&!l.gone&&(l.owner==='shared'||l.owner===S.profile);
+const active=()=>S.lists.filter(l=>mine(l)&&!l.archived&&!l.template);
+const byId=id=>S.lists.find(l=>l.id===id);
+const kids=(l,id)=>l.items.filter(i=>i.parent===id);
+const tops=l=>l.items.filter(i=>!i.parent||!l.items.some(x=>x.id===i.parent));
+function units(l){const u=[];tops(l).forEach(t=>{const k=kids(l,t.id);if(k.length)k.forEach(x=>u.push(x));else u.push(t)});return u}
+function prog(l){const u=units(l),d=u.filter(x=>x.done).length;return{d,n:u.length,pct:u.length?Math.round(d/u.length*100):0}}
+function resync(l){tops(l).forEach(t=>{const k=kids(l,t.id);if(k.length)t.done=k.every(x=>x.done)})}
+function dueInfo(l){if(!l.due)return null;const n=Math.round((new Date(l.due+'T12:00:00')-new Date(today()+'T12:00:00'))/864e5);
+  if(n<0)return{t:'Overdue '+(-n)+'d',c:'over'};if(n===0)return{t:'Due today',c:'warn'};if(n===1)return{t:'Due tomorrow',c:'warn'};if(n<=3)return{t:'Due in '+n+' days',c:'warn'};
+  return{t:'Due '+new Date(l.due+'T12:00:00').toLocaleDateString(undefined,{month:'short',day:'numeric'}),c:''}}
+function ago(t){const s=(Date.now()-t)/1000;if(s<60)return'just now';if(s<3600)return Math.floor(s/60)+' min ago';
+  const d=new Date(t),n=new Date();const tm=d.toLocaleTimeString([],{hour:'numeric',minute:'2-digit'});
+  if(d.toDateString()===n.toDateString())return'Today '+tm;const y=new Date(n-864e5);if(d.toDateString()===y.toDateString())return'Yesterday '+tm;
+  return d.toLocaleDateString(undefined,{month:'short',day:'numeric'})+' '+tm}
+const clone=o=>JSON.parse(JSON.stringify(o));
+
+/* ---------- undo: snapshots of every list, last 10 actions (this visit) ---------- */
+function snap(label){S.undo.push({label,lists:clone(S.lists)});if(S.undo.length>10)S.undo.shift()}
+function undo(){
+  const s=S.undo.pop();if(!s)return toast('Nothing to undo');
+  const now=Date.now(),prev={};s.lists.forEach(l=>prev[l.id]=l);const cur={};S.lists.forEach(l=>cur[l.id]=l);
+  const out=[];
+  Object.keys(Object.assign({},prev,cur)).forEach(id=>{
+    if(JSON.stringify(prev[id])===JSON.stringify(cur[id]))return out.push(cur[id]);
+    out.push(prev[id]?Object.assign({},prev[id],{u:now}):Object.assign({},cur[id],{deleted:true,u:now}));
+  });
+  S.lists=out;save();render();toast('Undid: '+s.label);
+}
+function hist(l,k,t){l.hist=l.hist||[];l.hist.push({at:Date.now(),by:S.profile,k,t:String(t||'').slice(0,80)});if(l.hist.length>150)l.hist=l.hist.slice(-150)}
+function mut(id,label,fn,h){const l=byId(id);if(!l)return;snap(label);fn(l);resync(l);l.u=Date.now();if(h)hist(l,h[0],h[1]);save();render()}
+
+/* ---------- actions ---------- */
+function newList(title,owner,items){
+  snap('new list');
+  const l={id:'cl-'+uid8(),title:title||'New checklist',owner:owner||S.profile,items:items||[],due:null,archived:false,template:false,hide:'keep',createdAt:Date.now(),u:Date.now(),hist:[]};
+  hist(l,'new','List created');S.lists.push(l);S.openId=l.id;S.view='list';S.edit=false;save();render();
+  setTimeout(()=>{const t=$('ttl');if(t){t.focus();t.select()}},30);
+}
+const LINE_RE=/^\s*(?:[-*•▪◦☐☑✔✓]|\d+[.)]|\[[ xX]?\])\s*/;
+function parseLines(txt){
+  const out=[];let lastTop=null;
+  String(txt).split(/\r?\n/).forEach(raw=>{
+    if(!raw.trim())return;const indent=/^(\s{2,}|\t)/.test(raw);
+    const t=raw.replace(LINE_RE,'').trim().slice(0,200);if(!t)return;
+    const it={id:'i-'+uid8()+out.length,t,done:false,parent:null};
+    if(indent&&lastTop)it.parent=lastTop.id;else lastTop=it;out.push(it);
+  });return out;
+}
+function addItems(id,txt,parent){
+  const add=parseLines(txt);if(!add.length)return;
+  mut(id,'adding items',l=>{add.forEach(a=>{if(parent&&!a.parent)a.parent=parent;l.items.push(a)});l.items.forEach(x=>{if(x.parent&&x.parent===parent){}});
+    // keep children directly under their parent
+    const tp=tops(l),ord=[];tp.forEach(t=>{ord.push(t);l.items.filter(c=>c.parent===t.id).forEach(c=>ord.push(c))});l.items=ord;},
+    ['add',add.length===1?add[0].t:add.length+' items']);
+}
+function toggle(id,iid){
+  const before=prog(byId(id)).pct;let finished=false;
+  mut(id,'tick',l=>{const it=l.items.find(x=>x.id===iid);if(!it)return;const v=!it.done;it.done=v;it.at=v?Date.now():null;
+    const k=kids(l,it.id);k.forEach(c=>{c.done=v;c.at=v?Date.now():null});
+    hist(l,v?'tick':'untick',it.t);if(v&&prog(l).pct===100&&before<100)finished=true},null);
+  if(finished)celebrate();
+}
+function celebrate(){
+  const c=$('conf');c.innerHTML='';const cols=['#AD7B20','#2F7C5A','#B25C78','#52727E','#E0B84C'];
+  for(let i=0;i<46;i++){const s=document.createElement('span');s.style.left=Math.random()*100+'%';s.style.background=cols[i%cols.length];s.style.animationDelay=(Math.random()*.5)+'s';s.style.animationDuration=(1.2+Math.random()*1)+'s';c.appendChild(s)}
+  setTimeout(()=>c.innerHTML='',3000);
+}
+function editText(id,iid){
+  const l=byId(id),it=l&&l.items.find(x=>x.id===iid);if(!it)return;
+  const el=document.querySelector('[data-t="'+iid+'"]');if(!el)return;
+  const inp=document.createElement('input');inp.className='txt-in';inp.value=it.t;el.replaceWith(inp);inp.focus();inp.select();
+  let done=false;const fin=ok=>{if(done)return;done=true;const v=inp.value.trim().slice(0,200);if(ok&&v&&v!==it.t)mut(id,'editing item',x=>{x.items.find(y=>y.id===iid).t=v},['edit',v]);else render()};
+  inp.onblur=()=>fin(true);inp.onkeydown=e=>{if(e.key==='Enter')fin(true);if(e.key==='Escape')fin(false)};
+}
+function delItem(id,iid){const l=byId(id),it=l.items.find(x=>x.id===iid);
+  mut(id,'deleting item',x=>{x.items=x.items.filter(y=>y.id!==iid&&y.parent!==iid)},['del',it.t]);toast('Item deleted','Undo',undo)}
+function indent(id,iid){mut(id,'indenting',l=>{const i=l.items.findIndex(x=>x.id===iid),it=l.items[i];if(it.parent)return;
+  const prevTop=l.items.slice(0,i).reverse().find(x=>!x.parent);if(!prevTop)return;kids(l,it.id).forEach(c=>c.parent=prevTop.id);it.parent=prevTop.id;
+  const tp=tops(l),ord=[];tp.forEach(t=>{ord.push(t);l.items.filter(c=>c.parent===t.id).forEach(c=>ord.push(c))});l.items=ord},null)}
+function outdent(id,iid){mut(id,'outdenting',l=>{const it=l.items.find(x=>x.id===iid);if(!it||!it.parent)return;const p=it.parent;it.parent=null;
+  const tp=tops(l),ord=[];tp.forEach(t=>{ord.push(t);l.items.filter(c=>c.parent===t.id).forEach(c=>ord.push(c))});l.items=ord;
+  // move it just after its old parent's block
+  const i=l.items.findIndex(x=>x.id===iid);l.items.splice(i,1);const pi=l.items.findIndex(x=>x.id===p);let end=pi;while(l.items[end+1]&&l.items[end+1].parent===p)end++;l.items.splice(end+1,0,it)},null)}
+function move(id,iid,dir){mut(id,'moving',l=>{
+  const it=l.items.find(x=>x.id===iid);if(!it)return;
+  if(it.parent){const sib=kids(l,it.parent),j=sib.findIndex(x=>x.id===iid),o=sib[j+dir];if(!o)return;
+    const a=l.items.indexOf(it),b=l.items.indexOf(o);l.items[a]=o;l.items[b]=it;return}
+  const tp=tops(l),j=tp.findIndex(x=>x.id===iid),o=tp[j+dir];if(!o)return;
+  const blocks=tp.map(t=>[t].concat(kids(l,t.id)));[blocks[j],blocks[j+dir]]=[blocks[j+dir],blocks[j]];l.items=[].concat(...blocks)},null)}
+function dropOn(id,fromId,toId){if(fromId===toId)return;mut(id,'reordering',l=>{
+  const a=l.items.find(x=>x.id===fromId),b=l.items.find(x=>x.id===toId);if(!a||!b)return;
+  if(!a.parent&&!b.parent){const tp=tops(l),blocks=tp.map(t=>[t].concat(kids(l,t.id)));const i=tp.findIndex(x=>x.id===fromId),j=tp.findIndex(x=>x.id===toId);
+    const [m]=blocks.splice(i,1);blocks.splice(j,0,m);l.items=[].concat(...blocks)}
+  else if(a.parent&&a.parent===b.parent){const i=l.items.indexOf(a);l.items.splice(i,1);l.items.splice(l.items.indexOf(b)+(i<l.items.indexOf(b)+1?1:0),0,a)}
+},null)}
+function renameList(id,v){v=v.trim().slice(0,80);const l=byId(id);if(!v||v===l.title)return;mut(id,'renaming',x=>{x.title=v},['rename',v])}
+function setOwner(id,v){mut(id,'sharing',l=>{l.owner=v==='shared'?'shared':S.profile},['share',v==='shared'?'Shared with both':'Made private'])}
+function setDue(id,v){mut(id,'due date',l=>{l.due=v||null},['due',v||'removed'])}
+function cycleHide(id){const order=['keep','sink','hide'],l=byId(id);mut(id,'done display',x=>{x.hide=order[(order.indexOf(l.hide||'keep')+1)%3]},null)}
+function resetList(id){const l=byId(id);if(!confirm('Untick everything on "'+l.title+'"?'))return;mut(id,'reset',x=>{x.items.forEach(i=>{i.done=false;i.at=null})},['reset','Unticked everything'])}
+function archive(id,on){mut(id,on?'archiving':'restoring',l=>{l.archived=on},[on?'archive':'restore',on?'Archived':'Restored']);if(on){S.view='lists';render();toast('Archived','Undo',undo)}}
+function delList(id){const l=byId(id);snap('deleting list');l.deleted=true;l.u=Date.now();hist(l,'del','Deleted');save();S.view='lists';render();toast('"'+l.title+'" deleted','Undo',undo)}
+function restoreList(id){mut(id,'restoring',l=>{l.deleted=false;l.archived=false},['restore','Restored'])}
+function goneList(id){if(!confirm('Delete this list for good? This cannot be undone.'))return;snap('deleting for good');const l=byId(id);l.gone=true;l.deleted=true;l.items=[];l.u=Date.now();save();render()}
+function saveTemplate(id){const l=byId(id);snap('save as template');
+  const map={};const items=l.items.map(i=>{const n='i-'+uid8()+Math.random().toString(36).slice(2,4);map[i.id]=n;return{id:n,t:i.t,done:false,parent:i.parent}});items.forEach(i=>{if(i.parent)i.parent=map[i.parent]||null});
+  S.lists.push({id:'cl-'+uid8(),title:l.title,owner:l.owner,items,template:true,archived:false,hide:'keep',createdAt:Date.now(),u:Date.now(),hist:[]});
+  hist(l,'tpl','Saved as template');l.u=Date.now();save();render();toast('Saved as a template')}
+function useTemplate(id){const t=byId(id);const map={};
+  const items=t.items.map(i=>{const n='i-'+uid8()+Math.random().toString(36).slice(2,4);map[i.id]=n;return{id:n,t:i.t,done:false,parent:i.parent}});items.forEach(i=>{if(i.parent)i.parent=map[i.parent]||null});
+  newList(t.title,t.owner==='shared'?'shared':S.profile,items)}
+const STARTERS=[
+  {title:'Packing for a trip',items:['Passport / ID','Phone charger','Toiletries|Toothbrush|Toothpaste|Skincare','Medications','Clothes|Tops|Bottoms|Underwear and socks','Wallet and cards','Headphones']},
+  {title:'Weekly reset',items:['Tidy the living room','Laundry','Change bed sheets','Meal prep','Plan next week','Take out the bins']},
+  {title:'Moving out day',items:['Final cleaning','Photograph every room','Return keys','Forward mail','Switch off utilities','Check every cupboard']}];
+function useStarter(n){const s=STARTERS[n],items=[];
+  s.items.forEach(x=>{const p=x.split('|'),top={id:'i-'+uid8()+items.length,t:p[0],done:false,parent:null};items.push(top);p.slice(1).forEach(c=>items.push({id:'i-'+uid8()+items.length,t:c,done:false,parent:top.id}))});
+  newList(s.title,S.profile,items)}
+function delTemplate(id){snap('deleting template');const l=byId(id);l.deleted=true;l.u=Date.now();save();render();toast('Template deleted','Undo',undo)}
+
+/* ---------- views ---------- */
+function open_(id){S.openId=id;S.view='list';S.edit=false;render();window.scrollTo(0,0)}
+function show(v,f){S.view=v;S.hfilter=f||null;render();window.scrollTo(0,0)}
+function card(l){
+  const p=prog(l),d=dueInfo(l),pend=units(l).filter(x=>!x.done).slice(0,3);
+  return '<div class="card" onclick="open_(\''+l.id+'\')"><h3>'+esc(l.title)+'</h3><div class="meta">'+
+    (l.owner==='shared'?'<span class="chip sh">Shared</span>':'<span class="chip">Private</span>')+(d?'<span class="chip '+d.c+'">'+d.t+'</span>':'')+(p.n&&p.pct===100?'<span class="chip ok">Complete</span>':'')+'</div>'+
+    '<div class="bar'+(p.pct===100?' full':'')+'"><i style="width:'+p.pct+'%"></i></div><div class="cnt"><span>'+p.d+' / '+p.n+'</span><span>'+p.pct+'%</span></div>'+
+    (pend.length?pend.map(x=>'<div class="prev">○ '+esc(x.t)+'</div>').join(''):(p.n?'':'<div class="prev">No items yet</div>'))+'</div>';
+}
+function vLists(){
+  const ls=active().sort((a,b)=>{const da=a.due||'9999',db_=b.due||'9999';return da===db_?(b.u||0)-(a.u||0):da<db_?-1:1});
+  return '<div class="tools"><button class="btn pri" onclick="newList()">＋ New checklist</button><button class="btn" onclick="show(\'templates\')">Templates</button><button class="btn" onclick="show(\'archive\')">Archive</button><button class="btn" onclick="show(\'history\')">History</button>'+
+    '<button class="btn" onclick="undo()" '+(S.undo.length?'':'disabled')+' title="'+esc(S.undo.length?'Undo: '+S.undo[S.undo.length-1].label:'')+'">↶ Undo</button><span class="sync" id="sync"></span></div>'+
+    (ls.length?'<div class="grid">'+ls.map(card).join('')+'</div>':
+     '<div class="empty"><strong>No checklists yet</strong>Make one for packing, groceries for a trip, or anything with boxes to tick.<div style="margin-top:14px"><button class="btn pri" onclick="newList()">＋ New checklist</button> <button class="btn" onclick="show(\'templates\')">Start from a template</button></div></div>');
+}
+function itemRow(l,it,isSub){
+  const k=kids(l,it.id),part=k.length&&!it.done&&k.some(x=>x.done);
+  const e=S.edit,sibs=isSub?kids(l,it.parent):tops(l),si=sibs.findIndex(x=>x.id===it.id);
+  return '<div class="it'+(isSub?' sub':'')+(it.done?' done':'')+'" data-id="'+it.id+'" '+(e?'draggable="true" ondragstart="dStart(event,\''+it.id+'\')" ondragover="dOver(event)" ondragleave="dLeave(event)" ondrop="dDrop(event,\''+l.id+'\',\''+it.id+'\')" ondragend="dEnd(event)"':'')+'>'+
+    (e?'<span class="grab" title="Drag to reorder">⋮⋮</span>':'')+
+    '<button class="cb'+(it.done?' on':part?' part':'')+'" onclick="toggle(\''+l.id+'\',\''+it.id+'\')" aria-label="Tick">'+(it.done?'✓':part?'–':'')+'</button>'+
+    '<span class="txt" data-t="'+it.id+'" onclick="editText(\''+l.id+'\',\''+it.id+'\')">'+esc(it.t)+'</span>'+
+    (e?'<button class="ic" title="Move up" onclick="move(\''+l.id+'\',\''+it.id+'\',-1)" '+(si<=0?'disabled':'')+'>↑</button><button class="ic" title="Move down" onclick="move(\''+l.id+'\',\''+it.id+'\',1)" '+(si>=sibs.length-1?'disabled':'')+'>↓</button>'+
+      (isSub?'<button class="ic" title="Make a main item" onclick="outdent(\''+l.id+'\',\''+it.id+'\')">⇤</button>':'<button class="ic" title="Make a sub-item of the one above" onclick="indent(\''+l.id+'\',\''+it.id+'\')" '+(si<=0?'disabled':'')+'>⇥</button>'):'')+
+    '<button class="ic" title="Delete" onclick="delItem(\''+l.id+'\',\''+it.id+'\')">✕</button></div>';
+}
+function vList(){
+  const l=byId(S.openId);if(!l||l.deleted){S.view='lists';return vLists()}
+  const p=prog(l),d=dueInfo(l),mode=l.hide||'keep';
+  const modeLabel={keep:'Done stay in place',sink:'Done sink to bottom',hide:'Done are hidden'}[mode];
+  let rows='';
+  const order=arr=>mode==='sink'?arr.slice().sort((a,b)=>(a.done?1:0)-(b.done?1:0)):arr;
+  order(tops(l)).forEach(t=>{
+    const k=kids(l,t.id);
+    if(mode==='hide'&&t.done)return;
+    rows+=itemRow(l,t,false);
+    order(k).forEach(c=>{if(mode==='hide'&&c.done)return;rows+=itemRow(l,c,true)});
+  });
+  const hiddenN=mode==='hide'?units(l).filter(x=>x.done).length:0;
+  return '<div class="tools"><button class="btn" onclick="show(\'lists\')">← All checklists</button><button class="btn" onclick="undo()" '+(S.undo.length?'':'disabled')+'>↶ Undo</button><span class="sync" id="sync"></span></div>'+
+  '<div class="panel"><input class="ttl" id="ttl" value="'+esc(l.title)+'" maxlength="80" onchange="renameList(\''+l.id+'\',this.value)" onkeydown="if(event.key===\'Enter\')this.blur()">'+
+  '<div class="meta" style="margin-top:8px">'+(d?'<span class="chip '+d.c+'">'+d.t+'</span>':'')+'</div>'+
+  '<div class="bar'+(p.pct===100&&p.n?' full':'')+'"><i style="width:'+p.pct+'%"></i></div><div class="cnt"><span>'+p.d+' / '+p.n+' done</span><span>'+p.pct+'%</span></div>'+
+  (p.n&&p.pct===100?'<div class="done-banner"><span>🎉 All done!</span><span><button class="btn sm" onclick="archive(\''+l.id+'\',true)">Archive it</button> <button class="btn sm" onclick="resetList(\''+l.id+'\')">Reset to reuse</button></span></div>':'')+
+  '<div class="opts"><select onchange="setOwner(\''+l.id+'\',this.value)"><option value="me"'+(l.owner!=='shared'?' selected':'')+'>Private to '+esc(S.profile)+'</option><option value="shared"'+(l.owner==='shared'?' selected':'')+'>Shared with both</option></select>'+
+  '<label style="font-size:12.5px;color:var(--text-soft)">Due <input type="date" value="'+esc(l.due||'')+'" onchange="setDue(\''+l.id+'\',this.value)"></label>'+
+  '<button class="btn sm" onclick="cycleHide(\''+l.id+'\')">'+modeLabel+'</button>'+
+  '<button class="btn sm" onclick="S.edit=!S.edit;render()">'+(S.edit?'Done editing':'Edit order')+'</button></div>'+
+  '<div class="add"><input id="addIn" placeholder="Add an item… (paste a list to add many)" maxlength="400" onkeydown="if(event.key===\'Enter\'){addFrom(this)}" onpaste="pasteAdd(event)"><button class="btn pri" onclick="addFrom($(\'addIn\'))">Add</button></div>'+
+  (rows||'<div class="empty" style="padding:26px"><strong>Nothing here yet</strong>Type above, or paste lines from notes. Indent a line to make it a sub-item.</div>')+
+  (hiddenN?'<div class="hint">'+hiddenN+' done item'+(hiddenN>1?'s':'')+' hidden.</div>':'')+
+  '<div class="opts" style="margin-top:18px"><button class="btn sm" onclick="resetList(\''+l.id+'\')">Reset (untick all)</button><button class="btn sm" onclick="saveTemplate(\''+l.id+'\')">Save as template</button><button class="btn sm" onclick="show(\'history\',\''+l.id+'\')">History</button><button class="btn sm" onclick="archive(\''+l.id+'\',true)">Archive</button><button class="btn sm bad" onclick="delList(\''+l.id+'\')">Delete</button></div>'+
+  '<div class="hint">Tap an item to rename it. Ticking a main item ticks its sub-items. Ctrl+Z undoes your last change.</div></div>';
+}
+function vTemplates(){
+  const ts=S.lists.filter(l=>l.template&&!l.deleted&&!l.gone&&(l.owner==='shared'||l.owner===S.profile));
+  return '<div class="tools"><button class="btn" onclick="show(\'lists\')">← All checklists</button><span class="sync" id="sync"></span></div>'+
+  '<div class="h2" style="margin-top:0">Your templates</div>'+(ts.length?ts.map(t=>'<div class="row"><div><b>'+esc(t.title)+'</b><small>'+units(t).length+' items</small></div><div><button class="btn sm pri" onclick="useTemplate(\''+t.id+'\')">Use</button> <button class="btn sm bad" onclick="delTemplate(\''+t.id+'\')">Delete</button></div></div>').join(''):'<div class="hint">None yet. Open a checklist and choose "Save as template".</div>')+
+  '<div class="h2">Starters</div>'+STARTERS.map((s,i)=>'<div class="row"><div><b>'+esc(s.title)+'</b><small>'+s.items.length+' items</small></div><button class="btn sm pri" onclick="useStarter('+i+')">Use</button></div>').join('');
+}
+function vArchive(){
+  const ar=S.lists.filter(l=>mine(l)&&l.archived&&!l.template).sort((a,b)=>(b.u||0)-(a.u||0));
+  const cut=Date.now()-30*864e5;
+  const del=S.lists.filter(l=>l.deleted&&!l.gone&&!l.template&&(l.owner==='shared'||l.owner===S.profile)&&(l.u||0)>cut).sort((a,b)=>(b.u||0)-(a.u||0));
+  return '<div class="tools"><button class="btn" onclick="show(\'lists\')">← All checklists</button><span class="sync" id="sync"></span></div>'+
+  '<div class="h2" style="margin-top:0">Archived</div>'+(ar.length?ar.map(l=>{const p=prog(l);return '<div class="row"><div><b>'+esc(l.title)+'</b><small>'+p.d+' / '+p.n+' done · '+ago(l.u||0)+'</small></div><div><button class="btn sm" onclick="open_(\''+l.id+'\')">Open</button> <button class="btn sm pri" onclick="restoreList(\''+l.id+'\')">Restore</button></div></div>'}).join(''):'<div class="hint">Nothing archived.</div>')+
+  '<div class="h2">Recently deleted (kept 30 days)</div>'+(del.length?del.map(l=>'<div class="row"><div><b>'+esc(l.title)+'</b><small>Deleted '+ago(l.u||0)+'</small></div><div><button class="btn sm pri" onclick="restoreList(\''+l.id+'\')">Restore</button> <button class="btn sm bad" onclick="goneList(\''+l.id+'\')">Delete forever</button></div></div>').join(''):'<div class="hint">Nothing here.</div>');
+}
+const KLAB={new:'Created',add:'Added',tick:'Ticked',untick:'Unticked',del:'Deleted',edit:'Renamed item to',rename:'Renamed list to',reset:'Reset',share:'Sharing',due:'Due date',archive:'Archived',restore:'Restored',tpl:'Template'};
+function vHistory(){
+  const src=S.hfilter?[byId(S.hfilter)].filter(Boolean):S.lists.filter(l=>(mine(l)||(l.deleted&&!l.gone&&(l.owner==='shared'||l.owner===S.profile)))&&!l.template);
+  const ev=[];src.forEach(l=>(l.hist||[]).forEach(h=>ev.push(Object.assign({list:l.title},h))));
+  ev.sort((a,b)=>b.at-a.at);
+  return '<div class="tools"><button class="btn" onclick="show('+(S.hfilter?"'list'":"'lists'")+')">← Back</button><span class="sync" id="sync"></span></div>'+
+  '<div class="panel"><h3 style="margin-bottom:8px">'+(S.hfilter?esc((byId(S.hfilter)||{}).title||'')+' history':'Everything that happened')+'</h3>'+
+  (ev.length?ev.slice(0,120).map(h=>'<div class="log"><time>'+ago(h.at)+'</time><span><b>'+esc(h.by)+'</b> '+(KLAB[h.k]||h.k).toLowerCase()+' '+esc(h.t)+(S.hfilter?'':' <span style="color:var(--text-faint)">in '+esc(h.list)+'</span>')+'</span></div>').join(''):'<div class="hint">No activity yet.</div>')+'</div>';
+}
+function render(){
+  if(!user)return;
+  const a=document.activeElement;if(a&&a.id==='addIn'&&S.view==='list'){S._keep=a.value}
+  const m={lists:vLists,list:vList,templates:vTemplates,archive:vArchive,history:vHistory}[S.view]||vLists;
+  $('head').textContent={lists:'Checklists',list:'Checklist',templates:'Templates',archive:'Archive',history:'History'}[S.view];
+  $('main').innerHTML=m();
+  if(S.view==='list'&&S._keep!=null){const i=$('addIn');if(i&&S._keep){i.value=S._keep;i.focus()}}
+  S._keep=null;
+}
+function addFrom(inp){const v=inp.value;if(!v.trim())return;inp.value='';addItems(S.openId,v);setTimeout(()=>{const i=$('addIn');if(i)i.focus()},20)}
+function pasteAdd(e){const t=(e.clipboardData||window.clipboardData).getData('text');if(/\n/.test(t.trim())){e.preventDefault();addItems(S.openId,t)}}
+/* drag and drop (edit mode, desktop; arrows work everywhere) */
+let dragId=null;
+function dStart(e,id){dragId=id;e.currentTarget.classList.add('drag');e.dataTransfer.effectAllowed='move';try{e.dataTransfer.setData('text/plain',id)}catch(x){}}
+function dOver(e){e.preventDefault();e.currentTarget.classList.add('over')}
+function dLeave(e){e.currentTarget.classList.remove('over')}
+function dDrop(e,lid,toId){e.preventDefault();e.currentTarget.classList.remove('over');if(dragId)dropOn(lid,dragId,toId);dragId=null}
+function dEnd(e){e.currentTarget.classList.remove('drag');dragId=null}
+document.addEventListener('keydown',e=>{if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='z'&&!e.shiftKey){const t=e.target&&e.target.tagName;if(t==='INPUT'||t==='TEXTAREA')return;e.preventDefault();undo()}});
+
+function setProfile(n){S.profile=n;try{localStorage.setItem('checklist-profile',n)}catch(e){}paintWho();if(S.view==='list'){const l=byId(S.openId);if(!l||!mine(l))S.view='lists'}render()}
+function paintWho(){$('pB').classList.toggle('on',S.profile==='Bhargav');$('pA').classList.toggle('on',S.profile==='Anusha');document.body.dataset.profile=S.profile.toLowerCase();
+  if(window.HubTheme)HubTheme.applyHubTheme(S.profile,{base:'--accent',deep:'--accent-deep',soft:'--accent-soft'}).catch(()=>{})}
+
+/* ---------- boot + live sync with Anusha's edits ---------- */
+auth.onAuthStateChanged(async u=>{
+  if(!u){if(window.self!==window.top)return;location.href='../index.html';return}
+  user=u;
+  try{
+    const qp=new URLSearchParams(location.search).get('profile');let lp=null;try{lp=localStorage.getItem('checklist-profile')}catch(e){}
+    S.profile=qp==='Anusha'||qp==='Bhargav'?qp:(lp==='Anusha'||lp==='Bhargav'?lp:'Bhargav');
+    const sn=await stateRef().get();S.lists=sn.exists&&sn.data().json?parse(sn.data().json):[];
+    const want=new URLSearchParams(location.search).get('list');if(want&&byId(want)){S.openId=want;S.view='list'}
+    paintWho();render();$('app').style.visibility='visible';$('load').style.display='none';
+    if(unsub)unsub();
+    unsub=stateRef().onSnapshot(s=>{
+      if(!s.exists||!s.data().json||(s.metadata&&s.metadata.hasPendingWrites))return;
+      const remote=parse(s.data().json),before=JSON.stringify(S.lists);
+      S.lists=mergeLists(remote,S.lists);
+      const ae=document.activeElement;if(JSON.stringify(S.lists)!==before&&!(ae&&(ae.tagName==='INPUT'))){render()}
+    },()=>{});
+  }catch(e){$('loadText').textContent='Could not open Checklists: '+e.message}
+});
+Object.assign(window,{S,$,setProfile,newList,show,open_,undo,toggle,editText,delItem,indent,outdent,move,renameList,setOwner,setDue,cycleHide,resetList,archive,delList,restoreList,goneList,saveTemplate,useTemplate,useStarter,delTemplate,addFrom,pasteAdd,dStart,dOver,dLeave,dDrop,dEnd,render});
+}
+</script>
+</body>
+</html>

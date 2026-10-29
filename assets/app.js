@@ -97,7 +97,7 @@ THEME_HUES.forEach(hs=>{
 const DEFAULT_APP_ICON={
   'grocery.html':'shopping-cart','schedule.html':'calendar-clock','todo.html':'list-checks',
   'skin.html':'sparkles','chores.html':'spray-can','diet.html':'utensils',
-  'calendar.html':'calendar-days','gym.html':'dumbbell','budget.html':'piggy-bank','pledge.html':'flag'
+  'calendar.html':'calendar-days','gym.html':'dumbbell','budget.html':'piggy-bank','pledge.html':'flag','checklist.html':'square-check-big'
 };
 const ICON_LIBRARY=[
   'house','shopping-cart','shopping-bag','utensils','coffee','pizza','apple','carrot','salad','cake','soup',
@@ -224,7 +224,7 @@ function updateAppFrameProfile(){
   $('app-frame-profile-avatar').textContent=state.profile[0];
   $('app-frame-profile-avatar').className='avatar '+state.profile.toLowerCase();
 }
-function updateProfileLinks(){document.querySelectorAll('[data-profile-link]').forEach(link=>{const base=link.getAttribute('href').split('?')[0];link.href=base+'?profile='+encodeURIComponent(state.profile)})}
+function updateProfileLinks(){document.querySelectorAll('[data-profile-link]').forEach(link=>{const raw=link.getAttribute('href'),base=raw.split('?')[0],lm=/[?&]list=([^&]+)/.exec(raw);link.href=base+'?profile='+encodeURIComponent(state.profile)+(lm?'&list='+lm[1]:'')})}
 
 /* =====================================================================
    APP DISCOVERY — same GitHub-contents approach as the original hub, so
@@ -258,9 +258,9 @@ const DEFAULT_CATEGORY = {
   'schedule.html':'planner', 'todo.html':'planner', 'calendar.html':'planner', 'clock.html':'planner',
   'diet.html':'health', 'skin.html':'health',
   'grocery.html':'home', 'chores.html':'home', 'budget.html':'home',
-  'pledge.html':'planner'
+  'pledge.html':'planner', 'checklist.html':'planner'
 };
-const HIDDEN_APPS = new Set(['clock.html']); // reached only via its own widget/link, never a tile
+const HIDDEN_APPS = new Set(['clock.html','checklist.html']); // reached only via its own widget/link, never a tile
 function titleFromFilename(name){ return name.replace(/\.html?$/i,'').replace(/[-_]+/g,' ').replace(/\b\w/g, c=>c.toUpperCase()); }
 
 async function discoverApps(){
@@ -943,6 +943,13 @@ const WIDGET_TYPES={
         updateProfileLinks();if(window.lucide)lucide.createIcons();
       }catch(e){el.innerHTML='<div class="empty-state"><strong>Unavailable</strong>Could not load Pledge.</div>'}
     }},
+  checklist:{title:'Checklists',icon:'square-check-big',desc:"Make and tick checklists right here: sub-items, undo, history, templates, shared with Anusha, due dates.",defaultSize:'lg',
+    render(el){
+      const src='apps/checklist.html?widget=1&profile='+encodeURIComponent(state.profile);
+      const cur=el.querySelector('iframe.cl-frame');
+      if(cur&&cur.getAttribute('src')===src)return; // keep what you were doing; the page syncs itself
+      el.innerHTML='<iframe class="cl-frame" title="Checklists" src="'+src+'" style="width:100%;height:100%;min-height:420px;border:0;display:block;background:transparent"></iframe>';
+    }},
   taskmap:{title:'Task order map',icon:'git-branch',desc:"The same level-by-level order map from the To-Do app's Map view — see what's next and what's still waiting on something else, right from Today.",defaultSize:'lg',
     async render(el){
       wLoading(el);
@@ -1406,7 +1413,7 @@ function widgetSetEditMode(on){
 /* Widgets that fetch their own data used to blank out to "Loading…" on every refresh. The last drawn
    content is now kept and shown straight away while fresh data loads, so refreshes are invisible. */
 const widgetHtmlCache=new Map();
-const WIDGET_NO_CACHE={notes:1,photos:1};
+const WIDGET_NO_CACHE={notes:1,photos:1,checklist:1};
 function wLoading(el){ if(!el.firstChild) el.innerHTML='<div class="empty-state"><strong>Loading…</strong></div>'; }
 function renderWidgetBoard(){
   const board=$('widget-board');if(!board||!state.widgets)return;
