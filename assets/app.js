@@ -1966,13 +1966,12 @@ function waterPaint(el,wdg,anim){
   const html=
    '<div class="wt-main"><div class="wt-colA">'+
    BK('alerts',(past?'<div class="wt-dayhead"><button type="button" data-wt-nav="-1" '+(ix<=0?'disabled':'')+' aria-label="Previous day">‹</button><b>'+esc(wtLabel(k))+'</b><button type="button" data-wt-nav="1" '+(ix>=29?'disabled':'')+' aria-label="Next day">›</button><button type="button" data-wt-today>Today</button></div>':'')+banner)+
-   BK('hero','<div class="wt-hero"><div class="wt-fig" title="Your body is about 70% water. Your goal fills it to the line."><div class="wt-say"></div><div class="wt-stream"></div>'+
+   '<div class="wt-hero">'+BK('fig','<div class="wt-fig" title="Your body is about 70% water. Your goal fills it to the line."><div class="wt-say"></div><div class="wt-stream"></div>'+
    '<svg viewBox="0 0 110 160"><defs><clipPath id="wtgc">'+shapes+'</clipPath><linearGradient id="wtwg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="var(--w1)"/><stop offset="1" stop-color="var(--w2)"/></linearGradient></defs>'+
    '<g class="wt-bodyw"><g fill="none" stroke="var(--faint)" stroke-width="5" stroke-linejoin="round">'+shapes+'</g><g fill="var(--wsoft)">'+shapes+'</g>'+
    '<g clip-path="url(#wtgc)"><g class="wt-lvl" style="transform:translateY('+prevLvl+'px)" data-to="'+lvl+'"><g class="wt-wave2"><path d="M-60 6q15-9 30 0t30 0 30 0 30 0 30 0 30 0 30 0V200H-60z" fill="var(--w1)"/></g><g class="wt-wave1"><path d="M-60 8q15-9 30 0t30 0 30 0 30 0 30 0 30 0 30 0V200H-60z" fill="url(#wtwg)"/></g></g></g></g>'+
-   '<line x1="6" x2="94" y1="48.4" y2="48.4" stroke="var(--muted)" stroke-width="1" stroke-dasharray="3 3" opacity=".7"/><text class="wt-lim" x="96" y="51">70%</text></svg></div>'+
-   '<div class="wt-nums"><div class="wt-big">'+esc(waterFmt(t))+'</div><div class="wt-of">of '+esc(waterFmt(G))+(t>=G?' · goal hit':'')+'</div>'+(pace?'<span class="wt-pace'+pcls+'">'+esc(pace)+'</span>':'')+'<div class="wt-btns">'+btnHtml+'</div></div></div>'+
-   '<div class="wt-custom'+(wtUi.custom?' on':'')+'"><input type="number" inputmode="decimal" step="any" data-wt-cin placeholder="Amount in '+w.unit+'"><input type="time" data-wt-ctime value="'+wHm(isT?nowM:720)+'" title="When did you drink it?"><button type="button" data-wt-cgo>Add</button></div>')+
+   '<line x1="6" x2="94" y1="48.4" y2="48.4" stroke="var(--muted)" stroke-width="1" stroke-dasharray="3 3" opacity=".7"/><text class="wt-lim" x="96" y="51">70%</text></svg></div>')+'<div class="wt-nums">'+BK('amt','<div class="wt-big">'+esc(waterFmt(t))+'</div><div class="wt-of">of '+esc(waterFmt(G))+(t>=G?' · goal hit':'')+'</div>'+(pace?'<span class="wt-pace'+pcls+'">'+esc(pace)+'</span>':''))+BK('btns','<div class="wt-btns">'+btnHtml+'</div>'+
+   '<div class="wt-custom'+(wtUi.custom?' on':'')+'"><input type="number" inputmode="decimal" step="any" data-wt-cin placeholder="Amount in '+w.unit+'"><input type="time" data-wt-ctime value="'+wHm(isT?nowM:720)+'" title="When did you drink it?"><button type="button" data-wt-cgo>Add</button></div>')+'</div></div>'+
    BK('pace',(isT?'<div class="wt-trackw"><div class="wt-track"><i style="width:'+prevW+'%" data-to="'+pct+'"></i>'+(S.pace?'<s style="left:calc('+(exp/G*100)+'% - 1px)"></s>':'')+'</div>'+(S.pace?'<div class="wt-tl"><span>'+esc(time12(w.start))+'</span><span>'+esc(time12(w.end))+'</span></div>':'')+'</div>':'')+(nextLine&&!S.plan?'<div class="wt-next">'+nextLine+'</div>':''))+
    BK('undo',(last?'<button type="button" class="wt-undo" data-wt-undo>Undo last drink ('+esc(waterFmt(last.ml)+(past||last.at==null?'':' · '+wT(last.at)))+')</button>':''))+
    BK('plan',(S.plan?'<div class="wt-plan"><div class="wt-ph"><span>'+(isT?'Plan for today':'Plan for '+esc(wtLabel(k)))+'</span>'+(isT?'<div><button type="button" class="wt-mini" data-wt-auto>Auto-plan</button><button type="button" class="wt-mini" data-wt-addplan>+ Add</button></div>':'')+'</div>'+
@@ -3240,7 +3239,7 @@ function skinPaint(el,wdg){
   const secHtml=secs.map((s,i)=>{
     const x=stats[i],autoOpen=nextSec&&nextSec.key===s.key,op=skinW.ui.open[s.key]!=null?skinW.ui.open[s.key]:(autoOpen&&size!=='sm'&&size!=='md'?true:autoOpen);
     const cnt=x.d===x.n?'✓ done':x.d+'/'+x.n;
-    return '<div class="sk-sect'+(op?' open':'')+(x.d===x.n?' alldone':'')+'"><div class="sk-sh" data-sk-toggle="'+esc(s.key)+'" role="button"><div><b>'+esc(s.icon)+' '+esc(s.label)+'</b>'+(s.treat?'<span class="sk-tag">'+esc(s.treat)+'</span>':'')+(s.time&&isT?'<span class="sk-time">'+esc(s.time)+'</span>':'')+'<br><small>'+esc(s.sub||'')+'</small></div><span class="sk-ct">'+cnt+'</span></div><div class="sk-sbar"><i style="width:'+(x.n?x.d/x.n*100:0)+'%"></i></div><div class="sk-steps">'+s.steps.map((step,j)=>stepRow(s,step,j)).join('')+(s.note?'<div class="sk-qty">'+esc(s.note)+'</div>':'')+'<div class="sk-alldo"><button type="button" class="sk-btn sm" data-sk-all="'+esc(s.key)+'">'+(x.d===x.n?'Untick all':'Tick all steps')+'</button></div></div></div>';
+    return BKW('sec-'+s.key,'<div class="sk-sect'+(op?' open':'')+(x.d===x.n?' alldone':'')+'"><div class="sk-sh" data-sk-toggle="'+esc(s.key)+'" role="button"><div><b>'+esc(s.icon)+' '+esc(s.label)+'</b>'+(s.treat?'<span class="sk-tag">'+esc(s.treat)+'</span>':'')+(s.time&&isT?'<span class="sk-time">'+esc(s.time)+'</span>':'')+'<br><small>'+esc(s.sub||'')+'</small></div><span class="sk-ct">'+cnt+'</span></div><div class="sk-sbar"><i style="width:'+(x.n?x.d/x.n*100:0)+'%"></i></div><div class="sk-steps">'+s.steps.map((step,j)=>stepRow(s,step,j)).join('')+(s.note?'<div class="sk-qty">'+esc(s.note)+'</div>':'')+'<div class="sk-alldo"><button type="button" class="sk-btn sm" data-sk-all="'+esc(s.key)+'">'+(x.d===x.n?'Untick all':'Tick all steps')+'</button></div></div></div>');
   }).join('');
   /* coming up + heat */
   const dn=['S','M','T','W','T','F','S'];
@@ -3256,7 +3255,7 @@ function skinPaint(el,wdg){
   /* review countdown */
   let revHtml='';
   if(S.review&&!isA){const nx=cal.reviews.find(d=>d>=td);if(nx){const dl=C.daysBetween(td,nx),m=C.monthFor(st.start,nx);revHtml='<div class="sk-rev"><span><b>'+esc(m?m.name.split(' — ')[0]:'Program')+' review</b> '+(dl===0?'is today':'in '+dl+' day'+(dl===1?'':'s'))+' · '+esc(new Date(nx+'T12:00:00').toLocaleDateString([],{month:'short',day:'numeric'}))+'</span><a class="sk-btn sm" href="apps/skin.html" data-profile-link>Open in Skin</a></div>'}}
-  const A=BKW('top','<div class="sk-topgrid">'+prog+hero+'</div>')+BKW('routine',secHtml),B=BKW('coming',comingHtml)+BKW('heat',heatHtml)+BKW('cab',cabHtml)+BKW('trk',trkHtml)+BKW('rev',revHtml);
+  const A=BKW('top','<div class="sk-topgrid">'+prog+hero+'</div>')+secHtml,B=BKW('coming',comingHtml)+BKW('heat',heatHtml)+BKW('cab',cabHtml)+BKW('trk',trkHtml)+BKW('rev',revHtml);
   const keep=el.scrollTop;
   const trackVals={};el.querySelectorAll('[data-sk-obs]').forEach(i=>trackVals.obs=i.value);
   el.innerHTML=head+(size==='wide'?'<div class="sk-body"><div>'+A+'</div><div>'+B+'</div></div>':A+B);
@@ -3400,89 +3399,168 @@ async function skinVoice(word){
 }
 
 const WIDGET_NO_CACHE={notes:1,photos:1,schedule:1,water:1,diet:1,skin:1};
-/* ---- Block layout: every widget's content is made of named blocks ([data-blk="id"]). In the gear you can reorder them, hide them and give each a width
-   (full / half / third). A widget you never touched keeps its own native layout; once you change something, the blocks are laid out in a flow. ---- */
+/* ---- Free-hand block layout: every widget's content is made of named blocks ([data-blk="id"]). Arrange mode lets you drag a block anywhere, pull its corner to resize,
+   hide it, or press Auto-arrange. Text inside a block scales with the block. A widget you never touched keeps its own native layout. ---- */
 const BKW=(id,h)=>h?'<div data-blk="'+id+'">'+h+'</div>':'';
-WIDGET_TYPES.water.blocks=[{id:'alerts',pin:1,label:'Day picker & reminder'},{id:'hero',label:'Amount, buttons & figure'},{id:'pace',label:'Pace bar'},{id:'undo',label:'Undo last drink'},{id:'plan',label:'Plan for the day'},{id:'week',label:'Last 30 days & streak'},{id:'pattern',label:'When you drink'}];
-WIDGET_TYPES.diet.blocks=[{id:'head',pin:1,label:'Day switcher'},{id:'ring',label:'Calories ring'},{id:'macros',label:'Protein, carbs & fat'},{id:'micro',label:'Micronutrients'},{id:'next',label:'Next meal'},{id:'rescue',label:'Protein rescue'},{id:'meals',label:'Meals list'},{id:'add',label:'Add something else'},{id:'week',label:'Last 7 days'},{id:'flex',label:'Flex bank'},{id:'streak',label:'Streak'},{id:'energy',label:'Eaten vs burned'},{id:'weight',label:'Weight'}];
-WIDGET_TYPES.skin.blocks=[{id:'head',pin:1,label:'Day switcher'},{id:'top',label:'Progress & today'},{id:'routine',label:'Routine steps'},{id:'coming',label:'Coming up'},{id:'heat',label:'Heat map'},{id:'cab',label:'Product cabinet'},{id:'trk',label:'Check-ins'},{id:'rev',label:'Review'}];
+WIDGET_TYPES.water.blocks=[{id:'alerts',label:'Reminder'},{id:'fig',label:'Body figure',w:3},{id:'amt',label:'Amount drunk',w:9},{id:'btns',label:'Quick-add buttons',w:9},{id:'pace',label:'Pace bar'},{id:'undo',label:'Undo last drink'},{id:'plan',label:'Plan for the day'},{id:'week',label:'Last 30 days & streak'},{id:'pattern',label:'When you drink'}];
+WIDGET_TYPES.diet.blocks=[{id:'head',label:'Day switcher'},{id:'ring',label:'Calories ring'},{id:'macros',label:'Protein, carbs & fat'},{id:'micro',label:'Micronutrients'},{id:'next',label:'Next meal'},{id:'rescue',label:'Protein rescue'},{id:'meals',label:'Meals list'},{id:'add',label:'Add something else'},{id:'week',label:'Last 7 days'},{id:'flex',label:'Flex bank'},{id:'streak',label:'Streak'},{id:'energy',label:'Eaten vs burned'},{id:'weight',label:'Weight'}];
+WIDGET_TYPES.skin.blocks=[{id:'head',label:'Day switcher'},{id:'top',label:'Progress & today'},{id:'sec-am',label:'Morning routine'},{id:'sec-body',label:'Shower & body'},{id:'sec-face',label:'Face routine'},{id:'sec-nizoral',label:'Nizoral shampoo'},{id:'sec-pm',label:'Night routine'},{id:'coming',label:'Coming up'},{id:'heat',label:'Heat map'},{id:'cab',label:'Product cabinet'},{id:'trk',label:'Check-ins'},{id:'rev',label:'Review'}];
 WIDGET_TYPES.schedule.blocks=[{id:'progress',label:'Progress bar'},{id:'timeline',label:'Timeline'},{id:'anytime',label:'Anytime today'},{id:'next',label:'Up next'}];
-const blkCustom=w=>{const L=w&&w.blk;return !!(L&&((L.order&&L.order.length)||(L.hide&&L.hide.length)||(L.w&&Object.keys(L.w).length)))};
-function blkOrdered(def,w){
-  const L=(w&&w.blk)||{},free=def.blocks.filter(b=>!b.pin),ord=(L.order||[]).filter(id=>free.some(b=>b.id===id));
-  free.forEach(b=>{if(!ord.includes(b.id))ord.push(b.id)});
-  return def.blocks.filter(b=>b.pin).concat(ord.map(id=>free.find(b=>b.id===id)));
+const FH={COLS:12,RU:8,CG:8};let fhEditId=null;
+const fhOn=w=>!!(w&&w.fh&&Array.isArray(w.fh.items));
+const fhHit=(a,b)=>a.x<b.x+b.w&&b.x<a.x+a.w&&a.y<b.y+b.h&&b.y<a.y+a.h;
+// a block stays exactly where it was put; only one that would overlap another is pushed down
+function fhSettle(items,active){
+  const placed=[],act=active&&items.find(i=>i.id===active);if(act)placed.push(act);
+  items.filter(i=>i!==act).sort((a,b)=>a.y-b.y||a.x-b.x).forEach(i=>{i.y=Math.max(0,i.y);let n=0;while(placed.some(p=>fhHit(i,p))&&n++<4000)i.y++;placed.push(i)});
 }
-function blkApply(body,def,w){
-  if(!def||!def.blocks||!blkCustom(w)||!body||!body.isConnected)return;
-  if(body.querySelector(':scope>.blk-flow'))return;
-  const L=w.blk,hide=new Set(L.hide||[]),els={};
-  def.blocks.forEach(b=>{els[b.id]=[...body.querySelectorAll('[data-blk="'+b.id+'"]')]});
+// Auto-arrange: every block keeps its size; gaps are filled in reading order
+function fhPack(items){
+  const placed=[];
+  items.sort((a,b)=>a.y-b.y||a.x-b.x).forEach(i=>{
+    let done=false;
+    for(let y=0;!done&&y<4000;y++)for(let x=0;x<=FH.COLS-i.w;x++){const t={...i,x,y};if(!placed.some(p=>fhHit(t,p))){i.x=x;i.y=y;done=true;break}}
+    placed.push(i);
+  });
+}
+// text scales with the block so it just fills it (about 80% of the width), never out of bounds
+function fhZoom(inn,W){
+  const ct=inn.style.containerType;inn.style.containerType='normal';inn.style.transform='none';inn.style.width='max-content';
+  const Mc=inn.offsetWidth;inn.style.containerType=ct;
+  return Math.min(1.25,Math.max(.6,.8*W/Math.max(Mc,1)));
+}
+function fhSizeCell(cell,i,g){
+  const inn=cell.querySelector('.fh-in'),W=i.w*g.cw-FH.CG,m=fhZoom(inn,W);
+  inn.style.width=(W/m)+'px';inn.style.transform='scale('+m+')';
+  return inn.offsetHeight*m;
+}
+const fhRows=px=>Math.max(2,Math.ceil((px+FH.CG)/FH.RU));
+function fhPlace(cell,i,g){cell.style.left=(i.x*g.cw)+'px';cell.style.top=(i.y*FH.RU)+'px';cell.style.width=(i.w*g.cw-FH.CG)+'px';cell.style.height=(i.h*FH.RU-FH.CG)+'px'}
+function fhView(wrap,items){
+  if(!wrap.__narrow)return items.map(i=>({...i}));
+  const a=items.map(i=>({...i,x:0,w:FH.COLS}));let y=0;a.sort((p,q)=>p.y-q.y||p.x-q.x).forEach(i=>{i.y=y;y+=i.h});return a;
+}
+function fhPaint(wrap,list,skip){
+  const g=wrap.__g,on=new Set(list.map(i=>i.id));
+  Object.keys(wrap.__cells).forEach(id=>{wrap.__cells[id].hidden=!on.has(id)});
+  list.forEach(i=>{if(i.id!==skip)fhPlace(wrap.__cells[i.id],i,g)});
+  wrap.__grid.style.height=(Math.max(0,...list.map(i=>i.y+i.h))*FH.RU)+'px';
+}
+function fhRelayout(wrap){
+  if(!wrap||!wrap.isConnected)return;
+  const body=wrap.parentNode,def=wrap.__def,w=wrap.__w,F=w.fh;
+  const bw=wrap.__grid.clientWidth;if(!bw)return;
+  wrap.__narrow=body.clientWidth<380;
+  const g=wrap.__g={cw:(bw+FH.CG)/FH.COLS,w:bw};
+  wrap.classList.toggle('fh-narrow',wrap.__narrow);
+  const items=F.items.filter(i=>wrap.__cells[i.id]);
+  const view=wrap.__narrow?items.map(i=>({...i,x:0,w:FH.COLS})):items;
+  view.forEach(i=>{
+    const cell=wrap.__cells[i.id];cell.style.transition='none';
+    const hv=fhSizeCell(cell,i,g),nat=fhRows(hv);
+    i.h=i.auto?nat:Math.max(i.h||0,nat);
+    cell.style.width=(i.w*g.cw-FH.CG)+'px';cell.style.height=(i.h*FH.RU-FH.CG)+'px';void cell.offsetHeight;cell.style.transition='';
+  });
+  if(wrap.__narrow){items.forEach(o=>{const v=view.find(x=>x.id===o.id);if(v&&o.auto)o.h=v.h})}
+  if(F.needPack&&!wrap.__narrow){fhPack(items);F.needPack=false;saveWidgetLayout()}else if(!wrap.__narrow)fhSettle(items,null);
+  fhPaint(wrap,fhView(wrap,items));
+  const hid=(F.hide||[]),tray=wrap.querySelector('.fh-tray');
+  if(tray)tray.innerHTML=hid.length?'<span>Hidden — tap to bring back:</span>'+hid.map(id=>{const b=def.blocks.find(x=>x.id===id);return b?'<button type="button" data-fh-add="'+id+'">+ '+esc(b.label)+'</button>':''}).join(''):'';
+  const u=wrap.querySelector('[data-fh-undo]');if(u)u.disabled=!HubHist.undo.length;
+}
+function fhApply(body,def,w){
+  if(!fhOn(w)||!body||!body.isConnected||body.querySelector(':scope>.fh-wrap'))return;
+  const els={};def.blocks.forEach(b=>{els[b.id]=[...body.querySelectorAll('[data-blk="'+b.id+'"]')]});
   if(!def.blocks.some(b=>els[b.id].length))return;      // loading / empty state: nothing to arrange yet
-  const flow=document.createElement('div');flow.className='blk-flow';
-  blkOrdered(def,w).forEach(b=>{
-    if(!els[b.id].length)return;
-    if(hide.has(b.id)&&!b.pin)return;
-    const it=document.createElement('div');it.className='blk-item w-'+((L.w&&L.w[b.id])||'full');it.dataset.blkItem=b.id;
-    els[b.id].forEach(e=>it.appendChild(e));flow.appendChild(it);
+  const F=w.fh;F.hide=F.hide||[];const editing=fhEditId===w.id;
+  const wrap=document.createElement('div');wrap.className='fh-wrap'+(editing?' fh-edit':'');wrap.__def=def;wrap.__w=w;wrap.__cells={};
+  wrap.innerHTML=(editing?'<div class="fh-bar"><button type="button" class="fh-pri" data-fh-auto>Auto-arrange</button><button type="button" data-fh-undo>Undo</button><button type="button" data-fh-reset>Reset</button><button type="button" class="fh-done" data-fh-done>Done</button></div><div class="fh-hint">Drag a block anywhere · pull its corner to resize · double-click the corner to fit the content · ✕ hides it</div>':'')+'<div class="fh-grid"><div class="fh-ghost" hidden></div></div><div class="fh-tray"></div>';
+  const grid=wrap.__grid=wrap.querySelector('.fh-grid');
+  def.blocks.forEach(b=>{
+    if(!els[b.id].length||F.hide.includes(b.id))return;
+    if(!F.items.some(i=>i.id===b.id)){if(!F.items.length)F.needPack=true;F.items.push({id:b.id,x:0,w:b.w||FH.COLS,y:Math.max(0,...F.items.map(i=>i.y+(i.h||2))),h:0,auto:true})}
+    const cell=document.createElement('div');cell.className='fh-blk';cell.dataset.id=b.id;
+    cell.innerHTML='<div class="fh-clip"><div class="fh-in"></div></div><span class="fh-name">'+esc(b.label)+'</span><button type="button" class="fh-x" aria-label="Hide '+esc(b.label)+'">✕</button><span class="fh-rz" title="Drag to resize · double-click to fit the content"></span>';
+    els[b.id].forEach(e=>cell.querySelector('.fh-in').appendChild(e));grid.appendChild(cell);wrap.__cells[b.id]=cell;
   });
   const rest=[...body.querySelectorAll('.widget-card-link')];
-  body.replaceChildren(flow,...rest);
+  body.replaceChildren(wrap,...rest);
+  fhWire(wrap);fhRelayout(wrap);
+  if(!body.__fhRO&&window.ResizeObserver){let last=0;body.__fhRO=new ResizeObserver(()=>{const cw=body.clientWidth;if(cw===last)return;last=cw;const wr=body.querySelector(':scope>.fh-wrap');if(wr)fhRelayout(wr)});body.__fhRO.observe(body)}
+}
+function fhWire(wrap){
+  const grid=wrap.__grid,ghost=grid.querySelector('.fh-ghost'),w=wrap.__w,F=w.fh;let drag=null;
+  const save=()=>{saveWidgetLayout();fhRelayout(wrap)};
+  wrap.addEventListener('click',e=>{
+    const t=e.target.closest('[data-fh-auto],[data-fh-undo],[data-fh-reset],[data-fh-done],[data-fh-add]');if(!t)return;
+    if(t.hasAttribute('data-fh-done')){fhEditId=null;wrap.classList.remove('fh-edit');redrawFh(wrap);return}
+    if(t.hasAttribute('data-fh-undo')){HubHist.run('undo');return}
+    if(t.hasAttribute('data-fh-auto')){F.items.forEach(i=>{if(!i.auto){}});fhPack(F.items);save();return}
+    if(t.hasAttribute('data-fh-reset')){F.items=[];F.hide=[];F.needPack=true;saveWidgetLayout();redrawFh(wrap);return}
+    if(t.dataset.fhAdd){F.hide=F.hide.filter(x=>x!==t.dataset.fhAdd);F.items=F.items.filter(i=>i.id!==t.dataset.fhAdd);redrawFh(wrap)}
+  });
+  grid.addEventListener('pointerdown',e=>{
+    if(fhEditId!==w.id||wrap.__narrow)return;const cell=e.target.closest('.fh-blk');if(!cell)return;
+    const it=F.items.find(i=>i.id===cell.dataset.id);if(!it)return;
+    if(e.target.closest('.fh-x')){F.items=F.items.filter(i=>i!==it);F.hide=(F.hide||[]).concat(it.id);saveWidgetLayout();redrawFh(wrap);return}
+    const r=cell.getBoundingClientRect(),gr=grid.getBoundingClientRect();
+    drag={mode:e.target.classList.contains('fh-rz')?'rz':'mv',it,cell,startH:r.height,ox:e.clientX-r.left,oy:e.clientY-r.top,left:r.left-gr.left,top:r.top-gr.top,trial:null};
+    cell.classList.add('drag');try{cell.setPointerCapture(e.pointerId)}catch(x){}ghost.hidden=false;e.preventDefault();
+  });
+  grid.addEventListener('pointermove',e=>{
+    if(!drag)return;const g=wrap.__g,gr=grid.getBoundingClientRect(),{it,cell}=drag;let t={...it};
+    if(drag.mode==='mv'){
+      const px=e.clientX-gr.left-drag.ox,py=e.clientY-gr.top-drag.oy;cell.style.left=px+'px';cell.style.top=py+'px';
+      t.x=Math.max(0,Math.min(FH.COLS-it.w,Math.round(px/g.cw)));t.y=Math.max(0,Math.round(py/FH.RU));
+    }else{
+      const wpx=Math.max(g.cw*2-FH.CG,e.clientX-gr.left-drag.left),hpx=Math.max(3*FH.RU-FH.CG,e.clientY-gr.top-drag.top);
+      t.w=Math.max(2,Math.min(FH.COLS-it.x,Math.round((wpx+FH.CG)/g.cw)));
+      const nat=fhRows(fhSizeCell(cell,t,g));
+      if(Math.abs(hpx-drag.startH)<14){t.h=it.auto?nat:Math.max(it.h,nat);t.auto=it.auto}else{t.h=Math.max(nat,Math.round((hpx+FH.CG)/FH.RU));t.auto=false}
+      cell.style.width=(wpx)+'px';cell.style.height=Math.max(t.h*FH.RU-FH.CG,hpx)+'px';
+    }
+    const trial=F.items.map(i=>i.id===it.id?t:{...i});fhSettle(trial,it.id);drag.trial=trial;
+    const me=trial.find(i=>i.id===it.id);fhPlace(ghost,me,g);
+    trial.forEach(i=>{if(i.id!==it.id&&wrap.__cells[i.id])fhPlace(wrap.__cells[i.id],i,g)});
+    grid.style.height=(Math.max(0,...trial.map(i=>i.y+i.h))*FH.RU)+'px';
+  });
+  const drop=()=>{
+    if(!drag)return;const d=drag;drag=null;d.cell.classList.remove('drag');ghost.hidden=true;
+    if(d.trial){F.items=d.trial;F.items.forEach(i=>{if(i.auto===undefined)i.auto=true});saveWidgetLayout()}
+    fhRelayout(wrap);
+  };
+  grid.addEventListener('pointerup',drop);grid.addEventListener('pointercancel',drop);
+  grid.addEventListener('dblclick',e=>{if(fhEditId!==w.id||!e.target.classList.contains('fh-rz'))return;const it=F.items.find(i=>i.id===e.target.closest('.fh-blk').dataset.id);if(it){it.auto=true;save()}});
+}
+// re-run the widget's own render so the blocks are rebuilt, then fhApply lays them out again
+function redrawFh(wrap,pack){
+  const body=wrap.parentNode,w=wrap.__w,def=wrap.__def;if(!body)return;
+  if(pack)w.fh.needPack=true;saveWidgetLayout();
+  body.innerHTML='';try{Promise.resolve(def.render(body,w)).catch(()=>{})}catch(e){console.warn(e)}
 }
 function blkWatch(body,def,wid){
   if(!def||!def.blocks||body.__blkMO||!window.MutationObserver)return;
   body.__blkMO=new MutationObserver(()=>{
-    if(!body.isConnected||body.querySelector(':scope>.blk-flow'))return;
-    const w=(state.widgets||[]).find(x=>x.id===wid);if(w)blkApply(body,def,w);
+    if(!body.isConnected||body.querySelector(':scope>.fh-wrap'))return;
+    const w=(state.widgets||[]).find(x=>x.id===wid);if(w)fhApply(body,def,w);
   });
   body.__blkMO.observe(body,{childList:true});
 }
 function blkSettingsHtml(def,w){
   if(!def.blocks)return'';
-  const L=w.blk||{},hide=new Set(L.hide||[]);
-  const row=b=>'<div class="ws-brow'+(b.pin?' pin':'')+(hide.has(b.id)?' off':'')+'" data-b="'+b.id+'">'+
-    (b.pin?'<span class="ws-grip lock" title="Always at the top">🔒</span>':'<span class="ws-grip" title="Drag to move">⠿</span>')+
-    '<span class="ws-bl">'+esc(b.label)+'</span>'+
-    (b.pin?'':'<select class="ws-bw" aria-label="Width of '+esc(b.label)+'">'+[['full','Full'],['half','Half'],['third','Third']].map(([v,l])=>'<option value="'+v+'"'+(((L.w&&L.w[b.id])||'full')===v?' selected':'')+'>'+l+'</option>').join('')+'</select>'+
-    '<button type="button" class="ws-bb" data-bk="up" aria-label="Move up">↑</button><button type="button" class="ws-bb" data-bk="down" aria-label="Move down">↓</button>'+
-    '<button type="button" class="ws-bb ws-eye" data-bk="eye" aria-label="Show or hide" aria-pressed="'+(hide.has(b.id)?'false':'true')+'">'+(hide.has(b.id)?'Show':'Hide')+'</button>')+'</div>';
-  return '<h4>Arrange blocks</h4><p class="ws-bnote">Move, hide or resize the parts of this widget. Half and Third put blocks side by side when there is room.</p><div class="ws-blocks" data-ws-blocks>'+blkOrdered(def,w).map(row).join('')+'</div><button type="button" class="ws-breset" data-ws-breset>Reset arrangement</button>';
+  return '<h4>Arrange</h4><p class="ws-bnote">Drag the parts of this widget anywhere, resize them from the corner, hide the ones you don’t need. The text inside each part scales with it.</p><button type="button" class="ws-fit" data-ws-arrange>Arrange blocks on the card</button>'+(fhOn(w)?'<button type="button" class="ws-breset" data-ws-breset>Back to the default layout</button>':'');
 }
 function blkWireSettings(panel,card,def,w){
-  const box=panel.querySelector('[data-ws-blocks]');if(!box)return;
-  const body=card.querySelector('.widget-card-body');
-  const commit=()=>{
-    const rows=[...box.querySelectorAll('.ws-brow:not(.pin)')];
-    w.blk={order:rows.map(r=>r.dataset.b),hide:rows.filter(r=>r.classList.contains('off')).map(r=>r.dataset.b),w:{}};
-    rows.forEach(r=>{const v=r.querySelector('.ws-bw').value;if(v!=='full')w.blk.w[r.dataset.b]=v});
-    saveWidgetLayout();redraw();
-  };
-  const redraw=()=>{if(!body)return;body.innerHTML='';try{Promise.resolve(def.render(body,w)).catch(()=>{})}catch(e){console.warn(e)}};
-  box.addEventListener('click',e=>{
-    const b=e.target.closest('[data-bk]');if(!b)return;const row=b.closest('.ws-brow'),k=b.dataset.bk;
-    if(k==='up'){const p=row.previousElementSibling;if(p&&!p.classList.contains('pin'))box.insertBefore(row,p)}
-    else if(k==='down'){const n=row.nextElementSibling;if(n)box.insertBefore(n,row)}
-    else if(k==='eye'){row.classList.toggle('off');b.textContent=row.classList.contains('off')?'Show':'Hide';b.setAttribute('aria-pressed',row.classList.contains('off')?'false':'true')}
-    commit();
+  const body=card.querySelector('.widget-card-body');if(!body)return;
+  const redraw=()=>{body.innerHTML='';try{Promise.resolve(def.render(body,w)).catch(()=>{})}catch(e){console.warn(e)}};
+  const go=panel.querySelector('[data-ws-arrange]');if(!go)return;
+  go.addEventListener('click',()=>{
+    const c=panel.querySelector('[data-ws-close]');if(c)c.click();
+    if(!fhOn(w)){w.fh={items:[],hide:[],needPack:true}}
+    fhEditId=w.id;saveWidgetLayout();redraw();
   });
-  box.addEventListener('change',e=>{if(e.target.closest('.ws-bw'))commit()});
-  // drag a row by its handle
-  box.addEventListener('pointerdown',e=>{
-    const g=e.target.closest('.ws-grip:not(.lock)');if(!g)return;e.preventDefault();
-    const row=g.closest('.ws-brow');row.classList.add('drag');try{g.setPointerCapture(e.pointerId)}catch(x){}
-    const mv=ev=>{
-      const t=document.elementFromPoint(ev.clientX,ev.clientY),over=t&&t.closest&&t.closest('.ws-brow');
-      if(!over||over===row||over.classList.contains('pin')||over.parentNode!==box)return;
-      const r=over.getBoundingClientRect();box.insertBefore(row,ev.clientY<r.top+r.height/2?over:over.nextSibling);
-    };
-    const up=()=>{g.removeEventListener('pointermove',mv);g.removeEventListener('pointerup',up);g.removeEventListener('pointercancel',up);row.classList.remove('drag');commit()};
-    g.addEventListener('pointermove',mv);g.addEventListener('pointerup',up);g.addEventListener('pointercancel',up);
-  });
-  panel.querySelector('[data-ws-breset]').addEventListener('click',()=>{
-    delete w.blk;saveWidgetLayout();
-    const fresh=document.createElement('div');fresh.innerHTML=blkSettingsHtml(def,w);
-    box.innerHTML=fresh.querySelector('[data-ws-blocks]').innerHTML;redraw();
-  });
+  const rs=panel.querySelector('[data-ws-breset]');
+  if(rs)rs.addEventListener('click',()=>{delete w.fh;if(fhEditId===w.id)fhEditId=null;saveWidgetLayout();const c=panel.querySelector('[data-ws-close]');if(c)c.click();redraw()});
 }
 
 function wLoading(el){ if(!el.firstChild) el.innerHTML='<div class="empty-state"><strong>Loading…</strong></div>'; }
