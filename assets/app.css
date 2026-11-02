@@ -1605,3 +1605,58 @@ button.dt-wd{border:0;background:transparent;font:inherit;color:inherit;padding:
 .cw-dt{display:flex;gap:8px}.cw-dt label{flex:1;display:flex;flex-direction:column;gap:3px;font-size:10.5px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);min-width:0}
 .cw-act{display:flex;gap:8px;justify-content:flex-end}.cw-act button{border:1px solid var(--line);background:transparent;color:var(--text);border-radius:10px;padding:9px 16px;font:inherit;font-weight:650;cursor:pointer}
 .cw-act .go{background:var(--accent);border-color:var(--accent);color:#fff}.cw-act .go:disabled{opacity:.4;cursor:not-allowed}
+
+/* ---- Water: one fluid layout (no S/M/L modes) ---- */
+.wt .wt-hero{grid-template-columns:clamp(58px,26cqw,104px) minmax(0,1fr);gap:clamp(10px,3cqw,16px);align-items:center}
+.wt.wt-wide .wt-hero{grid-template-columns:clamp(70px,13cqw,104px) minmax(0,1fr)}
+.wt .wt-fig{width:100%;height:auto;aspect-ratio:96/150;max-height:170px}
+.wt .wt-big{font-size:clamp(20px,6.5cqw,32px)}
+.wt .wt-colB{min-width:0}
+.wt .wt-colB>*:first-child{margin-top:12px}.wt-wide .wt-colB>*:first-child{margin-top:0}
+.wt .wt-foot{margin-top:12px}
+.wt .wt-trackw{margin:2px 0 6px}
+
+/* ---- Photo: move / zoom inside the frame ---- */
+.photo-widget-frame{overflow:hidden}
+.photo-widget-frame img{will-change:transform}
+.photo-widget.pw-cropping .photo-widget-frame{cursor:grab;touch-action:none}
+.photo-widget.pw-cropping .photo-widget-frame:active{cursor:grabbing}
+.photo-widget.pw-cropping .photo-widget-frame img{object-fit:cover!important;animation:none;user-select:none;-webkit-user-drag:none}
+.pw-cropbar{position:absolute;left:8px;right:8px;top:8px;z-index:4;display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:7px 10px;border-radius:12px;background:rgba(20,20,20,.72);color:#fff;font-size:12px;backdrop-filter:blur(6px)}
+.pw-cropbar span{flex:1 1 100%}
+.pw-cropbar input[type=range]{flex:1 1 90px;min-width:0;width:auto;min-height:0;padding:0;accent-color:#fff}
+.pw-cropbar button{border:1px solid rgba(255,255,255,.4);background:transparent;color:#fff;border-radius:8px;padding:4px 10px;font:inherit;font-weight:650;cursor:pointer;min-height:0}
+.pw-cropbar button.pri{background:#fff;color:#111;border-color:#fff}
+
+/* undo / redo buttons next to “Add widget” */
+.hist-btn{padding:0;width:38px;min-width:38px;justify-content:center}
+.hist-btn:disabled{opacity:.35;cursor:default}
+
+/* ---- To-Do map: resizable window ---- */
+.td-map{width:var(--tdmw,min(640px,max(300px,calc(100vw - 520px))))}
+@media(min-width:801px){.td-map{bottom:auto;height:var(--tdmh,calc(100vh - 24px));max-height:calc(100vh - 24px)}
+  body.td-map-on .main{margin-right:calc(var(--tdmw,min(640px,max(300px,100vw - 520px))) + 24px)}}
+@media(max-width:800px){.td-map{height:var(--tdmh,70vh)}}
+.tm-rz{position:absolute;z-index:6;touch-action:none;background:transparent}
+.tm-rzw{left:0;top:14px;bottom:14px;width:10px;cursor:ew-resize}
+.tm-rzh{left:14px;right:14px;bottom:0;height:10px;cursor:ns-resize}
+.tm-rzc{left:0;bottom:0;width:18px;height:18px;cursor:nesw-resize}
+.tm-rzw:hover,.tm-rzh:hover,.tm-rzc:hover{background:var(--accent-soft)}
+.tm-rzc::after{content:"";position:absolute;left:5px;bottom:5px;width:7px;height:7px;border-left:2px solid var(--faint);border-bottom:2px solid var(--faint);border-radius:0 0 0 3px}
+@media(max-width:800px){.tm-rzw,.tm-rzc{display:none}.tm-rzh{left:14px;right:14px;top:0;bottom:auto}}
+
+/* ---- Calendar widget: tighter fit ---- */
+.cw-root{gap:5px;font-size:12.5px;min-height:0}
+.cw-bar{gap:6px}
+.cw-who button,.cw-seg button{padding:3px 10px}
+.cw-plus{width:28px;height:28px;font-size:19px}
+.cw-fest{padding:4px 9px;gap:1px 8px;font-size:11.5px;border-radius:9px}
+.cw-next{padding:5px 10px;border-radius:10px}.cw-next b{font-size:13px}
+.cw-week{gap:3px}.cw-week button{padding:3px 0 2px;border-radius:8px}.cw-week b{font-size:13.5px;line-height:1.1}.cw-week small{font-size:9px}.cw-week i{height:10px;line-height:10px;font-size:9px}.cw-week u{font-size:12px;line-height:1}
+.cw-sec{padding:3px 2px 0;font-size:10.5px}
+.cw-day{padding:4px 2px 0;font-size:11px}
+.cw-row{padding:3px 2px;gap:7px}
+.cw-ico{width:18px;font-size:13px}.cw-tick{width:18px;height:18px;border-radius:6px}
+.cw-c small{font-size:11px;line-height:1.25}
+.cw-empty{padding:2px}
+@container wbody (min-width:560px){.cw-root{display:grid;grid-template-columns:1fr 1fr;column-gap:20px;align-content:start;align-items:start}.cw-bar,.cw-fest,.cw-next,.cw-week,.widget-card-link{grid-column:1/-1}}

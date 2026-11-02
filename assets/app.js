@@ -296,12 +296,13 @@ async function loadHubMeta(){
   const appearance=appearanceDoc||(legacyTheme?{mode:legacyTheme.mode,wallpaper:legacyTheme.wallpaper}:null)||{mode:DEFAULT_THEME.mode,wallpaper:JSON.parse(JSON.stringify(DEFAULT_THEME.wallpaper))};
   state.theme={accents,mode:appearance.mode||'light',wallpaper:appearance.wallpaper||DEFAULT_THEME.wallpaper};
   state.widgets = (widgets && widgets[state.profile] && widgets[state.profile].length) ? widgets[state.profile].map(w=>w&&w.type==='checklist'?Object.assign({},w,{type:'notes',id:'w-notes'}):w).map(w=>w&&(w.type==='priorities'||w.type==='taskmap')?Object.assign({},w,{type:'todo',id:'w-todo'}):w).filter(w=>w&&WIDGET_TYPES[w.type]).filter((w,i,a)=>(w.type!=='notes'&&w.type!=='todo')||a.findIndex(x=>x.type===w.type)===i) : widgetDefaultLayout();
+  wlSnap=null;HubHist.undo=[];HubHist.redo=[];
   // One-time: put the Calendar widget onto layouts saved before it existed.
   try{
     const k='hub-agenda-seeded-'+state.profile;
     if(!localStorage.getItem(k)){
       localStorage.setItem(k,'1');
-      if(!state.widgets.some(w=>w.type==='agenda')){state.widgets.splice(Math.min(2,state.widgets.length),0,{id:'w-agenda',type:'agenda',colSpan:12,rowSpan:16});saveWidgetLayout()}
+      if(!state.widgets.some(w=>w.type==='agenda')){state.widgets.splice(Math.min(2,state.widgets.length),0,{id:'w-agenda',type:'agenda',colSpan:6,rowSpan:15});saveWidgetLayout()}
     }
   }catch(e){}
   state.appIcons = profileIcons || legacyIcons || {};
@@ -1616,7 +1617,7 @@ function widgetDefaultLayout(){
   return [
     {id:'w-schedule',type:'schedule',colSpan:6,rowSpan:20},
     {id:'w-todo',type:'todo',colSpan:6,rowSpan:24},
-    {id:'w-agenda',type:'agenda',colSpan:12,rowSpan:16},
+    {id:'w-agenda',type:'agenda',colSpan:6,rowSpan:15},
     {id:'w-chores',type:'chores',colSpan:12,rowSpan:13},
     {id:'w-quicklinks',type:'quicklinks',colSpan:12,rowSpan:6}
   ];
@@ -1886,7 +1887,8 @@ const WT_BODY={
 };
 const WT_LINES=['Glug glug','Refreshing','Nice one','Hydrated','Sip sip'];
 let waterView=null,waterPastDoneFor='',wtUi={custom:false,planAdd:false},wtTimer=null;
-const wtSize=el=>{const w=el.clientWidth,h=el.clientHeight;return w>=620?'wide':(h<330||w<290)?'sm':h<560?'md':'lg'};
+// Layout follows the WIDTH only (two columns when wide, one when narrow, compact under ~290px). Height never hides anything — a short card just scrolls, and “Fit height” sizes it to its content.
+const wtSize=el=>{const w=el.clientWidth;return w>=620?'wide':w<290?'sm':'lg'};
 const wtKeys=()=>Array.from({length:30},(_,i)=>addDays(today(),i-29));
 const wtLabel=k=>{if(k===today())return'Today';const d=new Date(k+'T12:00:00');return d.toLocaleDateString([],{weekday:'short',month:'short',day:'numeric'})};
 function waterRepaintAll(anim){
@@ -1976,8 +1978,7 @@ function waterPaint(el,wdg,anim){
      '<div class="wt-addrow'+(wtUi.planAdd&&isT?' on':'')+'"><input type="time" data-wt-pt value="'+wHm(Math.min(1380,Math.ceil((nowM+30)/30)*30))+'"><input type="number" inputmode="decimal" step="any" data-wt-pa placeholder="Amount" value="'+waterToUnit(w.bottle)+'"><button type="button" data-wt-pgo>Plan it</button></div>'+slotHtml+'</div>':'')+
    '</div><div class="wt-colB">'+
    ((S.week||S.streak)&&(size==='lg'||size==='wide')?'<div class="wt-foot">'+(S.week?'<div class="wt-week" data-wt-week>'+weekHtml+'</div>':'')+(S.streak?'<div class="wt-streak"><b>'+st+'</b>'+(st===1?'day':'days')+' streak</div>':'')+'</div>':'')+
-   (S.streak&&size==='md'?'<div class="wt-streak wt-sm1">'+st+' day streak</div>':'')+
-   (S.pat&&(size==='lg'||size==='wide')?'<div class="wt-pat">'+patHtml+'</div>':'')+
+      (S.pat&&(size==='lg'||size==='wide')?'<div class="wt-pat">'+patHtml+'</div>':'')+
    '</div></div>';
   const keepScroll=el.querySelector('[data-wt-week]');const ws=keepScroll?keepScroll.scrollLeft:null,wasEnd=keepScroll?(keepScroll.scrollWidth-keepScroll.clientWidth-keepScroll.scrollLeft<4):true;
   el.innerHTML=html;el._wtLv=lvl;el._wtW=pct;
@@ -2064,6 +2065,12 @@ function pwVisible(photos,S){
   const favs=photos.filter(p=>p.fav);
   return S.only==='fav'&&favs.length?favs:photos;
 }
+// Per-photo crop: fx/fy = the point of the picture you want centred (0-100 %), z = zoom (1-4×). Stored on the photo itself.
+function pwImgStyle(p){
+  const z=Math.max(1,Math.min(4,+p.z||1)),fx=p.fx==null?50:+p.fx,fy=p.fy==null?50:+p.fy;
+  if(z===1&&fx===50&&fy===50)return'';
+  return ' style="object-position:'+fx+'% '+fy+'%;transform:scale('+z+');transform-origin:'+fx+'% '+fy+'%"';
+}
 function pwSpace(){return Math.min(100,Math.round(allPhotoWidgetsTotalLength()/PHOTO_MAX_BASE64_TOTAL*100))}
 function photoWidgetBuildOrder(widgetId){
   const rt=pwRuntime(widgetId),photos=photoWidgetPhotos(widgetId),cur=rt.order[rt.pos];
@@ -2128,7 +2135,7 @@ function renderPhotoWidgetInto(el,widgetId){
   const photo=photos.find(p=>p.id===rt.order[rt.pos])||photos[0];
   const n=rt.order.length,many=n>1,space=pwSpace();
   if(S.view==='grid'){
-    const tiles=rt.order.map((id,i)=>{const ph=photos.find(x=>x.id===id);return ph?'<button type="button" class="pw-tile" data-pw-tile="'+i+'" aria-label="Open photo '+(i+1)+'"><img src="'+ph.src+'" alt="'+esc(ph.cap||'Photo')+'">'+(S.cap&&ph.cap?'<span>'+esc(ph.cap)+'</span>':'')+'</button>':''}).join('');
+    const tiles=rt.order.map((id,i)=>{const ph=photos.find(x=>x.id===id);return ph?'<button type="button" class="pw-tile" data-pw-tile="'+i+'" aria-label="Open photo '+(i+1)+'"><img src="'+ph.src+'" alt="'+esc(ph.cap||'Photo')+'"'+pwImgStyle(ph)+'>'+(S.cap&&ph.cap?'<span>'+esc(ph.cap)+'</span>':'')+'</button>':''}).join('');
     el.innerHTML='<div class="photo-widget pw-gridview'+(S.fit==='fit'?' pw-contain':S.fit==='stretch'?' pw-stretch':'')+' pw-f-'+(S.focus||'center')+'"><div class="pw-grid">'+tiles+'</div>'+
       '<button type="button" class="pw-gadd" data-photo-add title="Add photos ('+Math.max(0,100-space)+'% space left)"><i data-lucide="plus"></i></button><input type="file" accept="image/*" multiple hidden data-photo-file></div>';
     if(window.lucide)lucide.createIcons();
@@ -2137,8 +2144,9 @@ function renderPhotoWidgetInto(el,widgetId){
     el.querySelectorAll('[data-pw-tile]').forEach(b=>b.addEventListener('click',()=>{if(widgetEditMode)return;rt.pos=+b.dataset.pwTile;if(S.zoom)photoLightbox(widgetId,el)}));
     return;
   }
-  el.innerHTML='<div class="photo-widget'+(S.fit==='fit'?' pw-contain':S.fit==='stretch'?' pw-stretch':'')+' pw-f-'+(S.focus||'center')+' pw-bar-'+(S.bar||'always')+'">'+
-    '<div class="photo-widget-frame'+(S.zoom?' pw-zoomable':'')+'" data-photo-frame><img src="'+photo.src+'" alt="'+esc(photo.cap||'Photo')+'"></div>'+
+  el.innerHTML='<div class="photo-widget'+(S.fit==='fit'?' pw-contain':S.fit==='stretch'?' pw-stretch':'')+' pw-f-'+(S.focus||'center')+' pw-bar-'+(S.bar||'always')+(rt.crop===photo.id?' pw-cropping':'')+'">'+
+    '<div class="photo-widget-frame'+(S.zoom&&rt.crop!==photo.id?' pw-zoomable':'')+'" data-photo-frame><img src="'+photo.src+'" alt="'+esc(photo.cap||'Photo')+'"'+pwImgStyle(photo)+' draggable="false"></div>'+
+    (rt.crop===photo.id?'<div class="pw-cropbar"><span>Drag the photo to choose what shows</span><input type="range" min="1" max="4" step="0.05" value="'+(+photo.z||1)+'" data-pw-z aria-label="Zoom"><button type="button" data-pw-creset>Reset</button><button type="button" class="pri" data-pw-cdone>Done</button></div>':'')+
     '<button type="button" class="pw-heart'+(photo.fav?' on':'')+'" data-photo-fav title="'+(photo.fav?'Remove from favourites':'Favourite')+'" aria-pressed="'+(photo.fav?'true':'false')+'"><i data-lucide="heart"></i></button>'+
     (S.cap&&photo.cap&&!rt.editing?'<div class="pw-cap">'+esc(photo.cap)+'</div>':'')+
     (rt.editing?'<form class="pw-capform" data-photo-capform><input type="text" maxlength="80" placeholder="Add a caption" value="'+esc(photo.cap||'')+'" data-photo-capin><button type="submit" class="icon-button" title="Save caption"><i data-lucide="check"></i></button><button type="button" class="icon-button" data-photo-capcancel title="Cancel"><i data-lucide="x"></i></button></form>':'')+
@@ -2148,6 +2156,7 @@ function renderPhotoWidgetInto(el,widgetId){
       '<button type="button" class="icon-button" data-photo-next title="Next photo"'+(many?'':' disabled')+'><i data-lucide="chevron-right"></i></button>'+
       '<button type="button" class="icon-button'+(rt.shuffle?' active':'')+'" data-photo-shuffle title="Shuffle"'+(many?'':' disabled')+'><i data-lucide="shuffle"></i></button>'+
       '<span class="photo-widget-count">'+(rt.pos+1)+' / '+n+(space>=70?' · '+space+'% full':'')+'</span>'+
+      '<button type="button" class="icon-button'+(rt.crop===photo.id?' active':'')+'" data-photo-crop title="Move and zoom the photo inside the frame"><i data-lucide="crop"></i></button>'+
       '<button type="button" class="icon-button" data-photo-cap title="Caption"><i data-lucide="type"></i></button>'+
       '<button type="button" class="icon-button" data-photo-add title="Add photos ('+Math.max(0,100-space)+'% space left)"><i data-lucide="plus"></i></button>'+
       '<button type="button" class="icon-button" data-photo-remove title="Remove this photo"><i data-lucide="trash-2"></i></button>'+
@@ -2195,6 +2204,23 @@ function renderPhotoWidgetInto(el,widgetId){
   });
   // swipe to move, tap to enlarge
   const fr=q('[data-photo-frame]');let sx=null,sy=0,swiped=false;
+  const cropping=rt.crop===photo.id;
+  q('[data-photo-crop]').addEventListener('click',()=>{rt.crop=cropping?null:photo.id;renderPhotoWidgetInto(el,widgetId)});
+  if(cropping){
+    const img=fr.querySelector('img');let cur={fx:photo.fx==null?50:+photo.fx,fy:photo.fy==null?50:+photo.fy,z:+photo.z||1},drag=null;
+    const apply=()=>{img.style.objectPosition=cur.fx+'% '+cur.fy+'%';img.style.transformOrigin=cur.fx+'% '+cur.fy+'%';img.style.transform='scale('+cur.z+')'};
+    const save=async()=>{const id=photo.id,c=Object.assign({},cur);await photoCommit(widgetId,l=>{const p=l.find(x=>x.id===id);if(!p)return;if(c.z<=1.001&&Math.abs(c.fx-50)<.5&&Math.abs(c.fy-50)<.5){delete p.fx;delete p.fy;delete p.z}else{p.fx=Math.round(c.fx*10)/10;p.fy=Math.round(c.fy*10)/10;p.z=Math.round(c.z*100)/100}})};
+    fr.addEventListener('pointerdown',e=>{drag={x:e.clientX,y:e.clientY,fx:cur.fx,fy:cur.fy};try{fr.setPointerCapture(e.pointerId)}catch(x){}e.stopPropagation()});
+    fr.addEventListener('pointermove',e=>{if(!drag)return;const W=fr.clientWidth||1,H=fr.clientHeight||1,iw=img.naturalWidth||W,ih=img.naturalHeight||H,s0=Math.max(W/iw,H/ih),ovX=iw*s0-W+W*(cur.z-1),ovY=ih*s0-H+H*(cur.z-1);
+      cur.fx=Math.max(0,Math.min(100,drag.fx-(e.clientX-drag.x)/Math.max(20,ovX)*100));cur.fy=Math.max(0,Math.min(100,drag.fy-(e.clientY-drag.y)/Math.max(20,ovY)*100));apply()});
+    const end=()=>{if(drag){drag=null;save()}};fr.addEventListener('pointerup',end);fr.addEventListener('pointercancel',end);
+    fr.addEventListener('wheel',e=>{e.preventDefault();cur.z=Math.max(1,Math.min(4,cur.z+(e.deltaY<0?.1:-.1)));q('[data-pw-z]').value=cur.z;apply();clearTimeout(fr._wt);fr._wt=setTimeout(save,300)},{passive:false});
+    q('[data-pw-z]').addEventListener('input',e=>{cur.z=+e.target.value;apply()});
+    q('[data-pw-z]').addEventListener('change',save);
+    q('[data-pw-creset]').addEventListener('click',async()=>{cur={fx:50,fy:50,z:1};apply();q('[data-pw-z]').value=1;await save()});
+    q('[data-pw-cdone]').addEventListener('click',async()=>{await save();rt.crop=null;renderPhotoWidgetInto(el,widgetId)});
+    return;
+  }
   fr.addEventListener('pointerdown',e=>{sx=e.clientX;sy=e.clientY;swiped=false});
   fr.addEventListener('pointerup',e=>{
     if(sx===null)return;const dx=e.clientX-sx,dy=e.clientY-sy;sx=null;
@@ -2746,7 +2772,8 @@ function nwWire(el){
     }
     if(t.matches('[data-ed="note"]')&&(e.ctrlKey||e.metaKey)){
       const k=e.key.toLowerCase();
-      if(e.key==='Enter'){e.preventDefault();document.execCommand('insertParagraph');nwNoteQueueSave(t);return}   // Ctrl+Enter: everything after the cursor starts a new point (a new checklist item when converted)if(k==='b'||k==='i'||k==='u'){e.preventDefault();document.execCommand(k==='b'?'bold':k==='i'?'italic':'underline');nwNoteQueueSave(t);nwToolbarState(t.closest('.nw-card'))}
+      if(e.key==='Enter'){e.preventDefault();document.execCommand('insertParagraph');nwNoteQueueSave(t);return}   // Ctrl+Enter: everything after the cursor starts a new point (a new checklist item when converted)
+      if(k==='b'||k==='i'||k==='u'){e.preventDefault();document.execCommand(k==='b'?'bold':k==='i'?'italic':'underline');nwNoteQueueSave(t);nwToolbarState(t.closest('.nw-card'))}
       return;
     }
     if(t.matches('[data-ed="ttl"]')){if(e.key==='Enter'){e.preventDefault();t.blur()}else if(e.key==='Escape'){t.blur()}return}
@@ -2754,8 +2781,15 @@ function nwWire(el){
       const card=t.closest('.nw-card'),id=card.dataset.id,row=t.closest('.nw-it'),iid=row.dataset.iid,by=nwBy();
       const txt=t.textContent.replace(/\s+/g,' ').trim();
       if(e.key==='Enter'){
-        e.preventDefault();if(!txt)return;let nid=null;
-        const r=await nwListOp(id,l=>{NotesCore.editText(l,iid,txt,by);const n=NotesCore.insertAfter(l,iid,'');if(!n)return false;nid=n.id});
+        e.preventDefault();
+        // Enter / Ctrl+Enter: the text before the cursor stays in this point, everything after it moves into the next point.
+        let off=txt.length;
+        try{const sel=getSelection();if(sel&&sel.rangeCount&&t.contains(sel.anchorNode)){const rg=document.createRange();rg.selectNodeContents(t);rg.setEnd(sel.anchorNode,sel.anchorOffset);off=rg.toString().length}}catch(x){}
+        const raw=t.textContent.replace(/\s+/g,' ');
+        const before=raw.slice(0,off).trim(),after=raw.slice(off).trim();
+        if(!before&&!after)return;let nid=null;
+        if(before&&after)t.textContent=before; // so the blur that follows the jump doesn't write the old full text back
+        const r=await nwListOp(id,l=>{const it=l.items.find(x=>x.id===iid);if(!it)return false;if(before)NotesCore.editText(l,iid,before,by);else it.t='';const n=NotesCore.insertAfter(l,iid,after);if(!n)return false;nid=n.id});
         if(r.ok&&nid){nwFocusSel('[data-iid="'+nid+'"] [data-ed="it"]');nwPaint(true)}else if(!nid)toast('A checklist holds '+NotesCore.LIM.items+' items at most');
       }else if(e.key==='Backspace'&&!txt){
         e.preventDefault();const rows=Array.from(card.querySelectorAll('.nw-it')),i=rows.indexOf(row),prev=rows[i-1];
@@ -2791,6 +2825,7 @@ function nwToolbarState(card){
 }
 let saveWidgetsTimer=null;
 function saveWidgetLayout(){
+  widgetsTrack();
   clearTimeout(saveWidgetsTimer);
   saveWidgetsTimer=setTimeout(async ()=>{
     try{
@@ -3362,7 +3397,7 @@ function widgetSettingsHtml(def,w){
       const st=(k,v)=>'<div class="ws-step" data-ws-size="'+k+'"><button type="button" data-d="-1" aria-label="Smaller">−</button><output>'+v+'</output><button type="button" data-d="1" aria-label="Bigger">+</button></div>';
       return '<h4>Size</h4><div class="ws-opt ws-size"><span>Width<small>columns of 12</small></span>'+st('c',c)+'</div>'+
         '<div class="ws-opt ws-size"><span>Height<small>rows</small></span>'+st('r',r)+'</div>'+
-        '<div class="ws-opt ws-presets"><span>Quick sizes</span><div class="ws-seg" data-ws-presets><button type="button" data-p="s">Small</button><button type="button" data-p="m">Medium</button><button type="button" data-p="l">Large</button><button type="button" data-p="f">Full width</button></div></div><div class="ws-opt ws-presets"><button type="button" class="ws-fit" data-ws-fit>Fit height to content</button></div>';})()+
+        '<div class="ws-opt ws-presets"><button type="button" class="ws-fit" data-ws-fit>Fit height to content</button></div>';})()+
     def.settings.map(o=>{
       if(o.h)return '<h4>'+esc(o.h)+'</h4>';
       const val=o.get?o.get(w):cur[o.key];
@@ -3409,9 +3444,6 @@ function wireWidgetSettings(card,def,w){
     const rows=Math.ceil((chrome+content+WIDGET_GAP_PX+6)/per);
     setSize(c,Math.max(WIDGET_MIN_ROW,Math.min(WIDGET_MAX_ROW,rows)));
   }));
-  panel.querySelectorAll('[data-ws-presets] button').forEach(b=>b.addEventListener('click',()=>{
-    const P={s:[4,12],m:[6,18],l:[8,26],f:[12,22]}[b.dataset.p];if(P)setSize(P[0],P[1]);
-  }));
   panel.querySelectorAll('[data-ws-key]').forEach(i=>i.addEventListener('change',()=>apply(i.dataset.wsKey,i.checked)));
   panel.querySelectorAll('[data-ws-seg]').forEach(g=>g.querySelectorAll('button').forEach(b=>b.addEventListener('click',()=>{g.querySelectorAll('button').forEach(x=>x.classList.toggle('on',x===b));apply(g.dataset.wsSeg,b.dataset.v)})));
   panel.querySelector('[data-ws-reset]').addEventListener('click',()=>{
@@ -3424,6 +3456,7 @@ function wireWidgetSettings(card,def,w){
 }
 function renderWidgetBoard(){
   const board=$('widget-board');if(!board||!state.widgets)return;
+  if(wlSnap==null)wlSnap=JSON.stringify(state.widgets);
   if(!state.widgets.length){board.innerHTML='<div class="widget-board-empty">No widgets yet — use <strong>+ Add widget</strong> above to put something here.</div>';return}
   board.innerHTML=state.widgets.map(w=>{
     const def=WIDGET_TYPES[w.type];if(!def)return'';
@@ -5006,8 +5039,52 @@ function closeQuickAdd(){$('quick-add-modal').hidden=true;$('quick-add-form').re
 document.querySelectorAll('[data-open-quick-add]').forEach(x=>x.addEventListener('click',openQuickAdd));$('quick-add-close').addEventListener('click',closeQuickAdd);$('quick-add-cancel').addEventListener('click',closeQuickAdd);$('quick-add-modal').addEventListener('click',e=>{if(e.target===$('quick-add-modal'))closeQuickAdd()});
 $('quick-add-form').addEventListener('submit',async e=>{e.preventDefault();const shared=$('qa-shared').value==='shared',task={id:'task-'+Date.now()+'-'+Math.floor(Math.random()*1000),title:$('qa-title').value.trim(),done:false,priority:Number($('qa-priority').value)||0,startDate:today(),due:$('qa-date').value||null,dueTime:$('qa-time').value||null,repeat:'none',notes:'',link:'',tags:[],subtasks:[],listId:shared?'shared':'personal',createdBy:state.profile,order:Date.now(),createdAt:new Date().toISOString()};if(!task.title)return;const list=shared?state.sharedTasks:state.personalTasks,ref=shared?sharedTodoRef():profileRef('todo-profiles','tasks');list.push(task);$('qa-save').disabled=true;try{await mergeBeforeWrite(ref,list,[task.id]);await ref.set({json:JSON.stringify(list),updatedAt:firebase.firestore.FieldValue.serverTimestamp()},{merge:true});closeQuickAdd();renderDashboard();toast('Task added')}catch(err){list.pop();toast('Could not save. Try again.')}finally{$('qa-save').disabled=false}});
 
+/* ---- Undo / redo for the whole page: Ctrl+Z undoes, Ctrl+U (or Ctrl+Shift+Z / Ctrl+Y) redoes. Layout and widget-setting changes are tracked automatically;
+   anything that offers an “Undo” in its toast is added to the same history, so the toast button and Ctrl+Z are the same thing. ---- */
+let wlSnap=null;
+const HubHist={undo:[],redo:[],busy:false,
+  sync(){const u=$('hist-undo'),r=$('hist-redo');if(u){u.disabled=!this.undo.length;u.title=this.undo.length?'Undo “'+this.undo[this.undo.length-1].label+'” (Ctrl+Z)':'Nothing to undo'}if(r){r.disabled=!this.redo.length;r.title=this.redo.length?'Redo “'+this.redo[this.redo.length-1].label+'” (Ctrl+U)':'Nothing to redo'}},
+  push(e){if(this.busy)return e;this.undo.push(e);if(this.undo.length>60)this.undo.shift();this.redo=[];this.sync();return e},
+  drop(e){const i=this.undo.indexOf(e);if(i>=0){this.undo.splice(i,1);this.sync()}},
+  async run(dir){
+    const from=dir==='undo'?this.undo:this.redo,to=dir==='undo'?this.redo:this.undo,e=from[from.length-1];
+    if(!e){toast('Nothing to '+dir);return}
+    const fn=dir==='undo'?e.undo:e.redo;
+    if(!fn){from.pop();this.sync();toast('That can’t be redone — “'+e.label+'”');return}
+    from.pop();this.busy=true;
+    try{await fn();to.push(e);toast((dir==='undo'?'Undid ':'Redid ')+e.label)}catch(x){console.warn(x);toast('Couldn’t '+dir+' “'+e.label+'”')}
+    finally{this.busy=false;this.sync()}
+  }};
+function widgetsRestore(json){
+  try{state.widgets=JSON.parse(json)}catch(e){return}
+  wlSnap=json;renderWidgetBoard();saveWidgetLayout();
+}
+function widgetsTrack(){
+  if(!state.widgets)return;
+  const cur=JSON.stringify(state.widgets);
+  if(wlSnap==null||cur===wlSnap){if(wlSnap==null)wlSnap=cur;return}
+  const prev=wlSnap;wlSnap=cur;
+  if(HubHist.busy)return;
+  const last=HubHist.undo[HubHist.undo.length-1],now=Date.now();
+  if(last&&last.kind==='layout'&&now-last.t<900){last.t=now;last.cur=cur;return} // a drag / a few steps in a row = one undo
+  const e={kind:'layout',label:'layout change',t:now,prev,cur,undo:()=>widgetsRestore(e.prev),redo:()=>widgetsRestore(e.cur)};
+  HubHist.push(e);
+}
+document.addEventListener('keydown',e=>{
+  if(!(e.ctrlKey||e.metaKey)||e.altKey)return;
+  const k=(e.key||'').toLowerCase(),t=e.target;
+  const typing=t&&(t.isContentEditable||/^(input|textarea|select)$/i.test(t.tagName));
+  const redo=k==='y'||(k==='z'&&e.shiftKey)||(k==='u'&&!typing);
+  const undo=k==='z'&&!e.shiftKey;
+  if(!undo&&!redo)return;
+  if(typing)return; // inside a text box the browser's own undo handles the text
+  if(document.querySelector('.modal-backdrop:not([hidden]),.pw-lb'))return;
+  e.preventDefault();HubHist.run(redo?'redo':'undo');
+});
+document.addEventListener('click',e=>{const b=e.target.closest&&e.target.closest('#hist-undo,#hist-redo');if(b&&!b.disabled)HubHist.run(b.id==='hist-undo'?'undo':'redo')});
 function toast(message,actLabel,actFn){const el=$('toast');el.textContent=message;el.classList.toggle('has-act',!!(actLabel&&actFn));
-  if(actLabel&&actFn){const b=document.createElement('button');b.type='button';b.className='toast-act';b.textContent=actLabel;b.onclick=()=>{el.classList.remove('show');actFn()};el.appendChild(b)}
+  let hist=null;if(actLabel==='Undo'&&actFn&&!HubHist.busy)hist=HubHist.push({kind:'act',label:String(message).replace(/[.…]+$/,'').toLowerCase(),undo:actFn,redo:null});
+  if(actLabel&&actFn){const b=document.createElement('button');b.type='button';b.className='toast-act';b.textContent=actLabel;b.onclick=()=>{el.classList.remove('show');if(hist)HubHist.drop(hist);actFn()};el.appendChild(b)}
   el.classList.add('show');clearTimeout(toast.timer);toast.timer=setTimeout(()=>el.classList.remove('show'),actLabel?4500:2200)}
 function chooseProfile(){setGate('profile')}
 document.querySelectorAll('[data-profile-choice]').forEach(btn=>btn.addEventListener('click',()=>{setProfile(btn.dataset.profileChoice);loadDashboard().then(linksStart,linksStart)}));

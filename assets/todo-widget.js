@@ -278,8 +278,31 @@ function mapToggle(on){
   if(!pane){pane=document.createElement('aside');pane.className='td-map';pane.setAttribute('aria-label','Order map');document.body.appendChild(pane);
     pane.innerHTML='<div class="tm-h"><b>Order map</b><small>Drag from a block’s ● to another block: it waits for the first. Drag blocks to place them.</small><span class="tm-btns"><button type="button" data-m="tidy">Tidy</button><button type="button" data-m="close" aria-label="Close map">✕</button></span></div>'+
       '<div class="tm-b"><div class="tm-tray"><h5>Not in the order yet</h5><div class="tm-tl"></div></div><div class="tm-cv"><svg class="tm-sv"></svg><div class="tm-nodes"></div><div class="tm-hint">Drag tasks here from the left, or double-click to make a new one.</div></div></div>';
-    wireMap(pane)}
+    pane.insertAdjacentHTML('beforeend','<i class="tm-rz tm-rzw" title="Drag to change the width"></i><i class="tm-rz tm-rzh" title="Drag to change the height"></i><i class="tm-rz tm-rzc" title="Drag to resize"></i>');
+    wireMap(pane);wireMapSize(pane)}
+  mapApplySize();
   document.body.classList.add('td-map-on');mapDraw();
+}
+// The map window is resizable (drag its left edge, bottom edge or bottom-left corner); the size is remembered on this device.
+function mapSizeGet(){let o={};try{o=JSON.parse(localStorage.getItem('td-map-size')||'{}')||{}}catch(e){}return o}
+function mapApplySize(){
+  const o=mapSizeGet(),r=document.documentElement.style,vw=innerWidth,vh=innerHeight;
+  if(o.w)r.setProperty('--tdmw',Math.max(280,Math.min(vw-320,o.w))+'px');else r.removeProperty('--tdmw');
+  if(o.h)r.setProperty('--tdmh',Math.max(240,Math.min(vh-24,o.h))+'px');else r.removeProperty('--tdmh');
+}
+function wireMapSize(pane){
+  pane.querySelectorAll('.tm-rz').forEach(h=>h.addEventListener('pointerdown',e=>{
+    e.preventDefault();e.stopPropagation();const mode=h.classList.contains('tm-rzw')?'w':h.classList.contains('tm-rzh')?'h':'wh',mobile=innerWidth<=800;
+    const r=pane.getBoundingClientRect(),o=mapSizeGet();try{h.setPointerCapture(e.pointerId)}catch(x){}
+    const mv=ev=>{
+      if(mode.includes('w')&&!mobile)o.w=Math.round(Math.max(280,Math.min(innerWidth-320,r.right-ev.clientX)));
+      if(mode.includes('h'))o.h=Math.round(Math.max(240,Math.min(innerHeight-24,mobile?innerHeight-8-ev.clientY:ev.clientY-r.top)));
+      try{localStorage.setItem('td-map-size',JSON.stringify(o))}catch(x){}mapApplySize();
+    };
+    const up=()=>{h.removeEventListener('pointermove',mv);h.removeEventListener('pointerup',up);h.removeEventListener('pointercancel',up);mapDraw()};
+    h.addEventListener('pointermove',mv);h.addEventListener('pointerup',up);h.addEventListener('pointercancel',up);
+  }));
+  pane.querySelectorAll('.tm-rz').forEach(h=>h.addEventListener('dblclick',()=>{try{localStorage.removeItem('td-map-size')}catch(x){}mapApplySize()}));
 }
 function mapData(){
   const open=allT().filter(t=>!t.done),idx=new Map(open.map(t=>[t.id,t]));
