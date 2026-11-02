@@ -2141,8 +2141,11 @@ function taskRowHtml(t){
   const blocked = !t.done && taskIsBlocked(t);
   const chips = [];
   if(blocked) chips.push('<span class="meta-chip blocked-chip" title="Blocked by: '+escapeHtml(blockingTaskNames(t).join(', '))+'">🔒 Blocked</span>');
-  if(t.due) chips.push('<span class="meta-chip '+dueClass+'">'+fmtDue(t.due)+(t.dueTime?' '+fmt12(t.dueTime):'')+'</span>');
+  if(t.due) chips.push('<span class="meta-chip '+dueClass+'">'+fmtDue(t.due)+(t.dueTime?' '+(t.dl?'by ':'')+fmt12(t.dueTime):'')+'</span>');
   else chips.push('<span class="meta-chip no-due">No due date</span>');
+  if(t.a) chips.push('<span class="meta-chip" title="'+(t.by?'Handed over by '+escapeHtml(t.by):'')+'">👤 '+(t.a===activeProfile?(t.by?'from '+escapeHtml(t.by):'for you'):'for '+escapeHtml(t.a))+'</span>');
+  if(t.done && t.doneBy) chips.push('<span class="meta-chip" title="Who ticked it">✓ '+escapeHtml(t.doneBy)+'</span>');
+  if(t.est) chips.push('<span class="meta-chip">⏱ '+(t.est<60?t.est+'m':Math.floor(t.est/60)+'h'+(t.est%60?' '+(t.est%60)+'m':''))+'</span>');
   if(t.repeat && t.repeat!=='none') chips.push('<span class="meta-chip repeat">repeats '+(t.repeat==='everyNDays' ? 'every '+(t.freqDays||1)+' days' : t.repeat)+'</span>');
   if(t.subtasks.length) chips.push('<span class="meta-chip">'+subDone+'/'+t.subtasks.length+'</span>');
   if(t.link) chips.push('<a class="link-chip" href="'+escapeHtml(t.link)+'" target="_blank" rel="noopener" onclick="event.stopPropagation()">🔗 link</a>');

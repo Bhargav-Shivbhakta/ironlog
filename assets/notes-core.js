@@ -163,7 +163,7 @@
     var lines=[];
     (function walk(n,depth){
       n.childNodes.forEach(function(x){
-        if(x.nodeType===3){var s=x.textContent.replace(/\s+/g,' ').trim();if(s)lines.push({t:s,depth:depth,li:false});return}
+        if(x.nodeType===3){x.textContent.split(/\n/).forEach(function(part){var s=part.replace(/\s+/g,' ').trim();if(s)lines.push({t:s,depth:depth,li:false})});return}
         if(x.nodeType!==1)return;
         if(x.tagName==='UL'||x.tagName==='OL'){walk(x,depth+1);return}
         if(x.tagName==='LI'){

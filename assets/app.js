@@ -295,7 +295,7 @@ async function loadHubMeta(){
   const accents=(accentsDoc&&accentsDoc.accents)?accentsDoc.accents:(legacyTheme&&legacyTheme.accents)?legacyTheme.accents:JSON.parse(JSON.stringify(DEFAULT_THEME.accents));
   const appearance=appearanceDoc||(legacyTheme?{mode:legacyTheme.mode,wallpaper:legacyTheme.wallpaper}:null)||{mode:DEFAULT_THEME.mode,wallpaper:JSON.parse(JSON.stringify(DEFAULT_THEME.wallpaper))};
   state.theme={accents,mode:appearance.mode||'light',wallpaper:appearance.wallpaper||DEFAULT_THEME.wallpaper};
-  state.widgets = (widgets && widgets[state.profile] && widgets[state.profile].length) ? widgets[state.profile].map(w=>w&&w.type==='checklist'?Object.assign({},w,{type:'notes',id:'w-notes'}):w).filter(w=>w&&WIDGET_TYPES[w.type]).filter((w,i,a)=>w.type!=='notes'||a.findIndex(x=>x.type==='notes')===i) : widgetDefaultLayout();
+  state.widgets = (widgets && widgets[state.profile] && widgets[state.profile].length) ? widgets[state.profile].map(w=>w&&w.type==='checklist'?Object.assign({},w,{type:'notes',id:'w-notes'}):w).map(w=>w&&(w.type==='priorities'||w.type==='taskmap')?Object.assign({},w,{type:'todo',id:'w-todo'}):w).filter(w=>w&&WIDGET_TYPES[w.type]).filter((w,i,a)=>(w.type!=='notes'&&w.type!=='todo')||a.findIndex(x=>x.type===w.type)===i) : widgetDefaultLayout();
   // One-time: put the Calendar widget onto layouts saved before it existed.
   try{
     const k='hub-agenda-seeded-'+state.profile;
@@ -684,6 +684,7 @@ const SCHEDULE_SETTINGS=[
   {key:'anyt',label:'"Anytime today" tasks',hint:'Tasks with no time set',type:'bool',def:true},
   {key:'ev',label:'Calendar events',type:'bool',def:true},
   {key:'task',label:'Tasks due today',type:'bool',def:true},
+  {key:'past',label:'Blocks whose time has passed',hint:'Hidden once over, with a button to look back',type:'seg',opts:[['hide','Hide'],['show','Show']],def:'hide'},
   {key:'done',label:'Ticked blocks',type:'seg',opts:[['stay','Stay'],['hide','Tuck away']],def:'stay'},
   {key:'fmt',label:'Time format',type:'seg',opts:[['12','12-hour'],['24','24-hour']],def:'12'}
 ];
@@ -859,7 +860,7 @@ const WATER_SETTINGS=[
 ];
 function waterResetData(){const w=state.water;if(!w)return;Object.assign(w,WATER_BASE);w.goal=wDefGoal();saveWater()}
 
-let schedLog={key:null,map:{},t:0},schedShowDone=false;
+let schedLog={key:null,map:{},t:0},schedShowDone=false,schedShowPast=false;
 let schedX={key:null,links:{},steps:{},diet:null,t:0};
 const dietRef=()=>db.collection('users').doc(state.user.uid).collection('apps').doc('nourish-diet-v2').collection('data').doc('state');
 async function schedLoadLog(force,S){
@@ -947,15 +948,21 @@ function renderScheduleWidget(el,w){
   const uRow=x=>x.k==='event'?eventRow(x):taskRow(x);
   const skinRows=b=>b.skin.map(sec=>{const n=sec.steps.filter(z=>z.done).length;return '<div class="sc-sub"><span class="sc-subh">'+esc(sec.label)+' · '+n+'/'+sec.steps.length+'<span class="sc-tag">skin</span></span>'+sec.steps.map(z=>'<div class="sc-u'+(z.done?' sc-udone':'')+'"><button type="button" class="sc-sq'+(z.done?' on':'')+'" data-sc-skin="'+esc(z.k)+'" aria-label="'+(z.done?'Untick ':'Tick ')+esc(z.text)+'">'+(z.done?'✓':'')+'</button><span class="sc-ut">'+esc(z.text)+'</span></div>').join('')+'</div>'}).join('');
   const mealRows=b=>b.meals.map(m=>m.entries.length?m.entries.map(e=>'<div class="sc-u'+(e.eaten?' sc-udone':'')+'"><button type="button" class="sc-sq'+(e.eaten?' on':'')+'" data-sc-meal="'+esc(e.id)+'" aria-label="'+(e.eaten?'Mark not eaten: ':'Mark eaten: ')+esc(e.name)+'">'+(e.eaten?'✓':'')+'</button><span class="sc-ut">'+esc(e.name)+'<span class="sc-tag">meal</span></span></div>').join(''):'<div class="sc-u sc-ev"><span class="sc-ico"></span><span class="sc-ut">'+esc(m.name)+'<span class="sc-tag">meal · not logged yet</span></span></div>').join('');
+  const hidePast=S.past==='hide';
+  const isPastB=b=>b.e<=nowM&&!(cur&&cur.idx===b.idx);
+  const pastN=hidePast?blocks.filter(b=>isPastB(b)&&!(hide&&doneB(b)&&!schedShowDone)).length+rows.filter(r=>r.gap&&r.m<nowM).length:0;
   let html='';
+  if(pastN||(hidePast&&schedShowPast))html+='<button type="button" class="sc-showdone sc-showpast" data-sc-showpast>'+(schedShowPast?'Hide earlier blocks':pastN+' earlier today · Show')+'</button>';
   if(S.bar&&blocks.length)html+='<div class="sc-prog"><div class="sc-pt"><span><b>'+nDone+' / '+blocks.length+'</b> blocks done</span><span>'+pct+'%</span></div><div class="sc-bar"><i style="width:'+pct+'%"></i></div></div>';
   html+='<div class="sc-tl">';
   rows.forEach(x=>{
     if(x.gap){
+      if(hidePast&&x.m<nowM&&!schedShowPast)return;
       html+='<div class="sc-row"><span class="sc-tm">'+esc(fm(x.time)).replace(' ','<br>')+'</span><span class="sc-rail">'+(x.k==='task'?'<button type="button" class="sc-sq sc-sqg" data-sc-task="'+esc(x.id)+'" aria-label="Complete '+esc(x.t)+'"></button>':'<span class="sc-c sc-mini"></span>')+'</span><span class="sc-bd"><strong class="sc-plain">'+esc(x.t)+'<span class="sc-tag">'+x.k+(x.shared?' · shared':'')+'</span></strong></span></div>';
       return;
     }
     const isDone=doneB(x);if(hide&&isDone&&!schedShowDone)return;
+    if(hidePast&&isPastB(x)&&!schedShowPast)return;
     const isNow=!!cur&&cur.idx===x.idx&&!isDone,miss=S.miss&&!isDone&&!isNow&&x.e<nowM,kids=kidsOf(x);
     const under=x.linkedChores.map(choreRow).join('')+x.linkedTasks.map(linkedTaskRow).join('')+mealRows(x)+skinRows(x)+kids.map(uRow).join('');
     html+='<div class="sc-row'+(isNow?' sc-cur':'')+(isDone?' sc-done':'')+'"><span class="sc-tm">'+esc(fm(x.start)).replace(' ','<br>')+'</span><span class="sc-rail"><button type="button" class="sc-c" data-sc-block="'+x.idx+'" aria-label="'+(isDone?'Untick ':'Tick ')+esc(x.t)+'">'+(isDone?'✓':'')+'</button></span>'+
@@ -974,6 +981,7 @@ function renderScheduleWidget(el,w){
     const c=e.target.closest('[data-sc-chore]');if(c){c.classList.add('on');c.textContent='✓';completeChoreFromWidget(c.dataset.scChore,el,()=>renderScheduleWidget(el,w));return}
     const sk=e.target.closest('[data-sc-skin]');if(sk){schedToggleSkin(sk.dataset.scSkin,w);return}
     const ml=e.target.closest('[data-sc-meal]');if(ml){schedToggleMeal(ml.dataset.scMeal,w);return}
+    if(e.target.closest('[data-sc-showpast]')){schedShowPast=!schedShowPast;renderScheduleWidget(el,w);return}
     if(e.target.closest('[data-sc-showdone]')){schedShowDone=!schedShowDone;renderScheduleWidget(el,w)}
   };
 }
@@ -1607,7 +1615,7 @@ function widgetSpanFor(w,def){
 function widgetDefaultLayout(){
   return [
     {id:'w-schedule',type:'schedule',colSpan:6,rowSpan:20},
-    {id:'w-priorities',type:'priorities',colSpan:6,rowSpan:20},
+    {id:'w-todo',type:'todo',colSpan:6,rowSpan:24},
     {id:'w-agenda',type:'agenda',colSpan:12,rowSpan:16},
     {id:'w-chores',type:'chores',colSpan:12,rowSpan:13},
     {id:'w-quicklinks',type:'quicklinks',colSpan:12,rowSpan:6}
@@ -1702,7 +1710,10 @@ const PHOTO_SETTINGS=[
   {key:'shuf',label:'Shuffle',type:'bool',def:false},
   {key:'only',label:'Show',hint:'Favourites shows only the hearted photos (all of them until you heart one).',type:'seg',opts:[['all','All'],['fav','Favourites']],def:'all'},
   {h:'Look'},
-  {key:'fit',label:'Photo fit',type:'seg',opts:[['fill','Fill'],['fit','Whole photo']],def:'fill'},
+  {key:'view',label:'Layout',hint:'One photo at a time, or all of them as tiles',type:'seg',opts:[['one','One photo'],['grid','All tiles']],def:'one'},
+  {key:'fit',label:'Photo fit',hint:'Fill crops to the shape, Whole shows every edge, Stretch squeezes it to the shape',type:'seg',opts:[['fill','Fill'],['fit','Whole'],['stretch','Stretch']],def:'fill'},
+  {key:'focus',label:'When filling, keep the',hint:'Which part stays in view when the photo is cropped',type:'seg',opts:[['top','Top'],['center','Middle'],['bottom','Bottom']],def:'center'},
+  {key:'bar',label:'Buttons',type:'seg',opts:[['always','Always'],['hover','On touch/hover'],['hide','Hidden']],def:'always'},
   {key:'cap',label:'Show captions',type:'bool',def:true},
   {key:'zoom',label:'Tap a photo to enlarge',type:'bool',def:true}
 ];
@@ -1741,9 +1752,6 @@ const WIDGET_TYPES={
   schedule:{title:"Today's schedule",icon:'calendar-clock',desc:"Your day as a line you fill in: tick blocks, see events and tasks under the block they fall in. Gear for settings.",defaultSize:'lg',
     settings:SCHEDULE_SETTINGS,
     render(el,w){renderScheduleWidget(el,w);schedLoadLog(false,wsAll(w,WIDGET_TYPES.schedule)).then(ch=>{if(ch&&el.isConnected)renderScheduleWidget(el,w)}).catch(()=>{})}},
-  priorities:{title:'Priorities',icon:'list-checks',desc:'Tasks due today — check them off right from the board.',defaultSize:'lg',
-    headerAction:true, // shows the "+" quick-add button in this widget's own title bar — see renderWidgetBoard()
-    render(el){renderTasksInto(el,dueTasks().slice(0,8))}},
   chores:{title:'Chores due today',icon:'sparkles',desc:'Household chores due or overdue today.',defaultSize:'md',
     render(el){renderChoresListInto(el,choresDueToday())}},
   training:{title:'Training',icon:'dumbbell',desc:"Whether today's workout check-in has been started.",defaultSize:'sm',
@@ -1858,60 +1866,6 @@ const WIDGET_TYPES={
           shown.map(e=>'<div class="act-row'+(e.d?'':' act-un')+'"><span class="act-av act-'+(e.p==='Anusha'?'a':'b')+'" title="'+esc(e.p)+'">'+esc((e.p||'?')[0])+'</span><span class="act-tx"><span class="act-l">'+esc(label(e))+'</span><small>'+(e.d?'Ticked':'Unticked')+' · '+esc(SRC[e.s]||e.s)+(e.x?' · '+esc(e.x):'')+'</small></span><time>'+esc(fmtT(e.t))+'</time></div>').join('');
       }catch(err){el.innerHTML='<div class="empty-state"><strong>Unavailable</strong>Could not load the tick log.</div>'}
     }},
-  taskmap:{title:'Task order map',icon:'git-branch',desc:"The same level-by-level order map from the To-Do app's Map view — see what's next and what's still waiting on something else, right from Today.",defaultSize:'lg',
-    async render(el){
-      wLoading(el);
-      try{
-        const uid=state.user.uid;
-        const [pt,st]=await Promise.all([
-          db.collection('users').doc(uid).collection('todo-profiles').doc(state.profile).collection('data').doc('tasks').get().catch(()=>null),
-          db.collection('users').doc(uid).collection('todo-shared').doc('tasks').get().catch(()=>null)
-        ]);
-        const personalTasks=(pt&&pt.exists&&pt.data().json)?safeJson(pt.data().json,[]):[];
-        const sharedTasks=(st&&st.exists&&st.data().json)?safeJson(st.data().json,[]):[];
-        const all=personalTasks.concat(sharedTasks);
-        const findById=id=>all.find(t=>t.id===id);
-        const isBlocked=t=>(t.dependsOn||[]).some(depId=>{const d=findById(depId);return d&&!d.done});
-        const blockerNames=t=>(t.dependsOn||[]).map(depId=>findById(depId)).filter(d=>d&&!d.done).map(d=>d.title);
-        const levelMemo={};
-        const level=(id,visiting)=>{
-          visiting=visiting||{};
-          if(levelMemo.hasOwnProperty(id))return levelMemo[id];
-          if(visiting[id])return 0;
-          visiting[id]=true;
-          const found=findById(id);
-          const deps=(found&&found.dependsOn)||[];
-          let lvl=0;
-          deps.forEach(depId=>{if(findById(depId))lvl=Math.max(lvl,level(depId,visiting)+1)});
-          levelMemo[id]=lvl;
-          return lvl;
-        };
-        // Only not-yet-done tasks — this is a glanceable "what's next" view,
-        // not the full editable map (that's still the To-Do app's own Map
-        // view, which this widget links out to).
-        const active=all.filter(t=>!t.done);
-        if(!active.length){
-          el.innerHTML='<div class="empty-state"><strong>All clear</strong>No open tasks to map right now.</div>';
-          return;
-        }
-        const byLevel={};
-        active.forEach(t=>{(byLevel[level(t.id)]=byLevel[level(t.id)]||[]).push(t)});
-        const levels=Object.keys(byLevel).map(Number).sort((a,b)=>a-b);
-        el.innerHTML='<div class="taskmap-widget-scroll"><div class="taskmap-widget-cols">'+
-          levels.map(lvl=>'<div class="taskmap-widget-col"><div class="taskmap-widget-col-label">Level '+(lvl+1)+'</div>'+
-            byLevel[lvl].map(t=>{
-              const blocked=isBlocked(t);
-              return '<div class="taskmap-widget-node'+(blocked?' blocked':'')+'">'+
-                '<div class="taskmap-widget-node-title">'+esc(t.title)+'</div>'+
-                (blocked?'<div class="taskmap-widget-node-lock">🔒 '+esc(blockerNames(t).join(', '))+'</div>':'')+
-              '</div>';
-            }).join('')+
-          '</div>').join('')+
-        '</div></div>'+
-        '<a class="widget-card-link" href="apps/todo.html" data-profile-link>Open full Map <i data-lucide="arrow-up-right"></i></a>';
-        updateProfileLinks();if(window.lucide)lucide.createIcons();
-      }catch(e){el.innerHTML='<div class="empty-state"><strong>Unavailable</strong>Could not load the task map.</div>'}
-    }},
   photos:{title:'Photo widget',icon:'image',desc:'Your own little rotating gallery — add photos, caption and heart them, shuffle, play on its own, tap to enlarge. Add as many of these as you like.',defaultSize:'lg',bare:true,multiple:true,
     settings:PHOTO_SETTINGS,
     render(el,w){renderPhotoWidgetInto(el,w.id)}},
@@ -1992,7 +1946,7 @@ function waterPaint(el,wdg,anim){
   const banner=due?'<div class="wt-remind"><b>Time to drink '+esc(waterFmt(due.ml))+'</b><small>Planned for '+esc(wT(due.time))+'</small><div class="wt-rb"><button type="button" class="pri" data-wt-do="'+esc(due.id)+'" data-w="now">Drank it</button><button type="button" data-wt-snz="'+esc(due.id)+'">Snooze '+w.snooze+' min</button><button type="button" data-wt-skip="'+esc(due.id)+'">Skip</button></div></div>':'';
   // buttons
   const btns=[[w.ncup,w.cup,''],[w.nbottle,w.bottle,'']];if(w.third>0)btns.push([w.nthird,w.third,'wt-hs']);
-  const btnHtml=btns.map(([n,v,c])=>'<button type="button" class="'+c+'" data-wt-add="'+v+'">+ '+esc(n)+'<small>'+esc(waterFmt(v))+'</small></button>').join('')+'<button type="button" class="wt-hs" data-wt-custom>+ Custom<small>any amount or time</small></button>';
+  const btnHtml=btns.map(([n,v,c])=>'<button type="button" class="'+c+'" data-wt-add="'+v+'">+ '+esc(n)+'<small>'+esc(waterFmt(v))+'</small></button>').join('')+'<button type="button" class="wt-cu" data-wt-custom aria-label="Custom amount or time">+ Custom<small>any amount</small></button>';
   const last=waterSips(k).length?waterSips(k)[waterSips(k).length-1]:null;
   // 30-day chart
   const weekHtml=keys.map(d=>{const v=waterTotal(d),g=waterGoalFor(d),dd=Number(d.slice(8)),mon=new Date(d+'T12:00:00').toLocaleDateString([],{month:'short'});
@@ -2013,10 +1967,9 @@ function waterPaint(el,wdg,anim){
    '<g class="wt-bodyw"><g fill="none" stroke="var(--faint)" stroke-width="5" stroke-linejoin="round">'+shapes+'</g><g fill="var(--wsoft)">'+shapes+'</g>'+
    '<g clip-path="url(#wtgc)"><g class="wt-lvl" style="transform:translateY('+prevLvl+'px)" data-to="'+lvl+'"><g class="wt-wave2"><path d="M-60 6q15-9 30 0t30 0 30 0 30 0 30 0 30 0 30 0V200H-60z" fill="var(--w1)"/></g><g class="wt-wave1"><path d="M-60 8q15-9 30 0t30 0 30 0 30 0 30 0 30 0 30 0V200H-60z" fill="url(#wtwg)"/></g></g></g></g>'+
    '<line x1="6" x2="94" y1="48.4" y2="48.4" stroke="var(--muted)" stroke-width="1" stroke-dasharray="3 3" opacity=".7"/><text class="wt-lim" x="96" y="51">70%</text></svg></div>'+
-   '<div class="wt-nums"><div class="wt-big">'+esc(waterFmt(t))+'</div><div class="wt-of">of '+esc(waterFmt(G))+(t>=G?' · goal hit':'')+'</div>'+(pace?'<span class="wt-pace'+pcls+'">'+esc(pace)+'</span>':'')+'</div></div>'+
+   '<div class="wt-nums"><div class="wt-big">'+esc(waterFmt(t))+'</div><div class="wt-of">of '+esc(waterFmt(G))+(t>=G?' · goal hit':'')+'</div>'+(pace?'<span class="wt-pace'+pcls+'">'+esc(pace)+'</span>':'')+'<div class="wt-btns">'+btnHtml+'</div></div></div>'+
    (isT&&!(size==='sm')?'<div class="wt-trackw"><div class="wt-track"><i style="width:'+prevW+'%" data-to="'+pct+'"></i>'+(S.pace?'<s style="left:calc('+(exp/G*100)+'% - 1px)"></s>':'')+'</div>'+(S.pace?'<div class="wt-tl"><span>'+esc(time12(w.start))+'</span><span>'+esc(time12(w.end))+'</span></div>':'')+'</div>':'')+
    (nextLine&&(size==='sm'||!S.plan)?'<div class="wt-next">'+nextLine+'</div>':'')+
-   '<div class="wt-btns">'+btnHtml+'</div>'+
    '<div class="wt-custom'+(wtUi.custom?' on':'')+'"><input type="number" inputmode="decimal" step="any" data-wt-cin placeholder="Amount in '+w.unit+'"><input type="time" data-wt-ctime value="'+wHm(isT?nowM:720)+'" title="When did you drink it?"><button type="button" data-wt-cgo>Add</button></div>'+
    (last&&size!=='sm'?'<button type="button" class="wt-undo" data-wt-undo>Undo last drink ('+esc(waterFmt(last.ml)+(past||last.at==null?'':' · '+wT(last.at)))+')</button>':'')+
    (S.plan&&size!=='sm'?'<div class="wt-plan"><div class="wt-ph"><span>'+(isT?'Plan for today':'Plan for '+esc(wtLabel(k)))+'</span>'+(isT?'<div><button type="button" class="wt-mini" data-wt-auto>Auto-plan</button><button type="button" class="wt-mini" data-wt-addplan>+ Add</button></div>':'')+'</div>'+
@@ -2174,7 +2127,17 @@ function renderPhotoWidgetInto(el,widgetId){
   rt.pos=((rt.pos%rt.order.length)+rt.order.length)%rt.order.length;
   const photo=photos.find(p=>p.id===rt.order[rt.pos])||photos[0];
   const n=rt.order.length,many=n>1,space=pwSpace();
-  el.innerHTML='<div class="photo-widget'+(S.fit==='fit'?' pw-contain':'')+'">'+
+  if(S.view==='grid'){
+    const tiles=rt.order.map((id,i)=>{const ph=photos.find(x=>x.id===id);return ph?'<button type="button" class="pw-tile" data-pw-tile="'+i+'" aria-label="Open photo '+(i+1)+'"><img src="'+ph.src+'" alt="'+esc(ph.cap||'Photo')+'">'+(S.cap&&ph.cap?'<span>'+esc(ph.cap)+'</span>':'')+'</button>':''}).join('');
+    el.innerHTML='<div class="photo-widget pw-gridview'+(S.fit==='fit'?' pw-contain':S.fit==='stretch'?' pw-stretch':'')+' pw-f-'+(S.focus||'center')+'"><div class="pw-grid">'+tiles+'</div>'+
+      '<button type="button" class="pw-gadd" data-photo-add title="Add photos ('+Math.max(0,100-space)+'% space left)"><i data-lucide="plus"></i></button><input type="file" accept="image/*" multiple hidden data-photo-file></div>';
+    if(window.lucide)lucide.createIcons();
+    el.querySelector('[data-photo-add]').addEventListener('click',()=>el.querySelector('[data-photo-file]').click());
+    el.querySelector('[data-photo-file]').addEventListener('change',e=>{handlePhotoWidgetUpload(e.target.files,el,widgetId);e.target.value=''});
+    el.querySelectorAll('[data-pw-tile]').forEach(b=>b.addEventListener('click',()=>{if(widgetEditMode)return;rt.pos=+b.dataset.pwTile;if(S.zoom)photoLightbox(widgetId,el)}));
+    return;
+  }
+  el.innerHTML='<div class="photo-widget'+(S.fit==='fit'?' pw-contain':S.fit==='stretch'?' pw-stretch':'')+' pw-f-'+(S.focus||'center')+' pw-bar-'+(S.bar||'always')+'">'+
     '<div class="photo-widget-frame'+(S.zoom?' pw-zoomable':'')+'" data-photo-frame><img src="'+photo.src+'" alt="'+esc(photo.cap||'Photo')+'"></div>'+
     '<button type="button" class="pw-heart'+(photo.fav?' on':'')+'" data-photo-fav title="'+(photo.fav?'Remove from favourites':'Favourite')+'" aria-pressed="'+(photo.fav?'true':'false')+'"><i data-lucide="heart"></i></button>'+
     (S.cap&&photo.cap&&!rt.editing?'<div class="pw-cap">'+esc(photo.cap)+'</div>':'')+
@@ -2399,14 +2362,62 @@ async function nwNoteToTask(id){
   const n=nw.notes.find(x=>x.id===id);if(!n)return;
   const txt=NotesCore.plain(n.text);if(!txt){toast('Write something in the note first');return}
   const parts=NotesCore.display(n.text).replace(/<\/(li|div|p)>|<br\s*\/?>/gi,'\n');const d=document.createElement('div');d.innerHTML=parts;
-  const lines=(d.textContent||'').split('\n').map(s=>s.trim()).filter(Boolean),title=lines[0].slice(0,120),rest=lines.slice(1).join('\n').slice(0,1000);
-  const task={id:'task-'+Date.now()+'-'+Math.floor(Math.random()*1000),title,done:false,priority:0,startDate:today(),due:null,dueTime:null,repeat:'none',notes:rest,link:'',tags:[],subtasks:[],listId:'personal',createdBy:state.profile,order:Date.now(),createdAt:new Date().toISOString()};
-  const rr=await readSafe(nwTasksRef(),[]);if(!rr.ok||!Array.isArray(rr.val)){toast('Couldn’t reach your tasks — try again');return}
+  const lines=(d.textContent||'').split('\n').map(s=>s.trim()).filter(Boolean),first=lines[0].slice(0,200),rest=lines.slice(1).join('\n').slice(0,1000);
+  const P=(window.TodoCore?TodoCore.parse(first,{now:new Date(),me:state.profile}):null)||{title:first,due:null,time:null,pri:0,who:null,shared:false};
+  const other=nwOther(),t0=today();
+  const f={title:(P.title||first).slice(0,120),notes:rest,due:P.due||undefined,time:P.time||'',pri:P.pri||0,who:P.shared?'shared':(P.who&&P.who!==state.profile?P.who:'me')};
+  const got=await nwTaskDialog(f,other,t0);if(!got)return;
+  const shared=got.who!=='me';
+  const task={id:'task-'+Date.now()+'-'+Math.floor(Math.random()*1000),title:got.title,done:false,priority:got.pri,startDate:t0,due:got.due||null,dueTime:got.due?(got.time||null):null,repeat:'none',notes:got.notes,link:'',tags:[],subtasks:[],listId:shared?'shared':'personal',createdBy:state.profile,order:Date.now(),createdAt:new Date().toISOString()};
+  if(got.who!=='me'&&got.who!=='shared'){task.a=got.who;task.by=state.profile}
+  const ref=shared?sharedTodoRef():nwTasksRef();
+  const rr=await readSafe(ref,[]);if(!rr.ok||!Array.isArray(rr.val)){toast('Couldn’t reach your tasks — try again');return}
+  const setList=l=>{if(shared)state.sharedTasks=l;else state.personalTasks=l};
   try{
-    await nwTasksRef().set({json:JSON.stringify(rr.val.concat([task])),updatedAt:firebase.firestore.FieldValue.serverTimestamp()},{merge:true});
-    state.personalTasks=rr.val.concat([task]);if(typeof renderDashboard==='function')renderDashboard();
-    nwSetUndo('Task added to your To-Do',async()=>{const r2=await readSafe(nwTasksRef(),[]);if(!r2.ok)return toast('Couldn’t undo — try again');const keep=r2.val.filter(t=>t.id!==task.id);await nwTasksRef().set({json:JSON.stringify(keep),updatedAt:firebase.firestore.FieldValue.serverTimestamp()},{merge:true});state.personalTasks=keep;if(typeof renderDashboard==='function')renderDashboard()});
+    await ref.set({json:JSON.stringify(rr.val.concat([task])),updatedAt:firebase.firestore.FieldValue.serverTimestamp()},{merge:true});
+    setList(rr.val.concat([task]));if(typeof renderDashboard==='function')renderDashboard();
+    nwSetUndo('Task added to '+(shared?'the shared To-Do':'your To-Do'),async()=>{const r2=await readSafe(ref,[]);if(!r2.ok)return toast('Couldn’t undo — try again');const keep=r2.val.filter(t=>t.id!==task.id);await ref.set({json:JSON.stringify(keep),updatedAt:firebase.firestore.FieldValue.serverTimestamp()},{merge:true});setList(keep);if(typeof renderDashboard==='function')renderDashboard()});
   }catch(e){toast('Couldn’t add the task — try again')}
+}
+/* asks for what a task needs (day, how important, whose it is) before anything is created */
+function nwTaskDialog(f,other,t0){
+  return new Promise(res=>{
+    document.querySelectorAll('.nw-tdm').forEach(x=>x.remove());
+    const st={title:f.title,notes:f.notes,due:f.due,time:f.time,pri:f.pri,who:f.who,pick:false};
+    const tm=addDays(t0,1);
+    const m=document.createElement('div');m.className='nw-tdm';m.setAttribute('role','dialog');m.setAttribute('aria-label','New task from note');
+    const draw=()=>{
+      const dChoice=st.due===null?'none':st.due===t0?'today':st.due===tm?'tom':st.due?'pick':'';
+      const ask=st.due===undefined;
+      m.innerHTML='<form class="nw-tdb"><h3>Make a task</h3>'+
+        '<label>What<input type="text" data-f="title" maxlength="120" value="'+esc(st.title)+'"></label>'+
+        '<div class="nw-tdr"><span>When'+(ask?'<em> · pick a day, or No date</em>':'')+'</span><div class="nw-tdsg'+(ask?' ask':'')+'">'+
+          [['today','Today'],['tom','Tomorrow'],['pick','Pick…'],['none','No date']].map(([k,l])=>'<button type="button" data-d="'+k+'" class="'+(dChoice===k?'on':'')+'">'+l+'</button>').join('')+'</div>'+
+          '<div class="nw-tdx'+(dChoice==='pick'||st.pick?' show':'')+'"><input type="date" data-f="due" value="'+(st.due&&dChoice==='pick'?st.due:'')+'" min="'+t0+'"><input type="time" data-f="time" value="'+esc(st.time||'')+'" title="Time (optional)"></div>'+
+          (st.due&&dChoice!=='pick'&&dChoice!=='none'?'<div class="nw-tdx show"><input type="time" data-f="time" value="'+esc(st.time||'')+'" title="Time (optional)"><small>Time (optional)</small></div>':'')+'</div>'+
+        '<div class="nw-tdr"><span>How important</span><div class="nw-tdsg">'+[[0,'Normal'],[1,'Low'],[2,'Important'],[3,'Urgent']].map(([v,l])=>'<button type="button" data-p="'+v+'" class="'+(st.pri===v?'on':'')+'">'+l+'</button>').join('')+'</div></div>'+
+        '<div class="nw-tdr"><span>Whose</span><div class="nw-tdsg">'+[['me','Just me'],['shared','Both of us'],[other,'For '+other]].map(([v,l])=>'<button type="button" data-w="'+esc(v)+'" class="'+(st.who===v?'on':'')+'">'+esc(l)+'</button>').join('')+'</div></div>'+
+        '<label>Notes<textarea data-f="notes" rows="2" maxlength="1000">'+esc(st.notes)+'</textarea></label>'+
+        '<div class="nw-tda"><button type="button" data-x>Cancel</button><button type="submit" class="go"'+(ask||!st.title.trim()?' disabled':'')+'>Add task</button></div></form>';
+    };
+    const sync=()=>{const g=k=>{const e=m.querySelector('[data-f="'+k+'"]');return e?e.value:null};const t=g('title');if(t!==null)st.title=t;const nt=g('notes');if(nt!==null)st.notes=nt;const tt=g('time');if(tt!==null)st.time=tt;const dd=g('due');if(dd!==null&&dd)st.due=dd};
+    const done=v=>{document.removeEventListener('keydown',onKey,true);m.remove();res(v)};
+    const onKey=e=>{if(e.key==='Escape'){e.preventDefault();e.stopPropagation();done(null)}};
+    draw();document.body.appendChild(m);document.addEventListener('keydown',onKey,true);
+    m.addEventListener('click',e=>{
+      if(e.target===m){done(null);return}
+      const b=e.target.closest('button');if(!b)return;
+      if(b.hasAttribute('data-x')){done(null);return}
+      sync();
+      if(b.dataset.d){const k=b.dataset.d;if(k==='today')st.due=t0,st.pick=false;else if(k==='tom')st.due=tm,st.pick=false;else if(k==='none')st.due=null,st.pick=false,st.time='';else{st.pick=true;if(!st.due||st.due===t0||st.due===tm||st.due===null)st.due=st.due||undefined}draw();const di=m.querySelector('[data-f="due"]');if(di&&k==='pick')di.focus();return}
+      if(b.dataset.p!==undefined){st.pri=+b.dataset.p;draw();return}
+      if(b.dataset.w!==undefined){st.who=b.dataset.w;draw()}
+    });
+    m.addEventListener('input',e=>{if(e.target.matches('[data-f="due"]')&&e.target.value){st.due=e.target.value;st.pick=true;const sb=m.querySelector('.go');if(sb)sb.disabled=!st.title.trim();m.querySelectorAll('.nw-tdsg.ask').forEach(x=>x.classList.remove('ask'))}
+      if(e.target.matches('[data-f="title"]')){const sb=m.querySelector('.go');if(sb)sb.disabled=st.due===undefined||!e.target.value.trim()}});
+    m.addEventListener('submit',e=>{e.preventDefault();sync();if(st.due===undefined||!st.title.trim())return;done({title:st.title.trim().slice(0,120),notes:st.notes.trim(),due:st.due||null,time:st.time||'',pri:st.pri,who:st.who})});
+    const ti=m.querySelector('[data-f="title"]');if(ti){ti.focus();ti.select()}
+  });
 }
 
 /* ---- list operations ---- */
@@ -2475,9 +2486,10 @@ function nwPaint(force){
 }
 function nwSearchText(c){return(c.k==='n'?NotesCore.plain(c.o.text):c.o.title+' '+c.o.items.map(i=>i.t).join(' ')).toLowerCase()}
 const NW_TIP={b:'Bold: make the selected text heavier (Ctrl+B)',i:'Italic: slant the selected text (Ctrl+I)',u:'Underline the selected text (Ctrl+U)',ul:'Bullet list: start a list with dots',ol:'Numbered list: start a list with 1, 2, 3',chk:'Turn this note into a checklist: every bullet or line becomes a tick box',ls:'List style: change the dots or numbers of the list you are in',f:'Font: change the typeface of the selected text'};
+const nwSizeCss=o=>(o&&o.sw>=120?';width:'+Math.min(2000,Math.round(o.sw))+'px':'')+(o&&o.sh>=70?';height:'+Math.min(2400,Math.round(o.sh))+'px':'');
 function nwNoteHtml(n){
   const o=nwOther(),sel=(arr,tip,att)=>'<select data-tip="'+tip+'" '+att+'>'+arr.map(f=>'<option value="'+esc(f.value)+'">'+f.label+'</option>').join('')+'</select>';
-  return '<div class="nw-card nw-note'+(n.pin?' pinned':'')+'" style="background:'+esc(n.color||NotesCore.COLORS[0])+'" data-id="'+esc(n.id)+'" data-kind="n">'+
+  return '<div class="nw-card nw-note'+(n.pin?' pinned':'')+(n.sw?' nw-sized':'')+'" style="background:'+esc(n.color||NotesCore.COLORS[0])+nwSizeCss(n)+'" data-id="'+esc(n.id)+'" data-kind="n">'+
     (n.pin?'<span class="nw-pin"><i data-lucide="pin"></i></span>':'')+
     '<div class="nw-tb">'+
       '<button type="button" data-tip="'+NW_TIP.b+'" data-cmd="bold"><i data-lucide="bold"></i></button>'+
@@ -2502,7 +2514,7 @@ function nwNoteHtml(n){
 function nwListHtml(l){
   const p=NotesCore.prog(l),d=NotesCore.dueInfo(l,today()),shared=l.owner==='shared',mode=l.hide||'keep',rows=NotesCore.rows(l),hid=NotesCore.hiddenCount(l);
   const doneN=l.items.some(i=>i.done),modeLbl={keep:'Ticked stay',sink:'Ticked go last',hide:'Ticked hidden'}[mode]||'Ticked stay';
-  return '<div class="nw-card nw-list'+(l.pin?' pinned':'')+'" style="background:'+esc(l.color||NotesCore.COLORS[2])+'" data-id="'+esc(l.id)+'" data-kind="l">'+
+  return '<div class="nw-card nw-list'+(l.pin?' pinned':'')+(l.sw?' nw-sized':'')+'" style="background:'+esc(l.color||NotesCore.COLORS[2])+nwSizeCss(l)+'" data-id="'+esc(l.id)+'" data-kind="l">'+
     (l.pin?'<span class="nw-pin"><i data-lucide="pin"></i></span>':'')+
     '<div class="nw-ttl" contenteditable="true" data-ed="ttl" data-placeholder="Checklist title" spellcheck="false">'+esc(l.title)+'</div>'+
     '<div class="nw-chips">'+
@@ -2523,6 +2535,7 @@ function nwListHtml(l){
     '<div class="nw-count">'+p.d+' of '+p.n+' done</div>'+
     '<div class="nw-tools">'+(doneN?'<button type="button" data-tip="Remove every ticked item" data-a="clear">Clear ticked</button><button type="button" data-tip="Untick everything so the list can be used again" data-a="reset">Untick all</button>':'')+
       '<button type="button" data-tip="Where ticked items go: stay, go last, or hidden" data-a="mode">'+modeLbl+'</button>'+
+      '<button type="button" data-tip="Turn this checklist into a plain note (you can undo it)" data-a="tonote">Make it a note</button>'+
       '<a href="apps/checklist.html?list='+encodeURIComponent(l.id)+'" data-profile-link data-tip="Open in Checklists: templates, history, archive">Open ↗</a></div>'+
     '<div class="nw-meta"><span class="nw-when">edited '+NotesCore.ago(l.u||l.createdAt||0)+'</span>'+
       '<div class="nw-dots">'+NotesCore.COLORS.map(c=>'<span class="nw-dot'+(l.color===c?' sel':'')+'" style="background:'+c+'" data-a="color" data-c="'+c+'"></span>').join('')+'</div>'+
@@ -2628,8 +2641,20 @@ async function nwNoteFlush(t){
 }
 function nwWire(el){
   if(el.__nwWired)return;el.__nwWired=true;
-  el.addEventListener('pointerdown',()=>{nw.down=true});
-  const up=()=>{if(!nw.down)return;nw.down=false;if(nw.pending)setTimeout(()=>nwPaint(),60)};
+  let rz=null;
+  el.addEventListener('pointerdown',e=>{nw.down=true;rz=null;const c=e.target.closest&&e.target.closest('.nw-card');
+    if(c&&e.target===c){const r=c.getBoundingClientRect();if(e.clientX>r.right-22&&e.clientY>r.bottom-22)rz={c,w:c.offsetWidth,h:c.offsetHeight}}});
+  el.addEventListener('dblclick',async e=>{const c=e.target.closest&&e.target.closest('.nw-card');if(!c||e.target!==c)return;const r=c.getBoundingClientRect();
+    if(!(e.clientX>r.right-22&&e.clientY>r.bottom-22))return;const id=c.dataset.id;
+    if(c.dataset.kind==='n')await nwNotesTx(l=>{const n=l.find(x=>x.id===id);if(!n)return false;delete n.sw;delete n.sh;n.u=Date.now()},null,true);
+    else await nwListOp(id,l=>{delete l.sw;delete l.sh});
+    nwPaint(true)});
+  const up=async()=>{
+    if(rz){const {c,w,h}=rz;rz=null;const nwid=c.offsetWidth,nh=c.offsetHeight;
+      if(c.isConnected&&(Math.abs(nwid-w)>6||Math.abs(nh-h)>6)){const id=c.dataset.id,sw=Math.round(Math.max(120,nwid)),sh=Math.round(Math.max(70,nh));
+        if(c.dataset.kind==='n')await nwNotesTx(l=>{const n=l.find(x=>x.id===id);if(!n)return false;n.sw=sw;n.sh=sh;n.u=Date.now()},null,true);
+        else await nwListOp(id,l=>{l.sw=sw;l.sh=sh})}}
+    if(!nw.down)return;nw.down=false;if(nw.pending)setTimeout(()=>nwPaint(),60)};
   el.addEventListener('pointerup',up);el.addEventListener('pointercancel',up);
   el.addEventListener('mousedown',e=>{if(e.target.closest('.nw-tb button'))e.preventDefault()});
   el.addEventListener('click',async e=>{
@@ -2720,7 +2745,8 @@ function nwWire(el){
       return;
     }
     if(t.matches('[data-ed="note"]')&&(e.ctrlKey||e.metaKey)){
-      const k=e.key.toLowerCase();if(k==='b'||k==='i'||k==='u'){e.preventDefault();document.execCommand(k==='b'?'bold':k==='i'?'italic':'underline');nwNoteQueueSave(t);nwToolbarState(t.closest('.nw-card'))}
+      const k=e.key.toLowerCase();
+      if(e.key==='Enter'){e.preventDefault();document.execCommand('insertParagraph');nwNoteQueueSave(t);return}   // Ctrl+Enter: everything after the cursor starts a new point (a new checklist item when converted)if(k==='b'||k==='i'||k==='u'){e.preventDefault();document.execCommand(k==='b'?'bold':k==='i'?'italic':'underline');nwNoteQueueSave(t);nwToolbarState(t.closest('.nw-card'))}
       return;
     }
     if(t.matches('[data-ed="ttl"]')){if(e.key==='Enter'){e.preventDefault();t.blur()}else if(e.key==='Escape'){t.blur()}return}
@@ -2783,6 +2809,7 @@ let widgetEditMode=false;
 // board itself, which would otherwise be mistaken for an intentional tap
 // on empty space to exit edit mode.
 let widgetGestureActive=false;
+let widgetResizeCancel=null;
 // "Jiggle mode" — nothing on a widget (drag handle, remove badge, resize
 // handle) is visible or interactive until you press and hold, same as
 // rearranging icons on an iPhone home screen. Exited via the Done button
@@ -2935,7 +2962,17 @@ function dietPaint(el,wdg){
   /* week, flex, streak */
   const wk=C.week(D,pid,k),dn=['S','M','T','W','T','F','S'];
   const onT=wk.filter(x=>x.state==='ok'&&x.proteinOk).length,logged=wk.filter(x=>x.eaten>0),avgP=logged.length?Math.round(logged.reduce((a,x)=>a+x.protein,0)/logged.length):0;
-  const weekHtml=S.week?'<div class="dt-sec"><span>Last 7 days</span><span>tap a day</span></div><div class="dt-week">'+wk.map(x=>{const h=Math.max(6,Math.min(46,x.kcal/g.calories*40));return '<div class="dt-wd s-'+x.state+(x.date===k?' sel':'')+'" data-dt-day="'+x.date+'"><div class="dt-col"><div style="height:'+h+'px"></div></div><small>'+dn[new Date(x.date+'T12:00:00').getDay()]+'</small><small class="d">'+(x.eaten?Math.round(x.kcal/10)*10:'–')+'</small></div>'}).join('')+'</div><div class="dt-wkf"><span><b>'+onT+' of '+logged.length+'</b> days on target</span><span>Avg protein <b>'+avgP+' g</b></span></div>':'';
+  const wkSel=dietW.ui.wk&&wk.some(x=>x.date===dietW.ui.wk)?dietW.ui.wk:null;
+  const wkMax=Math.max(g.calories*1.25,...wk.map(x=>x.kcal),1),WH=70;
+  const wkInfo=(()=>{
+    if(!wkSel)return '<span><b>'+onT+' of '+logged.length+'</b> logged days on target</span><span>Avg protein <b>'+avgP+' g</b></span><span class="dt-tip">Tap a bar for that day</span>';
+    const x=wk.find(z=>z.date===wkSel),tt=x.t||{},nm=new Date(x.date+'T12:00:00').toLocaleDateString([],{weekday:'long',month:'short',day:'numeric'});
+    if(!x.eaten)return '<b class="dt-wi-h">'+esc(nm)+'</b><span>Nothing logged.</span><button type="button" class="dt-btn sm" data-dt-day="'+x.date+'">Open this day</button>';
+    const st={ok:'On target',under:'Under',over:'Over'}[x.state]||'';
+    return '<b class="dt-wi-h">'+esc(nm)+' · '+st+'</b><span><b>'+Math.round(x.kcal).toLocaleString()+'</b> of '+Math.round(g.calories).toLocaleString()+' kcal</span><span>Protein <b>'+Math.round(x.protein)+' g</b> / '+Math.round(g.protein)+'</span>'+
+      (tt.carbs!=null?'<span>Carbs <b>'+Math.round(tt.carbs)+' g</b></span>':'')+(tt.fat!=null?'<span>Fat <b>'+Math.round(tt.fat)+' g</b></span>':'')+'<span>'+x.eaten+' meal'+(x.eaten===1?'':'s')+' logged</span><button type="button" class="dt-btn sm" data-dt-day="'+x.date+'">Open this day</button>';
+  })();
+  const weekHtml=S.week?'<div class="dt-sec"><span>Last 7 days</span><span>calories vs goal</span></div><div class="dt-wgraph" style="--wh:'+WH+'px"><i class="dt-gl" style="bottom:calc('+(g.calories/wkMax*WH)+'px + 22px)"></i><div class="dt-week">'+wk.map(x=>{const h=x.eaten?Math.max(5,x.kcal/wkMax*WH):3;return '<button type="button" class="dt-wd s-'+x.state+(x.date===k?' cur':'')+(x.date===wkSel?' sel':'')+'" data-dt-bar="'+x.date+'" aria-label="'+esc(x.date)+': '+Math.round(x.kcal)+' kcal"><div class="dt-col"><div style="height:'+h+'px"></div></div><small>'+dn[new Date(x.date+'T12:00:00').getDay()]+'</small></button>'}).join('')+'</div></div><div class="dt-wi">'+wkInfo+'</div>':'';
   const fx=C.flex(D,pid,td);
   const flexHtml=(S.flex&&isT)?'<div class="dt-line"><span>Flex bank this week</span><b class="'+(fx.bank<0?'neg':'')+'">'+(fx.bank>0?'+':'')+fx.bank.toLocaleString()+' kcal</b><small>'+(fx.doneDays?'Today you can have up to '+fx.todayCap.toLocaleString()+' kcal and still land on the week.':'Starts after your first full day this week.')+'</small></div>':'';
   const streakN=S.streak?C.streak(D,pid,td):0,score=wk.filter(x=>x.eaten>0&&x.state==='ok').length;
@@ -2989,7 +3026,8 @@ function dtWire(el,wdg){
     const q=s=>e.target.closest(s);let x;
     if(x=q('[data-dt-nav]')){const d=Number(x.dataset.dtNav);if(d>0&&!dietW.view)return;const nk=addDays(cur(),d);dietW.view=nk>=today()?null:nk;dietPaint(el,wdg);return}
     if(q('[data-dt-today]')){dietW.view=null;dietPaint(el,wdg);return}
-    if(x=q('[data-dt-day]')){dietW.view=x.dataset.dtDay>=today()?null:x.dataset.dtDay;dietPaint(el,wdg);return}
+    if(x=q('[data-dt-bar]')){const d=x.dataset.dtBar;dietW.ui.wk=dietW.ui.wk===d?null:d;dietPaint(el,wdg);return}
+    if(x=q('[data-dt-day]')){dietW.ui.wk=null;dietW.view=x.dataset.dtDay>=today()?null:x.dataset.dtDay;dietPaint(el,wdg);return}
     if(x=q('[data-dt-open]')){const k=x.dataset.dtOpen;dietW.ui.open[k]=!dietW.ui.open[k];dietPaint(el,wdg);return}
     if(x=q('circle[data-dt-arc]')){const k=x.getAttribute('data-dt-arc');if(k){dietW.ui.open[k]=!dietW.ui.open[k];dietPaint(el,wdg)}return}
     if(x=q('[data-dt-pick]')){const p=dietW.ui.pick[x.dataset.dtPick]=dietW.ui.pick[x.dataset.dtPick]||{};p[x.dataset.g]=x.dataset.r;dietPaint(el,wdg);return}
@@ -3170,7 +3208,7 @@ function skinPaint(el,wdg){
   /* review countdown */
   let revHtml='';
   if(S.review&&!isA){const nx=cal.reviews.find(d=>d>=td);if(nx){const dl=C.daysBetween(td,nx),m=C.monthFor(st.start,nx);revHtml='<div class="sk-rev"><span><b>'+esc(m?m.name.split(' — ')[0]:'Program')+' review</b> '+(dl===0?'is today':'in '+dl+' day'+(dl===1?'':'s'))+' · '+esc(new Date(nx+'T12:00:00').toLocaleDateString([],{month:'short',day:'numeric'}))+'</span><a class="sk-btn sm" href="apps/skin.html" data-profile-link>Open in Skin</a></div>'}}
-  const A=prog+hero+secHtml,B=comingHtml+heatHtml+cabHtml+trkHtml+revHtml;
+  const A='<div class="sk-topgrid">'+prog+hero+'</div>'+secHtml,B=comingHtml+heatHtml+cabHtml+trkHtml+revHtml;
   const keep=el.scrollTop;
   const trackVals={};el.querySelectorAll('[data-sk-obs]').forEach(i=>trackVals.obs=i.value);
   el.innerHTML=head+(size==='wide'?'<div class="sk-body"><div>'+A+'</div><div>'+B+'</div></div>':A+B);
@@ -3320,6 +3358,11 @@ function wLoading(el){ if(!el.firstChild) el.innerHTML='<div class="empty-state"
 function widgetSettingsHtml(def,w){
   const cur=wsAll(w,def);
   return '<div class="widget-settings" aria-hidden="true"><div class="ws-head"><strong>'+esc(def.title)+' settings</strong><button type="button" class="widget-card-gear" data-ws-close aria-label="Back">✕</button></div>'+
+    (()=>{const [c,r]=widgetSpanFor(w,def);
+      const st=(k,v)=>'<div class="ws-step" data-ws-size="'+k+'"><button type="button" data-d="-1" aria-label="Smaller">−</button><output>'+v+'</output><button type="button" data-d="1" aria-label="Bigger">+</button></div>';
+      return '<h4>Size</h4><div class="ws-opt ws-size"><span>Width<small>columns of 12</small></span>'+st('c',c)+'</div>'+
+        '<div class="ws-opt ws-size"><span>Height<small>rows</small></span>'+st('r',r)+'</div>'+
+        '<div class="ws-opt ws-presets"><span>Quick sizes</span><div class="ws-seg" data-ws-presets><button type="button" data-p="s">Small</button><button type="button" data-p="m">Medium</button><button type="button" data-p="l">Large</button><button type="button" data-p="f">Full width</button></div></div><div class="ws-opt ws-presets"><button type="button" class="ws-fit" data-ws-fit>Fit height to content</button></div>';})()+
     def.settings.map(o=>{
       if(o.h)return '<h4>'+esc(o.h)+'</h4>';
       const val=o.get?o.get(w):cur[o.key];
@@ -3347,6 +3390,28 @@ function wireWidgetSettings(card,def,w){
   card.querySelector('[data-widget-gear]').addEventListener('click',e=>{e.stopPropagation();Promise.resolve(def.ready?def.ready():null).then(()=>{refresh();flip(true)})});
   panel.querySelectorAll('[data-ws-in]').forEach(i=>i.addEventListener('change',()=>apply(i.dataset.wsIn,i.value)));
   panel.querySelectorAll('[data-ws-close]').forEach(b=>b.addEventListener('click',()=>flip(false)));
+  const setSize=(c,r)=>{
+    const board=$('widget-board'),maxC=board?getComputedStyle(board).gridTemplateColumns.split(' ').filter(Boolean).length||12:12;
+    c=Math.max(WIDGET_MIN_COL,Math.min(maxC,c));r=Math.max(WIDGET_MIN_ROW,Math.min(WIDGET_MAX_ROW,r));
+    w.colSpan=c;w.rowSpan=r;delete w.size;card.style.setProperty('--cs',c);card.style.setProperty('--rs',r);saveWidgetLayout();
+    panel.querySelectorAll('[data-ws-size]').forEach(g=>{g.querySelector('output').textContent=g.dataset.wsSize==='c'?c:r});
+  };
+  panel.querySelectorAll('[data-ws-size] button').forEach(b=>b.addEventListener('click',()=>{
+    const [c,r]=widgetSpanFor(w,def),d=+b.dataset.d,k=b.parentNode.dataset.wsSize;
+    setSize(k==='c'?c+d:c,k==='r'?r+d:r);
+  }));
+  panel.querySelectorAll('[data-ws-fit]').forEach(b=>b.addEventListener('click',()=>{
+    const body=card.querySelector('.widget-card-body');if(!body)return;
+    const [c,r]=widgetSpanFor(w,def),h0=card.offsetHeight,per=(h0+WIDGET_GAP_PX)/r;
+    const chrome=h0-body.clientHeight,sv=body.style.cssText;
+    body.style.cssText+=';display:block;height:auto;flex:none;overflow:visible;max-height:none';
+    const content=body.scrollHeight;body.style.cssText=sv;
+    const rows=Math.ceil((chrome+content+WIDGET_GAP_PX+6)/per);
+    setSize(c,Math.max(WIDGET_MIN_ROW,Math.min(WIDGET_MAX_ROW,rows)));
+  }));
+  panel.querySelectorAll('[data-ws-presets] button').forEach(b=>b.addEventListener('click',()=>{
+    const P={s:[4,12],m:[6,18],l:[8,26],f:[12,22]}[b.dataset.p];if(P)setSize(P[0],P[1]);
+  }));
   panel.querySelectorAll('[data-ws-key]').forEach(i=>i.addEventListener('change',()=>apply(i.dataset.wsKey,i.checked)));
   panel.querySelectorAll('[data-ws-seg]').forEach(g=>g.querySelectorAll('button').forEach(b=>b.addEventListener('click',()=>{g.querySelectorAll('button').forEach(x=>x.classList.toggle('on',x===b));apply(g.dataset.wsSeg,b.dataset.v)})));
   panel.querySelector('[data-ws-reset]').addEventListener('click',()=>{
@@ -3458,6 +3523,7 @@ function startWidgetResize(card,pointerId,startClientX,startClientY){
   let moved=false,curCol=startCol,curRow=startRow;
   widgetGestureActive=true;
   card.classList.add('resizing');
+  widgetResizeCancel=()=>{document.removeEventListener('pointermove',onMove);document.removeEventListener('pointerup',onUp);document.removeEventListener('pointercancel',onUp);card.classList.remove('resizing');card.style.setProperty('--cs',startCol);card.style.setProperty('--rs',startRow);widgetResizeCancel=null;setTimeout(()=>{widgetGestureActive=false},250);return true};
   const onMove=ev=>{
     if(ev.pointerId!==pointerId)return;
     ev.preventDefault();
@@ -3473,7 +3539,7 @@ function startWidgetResize(card,pointerId,startClientX,startClientY){
     document.removeEventListener('pointermove',onMove);
     document.removeEventListener('pointerup',onUp);
     document.removeEventListener('pointercancel',onUp);
-    card.classList.remove('resizing');
+    card.classList.remove('resizing');widgetResizeCancel=null;
     if(moved){
       w.colSpan=curCol;w.rowSpan=curRow;delete w.size;
       saveWidgetLayout();
@@ -4912,6 +4978,13 @@ if($('app-frame-profile')){
     }
   });
 }
+document.addEventListener('keydown',e=>{
+  if(e.key!=='Escape')return;
+  const t=e.target;if(t&&t.matches&&t.matches('input,textarea,[contenteditable="true"],select'))return;
+  if(typeof widgetResizeCancel==='function'&&widgetResizeCancel()){e.preventDefault();return}
+  const fl=document.querySelector('.widget-card.flipped');if(fl){fl.classList.remove('flipped');const pn=fl.querySelector('.widget-settings');if(pn)pn.setAttribute('aria-hidden','true');return}
+  if(widgetEditMode){widgetSetEditMode(false);e.preventDefault()}
+});
 document.addEventListener('keydown',e=>{ if(e.key==='Escape' && $('app-frame-overlay') && !$('app-frame-overlay').hidden) closeAppFrame(); });
 document.addEventListener('click',e=>{
   if(e.button!==0||e.metaKey||e.ctrlKey||e.shiftKey||e.altKey||e.defaultPrevented) return;
