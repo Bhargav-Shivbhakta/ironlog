@@ -954,7 +954,8 @@ function renderScheduleWidget(el,w){
   const pastN=hidePast?blocks.filter(b=>isPastB(b)&&!(hide&&doneB(b)&&!schedShowDone)).length+rows.filter(r=>r.gap&&r.m<nowM).length:0;
   let html='';
   if(pastN||(hidePast&&schedShowPast))html+='<button type="button" class="sc-showdone sc-showpast" data-sc-showpast>'+(schedShowPast?'Hide earlier blocks':pastN+' earlier today · Show')+'</button>';
-  if(S.bar&&blocks.length)html+='<div class="sc-prog"><div class="sc-pt"><span><b>'+nDone+' / '+blocks.length+'</b> blocks done</span><span>'+pct+'%</span></div><div class="sc-bar"><i style="width:'+pct+'%"></i></div></div>';
+  let progH='';
+  if(S.bar&&blocks.length)progH+='<div class="sc-prog"><div class="sc-pt"><span><b>'+nDone+' / '+blocks.length+'</b> blocks done</span><span>'+pct+'%</span></div><div class="sc-bar"><i style="width:'+pct+'%"></i></div></div>';
   html+='<div class="sc-tl">';
   rows.forEach(x=>{
     if(x.gap){
@@ -972,10 +973,11 @@ function renderScheduleWidget(el,w){
   });
   html+='</div>';
   if(hiddenN)html+='<button type="button" class="sc-showdone" data-sc-showdone>'+(schedShowDone?'Hide done':'Show done ('+hiddenN+')')+'</button>';
-  if(S.anyt&&untimed.length)html+='<div class="sc-any"><h5>Anytime today</h5>'+untimed.map(uRow).join('')+'</div>';
+  let anyH='',nxH='';
+  if(S.anyt&&untimed.length)anyH+='<div class="sc-any"><h5>Anytime today</h5>'+untimed.map(uRow).join('')+'</div>';
   const nx=blocks.find(b=>b.m>nowM&&!doneB(b));
-  if(S.next&&nx)html+='<div class="sc-next">Up next: <b>'+esc(nx.t)+'</b> at '+esc(fm(nx.start))+'</div>';
-  el.innerHTML=html;
+  if(S.next&&nx)nxH+='<div class="sc-next">Up next: <b>'+esc(nx.t)+'</b> at '+esc(fm(nx.start))+'</div>';
+  el.innerHTML=BKW('progress',progH)+BKW('timeline',html)+BKW('anytime',anyH)+BKW('next',nxH);
   el.onclick=e=>{
     const b=e.target.closest('[data-sc-block]');if(b){schedToggleBlock(Number(b.dataset.scBlock),w);return}
     const t=e.target.closest('[data-sc-task]');if(t){t.classList.add('on');t.textContent='✓';setTimeout(()=>completeTask(t.dataset.scTask),180);return}
@@ -1725,7 +1727,7 @@ const NOTES_SETTINGS=[
   {key:'pinfirst',label:'Pinned first',type:'bool',def:true},
   {h:'Look'},
   {key:'size',label:'Text size',type:'seg',opts:[['s','S'],['m','M'],['l','L']],def:'m'},
-  {key:'cols',label:'Columns',type:'seg',opts:[['auto','Auto'],['1','1'],['2','2']],def:'auto'},
+  {key:'cols',label:'Columns',type:'seg',opts:[['auto','Auto'],['1','1'],['2','2'],['3','3']],def:'auto'},
   {key:'bar',label:'Formatting toolbar',type:'seg',opts:[['edit','When editing'],['always','Always']],def:'edit'}
 ];
 const SKIN_SETTINGS=[
@@ -1960,25 +1962,24 @@ function waterPaint(el,wdg,anim){
   const patHtml='<div class="wt-sh"><span>When you drink</span><span>last 7 days</span></div>'+(any?'<div class="wt-pbars">'+hr.map((v,i)=>'<i class="'+(top.includes(i)&&v>0?'pk':'')+'" style="height:'+Math.max(3,v/mx*100)+'%" title="'+esc(wT((i+6)*60)+': '+waterFmt(v))+'"></i>').join('')+'</div><div class="wt-ax"><span>6 AM</span><span>12 PM</span><span>10 PM</span></div><small>Busiest around '+esc(wT((top[0]+6)*60).replace(':00',''))+'. Gym insights reads this.</small>':'<div class="wt-empty">Log a few drinks and your pattern shows here.</div>');
   const prevLvl=el._wtLv!=null?el._wtLv:152,prevW=el._wtW!=null?el._wtW:0;
   const lvl=152-Math.min(1,t/G)*0.70*148-8;
+  const BK=(id,h)=>h?'<div data-blk="'+id+'">'+h+'</div>':'';
   const html=
    '<div class="wt-main"><div class="wt-colA">'+
-   (past?'<div class="wt-dayhead"><button type="button" data-wt-nav="-1" '+(ix<=0?'disabled':'')+' aria-label="Previous day">‹</button><b>'+esc(wtLabel(k))+'</b><button type="button" data-wt-nav="1" '+(ix>=29?'disabled':'')+' aria-label="Next day">›</button><button type="button" data-wt-today>Today</button></div>':'')+
-   banner+
-   '<div class="wt-hero"><div class="wt-fig" title="Your body is about 70% water. Your goal fills it to the line."><div class="wt-say"></div><div class="wt-stream"></div>'+
+   BK('alerts',(past?'<div class="wt-dayhead"><button type="button" data-wt-nav="-1" '+(ix<=0?'disabled':'')+' aria-label="Previous day">‹</button><b>'+esc(wtLabel(k))+'</b><button type="button" data-wt-nav="1" '+(ix>=29?'disabled':'')+' aria-label="Next day">›</button><button type="button" data-wt-today>Today</button></div>':'')+banner)+
+   BK('hero','<div class="wt-hero"><div class="wt-fig" title="Your body is about 70% water. Your goal fills it to the line."><div class="wt-say"></div><div class="wt-stream"></div>'+
    '<svg viewBox="0 0 110 160"><defs><clipPath id="wtgc">'+shapes+'</clipPath><linearGradient id="wtwg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="var(--w1)"/><stop offset="1" stop-color="var(--w2)"/></linearGradient></defs>'+
    '<g class="wt-bodyw"><g fill="none" stroke="var(--faint)" stroke-width="5" stroke-linejoin="round">'+shapes+'</g><g fill="var(--wsoft)">'+shapes+'</g>'+
    '<g clip-path="url(#wtgc)"><g class="wt-lvl" style="transform:translateY('+prevLvl+'px)" data-to="'+lvl+'"><g class="wt-wave2"><path d="M-60 6q15-9 30 0t30 0 30 0 30 0 30 0 30 0 30 0V200H-60z" fill="var(--w1)"/></g><g class="wt-wave1"><path d="M-60 8q15-9 30 0t30 0 30 0 30 0 30 0 30 0 30 0V200H-60z" fill="url(#wtwg)"/></g></g></g></g>'+
    '<line x1="6" x2="94" y1="48.4" y2="48.4" stroke="var(--muted)" stroke-width="1" stroke-dasharray="3 3" opacity=".7"/><text class="wt-lim" x="96" y="51">70%</text></svg></div>'+
    '<div class="wt-nums"><div class="wt-big">'+esc(waterFmt(t))+'</div><div class="wt-of">of '+esc(waterFmt(G))+(t>=G?' · goal hit':'')+'</div>'+(pace?'<span class="wt-pace'+pcls+'">'+esc(pace)+'</span>':'')+'<div class="wt-btns">'+btnHtml+'</div></div></div>'+
-   (isT&&!(size==='sm')?'<div class="wt-trackw"><div class="wt-track"><i style="width:'+prevW+'%" data-to="'+pct+'"></i>'+(S.pace?'<s style="left:calc('+(exp/G*100)+'% - 1px)"></s>':'')+'</div>'+(S.pace?'<div class="wt-tl"><span>'+esc(time12(w.start))+'</span><span>'+esc(time12(w.end))+'</span></div>':'')+'</div>':'')+
-   (nextLine&&(size==='sm'||!S.plan)?'<div class="wt-next">'+nextLine+'</div>':'')+
-   '<div class="wt-custom'+(wtUi.custom?' on':'')+'"><input type="number" inputmode="decimal" step="any" data-wt-cin placeholder="Amount in '+w.unit+'"><input type="time" data-wt-ctime value="'+wHm(isT?nowM:720)+'" title="When did you drink it?"><button type="button" data-wt-cgo>Add</button></div>'+
-   (last&&size!=='sm'?'<button type="button" class="wt-undo" data-wt-undo>Undo last drink ('+esc(waterFmt(last.ml)+(past||last.at==null?'':' · '+wT(last.at)))+')</button>':'')+
-   (S.plan&&size!=='sm'?'<div class="wt-plan"><div class="wt-ph"><span>'+(isT?'Plan for today':'Plan for '+esc(wtLabel(k)))+'</span>'+(isT?'<div><button type="button" class="wt-mini" data-wt-auto>Auto-plan</button><button type="button" class="wt-mini" data-wt-addplan>+ Add</button></div>':'')+'</div>'+
-     '<div class="wt-addrow'+(wtUi.planAdd&&isT?' on':'')+'"><input type="time" data-wt-pt value="'+wHm(Math.min(1380,Math.ceil((nowM+30)/30)*30))+'"><input type="number" inputmode="decimal" step="any" data-wt-pa placeholder="Amount" value="'+waterToUnit(w.bottle)+'"><button type="button" data-wt-pgo>Plan it</button></div>'+slotHtml+'</div>':'')+
+   '<div class="wt-custom'+(wtUi.custom?' on':'')+'"><input type="number" inputmode="decimal" step="any" data-wt-cin placeholder="Amount in '+w.unit+'"><input type="time" data-wt-ctime value="'+wHm(isT?nowM:720)+'" title="When did you drink it?"><button type="button" data-wt-cgo>Add</button></div>')+
+   BK('pace',(isT?'<div class="wt-trackw"><div class="wt-track"><i style="width:'+prevW+'%" data-to="'+pct+'"></i>'+(S.pace?'<s style="left:calc('+(exp/G*100)+'% - 1px)"></s>':'')+'</div>'+(S.pace?'<div class="wt-tl"><span>'+esc(time12(w.start))+'</span><span>'+esc(time12(w.end))+'</span></div>':'')+'</div>':'')+(nextLine&&!S.plan?'<div class="wt-next">'+nextLine+'</div>':''))+
+   BK('undo',(last?'<button type="button" class="wt-undo" data-wt-undo>Undo last drink ('+esc(waterFmt(last.ml)+(past||last.at==null?'':' · '+wT(last.at)))+')</button>':''))+
+   BK('plan',(S.plan?'<div class="wt-plan"><div class="wt-ph"><span>'+(isT?'Plan for today':'Plan for '+esc(wtLabel(k)))+'</span>'+(isT?'<div><button type="button" class="wt-mini" data-wt-auto>Auto-plan</button><button type="button" class="wt-mini" data-wt-addplan>+ Add</button></div>':'')+'</div>'+
+     '<div class="wt-addrow'+(wtUi.planAdd&&isT?' on':'')+'"><input type="time" data-wt-pt value="'+wHm(Math.min(1380,Math.ceil((nowM+30)/30)*30))+'"><input type="number" inputmode="decimal" step="any" data-wt-pa placeholder="Amount" value="'+waterToUnit(w.bottle)+'"><button type="button" data-wt-pgo>Plan it</button></div>'+slotHtml+'</div>':''))+
    '</div><div class="wt-colB">'+
-   ((S.week||S.streak)&&(size==='lg'||size==='wide')?'<div class="wt-foot">'+(S.week?'<div class="wt-week" data-wt-week>'+weekHtml+'</div>':'')+(S.streak?'<div class="wt-streak"><b>'+st+'</b>'+(st===1?'day':'days')+' streak</div>':'')+'</div>':'')+
-      (S.pat&&(size==='lg'||size==='wide')?'<div class="wt-pat">'+patHtml+'</div>':'')+
+   BK('week',((S.week||S.streak)?'<div class="wt-foot">'+(S.week?'<div class="wt-week" data-wt-week>'+weekHtml+'</div>':'')+(S.streak?'<div class="wt-streak"><b>'+st+'</b>'+(st===1?'day':'days')+' streak</div>':'')+'</div>':''))+
+   BK('pattern',(S.pat?'<div class="wt-pat">'+patHtml+'</div>':''))+
    '</div></div>';
   const keepScroll=el.querySelector('[data-wt-week]');const ws=keepScroll?keepScroll.scrollLeft:null,wasEnd=keepScroll?(keepScroll.scrollWidth-keepScroll.clientWidth-keepScroll.scrollLeft<4):true;
   el.innerHTML=html;el._wtLv=lvl;el._wtW=pct;
@@ -2615,6 +2616,7 @@ function renderNotesWidgetInto(el){
   const trashN=NotesCore.trashed(nw.notes).length+NotesCore.trashedLists(nw.lists,P).length;
   el.innerHTML='<div class="nw-root nw-s-'+esc(S.size)+' nw-c-'+esc(S.cols)+(S.bar==='always'?' nw-bar-always':'')+'">'+
     '<div class="nw-top"><span class="nw-saved'+(/Couldn/.test(nw.saved||'')?' bad':'')+'">'+esc(nw.saved||'')+'</span>'+
+      '<button type="button" class="nw-ib nw-arr" data-tip="Auto-arrange: reset every note to fit its text and lay them out so you can see them all" data-a="arrange"><i data-lucide="layout-grid"></i><span>Arrange</span></button>'+
       '<button type="button" class="nw-ib" data-tip="Recently deleted (kept 30 days)" data-a="trash"><i data-lucide="trash-2"></i>'+(trashN?'<b>'+trashN+'</b>':'')+'</button>'+
       '<button type="button" class="nw-ib" data-tip="What do the tools do?" data-a="help"><i data-lucide="circle-help"></i></button></div>'+
     '<div class="nw-bar"><input class="nw-quick" data-quick placeholder="Jot a note… ([ ] for a checklist)" maxlength="2000" enterkeyhint="done">'+
@@ -2692,6 +2694,17 @@ function nwWire(el){
     if(a==='menu'){nw.menu=!nw.menu;const m=el.querySelector('.nw-menu');m&&m.classList.toggle('show',nw.menu);return}
     if(a==='newnote'){nw.menu=false;const r=await notesAdd('');if(r.ok)nwFocusSel('[data-id="'+r.id+'"] [data-ed="note"]');nwPaint(true);return}
     if(a==='newlist'){nw.menu=false;const l=await nwNewList('New checklist');if(l)nwFocusSel('[data-id="'+l.id+'"] [data-ed="ttl"]',true);nwPaint(true);return}
+    if(a==='arrange'){
+      // Auto-arrange: every note/list goes back to fitting its own text, columns follow the widget's width, and the widget grows/shrinks to show them all.
+      const wcard=el.closest('.widget-card'),wd=wcard&&state.widgets.find(x=>x.id===wcard.dataset.widgetId);
+      const lsz=nw.lists.filter(l=>l.sw||l.sh);
+      if(nw.notes.some(n=>n.sw||n.sh))await nwNotesTx(l=>{let c=0;l.forEach(n=>{if(n.sw||n.sh){delete n.sw;delete n.sh;c++}});if(!c)return false},null,true);
+      for(const l of lsz)await nwListOp(l.id,x=>{delete x.sw;delete x.sh});
+      if(wd){const W=el.clientWidth;wd.settings=wd.settings||{};wd.settings.cols=W<430?'1':W<760?'2':'3';saveWidgetLayout()}
+      nwPaint(true);await new Promise(r=>setTimeout(r,160));
+      if(wcard&&wd)widgetFitHeight(wcard,wd);
+      toast('Arranged — every note now fits its text');return;
+    }
     if(a==='trash'){nw.view='trash';nw.menu=false;nwPaint(true);return}
     if(a==='back'){nw.view='main';nwPaint(true);return}
     if(a==='help'){nw.help=true;nwPaint(true);return}
@@ -3016,9 +3029,9 @@ function dietPaint(el,wdg){
   const energyHtml=(S.energy&&en)?'<div class="dt-line"><span>Eaten vs burned</span><b class="'+(en.net>0?'':'')+'">'+Math.round(t.calories).toLocaleString()+' / '+en.burned.toLocaleString()+'</b><small>'+(en.net>0?'+'+en.net:en.net)+' kcal net · '+en.neat+' baseline + '+en.exercise+' from Gym</small></div>':'';
   let kgW=0;{const dl=state.insights&&state.insights.daily||{};Object.keys(dl).sort().forEach(d=>{if(dl[d].weight)kgW=dl[d].weight})}
   const weightHtml=(S.weight&&kgW)?'<div class="dt-line"><span>Weight</span><b>'+kgW+' kg</b><small>Latest from Gym</small></div>':'';
-  const head='<div class="dt-head"><div class="dt-hl"><a class="dt-open" href="apps/diet.html" data-profile-link title="Open the Diet app" aria-label="Open the Diet app">Open Diet ↗</a></div><div class="dt-nav"><button type="button" data-dt-nav="-1" aria-label="Earlier day">‹</button>'+(past?'<button type="button" class="dt-today" data-dt-today>'+esc(dtLabel(k))+' · back to today</button>':'<span>Today</span>')+'<button type="button" data-dt-nav="1" '+(past?'':'disabled')+' aria-label="Later day">›</button></div></div>';
-  const A=ringHtml+macroHtml+(size==='sm'?'':microHtml)+nextHtml,B=rescueHtml+listHtml+addHtml;
-  const C2=weekHtml+flexHtml+streakHtml+energyHtml+weightHtml;
+  const head=BKW('head','<div class="dt-head"><div class="dt-hl"><a class="dt-open" href="apps/diet.html" data-profile-link title="Open the Diet app" aria-label="Open the Diet app">Open Diet ↗</a></div><div class="dt-nav"><button type="button" data-dt-nav="-1" aria-label="Earlier day">‹</button>'+(past?'<button type="button" class="dt-today" data-dt-today>'+esc(dtLabel(k))+' · back to today</button>':'<span>Today</span>')+'<button type="button" data-dt-nav="1" '+(past?'':'disabled')+' aria-label="Later day">›</button></div></div>');
+  const A=BKW('ring',ringHtml)+BKW('macros',macroHtml)+(size==='sm'?'':BKW('micro',microHtml))+BKW('next',nextHtml),B=BKW('rescue',rescueHtml)+BKW('meals',listHtml)+BKW('add',addHtml);
+  const C2=BKW('week',weekHtml)+BKW('flex',flexHtml)+BKW('streak',streakHtml)+BKW('energy',energyHtml)+BKW('weight',weightHtml);
   const keep=el.scrollTop,addv=['an','ak','ap','asu','asf'].map(n=>{const i=el.querySelector('[data-dt-'+n+']');return i?i.value:''});
   el.innerHTML=head+(size==='wide'?'<div class="dt-body"><div>'+A+C2+'</div><div>'+B+'</div></div>':A+B+C2);
   if(dietW.ui.add){['an','ak','ap','asu','asf'].forEach((n,i)=>{const x=el.querySelector('[data-dt-'+n+']');if(x)x.value=addv[i]||''})}
@@ -3185,7 +3198,7 @@ function skinPaint(el,wdg){
   const first=cal.months[0].range[0],lastD=cal.months[cal.months.length-1].range[1];
   const comp=C.completion(prof,k,st.start,st.stepLog);
   const streak=S.streak?C.streak(prof,st.start,st.stepLog,td):0;
-  const head='<div class="sk-head"><div class="sk-hl"><a class="sk-open" href="apps/skin.html" data-profile-link title="Open the Skin app" aria-label="Open the Skin app">Open Skin ↗</a></div><div class="sk-nav"><button type="button" data-sk-nav="-1" aria-label="Earlier day">‹</button>'+(past?'<button type="button" class="sk-today" data-sk-today>'+esc(skLabel(k))+' · back to today</button>':'<span>Today</span>')+'<button type="button" data-sk-nav="1" '+(past?'':'disabled')+' aria-label="Later day">›</button></div></div>';
+  const head=BKW('head','<div class="sk-head"><div class="sk-hl"><a class="sk-open" href="apps/skin.html" data-profile-link title="Open the Skin app" aria-label="Open the Skin app">Open Skin ↗</a></div><div class="sk-nav"><button type="button" data-sk-nav="-1" aria-label="Earlier day">‹</button>'+(past?'<button type="button" class="sk-today" data-sk-today>'+esc(skLabel(k))+' · back to today</button>':'<span>Today</span>')+'<button type="button" data-sk-nav="1" '+(past?'':'disabled')+' aria-label="Later day">›</button></div></div>');
   /* program header */
   let prog='';
   if(S.prog){
@@ -3243,7 +3256,7 @@ function skinPaint(el,wdg){
   /* review countdown */
   let revHtml='';
   if(S.review&&!isA){const nx=cal.reviews.find(d=>d>=td);if(nx){const dl=C.daysBetween(td,nx),m=C.monthFor(st.start,nx);revHtml='<div class="sk-rev"><span><b>'+esc(m?m.name.split(' — ')[0]:'Program')+' review</b> '+(dl===0?'is today':'in '+dl+' day'+(dl===1?'':'s'))+' · '+esc(new Date(nx+'T12:00:00').toLocaleDateString([],{month:'short',day:'numeric'}))+'</span><a class="sk-btn sm" href="apps/skin.html" data-profile-link>Open in Skin</a></div>'}}
-  const A='<div class="sk-topgrid">'+prog+hero+'</div>'+secHtml,B=comingHtml+heatHtml+cabHtml+trkHtml+revHtml;
+  const A=BKW('top','<div class="sk-topgrid">'+prog+hero+'</div>')+BKW('routine',secHtml),B=BKW('coming',comingHtml)+BKW('heat',heatHtml)+BKW('cab',cabHtml)+BKW('trk',trkHtml)+BKW('rev',revHtml);
   const keep=el.scrollTop;
   const trackVals={};el.querySelectorAll('[data-sk-obs]').forEach(i=>trackVals.obs=i.value);
   el.innerHTML=head+(size==='wide'?'<div class="sk-body"><div>'+A+'</div><div>'+B+'</div></div>':A+B);
@@ -3387,17 +3400,99 @@ async function skinVoice(word){
 }
 
 const WIDGET_NO_CACHE={notes:1,photos:1,schedule:1,water:1,diet:1,skin:1};
+/* ---- Block layout: every widget's content is made of named blocks ([data-blk="id"]). In the gear you can reorder them, hide them and give each a width
+   (full / half / third). A widget you never touched keeps its own native layout; once you change something, the blocks are laid out in a flow. ---- */
+const BKW=(id,h)=>h?'<div data-blk="'+id+'">'+h+'</div>':'';
+WIDGET_TYPES.water.blocks=[{id:'alerts',pin:1,label:'Day picker & reminder'},{id:'hero',label:'Amount, buttons & figure'},{id:'pace',label:'Pace bar'},{id:'undo',label:'Undo last drink'},{id:'plan',label:'Plan for the day'},{id:'week',label:'Last 30 days & streak'},{id:'pattern',label:'When you drink'}];
+WIDGET_TYPES.diet.blocks=[{id:'head',pin:1,label:'Day switcher'},{id:'ring',label:'Calories ring'},{id:'macros',label:'Protein, carbs & fat'},{id:'micro',label:'Micronutrients'},{id:'next',label:'Next meal'},{id:'rescue',label:'Protein rescue'},{id:'meals',label:'Meals list'},{id:'add',label:'Add something else'},{id:'week',label:'Last 7 days'},{id:'flex',label:'Flex bank'},{id:'streak',label:'Streak'},{id:'energy',label:'Eaten vs burned'},{id:'weight',label:'Weight'}];
+WIDGET_TYPES.skin.blocks=[{id:'head',pin:1,label:'Day switcher'},{id:'top',label:'Progress & today'},{id:'routine',label:'Routine steps'},{id:'coming',label:'Coming up'},{id:'heat',label:'Heat map'},{id:'cab',label:'Product cabinet'},{id:'trk',label:'Check-ins'},{id:'rev',label:'Review'}];
+WIDGET_TYPES.schedule.blocks=[{id:'progress',label:'Progress bar'},{id:'timeline',label:'Timeline'},{id:'anytime',label:'Anytime today'},{id:'next',label:'Up next'}];
+const blkCustom=w=>{const L=w&&w.blk;return !!(L&&((L.order&&L.order.length)||(L.hide&&L.hide.length)||(L.w&&Object.keys(L.w).length)))};
+function blkOrdered(def,w){
+  const L=(w&&w.blk)||{},free=def.blocks.filter(b=>!b.pin),ord=(L.order||[]).filter(id=>free.some(b=>b.id===id));
+  free.forEach(b=>{if(!ord.includes(b.id))ord.push(b.id)});
+  return def.blocks.filter(b=>b.pin).concat(ord.map(id=>free.find(b=>b.id===id)));
+}
+function blkApply(body,def,w){
+  if(!def||!def.blocks||!blkCustom(w)||!body||!body.isConnected)return;
+  if(body.querySelector(':scope>.blk-flow'))return;
+  const L=w.blk,hide=new Set(L.hide||[]),els={};
+  def.blocks.forEach(b=>{els[b.id]=[...body.querySelectorAll('[data-blk="'+b.id+'"]')]});
+  if(!def.blocks.some(b=>els[b.id].length))return;      // loading / empty state: nothing to arrange yet
+  const flow=document.createElement('div');flow.className='blk-flow';
+  blkOrdered(def,w).forEach(b=>{
+    if(!els[b.id].length)return;
+    if(hide.has(b.id)&&!b.pin)return;
+    const it=document.createElement('div');it.className='blk-item w-'+((L.w&&L.w[b.id])||'full');it.dataset.blkItem=b.id;
+    els[b.id].forEach(e=>it.appendChild(e));flow.appendChild(it);
+  });
+  const rest=[...body.querySelectorAll('.widget-card-link')];
+  body.replaceChildren(flow,...rest);
+}
+function blkWatch(body,def,wid){
+  if(!def||!def.blocks||body.__blkMO||!window.MutationObserver)return;
+  body.__blkMO=new MutationObserver(()=>{
+    if(!body.isConnected||body.querySelector(':scope>.blk-flow'))return;
+    const w=(state.widgets||[]).find(x=>x.id===wid);if(w)blkApply(body,def,w);
+  });
+  body.__blkMO.observe(body,{childList:true});
+}
+function blkSettingsHtml(def,w){
+  if(!def.blocks)return'';
+  const L=w.blk||{},hide=new Set(L.hide||[]);
+  const row=b=>'<div class="ws-brow'+(b.pin?' pin':'')+(hide.has(b.id)?' off':'')+'" data-b="'+b.id+'">'+
+    (b.pin?'<span class="ws-grip lock" title="Always at the top">🔒</span>':'<span class="ws-grip" title="Drag to move">⠿</span>')+
+    '<span class="ws-bl">'+esc(b.label)+'</span>'+
+    (b.pin?'':'<select class="ws-bw" aria-label="Width of '+esc(b.label)+'">'+[['full','Full'],['half','Half'],['third','Third']].map(([v,l])=>'<option value="'+v+'"'+(((L.w&&L.w[b.id])||'full')===v?' selected':'')+'>'+l+'</option>').join('')+'</select>'+
+    '<button type="button" class="ws-bb" data-bk="up" aria-label="Move up">↑</button><button type="button" class="ws-bb" data-bk="down" aria-label="Move down">↓</button>'+
+    '<button type="button" class="ws-bb ws-eye" data-bk="eye" aria-label="Show or hide" aria-pressed="'+(hide.has(b.id)?'false':'true')+'">'+(hide.has(b.id)?'Show':'Hide')+'</button>')+'</div>';
+  return '<h4>Arrange blocks</h4><p class="ws-bnote">Move, hide or resize the parts of this widget. Half and Third put blocks side by side when there is room.</p><div class="ws-blocks" data-ws-blocks>'+blkOrdered(def,w).map(row).join('')+'</div><button type="button" class="ws-breset" data-ws-breset>Reset arrangement</button>';
+}
+function blkWireSettings(panel,card,def,w){
+  const box=panel.querySelector('[data-ws-blocks]');if(!box)return;
+  const body=card.querySelector('.widget-card-body');
+  const commit=()=>{
+    const rows=[...box.querySelectorAll('.ws-brow:not(.pin)')];
+    w.blk={order:rows.map(r=>r.dataset.b),hide:rows.filter(r=>r.classList.contains('off')).map(r=>r.dataset.b),w:{}};
+    rows.forEach(r=>{const v=r.querySelector('.ws-bw').value;if(v!=='full')w.blk.w[r.dataset.b]=v});
+    saveWidgetLayout();redraw();
+  };
+  const redraw=()=>{if(!body)return;body.innerHTML='';try{Promise.resolve(def.render(body,w)).catch(()=>{})}catch(e){console.warn(e)}};
+  box.addEventListener('click',e=>{
+    const b=e.target.closest('[data-bk]');if(!b)return;const row=b.closest('.ws-brow'),k=b.dataset.bk;
+    if(k==='up'){const p=row.previousElementSibling;if(p&&!p.classList.contains('pin'))box.insertBefore(row,p)}
+    else if(k==='down'){const n=row.nextElementSibling;if(n)box.insertBefore(n,row)}
+    else if(k==='eye'){row.classList.toggle('off');b.textContent=row.classList.contains('off')?'Show':'Hide';b.setAttribute('aria-pressed',row.classList.contains('off')?'false':'true')}
+    commit();
+  });
+  box.addEventListener('change',e=>{if(e.target.closest('.ws-bw'))commit()});
+  // drag a row by its handle
+  box.addEventListener('pointerdown',e=>{
+    const g=e.target.closest('.ws-grip:not(.lock)');if(!g)return;e.preventDefault();
+    const row=g.closest('.ws-brow');row.classList.add('drag');try{g.setPointerCapture(e.pointerId)}catch(x){}
+    const mv=ev=>{
+      const t=document.elementFromPoint(ev.clientX,ev.clientY),over=t&&t.closest&&t.closest('.ws-brow');
+      if(!over||over===row||over.classList.contains('pin')||over.parentNode!==box)return;
+      const r=over.getBoundingClientRect();box.insertBefore(row,ev.clientY<r.top+r.height/2?over:over.nextSibling);
+    };
+    const up=()=>{g.removeEventListener('pointermove',mv);g.removeEventListener('pointerup',up);g.removeEventListener('pointercancel',up);row.classList.remove('drag');commit()};
+    g.addEventListener('pointermove',mv);g.addEventListener('pointerup',up);g.addEventListener('pointercancel',up);
+  });
+  panel.querySelector('[data-ws-breset]').addEventListener('click',()=>{
+    delete w.blk;saveWidgetLayout();
+    const fresh=document.createElement('div');fresh.innerHTML=blkSettingsHtml(def,w);
+    box.innerHTML=fresh.querySelector('[data-ws-blocks]').innerHTML;redraw();
+  });
+}
+
 function wLoading(el){ if(!el.firstChild) el.innerHTML='<div class="empty-state"><strong>Loading…</strong></div>'; }
 
 /* ---- per-widget settings: the gear turns the card over to its settings ---- */
 function widgetSettingsHtml(def,w){
   const cur=wsAll(w,def);
   return '<div class="widget-settings" aria-hidden="true"><div class="ws-head"><strong>'+esc(def.title)+' settings</strong><button type="button" class="widget-card-gear" data-ws-close aria-label="Back">✕</button></div>'+
-    (()=>{const [c,r]=widgetSpanFor(w,def);
-      const st=(k,v)=>'<div class="ws-step" data-ws-size="'+k+'"><button type="button" data-d="-1" aria-label="Smaller">−</button><output>'+v+'</output><button type="button" data-d="1" aria-label="Bigger">+</button></div>';
-      return '<h4>Size</h4><div class="ws-opt ws-size"><span>Width<small>columns of 12</small></span>'+st('c',c)+'</div>'+
-        '<div class="ws-opt ws-size"><span>Height<small>rows</small></span>'+st('r',r)+'</div>'+
-        '<div class="ws-opt ws-presets"><button type="button" class="ws-fit" data-ws-fit>Fit height to content</button></div>';})()+
+    '<div class="ws-opt ws-presets"><button type="button" class="ws-fit" data-ws-fit>Fit height to content</button></div>'+
+    blkSettingsHtml(def,w)+
     def.settings.map(o=>{
       if(o.h)return '<h4>'+esc(o.h)+'</h4>';
       const val=o.get?o.get(w):cur[o.key];
@@ -3406,6 +3501,18 @@ function widgetSettingsHtml(def,w){
       return '<label class="ws-opt"><span>'+esc(o.label)+(o.hint?'<small>'+esc(o.hint)+'</small>':'')+'</span><input type="checkbox" class="ws-sw" data-ws-key="'+o.key+'"'+(val?' checked':'')+'></label>';
     }).join('')+
     '<button type="button" class="ws-done" data-ws-close>Done</button><button type="button" class="ws-reset" data-ws-reset>Reset to defaults</button></div>';
+}
+// Make the card exactly tall enough for what is in it.
+function widgetFitHeight(card,w,def,setSize){
+  const body=card.querySelector('.widget-card-body');if(!body||!w)return;
+  def=def||WIDGET_TYPES[w.type];
+  const [c,r]=widgetSpanFor(w,def),h0=card.offsetHeight,per=(h0+WIDGET_GAP_PX)/r;
+  const chrome=h0-body.clientHeight,sv=body.style.cssText;
+  body.style.cssText+=';display:block;height:auto;flex:none;overflow:visible;max-height:none';
+  const content=body.scrollHeight;body.style.cssText=sv;
+  const rows=Math.ceil((chrome+content+WIDGET_GAP_PX+6)/per);
+  const R=Math.max(WIDGET_MIN_ROW,Math.min(WIDGET_MAX_ROW,rows));
+  if(setSize)setSize(c,R);else{w.colSpan=c;w.rowSpan=R;delete w.size;card.style.setProperty('--cs',c);card.style.setProperty('--rs',R);saveWidgetLayout()}
 }
 function wireWidgetSettings(card,def,w){
   if(!w)return;
@@ -3435,15 +3542,8 @@ function wireWidgetSettings(card,def,w){
     const [c,r]=widgetSpanFor(w,def),d=+b.dataset.d,k=b.parentNode.dataset.wsSize;
     setSize(k==='c'?c+d:c,k==='r'?r+d:r);
   }));
-  panel.querySelectorAll('[data-ws-fit]').forEach(b=>b.addEventListener('click',()=>{
-    const body=card.querySelector('.widget-card-body');if(!body)return;
-    const [c,r]=widgetSpanFor(w,def),h0=card.offsetHeight,per=(h0+WIDGET_GAP_PX)/r;
-    const chrome=h0-body.clientHeight,sv=body.style.cssText;
-    body.style.cssText+=';display:block;height:auto;flex:none;overflow:visible;max-height:none';
-    const content=body.scrollHeight;body.style.cssText=sv;
-    const rows=Math.ceil((chrome+content+WIDGET_GAP_PX+6)/per);
-    setSize(c,Math.max(WIDGET_MIN_ROW,Math.min(WIDGET_MAX_ROW,rows)));
-  }));
+  panel.querySelectorAll('[data-ws-fit]').forEach(b=>b.addEventListener('click',()=>widgetFitHeight(card,w,def,setSize)));
+  blkWireSettings(panel,card,def,w);
   panel.querySelectorAll('[data-ws-key]').forEach(i=>i.addEventListener('change',()=>apply(i.dataset.wsKey,i.checked)));
   panel.querySelectorAll('[data-ws-seg]').forEach(g=>g.querySelectorAll('button').forEach(b=>b.addEventListener('click',()=>{g.querySelectorAll('button').forEach(x=>x.classList.toggle('on',x===b));apply(g.dataset.wsSeg,b.dataset.v)})));
   panel.querySelector('[data-ws-reset]').addEventListener('click',()=>{
@@ -3488,6 +3588,7 @@ function renderWidgetBoard(){
     if(def){
       const body=card.querySelector('.widget-card-body'),ck=(w&&w.id)+'|'+state.profile;
       if(!WIDGET_NO_CACHE[type]&&widgetHtmlCache.has(ck)) body.innerHTML=widgetHtmlCache.get(ck);
+      if(def.blocks&&w)blkWatch(body,def,w.id);
       let r; try{ r=def.render(body,w); }catch(e){ console.warn(e); }
       if(!WIDGET_NO_CACHE[type]) Promise.resolve(r).then(()=>{ if(body.isConnected&&body.innerHTML&&!/Loading…|Unavailable/.test(body.innerHTML)) widgetHtmlCache.set(ck,body.innerHTML); }).catch(()=>{});
     }

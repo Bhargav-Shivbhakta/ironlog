@@ -1660,3 +1660,49 @@ button.dt-wd{border:0;background:transparent;font:inherit;color:inherit;padding:
 .cw-c small{font-size:11px;line-height:1.25}
 .cw-empty{padding:2px}
 @container wbody (min-width:560px){.cw-root{display:grid;grid-template-columns:1fr 1fr;column-gap:20px;align-content:start;align-items:start}.cw-bar,.cw-fest,.cw-next,.cw-week,.widget-card-link{grid-column:1/-1}}
+
+/* ---- Notes: formatting bar follows the note's size (never loses a tool — it wraps and shrinks), 3 columns, Arrange button ---- */
+.nw-c-3 .nw-card{width:calc(33.333% - 7px)}
+.nw-narrow .nw-c-3 .nw-card{width:100%}
+.nw-ib.nw-arr{width:auto;padding:0 9px;gap:5px;display:inline-flex;align-items:center;font-size:12px;font-weight:650}
+.nw-ib.nw-arr svg{width:14px;height:14px}
+.nw-tb{container-type:inline-size;container-name:nwtb}
+.nw-tb select,.nw-tb button{font-size:clamp(9.5px,3.4cqw,11px)}
+@container nwcard (max-width:320px){
+  .nw-tb select,.nw-tb .nw-sep{display:inline-block}
+  .nw-tb .nw-sep{width:1px;height:14px;background:rgba(0,0,0,.2);margin:0 1px}
+  .nw-tb select{max-width:70px}
+  .nw-tb .nw-conv span{display:none}
+}
+@container nwcard (max-width:240px){
+  .nw-tb button[data-cmd="underline"],.nw-tb button[data-cmd="insertOrderedList"]{display:inline-flex}
+  .nw-tb select{max-width:58px}
+  .nw-tb button,.nw-tb select{height:22px}.nw-tb button{min-width:22px;padding:0 3px}
+  .nw-tb{gap:3px}
+  .nw-when{display:inline}
+}
+@container nwcard (max-width:170px){
+  .nw-tb .nw-sep{display:none}.nw-tb select{max-width:46px}
+  .nw-tb button,.nw-tb select{height:20px}.nw-tb button{min-width:20px}.nw-tb svg{width:11px;height:11px}
+}
+
+/* Water: nothing is ever hidden because the card is small — only compacted */
+.wt-sm .wt-hs{display:inline-flex!important}
+.wt-sm .wt-nums .wt-btns button small{display:block}
+.wt-sm .wt-nums .wt-btns button{flex:1 1 56px}
+
+/* ---- block layout flow + the arrange list in the gear ---- */
+.blk-flow{display:flex;flex-wrap:wrap;gap:10px 16px;align-items:flex-start;align-content:flex-start;min-height:0}
+.blk-item{flex:0 0 100%;min-width:0;max-width:100%}
+.blk-item.w-half{flex-basis:calc(50% - 8px)}.blk-item.w-third{flex-basis:calc(33.333% - 11px)}
+@container wbody (max-width:440px){.blk-item.w-half,.blk-item.w-third{flex-basis:100%}}
+@container wbody (min-width:441px) and (max-width:620px){.blk-item.w-third{flex-basis:calc(50% - 8px)}}
+.ws-bnote{margin:0 0 6px;font-size:11.5px;color:var(--muted);line-height:1.35}
+.ws-blocks{display:flex;flex-direction:column;gap:5px;margin-bottom:6px}
+.ws-brow{display:flex;align-items:center;gap:5px;padding:5px 6px;border:1px solid var(--line);border-radius:10px;background:var(--surface-soft);font-size:12.5px}
+.ws-brow.off{opacity:.5}.ws-brow.pin{background:transparent;border-style:dashed}.ws-brow.drag{outline:2px solid var(--accent);background:var(--accent-soft)}
+.ws-grip{flex:none;width:20px;text-align:center;color:var(--muted);cursor:grab;touch-action:none;user-select:none;font-size:15px}.ws-grip.lock{cursor:default;font-size:11px}
+.ws-bl{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:600}
+.ws-bw{flex:none;width:auto;min-height:0;height:26px;border:1px solid var(--line);border-radius:7px;background:var(--surface);color:var(--text);font:inherit;font-size:11.5px;padding:0 3px}
+.ws-bb{flex:none;min-width:26px;height:26px;border:1px solid var(--line);border-radius:7px;background:var(--surface);color:var(--text);font:inherit;font-size:11.5px;font-weight:650;padding:0 6px;cursor:pointer}
+.ws-breset{width:100%;margin:2px 0 6px;border:1px dashed var(--line);background:transparent;color:var(--muted);border-radius:9px;padding:7px;font:inherit;font-size:12px;font-weight:600;cursor:pointer}

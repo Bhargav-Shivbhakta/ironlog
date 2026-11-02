@@ -98,26 +98,38 @@ function draw(el){
   const days=Math.max(1,parseInt(S0.days,10)||7),foc=document.activeElement;
   const fl=festLine(sel);
   let h='<div class="cw-root">';
+  const _m1=h.length;
+  h=h.slice(0,_m1)+BKW('bar',h.slice(_m1));
   h+='<div class="cw-bar"><div class="cw-who" role="tablist">'+[['me','Me'],['other',other()],['both','Both']].map(([k,l])=>'<button type="button" role="tab" data-who="'+k+'" class="'+(cal.who===k?'on':'')+'">'+esc(l)+'</button>').join('')+'</div>'+(S0.add?'<button type="button" class="cw-plus" data-a="add" aria-label="Add to calendar">+</button>':'')+'</div>';
+  const _m2=h.length;
+  h=h.slice(0,_m2)+BKW('fest',h.slice(_m2));
   if(S0.fest&&(fl.tithi||fl.fests.length))h+='<div class="cw-fest'+(fl.big?' big':'')+'"><span>'+fl.moon+' '+esc(fl.tithi)+'</span>'+fl.fests.map(f=>'<b>'+esc(f)+'</b>').join('')+'</div>';
   const todayItems=itemsFor(t0,S0);
+  const _m3=h.length;
   if(S0.next){
     const nx=todayItems.filter(i=>(i.k==='ev'||i.k==='task')&&i.time&&!i.od&&minsOf(i.time)>nowM).sort((a,b)=>minsOf(a.time)-minsOf(b.time))[0];
     if(nx){const d=minsOf(nx.time)-nowM;h+='<div class="cw-next"><span>Next up</span><b>'+esc(nx.title)+'</b><small>'+fmtT(nx.time,S0)+(nx.sub?' · '+esc(nx.sub):'')+'</small><em>in '+(d>=60?Math.floor(d/60)+' h '+(d%60?d%60+' m':''):d+' m')+'</em></div>'}
   }
+  h=h.slice(0,_m3)+BKW('next',h.slice(_m3));
+  const _m4=h.length;
   if(S0.week){
     h+='<div class="cw-week">'+Array.from({length:7},(_,i)=>{const d=addDays(t0,i),n=itemsFor(d,S0).filter(x=>x.k!=='chore').length,f=festLine(d);
       return '<button type="button" data-day="'+d+'" class="'+(d===sel?'on':'')+(i===0?' now':'')+'"><small>'+(i===0?'Today':['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][new Date(d+'T12:00:00').getDay()])+'</small><b>'+new Date(d+'T12:00:00').getDate()+'</b><i>'+(f.big?(f.moon):'')+(n?'<u>'+'•'.repeat(Math.min(3,n))+'</u>':'')+'</i></button>'}).join('')+'</div>';
   }
+  h=h.slice(0,_m4)+BKW('week',h.slice(_m4));
   const dayItems=sel===t0?todayItems:itemsFor(sel,S0);
   const vis=dayItems.filter(i=>!(S0.hideDone&&i.done));
+  const _m5=h.length;
   h+='<div class="cw-sec"><span>'+(sel===t0?'Today':TC.dayLabel(sel,t0))+' · '+new Date(sel+'T12:00:00').toLocaleDateString([],{weekday:'short',month:'short',day:'numeric'})+'</span><em>'+vis.length+' item'+(vis.length===1?'':'s')+'</em></div>';
   h+=vis.length?vis.map(i=>row(i,S0,S0.dim&&sel===t0&&i.k==='ev'&&i.time&&(minsOf(i.end||i.time)<nowM))).join(''):'<div class="cw-empty">Nothing on the calendar'+(sel===t0?' today':' this day')+'.</div>';
+  h=h.slice(0,_m5)+BKW('today',h.slice(_m5));
+  const _m6=h.length;
   let up='',n=0;
   for(let i=1;i<=days;i++){const d=addDays(t0,i);if(d===sel)continue;const it=itemsFor(d,S0),f=S0.fest?festLine(d):null,fs=f&&f.big?CC.festivals(d).slice(0,1):[];
     if(!it.length&&!fs.length)continue;n+=it.length;
     up+='<div class="cw-day">'+(i===1?'Tomorrow':TC.dayLabel(d,t0))+'</div>'+it.map(x=>row(x,S0)).join('')+fs.map(x=>'<div class="cw-row cw-fe"><span class="cw-ico">'+(f.moon||'✦')+'</span><span class="cw-c"><b>'+esc(x)+'</b></span></div>').join('')}
   h+='<div class="cw-sec"><span>Next '+days+' days</span></div>'+(up||'<div class="cw-empty">Nothing coming up.</div>');
+  h=h.slice(0,_m6)+BKW('upcoming',h.slice(_m6));
   h+='<a class="widget-card-link" href="apps/calendar.html" data-profile-link>Open Calendar <i data-lucide="arrow-up-right"></i></a></div>';
   el.innerHTML=h;
   if(typeof updateProfileLinks==='function')updateProfileLinks();if(window.lucide)lucide.createIcons();
@@ -202,7 +214,7 @@ function addSheet(){
   });
 }
 
-WIDGET_TYPES.agenda=Object.assign({},WIDGET_TYPES.agenda||{},{title:'Calendar',icon:'calendar-days',desc:"Appointments, meetings, birthdays, tasks due and chores for the days ahead, with the festival and tithi line. Add events right here. Schedule blocks have their own widget. Same events as the Calendar app.",defaultSize:'lg',
+WIDGET_TYPES.agenda=Object.assign({},WIDGET_TYPES.agenda||{},{title:'Calendar',blocks:[{id:'bar',pin:1,label:'Who & add button'},{id:'fest',label:'Tithi & festivals'},{id:'next',label:'Next up'},{id:'week',label:'Week strip'},{id:'today',label:'Selected day'},{id:'upcoming',label:'Coming days'}],icon:'calendar-days',desc:"Appointments, meetings, birthdays, tasks due and chores for the days ahead, with the festival and tithi line. Add events right here. Schedule blocks have their own widget. Same events as the Calendar app.",defaultSize:'lg',
   settings:CAL_SETTINGS,ready:()=>Promise.resolve(),
   render(el){if(!cal.un[me()])watch();draw(el);if(!cal.t)cal.t=setInterval(()=>{if(!document.hidden&&document.querySelector('[data-widget-type="agenda"]'))paint()},30000)}});
 if(typeof WIDGET_NO_CACHE==='object')WIDGET_NO_CACHE.agenda=1;
