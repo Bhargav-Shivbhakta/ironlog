@@ -10,3 +10,7 @@ window.IRONLOG_FIREBASE = {
   messagingSenderId: "106586808946",
   appId: "1:106586808946:web:f4736554ba9fc82c6fd8eb"
 };
+
+/* Central tick log (assets/ticklog.js). It loads itself from here so no page needs a change.
+   If you ever replace the values above for a new Firebase project, keep the lines below. */
+(function(){try{var s=document.currentScript&&document.currentScript.src;if(s&&/firebase-config\.js/.test(s))document.write('<script src="'+s.replace(/firebase-config\.js(\?.*)?$/,'ticklog.js')+'"><\/script>')}catch(e){}})();

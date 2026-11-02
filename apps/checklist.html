@@ -247,8 +247,9 @@ function dropOn(id,fromId,toId){if(fromId===toId)return;mut(id,'reordering',l=>{
     const [m]=blocks.splice(i,1);blocks.splice(j,0,m);l.items=[].concat(...blocks)}
   else if(a.parent&&a.parent===b.parent){const i=l.items.indexOf(a);l.items.splice(i,1);l.items.splice(l.items.indexOf(b)+(i<l.items.indexOf(b)+1?1:0),0,a)}
 },null)}
+function assign(id,iid){mut(id,'assigning',l=>{const it=l.items.find(x=>x.id===iid);if(!it)return;const n=it.a==='Bhargav'?'Anusha':it.a==='Anusha'?null:'Bhargav';if(n)it.a=n;else delete it.a},null)}
 function renameList(id,v){v=v.trim().slice(0,80);const l=byId(id);if(!v||v===l.title)return;mut(id,'renaming',x=>{x.title=v},['rename',v])}
-function setOwner(id,v){mut(id,'sharing',l=>{l.owner=v==='shared'?'shared':S.profile},['share',v==='shared'?'Shared with both':'Made private'])}
+function setOwner(id,v){mut(id,'sharing',l=>{l.owner=v==='shared'?'shared':S.profile;if(v!=='shared')l.items.forEach(i=>{delete i.a})},['share',v==='shared'?'Shared with both':'Made private'])}
 function setDue(id,v){mut(id,'due date',l=>{l.due=v||null},['due',v||'removed'])}
 function cycleHide(id){const order=['keep','sink','hide'],l=byId(id);mut(id,'done display',x=>{x.hide=order[(order.indexOf(l.hide||'keep')+1)%3]},null)}
 function resetList(id){const l=byId(id);if(!confirm('Untick everything on "'+l.title+'"?'))return;mut(id,'reset',x=>{x.items.forEach(i=>{i.done=false;i.at=null})},['reset','Unticked everything'])}
@@ -296,6 +297,7 @@ function itemRow(l,it,isSub){
     (e?'<span class="grab" title="Drag to reorder">⋮⋮</span>':'')+
     '<button class="cb'+(it.done?' on':part?' part':'')+'" onclick="toggle(\''+l.id+'\',\''+it.id+'\')" aria-label="Tick">'+(it.done?'✓':part?'–':'')+'</button>'+
     '<span class="txt" data-t="'+it.id+'" onclick="editText(\''+l.id+'\',\''+it.id+'\')">'+esc(it.t)+'</span>'+
+    (l.owner==='shared'?'<button class="ic" title="'+(it.a?'Assigned to '+it.a+' — tap to change':'Assign this item')+'" onclick="assign(\''+l.id+'\',\''+it.id+'\')" style="'+(it.a?'background:'+(it.a==='Anusha'?'#b0577a':'#3d6b8a')+';color:#fff;border-radius:50%;width:22px;height:22px;font-size:11px;font-weight:700':'opacity:.55;border-radius:50%;width:22px;height:22px;font-size:11px')+'">'+(it.a?esc(it.a[0]):'+')+'</button>':'')+
     (e?'<button class="ic" title="Move up" onclick="move(\''+l.id+'\',\''+it.id+'\',-1)" '+(si<=0?'disabled':'')+'>↑</button><button class="ic" title="Move down" onclick="move(\''+l.id+'\',\''+it.id+'\',1)" '+(si>=sibs.length-1?'disabled':'')+'>↓</button>'+
       (isSub?'<button class="ic" title="Make a main item" onclick="outdent(\''+l.id+'\',\''+it.id+'\')">⇤</button>':'<button class="ic" title="Make a sub-item of the one above" onclick="indent(\''+l.id+'\',\''+it.id+'\')" '+(si<=0?'disabled':'')+'>⇥</button>'):'')+
     '<button class="ic" title="Delete" onclick="delItem(\''+l.id+'\',\''+it.id+'\')">✕</button></div>';
@@ -394,7 +396,7 @@ auth.onAuthStateChanged(async u=>{
     },()=>{});
   }catch(e){$('loadText').textContent='Could not open Checklists: '+e.message}
 });
-Object.assign(window,{S,$,setProfile,newList,show,open_,undo,toggle,editText,delItem,indent,outdent,move,renameList,setOwner,setDue,cycleHide,resetList,archive,delList,restoreList,goneList,saveTemplate,useTemplate,useStarter,delTemplate,addFrom,pasteAdd,dStart,dOver,dLeave,dDrop,dEnd,render});
+Object.assign(window,{assign,S,$,setProfile,newList,show,open_,undo,toggle,editText,delItem,indent,outdent,move,renameList,setOwner,setDue,cycleHide,resetList,archive,delList,restoreList,goneList,saveTemplate,useTemplate,useStarter,delTemplate,addFrom,pasteAdd,dStart,dOver,dLeave,dDrop,dEnd,render});
 }
 </script>
 </body>

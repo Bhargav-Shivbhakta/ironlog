@@ -304,7 +304,7 @@ async function sourceDone(p,C){
     const [tpl,log]=await Promise.all([readJson(base.doc('dayTemplates'),{}),readJson(base.doc('templateLog'),{})]);
     const want=String(s.name||'').trim().toLowerCase();
     for(let d=p.start;d<=T;d=addDays(d,1)){
-      const blocks=tpl[FULL[dow(d)]]||[];
+      const blocks=window.resolveDayBlocks?resolveDayBlocks(p.owner,FULL[dow(d)],d,tpl):(tpl[FULL[dow(d)]]||[]);
       for(let i=0;i<blocks.length;i++){
         const nm=String(blocks[i].activity||blocks[i].title||'').trim().toLowerCase();
         if(nm===want&&log[d+':'+i]){out.add(d);break}
@@ -322,7 +322,7 @@ async function sourceDone(p,C){
   }else if(s.type==='water'){
     const w=await readJson(uref().collection('hub-profiles').doc(p.owner).collection('data').doc('water'),null);
     if(w&&w.log){const goal=Number(w.goal)>0?Number(w.goal):(p.owner==='Anusha'?3000:3500);
-      Object.keys(w.log).forEach(d=>{const a=w.log[d];const t=Array.isArray(a)?a.reduce((x,y)=>x+(Number(y)||0),0):0;if(d>=p.start&&t>=goal)out.add(d)})}
+      Object.keys(w.log).forEach(d=>{const a=w.log[d];const t=Array.isArray(a)?a.reduce((x,y)=>x+(Number(y)||0),0):0;const g=(w.goals&&Number(w.goals[d])>0)?Number(w.goals[d]):goal;if(d>=p.start&&t>=g)out.add(d)})}
   }else if(s.type==='diet'){
     if(!C.diet)C.diet=await readJson(uref().collection('apps').doc('nourish-diet-v2').collection('data').doc('state'),null);
     const pid=p.owner.toLowerCase(),by={};
@@ -342,7 +342,7 @@ async function sourceDone(p,C){
     const base=uref().collection('schedule-profiles').doc(p.owner).collection('data');
     const [tpl,log]=await Promise.all([readJson(base.doc('dayTemplates'),{}),readJson(base.doc('templateLog'),{})]);
     for(let d=p.start;d<=T;d=addDays(d,1)){
-      const blocks=tpl[FULL[dow(d)]]||[];
+      const blocks=window.resolveDayBlocks?resolveDayBlocks(p.owner,FULL[dow(d)],d,tpl):(tpl[FULL[dow(d)]]||[]);
       let idx=blocks.map((b,i)=>i);
       if(s.type==='morning'){const cut=s.before||'07:00';idx=idx.filter(i=>String(blocks[i].start||'99:99')<cut)}
       if(!idx.length)continue;

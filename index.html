@@ -9,6 +9,10 @@
   <link rel="manifest" href="manifest.json">
   <link rel="icon" href="icon-192.png" type="image/png">
   <link rel="apple-touch-icon" href="icon-192.png">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="Home Hub">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
@@ -301,6 +305,32 @@
           </div>
         </section>
 
+        <section class="surface settings-card" id="links-card">
+          <div class="section-head with-icon"><span class="section-head-icon"><i data-lucide="link-2"></i></span><div><p class="section-kicker">Everything linked</p><h2>Links</h2></div></div>
+          <p class="settings-hint">Apps now tick each other for you. Each rule watches one app and ticks the matching block on your Schedule. A block with several things under it is ticked only when all of them are done. If you untick something yourself, it stays unticked.</p>
+          <div class="lk-master"><label class="lk-sw"><input type="checkbox" id="links-master" checked><span></span></label><div class="lk-tx"><strong>Automatic links</strong><small>The master switch for you. When it is off, nothing is ticked, added or reminded automatically. Each person has their own switch.</small></div></div>
+          <div id="links-body"></div>
+          <h3 class="lk-h">Needs you now</h3>
+          <div id="links-nudges"></div>
+          <h3 class="lk-h">Reminders coming up</h3>
+          <div id="links-rem"></div>
+          <div class="banner-pool-actions">
+            <button type="button" class="button secondary small" id="links-run">Check now</button>
+            <span class="settings-hint" id="links-status" style="margin:0 0 0 auto;"></span>
+          </div>
+          <h3 class="lk-h">Recent activity</h3>
+          <div id="links-log"></div>
+        </section>
+
+        <section class="surface settings-card" id="install-card">
+          <div class="section-head with-icon"><span class="section-head-icon"><i data-lucide="smartphone"></i></span><div><p class="section-kicker">Launch it like an app</p><h2>Install Home Hub</h2></div></div>
+          <p class="settings-hint" id="install-hint">Put Home Hub on your phone's Home Screen or your computer's app list. It opens in its own window, works offline, and updates itself whenever you upload new files.</p>
+          <div class="banner-pool-actions">
+            <button type="button" class="button secondary small" id="install-btn">Install app</button>
+            <span class="settings-hint" id="install-status" style="margin:0 0 0 auto;"></span>
+          </div>
+        </section>
+
         <section class="surface settings-card">
           <div class="section-head with-icon"><span class="section-head-icon"><i data-lucide="calendar-clock"></i></span><div><p class="section-kicker">Today page</p><h2>Schedule widget</h2></div></div>
           <p class="settings-hint">The Today's Schedule widget can automatically scroll down to your current time block as the day goes on. Off by default — turn it on if you want that; if the dashboard has ever jumped around on its own, this is what was doing it.</p>
@@ -430,6 +460,10 @@
   <script src="assets/waterpantry.js"></script>
   <script src="assets/fscache.js"></script>
   <script src="assets/bhargav-plan.js"></script>
+  <script src="assets/skin-plan.js"></script>
+  <script src="assets/diet-core.js"></script>
+  <script src="assets/skin-core.js"></script>
+  <script src="assets/notes-core.js"></script>
   <script src="assets/app.js"></script>
   <script src="assets/voice.js"></script>
 </body>

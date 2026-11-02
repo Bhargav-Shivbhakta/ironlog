@@ -295,7 +295,7 @@ async function loadHubMeta(){
   const accents=(accentsDoc&&accentsDoc.accents)?accentsDoc.accents:(legacyTheme&&legacyTheme.accents)?legacyTheme.accents:JSON.parse(JSON.stringify(DEFAULT_THEME.accents));
   const appearance=appearanceDoc||(legacyTheme?{mode:legacyTheme.mode,wallpaper:legacyTheme.wallpaper}:null)||{mode:DEFAULT_THEME.mode,wallpaper:JSON.parse(JSON.stringify(DEFAULT_THEME.wallpaper))};
   state.theme={accents,mode:appearance.mode||'light',wallpaper:appearance.wallpaper||DEFAULT_THEME.wallpaper};
-  state.widgets = (widgets && widgets[state.profile] && widgets[state.profile].length) ? widgets[state.profile].filter(w=>WIDGET_TYPES[w.type]) : widgetDefaultLayout();
+  state.widgets = (widgets && widgets[state.profile] && widgets[state.profile].length) ? widgets[state.profile].map(w=>w&&w.type==='checklist'?Object.assign({},w,{type:'notes',id:'w-notes'}):w).filter(w=>w&&WIDGET_TYPES[w.type]).filter((w,i,a)=>w.type!=='notes'||a.findIndex(x=>x.type==='notes')===i) : widgetDefaultLayout();
   // One-time: put the Calendar widget onto layouts saved before it existed.
   try{
     const k='hub-agenda-seeded-'+state.profile;
@@ -500,9 +500,13 @@ function eventOccursOnHub(ev,date){
   if(rp.type==='yearly')return d.getMonth()===s.getMonth()&&d.getDate()===Math.min(s.getDate(),dim);
   return d.getDay()===(ev.weekday!=null?ev.weekday:s.getDay());
 }
+function dayBlocksFor(date,profile){
+  const dn=DAYS[new Date(date+'T12:00:00').getDay()];
+  return window.resolveDayBlocks?window.resolveDayBlocks(profile||state.profile,dn,date,state.templates):((state.templates&&state.templates[dn])||[]);
+}
 function timelineForDate(date){
   const weekday=new Date(date+'T00:00:00').getDay(),dayName=DAYS[weekday];
-  const blocks=(state.templates[dayName]||[]).map((x,i)=>({id:'block-'+i,title:x.activity||x.title||'Scheduled block',time:x.start||'',end:x.end||'',kind:'routine'}));
+  const blocks=dayBlocksFor(date).map((x,i)=>({id:'block-'+i,title:x.activity||x.title||'Scheduled block',time:x.start||'',end:x.end||'',kind:'routine'}));
   const events=state.events.filter(e=>eventOccursOnHub(e,date)).map(e=>({id:e.id,title:e.title,time:e.time||'',notes:e.notes||'',kind:'event'}));
   return blocks.concat(events).sort((a,b)=>minutes(a.time)-minutes(b.time));
 }
@@ -567,7 +571,7 @@ function nextChoreDue(chore){
   return date;
 }
 function choresDueToday(){
-  const date=today(), weekday=DAYS[new Date().getDay()], blocks=state.templates[weekday]||[];
+  const date=today(), weekday=DAYS[new Date().getDay()], blocks=dayBlocksFor(date);
   return state.chores.filter(c => {
     if(c.active===false) return false;
     if(Array.isArray(c.assignedTo) && !c.assignedTo.includes(state.profile)) return false;
@@ -656,8 +660,847 @@ function startTimelineAutoAdvance(){
   if(timelineRefreshTimer) clearInterval(timelineRefreshTimer);
   timelineRefreshTimer=setInterval(()=>{
     const el=document.querySelector('.widget-card[data-widget-type="schedule"] .widget-card-body');
-    if(state.templates&&el) renderTimelineInto(el,todaysTimeline());
+    if(state.templates&&el) renderScheduleWidget(el,state.widgets.find(x=>x.type==='schedule'));
   }, 30000);
+}
+
+/* =====================================================================
+   TODAY'S SCHEDULE WIDGET — blocks you can tick, on a line that fills in
+   with your theme colour as the day goes. Calendar events and due tasks
+   sit under the block they fall inside; tasks with no time go in
+   "Anytime today". Ticks are the same templateLog the Schedule app,
+   voice, Insights and Pledge all read.
+===================================================================== */
+const SCHEDULE_SETTINGS=[
+  {h:"While it's running"},
+  {key:'count',label:'Countdown on the current block',hint:'Shows "ends in 25 min"',type:'bool',def:true},
+  {key:'next',label:'"Up next" line',hint:'The next block at the bottom',type:'bool',def:true},
+  {key:'miss',label:'Missed dot',hint:"A quiet dot on past blocks you didn't tick",type:'bool',def:false},
+  {h:'What to show'},
+  {key:'bar',label:'Progress bar',type:'bool',def:true},
+  {key:'nest',label:'Show events and tasks under their block',hint:'If off, they sit between blocks in time order',type:'bool',def:true},
+  {key:'skin',label:'Skin steps under their block',hint:'Routine steps you linked to a block in Skin. Off = use the Skin widget',type:'bool',def:true},
+  {key:'diet',label:'Diet meals under their block',hint:'Meals you linked to a block in Diet. Off = use the Diet widget',type:'bool',def:true},
+  {key:'anyt',label:'"Anytime today" tasks',hint:'Tasks with no time set',type:'bool',def:true},
+  {key:'ev',label:'Calendar events',type:'bool',def:true},
+  {key:'task',label:'Tasks due today',type:'bool',def:true},
+  {key:'done',label:'Ticked blocks',type:'seg',opts:[['stay','Stay'],['hide','Tuck away']],def:'stay'},
+  {key:'fmt',label:'Time format',type:'seg',opts:[['12','12-hour'],['24','24-hour']],def:'12'}
+];
+function wsAll(w,def){const out={};(def.settings||[]).forEach(o=>{if(o.key)out[o.key]=(w&&w.settings&&o.key in w.settings)?w.settings[o.key]:o.def});return out}
+/* ---- Water tracker v3.
+   One doc per profile at users/{uid}/hub-profiles/{profile}/data/water:
+     sips  {date:[{id,ml,at(min since midnight|null),plan,src}]}   <- the source of truth (timed drinks)
+     log   {date:[ml]}   derived from sips on every save, so Pledge / Insights / older readers keep working
+     plans {date:[{id,time,ml,remind,skipped}]}, template (the plan that repeats daily), goals {date:ml} (past days keep their goal),
+     sync  {date:ml} (what Gym and the widget last agreed on), plus the person's own settings (units, buttons, day window, reminders).
+   Gym still gets only the day's total (profiles/{p}/dailyLogs/{date}.water in litres). ---- */
+const OZ_ML=29.5735;
+const WATER_BASE={unit:'ml',ncup:'Cup',cup:250,nbottle:'Bottle',bottle:500,nthird:'Mine',third:0,start:'07:00',end:'22:00',rem:true,match:true,notif:false,snooze:10,every:2,repeat:true};
+const wNow=()=>{const n=new Date();return n.getHours()*60+n.getMinutes()};
+const wHm=m=>String(Math.floor(m/60)%24).padStart(2,'0')+':'+String(m%60).padStart(2,'0');
+const wT=m=>m==null?'earlier':time12(wHm(m));
+let wSeq=0;const wId=()=>'s'+Date.now().toString(36)+(wSeq++).toString(36)+Math.random().toString(36).slice(2,5);
+const wDefGoal=()=>/anusha/i.test(state.profile||'')?3000:3500;
+const wObj=v=>(v&&typeof v==='object'&&!Array.isArray(v))?v:{};
+async function ensureWater(){
+  if(state.water && state.waterProfile===state.profile) return;
+  let v=null;
+  try{ const snap=await profileRef('hub-profiles','water').get(); v=snap.exists?safeJson(snap.data().json,null):null; }catch(e){}
+  v=wObj(v);
+  const w=Object.assign({},WATER_BASE,v);
+  w.goal=Number(v.goal)>0?Number(v.goal):wDefGoal(); w.unit=w.unit==='oz'?'oz':'ml';
+  w.log=wObj(v.log); w.sips=wObj(v.sips); w.plans=wObj(v.plans); w.goals=wObj(v.goals); w.sync=wObj(v.sync);
+  w.template=Array.isArray(v.template)?v.template:[];
+  // days that only have the old plain list (or whose list was changed by an older copy of the app) become untimed drinks
+  Object.keys(w.log).forEach(d=>{
+    const a=Array.isArray(w.log[d])?w.log[d]:[],have=Array.isArray(w.sips[d])?w.sips[d]:null;
+    const sum=a.reduce((s,x)=>s+(Number(x)||0),0),hs=have?have.reduce((s,x)=>s+(Number(x.ml)||0),0):-1;
+    if(!have||hs!==sum)w.sips[d]=a.map((ml,i)=>({id:'o'+d+'-'+i,ml:Number(ml)||0,at:null,src:'old'}));
+  });
+  state.water=w; state.waterProfile=state.profile;
+}
+let waterSaveTimer=null;
+function saveWater(){
+  clearTimeout(waterSaveTimer);
+  const prof=state.profile, data=state.water;
+  waterSaveTimer=setTimeout(async()=>{
+    const keep=new Set(Object.keys(data.sips).concat(Object.keys(data.log)).sort().slice(-120));
+    ['log','sips','plans','goals','sync'].forEach(k=>{const o={};Object.keys(data[k]||{}).sort().forEach(d=>{if(keep.has(d))o[d]=data[k][d]});data[k]=o});
+    try{ await db.collection('users').doc(state.user.uid).collection('hub-profiles').doc(prof).collection('data').doc('water').set({json:JSON.stringify(data)}); }catch(e){}
+  },400);
+}
+const waterSips=d=>{const a=state.water&&state.water.sips[d];return Array.isArray(a)?a:[]};
+function waterTotal(date){ return waterSips(date).reduce((s,x)=>s+(Number(x.ml)||0),0); }
+const waterGoalFor=d=>d===today()?state.water.goal:(Number(state.water.goals[d])>0?Number(state.water.goals[d]):state.water.goal);
+function waterFmt(ml){ return state.water.unit==='oz'?Math.round(ml/OZ_ML)+' oz':Math.round(ml).toLocaleString()+' ml'; }
+const waterToUnit=ml=>state.water&&state.water.unit==='oz'?Math.round(ml/OZ_ML):Math.round(ml);
+const waterFromUnit=v=>state.water&&state.water.unit==='oz'?Math.round(v*OZ_ML):Math.round(v);
+/* ---- Water <-> Gym. The Gym check-in keeps water in litres at profiles/{p}/dailyLogs/{date}.water. That total is the shared record:
+   the widget reads it, adopts any change made in Gym, and writes every change back. w.sync[date] remembers the total both sides last agreed on. ---- */
+function gymWaterDoc(prof,d){ return gymDailyLogsCol(prof).doc(d); }
+function waterSetTotal(d,target){      // Gym changed the day's total: keep the timed drinks, add or trim the difference
+  const w=state.water,arr=w.sips[d]=Array.isArray(w.sips[d])?w.sips[d]:[];let t=waterTotal(d);
+  if(target>t)arr.push({id:wId(),ml:target-t,at:null,src:'gym'});
+  else while(t>target&&arr.length){const last=arr[arr.length-1],ex=t-target;if(last.ml<=ex){arr.pop();t-=last.ml}else{last.ml-=ex;t=target}}
+  w.log[d]=arr.map(s=>s.ml);
+}
+async function reconcileWater(days){
+  const w=state.water, prof=state.profile; if(!w||!prof) return;
+  let changed=false;
+  await Promise.all(days.map(async d=>{
+    let gymMl=0, exists=false;
+    try{ const s=await gymWaterDoc(prof,d).get(); exists=s.exists; gymMl=exists?Math.round((Number(s.data().water)||0)*1000):0; }catch(e){ return; }
+    const hubMl=waterTotal(d), base=w.sync[d];
+    if(base===undefined){
+      if(gymMl===hubMl){ w.sync[d]=gymMl; changed=true; return; }
+      if(gymMl>0){ waterSetTotal(d,gymMl); w.sync[d]=gymMl; changed=true; return; }
+      await pushWaterToGym(prof,d,hubMl); w.sync[d]=hubMl; changed=true; return;
+    }
+    if(gymMl!==base){ waterSetTotal(d,gymMl); w.sync[d]=gymMl; changed=true; }
+    else if(hubMl!==base){ await pushWaterToGym(prof,d,hubMl); w.sync[d]=hubMl; changed=true; }
+  }));
+  if(changed) saveWater();
+}
+async function pushWaterToGym(prof,d,ml){
+  try{ await gymWaterDoc(prof,d).set({date:d,water:Math.round(ml/10)/100},{merge:true}); FsCache.patch(gymDailyLogsCol(prof).path,d,{date:d,water:Math.round(ml/10)/100},{merge:true}); }catch(e){}
+}
+function pantryWater(d){ if(window.WaterPantry&&state.user&&state.profile) WaterPantry.sync(db,state.user.uid,state.profile,d,waterTotal(d)); }
+/* ---- the day's plan, matching drinks to it, and every change in one place ---- */
+function waterPlan(d){
+  const w=state.water;if(Array.isArray(w.plans[d]))return w.plans[d];
+  if(d===today()&&w.repeat&&w.template.length)return w.plans[d]=w.template.map((t,i)=>({id:'t'+d+'-'+i,time:t.time,ml:t.ml,remind:t.remind!==false}));
+  return null;
+}
+const waterPlanList=d=>waterPlan(d)||[];
+const wFill=(p,d)=>waterSips(d).filter(s=>s.plan===p.id).reduce((a,s)=>a+s.ml,0);
+function wStatus(p,d){
+  const fill=wFill(p,d);
+  if(fill>=p.ml-1){const l=waterSips(d).filter(s=>s.plan===p.id);return{s:'done',at:l.length?l[l.length-1].at:null,fill}}
+  if(p.skipped)return{s:'skipped',fill};
+  const n=d===today()?wNow():1440;
+  if(n<p.time)return{s:'up',fill};if(n<p.time+15)return{s:'due',fill};return{s:'missed',fill};
+}
+function waterNearest(d,at){
+  return waterPlanList(d).filter(p=>!p.skipped&&wFill(p,d)<p.ml-1)
+    .sort((a,b)=>at==null?a.time-b.time:Math.abs(a.time-at)-Math.abs(b.time-at)||a.time-b.time)[0];
+}
+function waterCommit(d){            // after any change to a day's drinks
+  const w=state.water;w.goals[today()]=w.goal;w.log[d]=waterSips(d).map(s=>s.ml);w.sync=w.sync||{};w.sync[d]=waterTotal(d);
+  saveWater();
+  if(d>=addDays(today(),-7))pantryWater(d);
+  pushWaterToGym(state.profile,d,waterTotal(d));
+}
+function waterAddSip(d,ml,at,planId,src){
+  const w=state.water;let matched=null;
+  if(planId===undefined&&w.match){const o=waterNearest(d,at);if(o){planId=o.id;matched=o}}
+  if(at==null)at=matched?matched.time:720;
+  const s={id:wId(),ml:Math.round(ml),at,src:src||'btn'};if(planId)s.plan=planId;
+  (w.sips[d]=Array.isArray(w.sips[d])?w.sips[d]:[]).push(s);waterCommit(d);
+  return {s,matched};
+}
+function waterRemoveSips(d,ids){
+  const w=state.water,set=new Set(ids),gone=waterSips(d).filter(s=>set.has(s.id));
+  w.sips[d]=waterSips(d).filter(s=>!set.has(s.id));waterCommit(d);return gone;
+}
+function waterRestoreSips(d,list){const w=state.water;(w.sips[d]=Array.isArray(w.sips[d])?w.sips[d]:[]).push(...list);waterCommit(d)}
+function waterPlanChanged(){          // today's plan was edited: remember it as the daily plan when it repeats
+  const w=state.water,p=waterPlan(today());
+  if(w.repeat&&p)w.template=p.map(x=>({time:x.time,ml:x.ml,remind:x.remind!==false}));
+  saveWater();
+}
+function waterStreak(){
+  const w=state.water,t=today();let n=0,d=waterTotal(t)>=waterGoalFor(t)?t:addDays(t,-1);
+  while(n<400&&waterTotal(d)>=waterGoalFor(d)&&waterTotal(d)>0){n++;d=addDays(d,-1)}
+  return n;
+}
+/* ---- reminders: a banner on the card, plus a browser notification while the Hub is open ---- */
+const waterNotified={},waterSnooze={};
+function waterDue(){
+  const w=state.water;if(!w||!w.rem)return null;const d=today(),n=wNow();
+  return waterPlanList(d).slice().sort((a,b)=>a.time-b.time).find(p=>p.remind!==false&&wStatus(p,d).s==='due'&&!(waterSnooze[p.id]>n))||null;
+}
+function waterNotify(){
+  const w=state.water,p=waterDue();if(!p||!w.notif||waterNotified[p.id])return;
+  if(window.Notification&&Notification.permission==='granted'){waterNotified[p.id]=1;try{new Notification('Time to drink water',{body:waterFmt(p.ml)+' planned for '+wT(p.time)})}catch(e){}}
+}
+/* ---- settings (the gear): data settings live in the water doc, the display switches live with the widget ---- */
+const wSet=(k,v)=>{state.water[k]=v;saveWater()};
+const WATER_SETTINGS=[
+  {h:'Your goal'},
+  {key:'goal',label:'Daily goal',hint:'Same every day. Past days keep the goal they had.',type:'num',min:1,get:()=>state.water?waterToUnit(state.water.goal):'',set:v=>{const n=parseFloat(v);if(n>0&&n<20000)wSet('goal',waterFromUnit(n))}},
+  {key:'unit',label:'Units',type:'seg',opts:[['ml','ml'],['oz','oz']],get:()=>state.water?state.water.unit:'ml',set:v=>wSet('unit',v==='oz'?'oz':'ml')},
+  {h:'Your buttons'},
+  {key:'ncup',label:'First button name',type:'text',get:()=>state.water?state.water.ncup:'',set:v=>wSet('ncup',String(v).trim().slice(0,12)||WATER_BASE.ncup)},
+  {key:'cup',label:'First button size',type:'num',min:1,get:()=>state.water?waterToUnit(state.water.cup):'',set:v=>{const n=parseFloat(v);if(n>0&&n<5000)wSet('cup',waterFromUnit(n))}},
+  {key:'nbottle',label:'Second button name',type:'text',get:()=>state.water?state.water.nbottle:'',set:v=>wSet('nbottle',String(v).trim().slice(0,12)||WATER_BASE.nbottle)},
+  {key:'bottle',label:'Second button size',type:'num',min:1,get:()=>state.water?waterToUnit(state.water.bottle):'',set:v=>{const n=parseFloat(v);if(n>0&&n<5000)wSet('bottle',waterFromUnit(n))}},
+  {key:'nthird',label:'Third button name',type:'text',get:()=>state.water?state.water.nthird:'',set:v=>wSet('nthird',String(v).trim().slice(0,12)||WATER_BASE.nthird)},
+  {key:'third',label:'Third button size',hint:'0 = off. Your own mug or flask.',type:'num',min:0,get:()=>state.water?waterToUnit(state.water.third):'',set:v=>{const n=parseFloat(v);if(n>=0&&n<5000)wSet('third',n?waterFromUnit(n):0)}},
+  {h:'Your day'},
+  {key:'start',label:'Start drinking',type:'time',get:()=>state.water?state.water.start:'07:00',set:v=>{if(v)wSet('start',v)}},
+  {key:'end',label:'Aim to finish by',type:'time',get:()=>state.water?state.water.end:'22:00',set:v=>{if(v)wSet('end',v)}},
+  {h:'Plan and reminders'},
+  {key:'match',label:'Match drinks to my plan',hint:'A button press ticks the open planned drink closest to that time',type:'bool',get:()=>!!(state.water&&state.water.match),set:v=>wSet('match',!!v)},
+  {key:'rem',label:'Reminders',hint:'A banner on the card when a planned drink is due',type:'bool',get:()=>!!(state.water&&state.water.rem),set:v=>wSet('rem',!!v)},
+  {key:'notif',label:'Browser notifications',hint:'Only while the Hub is open in a tab. Not a phone push.',type:'bool',get:()=>!!(state.water&&state.water.notif),
+    set:async v=>{if(!v){wSet('notif',false);return}if(!window.Notification){toast('This browser has no notifications');wSet('notif',false);return}
+      const p=await Notification.requestPermission();wSet('notif',p==='granted');if(p!=='granted')toast('Notifications were blocked')}},
+  {key:'snooze',label:'Snooze for (minutes)',type:'num',min:1,get:()=>state.water?state.water.snooze:10,set:v=>wSet('snooze',Math.max(1,Math.min(120,parseInt(v)||10)))},
+  {key:'every',label:'Auto-plan every (hours)',type:'num',min:1,get:()=>state.water?state.water.every:2,set:v=>wSet('every',Math.max(1,Math.min(12,parseInt(v)||2)))},
+  {key:'repeat',label:'Repeat the plan every day',type:'bool',get:()=>!!(state.water&&state.water.repeat),set:v=>{wSet('repeat',!!v);if(v)waterPlanChanged()}},
+  {h:'What to show'},
+  {key:'pace',label:'Pace line',hint:'"On pace" or "600 ml behind"',type:'bool',def:true},
+  {key:'plan',label:'Plan for the day',type:'bool',def:true},
+  {key:'week',label:'30-day chart',type:'bool',def:true},
+  {key:'pat',label:'When you drink',hint:'The pattern Gym insights reads',type:'bool',def:true},
+  {key:'streak',label:'Streak',type:'bool',def:true},
+  {key:'anim',label:'Drinking animation',type:'bool',def:true}
+];
+function waterResetData(){const w=state.water;if(!w)return;Object.assign(w,WATER_BASE);w.goal=wDefGoal();saveWater()}
+
+let schedLog={key:null,map:{},t:0},schedShowDone=false;
+let schedX={key:null,links:{},steps:{},diet:null,t:0};
+const dietRef=()=>db.collection('users').doc(state.user.uid).collection('apps').doc('nourish-diet-v2').collection('data').doc('state');
+async function schedLoadLog(force,S){
+  const k=state.profile+'|'+today();
+  if(schedLog.key!==k)schedLog={key:k,map:{},t:0};
+  if(schedX.key!==k)schedX={key:k,links:{},steps:{},diet:null,t:0};
+  if(!force&&Date.now()-schedLog.t<15000)return false;
+  schedLog.t=Date.now();
+  const [m,links,steps,diet,sstart]=await Promise.all([
+    readJson(profileRef('schedule-profiles','templateLog'),null),
+    (!S||S.skin)?readJson(profileRef('skin-profiles','blockLinks'),null):null,
+    (!S||S.skin)?readJson(profileRef('skin-profiles','stepLog'),null):null,
+    (!S||S.diet)?readJson(dietRef(),null):null,
+    (!S||S.skin)?profileRef('skin-profiles','programStart').get().then(s=>(s.exists&&s.data().startDate)||null).catch(()=>undefined):undefined]);
+  let changed=false;if(sstart!==undefined&&window.SkinPlan&&window.SkinPlan.setStart(sstart))changed=true;const set=(cur,v)=>{if(v&&typeof v==='object'&&!Array.isArray(v)&&JSON.stringify(v)!==JSON.stringify(cur))changed=true;return(v&&typeof v==='object'&&!Array.isArray(v))?v:cur};
+  schedLog.map=set(schedLog.map,m);schedX.links=set(schedX.links,links);schedX.steps=set(schedX.steps,steps);
+  if(diet&&Array.isArray(diet.meals)){if(JSON.stringify(diet)!==JSON.stringify(schedX.diet))changed=true;schedX.diet=diet}
+  return changed;
+}
+function schedLinkedTasks(b,dn){
+  const sbOf=t=>Array.isArray(t.scheduleBlocks)?t.scheduleBlocks:(t.scheduleBlock&&t.scheduleBlock.label?[{wd:t.scheduleBlock.weekday,label:t.scheduleBlock.label}]:[]);
+  return (state.personalTasks||[]).map(t=>Object.assign({_shared:false},t)).concat((state.sharedTasks||[]).map(t=>Object.assign({_shared:true},t)))
+    .filter(t=>!t.done&&sbOf(t).some(x=>x.wd===dn&&x.label===b.t));
+}
+function schedLinkedChores(b){            // same rule as Schedule's choresLinkedToBlock()
+  const act=String(b.t||'').toLowerCase();
+  return (state.chores||[]).filter(c=>{
+    if(c.active===false||!c.scheduleSync||c.scheduleSync.profile!==state.profile)return false;
+    const kws=(Array.isArray(c.scheduleSync.keyword)?c.scheduleSync.keyword:[c.scheduleSync.keyword]).map(k=>String(k||'').toLowerCase());
+    return kws.some(k=>k&&act.indexOf(k)!==-1);
+  });
+}
+function schedSkinFor(b,dn,date){
+  if(!window.SkinPlan)return[];
+  return window.SkinPlan.sectionsFor(state.profile,date).filter(sec=>{const a=schedX.links[sec.key];return Array.isArray(a)&&a.some(l=>l.wd===dn&&l.label===b.t)})
+    .map(sec=>({key:sec.key,label:sec.label,steps:window.SkinPlan.details(state.profile,date,sec.key).map((st,i)=>({text:st.text,k:date+':'+sec.key+':'+i,done:!!schedX.steps[date+':'+sec.key+':'+i]}))})).filter(sec=>sec.steps.length);
+}
+function schedMealsFor(b,dn,date){
+  const D=schedX.diet;if(!D||!Array.isArray(D.meals))return[];
+  const pid=state.profile==='Bhargav'?'bhargav':'anusha';
+  return D.meals.filter(m=>m.profileId===pid&&Array.isArray(m.scheduleBlocks)&&m.scheduleBlocks.some(x=>x.wd===dn&&x.label===b.t)).map(m=>({
+    name:m.name||m.slot||'Meal',entries:(D.diary||[]).filter(e=>e.date===date&&e.profileId===pid&&e.mealId===m.id).map(e=>({id:e.id,name:e.name||m.name||m.slot||'Meal',eaten:e.status==='eaten'}))}));
+}
+function schedBuild(S){
+  const date=today(),dn=DAYS[new Date().getDay()];
+  const blocks=dayBlocksFor(date).map((x,i)=>({idx:i,t:x.activity||x.title||'Scheduled block',start:x.start||'',end:x.end||''})).filter(b=>b.start).sort((a,b)=>minutes(a.start)-minutes(b.start));
+  blocks.forEach((b,i)=>{
+    b.m=minutes(b.start);let e=b.end?minutes(b.end):(blocks[i+1]?minutes(blocks[i+1].start):b.m+30);
+    if(e<=b.m)e+=1440;                        // runs past midnight (Sleep)
+    b.e=e;b.k='block';
+    b.linkedTasks=schedLinkedTasks(b,dn);b.linkedChores=schedLinkedChores(b);
+    b.skin=S.skin?schedSkinFor(b,dn,date):[];b.meals=S.diet?schedMealsFor(b,dn,date):[];
+  });
+  const linkedIds=new Set();blocks.forEach(b=>b.linkedTasks.forEach(t=>linkedIds.add(t.id)));
+  const extras=[];
+  if(S.ev)(state.events||[]).filter(e=>eventOccursOnHub(e,date)).forEach(e=>extras.push({k:'event',t:e.title||'Event',time:e.time||'',m:e.time?minutes(e.time):null}));
+  if(S.task)dueTasks().filter(t=>!linkedIds.has(t.id)).forEach(t=>extras.push({k:'task',id:t.id,t:t.title,time:t.dueTime||'',m:t.dueTime?minutes(t.dueTime):null,shared:!!t._shared}));
+  return {blocks,extras};
+}
+function renderScheduleWidget(el,w){
+  if(!el)return;
+  const S=wsAll(w,WIDGET_TYPES.schedule),{blocks,extras}=schedBuild(S);
+  let nowM=new Date().getHours()*60+new Date().getMinutes();
+  if(nowM<270)nowM+=1440;                      // before 4:30am still belongs to the day's last block, like the Schedule app
+  const date=today();
+  const fm=v=>{if(!v)return'';return S.fmt==='24'?v:time12(v)};
+  const doneB=b=>!!schedLog.map[date+':'+b.idx];
+    if(!blocks.length&&!extras.length){el.classList.remove('sc-on');el.innerHTML='<div class="empty-state"><strong>No scheduled blocks</strong>Your day is open. Add plans from the schedule.</div><a class="widget-card-link" href="apps/schedule.html" data-profile-link>Open Schedule <i data-lucide="arrow-up-right"></i></a>';updateProfileLinks();if(window.lucide)lucide.createIcons();return}
+  el.classList.add('sc-on');
+  const timed=extras.filter(x=>x.m!=null),untimed=extras.filter(x=>x.m==null);
+  const inBlock=(b,x)=>x.m>=b.m&&x.m<b.e;
+  const owner=x=>blocks.find(b=>inBlock(b,x)); // each item belongs to the first block that holds it
+  const kidsOf=b=>S.nest?timed.filter(x=>owner(x)===b):[];
+  const gaps=S.nest?timed.filter(x=>!owner(x)):timed;
+  const rows=blocks.map(b=>b).concat(gaps.map(x=>Object.assign({gap:true},x))).sort((a,b)=>a.m-b.m);
+  let cur=null;blocks.forEach(b=>{if(b.m<=nowM)cur=b});   // the last block that has started (same as the Schedule app)
+  const nDone=blocks.filter(doneB).length,pct=blocks.length?Math.round(nDone/blocks.length*100):0;
+  const hide=S.done==='hide',hiddenN=hide?blocks.filter(doneB).length:0;
+  const left=cur?cur.e-nowM:0;
+  const leftTxt=left>=60?Math.floor(left/60)+'h '+(left%60)+'m':left+' min';
+  const taskRow=x=>'<div class="sc-u"><button type="button" class="sc-sq" data-sc-task="'+esc(x.id)+'" aria-label="Complete '+esc(x.t)+'"></button><span class="sc-ut">'+esc(x.t)+(x.time?'<span class="sc-ts">'+esc(fm(x.time))+'</span>':'')+(x.shared||x._shared?'<span class="sc-tag">shared</span>':'')+'</span></div>';
+  const linkedTaskRow=x=>taskRow({id:x.id,t:x.title,time:'',shared:x._shared});
+  const choreRow=c=>{const d=c.lastCompleted===date;return '<div class="sc-u'+(d?' sc-udone':'')+'"><button type="button" class="sc-sq'+(d?' on':'')+'" data-sc-chore="'+esc(c.id)+'" aria-label="Mark '+esc(c.name)+' done">'+(d?'✓':'')+'</button><span class="sc-ut">'+esc(c.name)+'<span class="sc-tag">chore</span></span></div>'};
+  const eventRow=x=>'<div class="sc-u sc-ev"><span class="sc-ico"></span><span class="sc-ut">'+esc(x.t)+(x.time?'<span class="sc-ts">'+esc(fm(x.time))+'</span>':'')+'<span class="sc-tag">event</span></span></div>';
+  const uRow=x=>x.k==='event'?eventRow(x):taskRow(x);
+  const skinRows=b=>b.skin.map(sec=>{const n=sec.steps.filter(z=>z.done).length;return '<div class="sc-sub"><span class="sc-subh">'+esc(sec.label)+' · '+n+'/'+sec.steps.length+'<span class="sc-tag">skin</span></span>'+sec.steps.map(z=>'<div class="sc-u'+(z.done?' sc-udone':'')+'"><button type="button" class="sc-sq'+(z.done?' on':'')+'" data-sc-skin="'+esc(z.k)+'" aria-label="'+(z.done?'Untick ':'Tick ')+esc(z.text)+'">'+(z.done?'✓':'')+'</button><span class="sc-ut">'+esc(z.text)+'</span></div>').join('')+'</div>'}).join('');
+  const mealRows=b=>b.meals.map(m=>m.entries.length?m.entries.map(e=>'<div class="sc-u'+(e.eaten?' sc-udone':'')+'"><button type="button" class="sc-sq'+(e.eaten?' on':'')+'" data-sc-meal="'+esc(e.id)+'" aria-label="'+(e.eaten?'Mark not eaten: ':'Mark eaten: ')+esc(e.name)+'">'+(e.eaten?'✓':'')+'</button><span class="sc-ut">'+esc(e.name)+'<span class="sc-tag">meal</span></span></div>').join(''):'<div class="sc-u sc-ev"><span class="sc-ico"></span><span class="sc-ut">'+esc(m.name)+'<span class="sc-tag">meal · not logged yet</span></span></div>').join('');
+  let html='';
+  if(S.bar&&blocks.length)html+='<div class="sc-prog"><div class="sc-pt"><span><b>'+nDone+' / '+blocks.length+'</b> blocks done</span><span>'+pct+'%</span></div><div class="sc-bar"><i style="width:'+pct+'%"></i></div></div>';
+  html+='<div class="sc-tl">';
+  rows.forEach(x=>{
+    if(x.gap){
+      html+='<div class="sc-row"><span class="sc-tm">'+esc(fm(x.time)).replace(' ','<br>')+'</span><span class="sc-rail">'+(x.k==='task'?'<button type="button" class="sc-sq sc-sqg" data-sc-task="'+esc(x.id)+'" aria-label="Complete '+esc(x.t)+'"></button>':'<span class="sc-c sc-mini"></span>')+'</span><span class="sc-bd"><strong class="sc-plain">'+esc(x.t)+'<span class="sc-tag">'+x.k+(x.shared?' · shared':'')+'</span></strong></span></div>';
+      return;
+    }
+    const isDone=doneB(x);if(hide&&isDone&&!schedShowDone)return;
+    const isNow=!!cur&&cur.idx===x.idx&&!isDone,miss=S.miss&&!isDone&&!isNow&&x.e<nowM,kids=kidsOf(x);
+    const under=x.linkedChores.map(choreRow).join('')+x.linkedTasks.map(linkedTaskRow).join('')+mealRows(x)+skinRows(x)+kids.map(uRow).join('');
+    html+='<div class="sc-row'+(isNow?' sc-cur':'')+(isDone?' sc-done':'')+'"><span class="sc-tm">'+esc(fm(x.start)).replace(' ','<br>')+'</span><span class="sc-rail"><button type="button" class="sc-c" data-sc-block="'+x.idx+'" aria-label="'+(isDone?'Untick ':'Tick ')+esc(x.t)+'">'+(isDone?'✓':'')+'</button></span>'+
+      '<span class="sc-bd"><strong>'+esc(x.t)+(isNow?'<span class="sc-now">Now</span>':'')+(miss?'<span class="sc-miss" title="Not ticked"></span>':'')+'</strong><small>'+esc(fm(x.start))+(x.end?' – '+esc(fm(x.end)):'')+(isNow&&S.count&&left>0?' · ends in '+leftTxt:'')+'</small>'+
+      (under?'<div class="sc-under">'+under+'</div>':'')+'</span></div>';
+  });
+  html+='</div>';
+  if(hiddenN)html+='<button type="button" class="sc-showdone" data-sc-showdone>'+(schedShowDone?'Hide done':'Show done ('+hiddenN+')')+'</button>';
+  if(S.anyt&&untimed.length)html+='<div class="sc-any"><h5>Anytime today</h5>'+untimed.map(uRow).join('')+'</div>';
+  const nx=blocks.find(b=>b.m>nowM&&!doneB(b));
+  if(S.next&&nx)html+='<div class="sc-next">Up next: <b>'+esc(nx.t)+'</b> at '+esc(fm(nx.start))+'</div>';
+  el.innerHTML=html;
+  el.onclick=e=>{
+    const b=e.target.closest('[data-sc-block]');if(b){schedToggleBlock(Number(b.dataset.scBlock),w);return}
+    const t=e.target.closest('[data-sc-task]');if(t){t.classList.add('on');t.textContent='✓';setTimeout(()=>completeTask(t.dataset.scTask),180);return}
+    const c=e.target.closest('[data-sc-chore]');if(c){c.classList.add('on');c.textContent='✓';completeChoreFromWidget(c.dataset.scChore,el,()=>renderScheduleWidget(el,w));return}
+    const sk=e.target.closest('[data-sc-skin]');if(sk){schedToggleSkin(sk.dataset.scSkin,w);return}
+    const ml=e.target.closest('[data-sc-meal]');if(ml){schedToggleMeal(ml.dataset.scMeal,w);return}
+    if(e.target.closest('[data-sc-showdone]')){schedShowDone=!schedShowDone;renderScheduleWidget(el,w)}
+  };
+}
+const schedRedraw=()=>{const body=document.querySelector('.widget-card[data-widget-type="schedule"] .widget-card-body');if(body)renderScheduleWidget(body,state.widgets.find(x=>x.type==='schedule'))};
+async function schedToggleSkin(key,w){
+  const ref=profileRef('skin-profiles','stepLog'),was=!!schedX.steps[key];
+  if(was)delete schedX.steps[key];else schedX.steps[key]=true;schedRedraw();
+  try{
+    const latest=await readJson(ref,{});const m=(latest&&typeof latest==='object'&&!Array.isArray(latest))?latest:{};
+    if(was)delete m[key];else m[key]=true;
+    await ref.set({json:JSON.stringify(m),updatedAt:firebase.firestore.FieldValue.serverTimestamp()},{merge:true});
+    schedX.steps=m;schedX.t=Date.now();
+    toast(was?'Unticked a skin step':'Ticked a skin step','Undo',()=>schedToggleSkin(key,w));
+  }catch(e){if(was)schedX.steps[key]=true;else delete schedX.steps[key];schedRedraw();toast('Could not save that tick')}
+}
+async function schedToggleMeal(id,w){
+  const ref=dietRef(),flip=(D,to)=>{const e=(D.diary||[]).find(x=>x.id===id);if(!e)return null;const was=e.status==='eaten';e.status=to===undefined?(was?'planned':'eaten'):to;return was};
+  const local=schedX.diet;let was=null;if(local)was=flip(local);schedRedraw();
+  try{
+    const D=await readJson(ref,null);if(!D||!Array.isArray(D.diary))throw new Error('no diet');
+    const e=D.diary.find(x=>x.id===id);if(!e)throw new Error('gone');
+    const wasEaten=e.status==='eaten';e.status=wasEaten?'planned':'eaten';
+    await ref.set({json:JSON.stringify(D)});
+    schedX.diet=D;schedX.t=Date.now();
+    toast((wasEaten?'Unmarked ':'Marked eaten: ')+(e.name||'meal'),'Undo',()=>schedToggleMeal(id,w));
+  }catch(e){if(local&&was!==null)flip(local,was?'eaten':'planned');schedRedraw();toast('Could not save that')}
+}
+async function schedToggleBlock(idx,w){
+  const date=today(),key=date+':'+idx,ref=profileRef('schedule-profiles','templateLog');
+  const was=!!schedLog.map[key],tpl=dayBlocksFor(today()),name=(tpl[idx]&&(tpl[idx].activity||tpl[idx].title))||'block';
+  const redraw=()=>{const body=document.querySelector('.widget-card[data-widget-type="schedule"] .widget-card-body');if(body)renderScheduleWidget(body,state.widgets.find(x=>x.type==='schedule'))};
+  if(was)delete schedLog.map[key];else schedLog.map[key]=true;redraw();
+  try{
+    const latest=await readJson(ref,{});const m=(latest&&typeof latest==='object'&&!Array.isArray(latest))?latest:{};
+    if(was)delete m[key];else m[key]=true;
+    await ref.set({json:JSON.stringify(m),updatedAt:firebase.firestore.FieldValue.serverTimestamp()},{merge:true});
+    schedLog.map=m;schedLog.t=Date.now();
+    if(state.insights&&state.insights.tplLog){if(was)delete state.insights.tplLog[key];else state.insights.tplLog[key]=true}
+    toast((was?'Unticked ':'Ticked ')+name,'Undo',()=>schedToggleBlock(idx,w));
+  }catch(e){if(was)schedLog.map[key]=true;else delete schedLog.map[key];redraw();toast('Could not save that tick')}
+}
+/* =====================================================================
+   LINK ENGINE — apps tick each other's Schedule blocks automatically.
+   Each rule watches one app and ticks the Schedule block it belongs to:
+     gym     a workout (any logged set or cardio) -> blocks named Gym / Workout…
+     meals   every meal linked to a block is eaten  -> that block
+     skin    every skin step linked to a block done -> that block
+     chores  every chore linked to a block done     -> that block
+     tasks   every task linked to a block done      -> that block
+     focus   enough focus minutes in Clock          -> blocks named Focus / Study…
+   A block with several things under it is ticked only when ALL of them are done.
+   Settings live at hub-profiles/{P}/data/linkState with a ledger of what the
+   engine ticked ("auto") and what you unticked yourself ("off"): the engine
+   never overrides your own untick, and never unticks something you ticked.
+   ===================================================================== */
+const LINK_GROUPS=[{id:'blocks',label:'Schedule blocks',hint:'Other apps tick the matching block on your Schedule.'},{id:'tasks',label:'Tasks and reminders',hint:'The engine adds tasks to your To-do list, with all the details, and reminds you.'},{id:'money',label:'Money and stock',hint:'Budget and Grocery stay in step with each other.'}];
+const LINK_RULES=[
+  {id:'gym',g:'blocks',label:'Workout logged',to:'Gym block',desc:'Log any set or cardio in Gym and the Gym / Workout block on your Schedule is ticked.',p:[{k:'kw',l:'Block names containing',t:'text',d:'gym,workout,training,lift,cardio'}]},
+  {id:'meals',g:'blocks',label:'Meals eaten',to:'Meal block',desc:'When every meal linked to a block has been marked eaten in Diet, the block is ticked.'},
+  {id:'skin',g:'blocks',label:'Skin steps done',to:'Skin block',desc:'When every skin step linked to a block is done, the block is ticked.'},
+  {id:'chores',g:'blocks',label:'Chores done',to:'Chore block',desc:'When every chore linked to a block is done today, the block is ticked.'},
+  {id:'tasks',g:'blocks',label:'Tasks done',to:'Task block',desc:'When every to-do linked to a block is done, the block is ticked.'},
+  {id:'focus',g:'blocks',label:'Focus time',to:'Focus block',desc:'Reach your focus minutes in Clock and the Focus / Study block is ticked.',p:[{k:'kw',l:'Block names containing',t:'text',d:'focus,deep work,study'},{k:'min',l:'Minutes',t:'num',d:25,lo:1,hi:600}]},
+  {id:'bills',g:'tasks',label:'Bills due',to:'Task + reminder',desc:'A "Pay …" task appears a few days before each Budget bill is due, with the amount and category. Paid in Budget? The task ticks itself.',p:[{k:'lead',l:'Days before',t:'num',d:3,lo:0,hi:14},{k:'time',l:'Reminder at',t:'time',d:'09:00'}]},
+  {id:'billpay',g:'tasks',label:'Bill task ticked',to:'Paid in Budget',desc:'Tick a bill task and the bill is marked paid in Budget and the expense is logged (with Undo).'},
+  {id:'grocery',g:'tasks',label:'Grocery trip',to:'Task + reminder',desc:'The next trip becomes a task with the items left, grouped by store. Finish the trip in Grocery and the task ticks itself.',p:[{k:'lead',l:'Days before',t:'num',d:1,lo:0,hi:7},{k:'time',l:'Reminder at',t:'time',d:'18:00'}]},
+  {id:'birthdays',g:'tasks',label:'Birthdays and anniversaries',to:'Tasks + reminders',desc:'Close (C): a "Buy a gift" task a week ahead. Everyone: a reminder the night before, then a "Wish …" task and reminder on the day. Set C or O in Calendar.',p:[{k:'gift',l:'Gift task, days ahead',t:'num',d:7,lo:1,hi:30},{k:'eve',l:'Night-before reminder',t:'time',d:'21:00'},{k:'day',l:'Day-of reminder',t:'time',d:'08:00'}]},
+  {id:'tripexp',g:'money',label:'Grocery trip finished',to:'Expense in Budget',desc:'When you complete a trip in Grocery, the amount spent is logged in Budget (shared, split half). Only trips finished from now on.',p:[{k:'scope',l:'Log in',t:'sel',d:'shared',o:[['shared','Shared money'],['personal','My money']]}]},
+  {id:'restock',g:'money',label:'Running low',to:'Restock task',desc:'Pantry items that are low or finished are collected into one "Restock" task.'},
+  {id:'mealrem',g:'tasks',label:'Meal reminders',to:'Reminders',desc:'"Lunch in 15 minutes" before each planned meal, and a nudge if it is still not eaten after a while. Today only; stops once you eat or skip it.',p:[{k:'lead',l:'Minutes before',t:'num',d:15,lo:0,hi:120},{k:'late',l:'Nudge if not eaten after (min)',t:'num',d:45,lo:10,hi:240}]},
+  {id:'skinrem',g:'tasks',label:'Skin routine reminders',to:'Reminders',desc:'A reminder for the morning routine and one for the night routine (it names tonight\'s treatment), only while that routine is not done.',p:[{k:'am',l:'Morning at',t:'time',d:'07:00'},{k:'pm',l:'Night at',t:'time',d:'21:30'}]},
+  {id:'skinstock',g:'money',label:'Skin product running low',to:'Reminder',desc:'A reminder when a skin product drops to 15% or less, so you can send it to Grocery.',p:[{k:'time',l:'Remind at',t:'time',d:'09:00'}]},
+  {id:'listrem',g:'tasks',label:'Checklist due reminders',to:'Reminders',desc:'A reminder when a checklist is due and still has items left for you (items assigned to you, or to nobody). Tap it to open the list.',p:[{k:'time',l:'Remind at',t:'time',d:'09:00'},{k:'lead',l:'Days before (0 = that morning)',t:'num',d:0,lo:0,hi:7}]},
+  {id:'nudges',g:'money',label:'Nudges',to:'What still needs you',desc:'Overdue bills always, and in the evening any task still open today and missed water drinks.',p:[{k:'time',l:'Evening check at',t:'time',d:'20:00'}]}
+];
+const LINK_BASE={v:1,enabled:true,rules:{},auto:{},off:{},log:[],last:0,made:{},billsPaid:{},trips:{},tripSince:null};
+let linkS=null,linkBusy=false,linkTimer=null,linkKey=null;
+const linkRef=()=>profileRef('hub-profiles','linkState');
+function linkRule(id){const d=LINK_RULES.find(r=>r.id===id)||{},c=(linkS&&linkS.rules[id])||{},o={on:c.on!==false};(d.p||[]).forEach(q=>{o[q.k]=c[q.k]!=null?c[q.k]:q.d});return o}
+async function linkEnsure(){
+  const k=state.profile;if(linkS&&linkKey===k)return linkS;
+  const v=await readJson(linkRef(),null);
+  linkS=Object.assign(JSON.parse(JSON.stringify(LINK_BASE)),(v&&typeof v==='object'&&!Array.isArray(v))?v:{});linkKey=k;
+  ['rules','auto','off','made','billsPaid','trips'].forEach(f=>{if(!linkS[f]||typeof linkS[f]!=='object'||Array.isArray(linkS[f]))linkS[f]={}});if(!Array.isArray(linkS.log))linkS.log=[];
+  return linkS;
+}
+async function linkSave(){
+  if(!linkS)return;
+  const cut=new Date(Date.now()-14*864e5),ck=cut.getFullYear()+'-'+String(cut.getMonth()+1).padStart(2,'0')+'-'+String(cut.getDate()).padStart(2,'0');
+  ['auto','off'].forEach(f=>Object.keys(linkS[f]).forEach(k=>{if(k.slice(0,10)<ck)delete linkS[f][k]}));
+  const cut2=new Date(Date.now()-120*864e5),ck2=cut2.getFullYear()+'-'+String(cut2.getMonth()+1).padStart(2,'0')+'-'+String(cut2.getDate()).padStart(2,'0');
+  ['made','billsPaid'].forEach(f=>Object.keys(linkS[f]).forEach(k=>{if(String(linkS[f][k])<ck2)delete linkS[f][k]}));
+  linkS.log=linkS.log.slice(-80);
+  try{await linkRef().set({json:JSON.stringify(linkS),updatedAt:firebase.firestore.FieldValue.serverTimestamp()})}catch(e){console.warn('linkState save failed',e)}
+}
+async function linkGymDone(date){
+  try{
+    const col=db.collection('users').doc(state.user.uid).collection('profiles').doc(state.profile.toLowerCase()),fp=firebase.firestore.FieldPath.documentId();
+    const [l,c]=await Promise.all([col.collection('workoutLogs').where(fp,'>=',date+':').where(fp,'<',date+';').get().catch(()=>null),col.collection('cardioLogs').doc(date).get().catch(()=>null)]);
+    let n=0;if(l)l.forEach(d=>{const x=d.data()||{};(x.exercises||[]).forEach(e=>{n+=(e.sets||[]).length})});
+    if(c&&c.exists){const x=c.data()||{};n+=Array.isArray(x.entries)?x.entries.length:(x.machine?1:0)}
+    return n>0;
+  }catch(e){return false}
+}
+async function linkFocusMin(date){
+  try{
+    const snap=await db.collection('users').doc(state.user.uid).collection('clock-profiles').doc(state.profile).collection('data').doc('focusSessions').get();
+    const arr=snap.exists?safeJson(snap.data().json,[]):[],ds=new Date(date+'T12:00:00').toDateString();
+    return arr.filter(s=>new Date(s.date).toDateString()===ds).reduce((s,x)=>s+(x.minutes||0),0);
+  }catch(e){return 0}
+}
+function linkKw(s){return String(s||'').toLowerCase().split(',').map(x=>x.trim()).filter(Boolean)}
+function linkTasksFor(b,dn){            // every task linked to the block, done or not
+  const sbOf=t=>Array.isArray(t.scheduleBlocks)?t.scheduleBlocks:(t.scheduleBlock&&t.scheduleBlock.label?[{wd:t.scheduleBlock.weekday,label:t.scheduleBlock.label}]:[]);
+  return (state.personalTasks||[]).concat(state.sharedTasks||[]).filter(t=>sbOf(t).some(x=>x.wd===dn&&x.label===b.t));
+}
+/* For one block: which rules apply, and is each satisfied?  -> [{id, ok, why}] */
+function linkChecks(b,dn,date,facts){
+  const out=[],act=String(b.t||'').toLowerCase();
+  const R=id=>linkRule(id);
+  if(R('gym').on&&linkKw(R('gym').kw).some(k=>act.indexOf(k)!==-1))out.push({id:'gym',ok:facts.gym,why:'a workout is logged'});
+  if(R('focus').on&&linkKw(R('focus').kw).some(k=>act.indexOf(k)!==-1))out.push({id:'focus',ok:facts.focus>=Math.max(1,R('focus').min),why:facts.focus+' focus min'});
+  if(R('meals').on){const ms=schedMealsFor(b,dn,date);if(ms.length)out.push({id:'meals',ok:ms.every(m=>m.entries.length&&m.entries.every(e=>e.eaten)),why:'all meals eaten'})}
+  if(R('skin').on){const ss=schedSkinFor(b,dn,date);if(ss.length)out.push({id:'skin',ok:ss.every(s=>s.steps.every(z=>z.done)),why:'all skin steps done'})}
+  if(R('chores').on){const cs=schedLinkedChores(b);if(cs.length)out.push({id:'chores',ok:cs.every(c=>c.lastCompleted===date),why:'all chores done'})}
+  if(R('tasks').on){const ts=linkTasksFor(b,dn);if(ts.length)out.push({id:'tasks',ok:ts.every(t=>t.done),why:'all linked tasks done'})}
+  return out;
+}
+/* =====================================================================
+   LINK ENGINE, part 2 — automatic tasks, reminders and money links.
+   Every automatic task carries  auto:{key,src}  so it is created once
+   (linkS.made remembers keys, even if you delete the task). Shared things
+   (shared bills, grocery trips, gifts) go to the Shared list so there is
+   only one copy; personal things go to your own list.
+     bills    Budget bills due soon       -> "Pay <bill>" task (+ reminder)
+     billpay  ticking that task           -> bill marked paid + expense logged
+              (and a bill paid in Budget  -> task ticked)
+     grocery  next trip                   -> "Grocery trip" task with the list
+              (trip completed in Grocery  -> task ticked)
+     birthdays  Calendar reminders        -> C: gift task a week ahead; both:
+              night-before reminder, "Wish <name>" task and morning reminder
+     tripexp  completed grocery trip      -> expense in Budget
+     restock  low / finished pantry items -> one "Restock" task
+     nudges   evening check of what is still open
+   Reminders are written to hub-profiles/{P}/data/reminders; the Hub shows
+   them when they come due (a push service can read the same list later).
+   ===================================================================== */
+const P2=n=>String(n).padStart(2,'0');
+const dISO=d=>d.getFullYear()+'-'+P2(d.getMonth()+1)+'-'+P2(d.getDate());
+const dAdd=(iso,n)=>{const d=new Date(iso+'T12:00:00');d.setDate(d.getDate()+n);return dISO(d)};
+const dDiff=(a,b)=>Math.round((new Date(b+'T12:00:00')-new Date(a+'T12:00:00'))/864e5);
+const atMs=(iso,hhmm)=>{const[h,m]=String(hhmm||'09:00').split(':').map(Number);const d=new Date(iso+'T00:00:00');d.setHours(h||0,m||0,0,0);return d.getTime()};
+const budgetRef=(scope,key)=>scope==='shared'?db.collection('users').doc(state.user.uid).collection('budget-shared').doc(key):db.collection('users').doc(state.user.uid).collection('budget-profiles').doc(state.profile).collection('data').doc(key);
+const groceryRef=()=>appRef('grocery-v4','modernState');
+const remindersRef=()=>profileRef('hub-profiles','reminders');
+function linkHash(s){let h=5381;for(let i=0;i<s.length;i++)h=((h<<5)+h+s.charCodeAt(i))>>>0;return h.toString(36)}
+const linkMoney=n=>'$'+(Number(n)||0).toFixed(2);
+
+/* A read that says whether it worked. The engine only ever writes back something it read successfully,
+   so a failed or half-loaded read can never turn your task list, bills or schedule ticks into an empty list. */
+async function readSafe(ref,fallback){
+  try{
+    const snap=await ref.get();if(!snap.exists)return{ok:true,exists:false,val:fallback};
+    const raw=snap.data().json;if(raw==null)return{ok:true,exists:false,val:fallback};
+    return{ok:true,exists:true,val:typeof raw==='string'?JSON.parse(raw):raw};
+  }catch(e){return{ok:false,exists:false,val:fallback}}
+}
+/* ---- tasks: create once, keep fields fresh, tick from the other side ---- */
+async function linkApplyTasks(specs){
+  if(!specs.length)return 0;
+  let changed=0;
+  for(const shared of [false,true]){
+    const mine=specs.filter(s=>!!s.shared===shared);if(!mine.length)continue;
+    const ref=shared?sharedTodoRef():profileRef('todo-profiles','tasks');
+    const rd=await readSafe(ref,[]);if(!rd.ok||!Array.isArray(rd.val))continue;const arr=rd.val;let dirty=false;
+    mine.forEach(s=>{
+      const t=arr.find(x=>x.auto&&x.auto.key===s.key);
+      if(!t){
+        if(s.complete||linkS.made[s.key])return;
+        arr.push({id:'task-auto-'+linkHash(s.key),title:s.title,done:false,priority:s.priority||0,startDate:s.startDate||today(),due:s.due||null,dueTime:s.dueTime||null,repeat:'none',notes:s.notes||'',link:s.link||'',tags:s.tags||[],subtasks:[],listId:shared?'shared':'personal',createdBy:state.profile,order:Date.now(),createdAt:new Date().toISOString(),auto:Object.assign({key:s.key,src:s.src},s.meta||{})});
+        linkS.made[s.key]=today();dirty=true;changed++;return;
+      }
+      if(s.complete&&!t.done){t.done=true;t.completedOn=today();dirty=true;changed++;return}
+      if(!t.done&&!s.complete){ // keep an untouched automatic task current (amount changed, items bought…)
+        ['title','notes'].forEach(f=>{if(s[f]!==undefined&&s[f]!==null&&t[f]!==s[f]){t[f]=s[f];dirty=true}});
+      }
+    });
+    if(dirty){
+      await ref.set({json:JSON.stringify(arr),updatedAt:firebase.firestore.FieldValue.serverTimestamp()});
+      if(shared)state.sharedTasks=arr;else state.personalTasks=arr;
+    }
+  }
+  return changed;
+}
+async function linkAllTasks(){
+  const [a,b]=await Promise.all([readSafe(profileRef('todo-profiles','tasks'),[]),readSafe(sharedTodoRef(),[])]);
+  if(a.ok&&a.exists&&Array.isArray(a.val))state.personalTasks=a.val;if(b.ok&&b.exists&&Array.isArray(b.val))state.sharedTasks=b.val;
+  return(state.personalTasks||[]).concat(state.sharedTasks||[]);
+}
+
+/* ---- Budget ---- */
+const monthOf=iso=>iso.slice(0,7);
+function linkBillDue(b,date){const last=new Date(+date.slice(0,4),+date.slice(5,7),0).getDate(),day=Math.min(Number(b.dueDay)||1,last);return date.slice(0,7)+'-'+P2(day)}
+async function linkBudget(){
+  const [pb,sb,pc,sc]=await Promise.all([readJson(budgetRef('personal','bills'),[]),readJson(budgetRef('shared','bills'),[]),readJson(budgetRef('personal','categories'),[]),readJson(budgetRef('shared','categories'),[])]);
+  return{personal:Array.isArray(pb)?pb:[],shared:Array.isArray(sb)?sb:[],cats:{personal:Array.isArray(pc)?pc:[],shared:Array.isArray(sc)?sc:[]}};
+}
+async function linkPayBill(scope,id,month,auto){
+  const bref=budgetRef(scope,'bills'),tref=budgetRef(scope,'transactions');
+  const rb=await readSafe(bref,[]);if(!rb.ok||!Array.isArray(rb.val))return null;const bills=rb.val,b=bills.find(x=>x.id===id);
+  if(!b||b.lastLoggedMonth===month)return null;
+  const prev=b.lastLoggedMonth||null;
+  const rt=await readSafe(tref,[]);if(!rt.ok||!Array.isArray(rt.val)){console.warn('could not read transactions; bill left unpaid');return null}const arr=rt.val;
+  const shared=scope==='shared',amt=Number(b.amount)||0;
+  const txn={id:'id-auto-'+Date.now()+'-'+linkHash(id+month),amount:amt,type:'expense',categoryId:b.categoryId||'',who:shared?state.profile:null,date:today(),note:b.name,createdAt:Date.now(),splitMethod:shared?'half':null,owedAmount:shared?Math.round(amt/2*100)/100:null,settled:shared?false:undefined,auto:'bill'};
+  if(amt>0){arr.unshift(txn);await tref.set({json:JSON.stringify(arr)})}
+  b.lastLoggedMonth=month;await bref.set({json:JSON.stringify(bills)});
+  return{bill:b,prev,txnId:amt>0?txn.id:null,scope,id,month};
+}
+async function linkUnpayBill(r){
+  const bref=budgetRef(r.scope,'bills'),tref=budgetRef(r.scope,'transactions');
+  const rb=await readSafe(bref,[]);if(!rb.ok||!Array.isArray(rb.val)){toast('Could not undo — try again');return}
+  const b=rb.val.find(x=>x.id===r.id);
+  if(b){b.lastLoggedMonth=r.prev;await bref.set({json:JSON.stringify(rb.val)})}
+  if(r.txnId){const t=await readSafe(tref,[]);if(t.ok&&Array.isArray(t.val)){await tref.set({json:JSON.stringify(t.val.filter(x=>x.id!==r.txnId))})}}
+  const tasks=await linkAllTasks(),key='bill:'+r.scope+':'+r.id+':'+r.month,t=tasks.find(x=>x.auto&&x.auto.key===key);
+  if(t){t.done=false;t.completedOn=null;const shared=t.listId==='shared';await(shared?sharedTodoRef():profileRef('todo-profiles','tasks')).set({json:JSON.stringify(shared?state.sharedTasks:state.personalTasks)})}
+  linkS.billsPaid=(linkS.billsPaid||{});delete linkS.billsPaid[key];linkS.off[key]=true;await linkSave();
+  toast('Bill payment undone');
+}
+
+/* ---- gather what every rule needs, then build tasks / reminders ---- */
+async function linkSyncTasks(manual){
+  const date=today(),out={tasks:0,paid:0},specs=[],rem=[];
+  const R=linkRule,add=(r)=>rem.push(r);
+  const all=await linkAllTasks();
+  // 1) bill tasks -> Budget (write-back), before anything else so the rest sees the result
+  const bud=(R('bills').on||R('billpay').on)?await linkBudget():null;
+  if(bud&&R('billpay').on){
+    for(const t of all){
+      if(!t.done||!t.auto||t.auto.src!=='bill'||linkS.billsPaid[t.auto.key])continue;
+      if(t.completedOn&&t.completedOn<dAdd(date,-3))continue;       // old history: never pay it retroactively
+      const bill=(bud[t.auto.scope]||[]).find(x=>x.id===t.auto.billId);
+      if(!bill||bill.lastLoggedMonth===t.auto.month){linkS.billsPaid[t.auto.key]=date;continue}
+      const r=await linkPayBill(t.auto.scope,t.auto.billId,t.auto.month,t.auto);
+      if(r){linkS.billsPaid[t.auto.key]=date;out.paid++;linkS.log.push({t:Date.now(),r:'billpay',k:t.auto.key,l:'Paid '+r.bill.name+' ('+linkMoney(r.bill.amount)+')',a:1});
+        if(!manual)toast('Marked '+r.bill.name+' paid in Budget','Undo',()=>linkUnpayBill(r));
+        bill.lastLoggedMonth=t.auto.month}
+    }
+  }
+  // 2) bills due -> tasks + reminders
+  if(bud&&R('bills').on){
+    const lead=Math.max(0,+R('bills').lead||0);
+    ['personal','shared'].forEach(scope=>bud[scope].forEach(b=>{
+      if(!b||!b.id||b.paused)return;
+      const due=linkBillDue(b,date),month=monthOf(date),key='bill:'+scope+':'+b.id+':'+month,paid=b.lastLoggedMonth===month;
+      const catName=((bud.cats[scope].find(c=>c.id===b.categoryId))||{}).name||'';
+      if(paid){specs.push({key,shared:scope==='shared',complete:true,src:'bill'});return}
+      if(date>=dAdd(due,-lead)){
+        specs.push({key,src:'bill',shared:scope==='shared',title:'Pay '+b.name+' ('+linkMoney(b.amount)+')',due,dueTime:null,startDate:dAdd(due,-lead),priority:dDiff(date,due)<=0?1:0,tags:['bills'],
+          notes:b.name+' · '+linkMoney(b.amount)+(catName?' · '+catName:'')+'\nDue '+due+(scope==='shared'?' · Shared bill':'')+'\nTick this task and the bill is marked paid in Budget with an expense logged.',
+          link:'budget.html',meta:{scope,billId:b.id,month}});
+      }
+      if(date<=due)add({id:'bill:'+key+':due',at:atMs(dAdd(due,lead>0?-1:0),R('bills').time),title:'Bill due '+(due===date?'today':'on '+due.slice(5)),body:b.name+' · '+linkMoney(b.amount),src:'bills',link:'budget.html'});
+    }));
+  }
+  // 3) grocery trip -> task (+ reminder); trip completed -> task ticked
+  let gro=null;
+  if(R('grocery').on||R('tripexp').on||R('restock').on){const raw=await readJson(groceryRef(),null);gro=raw&&typeof raw==='object'&&raw.startDate?raw:null}
+  if(gro){
+    const cur=Math.max(1,Math.floor(dDiff(gro.startDate,date)/7)+1);let w=cur;
+    while(gro.weeks&&gro.weeks[w]&&gro.weeks[w].completed&&w<cur+60)w++;
+    const wkStart=dAdd(gro.startDate,(w-1)*7),wk=(gro.weeks||{})[w],cyc=Math.floor((w-1)/8)+1,cw=((w-1)%8)+1,key='grocery:'+w;
+    const prods=(gro.products||[]);const pn=id=>(prods.find(p=>p.id===id)||{}).name;
+    const done=(gro.history||[]).some(h=>h.week===w)&&wk&&wk.completed;
+    // earlier trips that finished while the task was still open
+    (gro.history||[]).forEach(h=>{if(h.week!=null)specs.push({key:'grocery:'+h.week,complete:true,src:'grocery',shared:true})});
+    if(R('grocery').on&&!done){
+      const lead=Math.max(0,+R('grocery').lead||0);
+      if(date>=dAdd(wkStart,-lead)){
+        const left=wk?(wk.items||[]).map(x=>({n:(x.productId&&pn(x.productId))||x.name||'Item',store:(x.productId&&(prods.find(p=>p.id===x.productId)||{}).store)||x.store||'Other',q:Math.max(0,Math.max(0,x.plannedQty-(x.carriedQty||0)-(x.dismissedQty||0))-(x.purchasedQty||0))})).filter(x=>x.q>0):null;
+        let notes='Cycle '+cyc+' · Week '+cw+'\n';
+        if(left){const by={};left.forEach(x=>{(by[x.store]=by[x.store]||[]).push(x.n+' ×'+(Math.round(x.q*100)/100))});notes+=Object.keys(by).map(s=>s+': '+by[s].join(', ')).join('\n');notes+='\n'+left.length+' items left · open Grocery for prices and the budget.'}
+        else notes+='Open Grocery to see this week\'s list.';
+        specs.push({key,src:'grocery',shared:true,title:'Grocery trip — Cycle '+cyc+' · Week '+cw,due:wkStart,dueTime:null,startDate:dAdd(wkStart,-lead),tags:['grocery'],notes,link:'apps/grocery.html',meta:{week:w}});
+        if(date<=wkStart)add({id:'grocery:'+w+':trip',at:atMs(dAdd(wkStart,-Math.min(lead,1)),R('grocery').time),title:'Grocery trip '+(wkStart===date?'today':'tomorrow'),body:left?left.length+' items on the list':'Cycle '+cyc+' · Week '+cw,src:'grocery',link:'apps/grocery.html'});
+      }
+    }
+    // restock: one task for whatever is low or finished
+    if(R('restock').on){
+      const low=Object.keys(gro.inventory||{}).filter(id=>{const s=(gro.inventory[id]||{}).status;return(s==='low'||s==='finished')&&pn(id)}).map(id=>pn(id));
+      const rk='restock:'+w;
+      if(low.length&&!done)specs.push({key:rk,src:'restock',shared:true,title:'Restock: '+low.slice(0,4).join(', ')+(low.length>4?' +'+(low.length-4)+' more':''),due:date,startDate:date,tags:['grocery'],notes:'Running low or finished in the pantry:\n'+low.join(', '),link:'apps/grocery.html'});
+      else specs.push({key:rk,complete:true,src:'restock',shared:true});
+    }
+    // trip completed -> Budget expense
+    if(R('tripexp').on){
+      if(!linkS.tripSince)linkS.tripSince=date;
+      linkS.trips=linkS.trips||{};
+      for(const h of (gro.history||[])){
+        if(!h||h.week==null||!(h.actual>0)||!h.date||h.date<linkS.tripSince||linkS.trips['w'+h.week+':'+h.date])continue;
+        linkS.trips['w'+h.week+':'+h.date]=1;
+        const scope=R('tripexp').scope==='personal'?'personal':'shared',cats=(await readJson(budgetRef(scope,'categories'),[]))||[];
+        const cat=cats.find(c=>/grocer/i.test(c.name||''))||cats.find(c=>/food|dining/i.test(c.name||''));
+        const tref=budgetRef(scope,'transactions'),rt=await readSafe(tref,[]);if(!rt.ok||!Array.isArray(rt.val)){delete linkS.trips['w'+h.week+':'+h.date];continue}const arr=rt.val;
+        const shared=scope==='shared',amt=Math.round(h.actual*100)/100,id='id-auto-trip-'+h.week+'-'+h.date;
+        if(!arr.some(x=>x.id===id)){
+          arr.unshift({id,amount:amt,type:'expense',categoryId:cat?cat.id:'',who:shared?state.profile:null,date:h.date,note:'Grocery trip — Cycle '+(Math.floor((h.week-1)/8)+1)+' · Week '+(((h.week-1)%8)+1),createdAt:Date.now(),splitMethod:shared?'half':null,owedAmount:shared?Math.round(amt/2*100)/100:null,settled:shared?false:undefined,auto:'trip'});
+          await tref.set({json:JSON.stringify(arr)});
+          linkS.log.push({t:Date.now(),r:'tripexp',k:id,l:'Logged grocery trip '+linkMoney(amt)+' in Budget',a:1});out.paid++;
+          if(!manual)toast('Logged the grocery trip ('+linkMoney(amt)+') in Budget');
+        }
+      }
+    }
+  }
+  // 4) birthdays / anniversaries (Calendar C and O)
+  if(R('birthdays').on){
+    const [rems,cats]=await Promise.all([readJson(appRef('calendar','reminders'),[]),readJson(appRef('calendar','reminderCategories'),[])]);
+    state.reminders=Array.isArray(rems)?rems:[];state.reminderCats=Array.isArray(cats)?cats:[];
+    const gift=Math.max(1,+R('birthdays').gift||7),eve=R('birthdays').eve,day=R('birthdays').day,yr=+date.slice(0,4);
+    state.reminders.forEach(r=>{
+      if(!r||!r.name||!r.month||!r.day)return;
+      const cname=((state.reminderCats.find(c=>c.id===r.categoryId))||{}).name||'';
+      const isB=/birthday/i.test(cname),isA=/anniversary/i.test(cname);
+      let D=null;for(const y of [yr,yr+1]){const last=new Date(y,+r.month,0).getDate(),dd=y+'-'+P2(+r.month)+'-'+P2(Math.min(+r.day,last));if(dd>=date){D=dd;break}}
+      if(!D)return;
+      const days=dDiff(date,D),close=r.circle==='C',Y=D.slice(0,4),what=isB?"birthday":isA?'anniversary':cname.toLowerCase()||'reminder';
+      if(isB||isA){
+        if(close&&days<=gift)specs.push({key:'gift:'+r.id+':'+Y,src:'birthday',shared:true,title:'Buy a gift for '+r.name,due:dAdd(D,-gift)<date?date:dAdd(D,-gift),startDate:dAdd(D,-gift)<date?date:dAdd(D,-gift),tags:['birthday','gift'],notes:r.name+"'s "+what+' is on '+D+' ('+days+' day'+(days===1?'':'s')+' away).',link:'apps/calendar.html'});
+        if(days<=1)specs.push({key:'wish:'+r.id+':'+Y,src:'birthday',shared:false,title:'Wish '+r.name+(isB?' a happy birthday':' a happy anniversary'),due:D,startDate:D,dueTime:day||null,tags:['birthday'],notes:(close?'Close · ':'Outside · ')+r.name+"'s "+what+' is today.',link:'apps/calendar.html'});
+      }
+      if(close&&(isB||isA)&&days<=gift&&days>=1)add({id:'bd:'+r.id+':'+Y+':gift',at:atMs(dAdd(D,-gift)<date?date:dAdd(D,-gift),day),title:'Buy a gift for '+r.name,body:r.name+"'s "+what+' is in '+days+' day'+(days===1?'':'s'),src:'birthday',link:'apps/calendar.html'});
+      if(days>=1)add({id:'bd:'+r.id+':'+Y+':eve',at:atMs(dAdd(D,-1),eve),title:'Tomorrow: '+r.name+"'s "+what,body:close&&(isB||isA)?'Close · have the gift ready':'Outside · a message tomorrow morning',src:'birthday',link:'apps/calendar.html'});
+      add({id:'bd:'+r.id+':'+Y+':day',at:atMs(D,day),title:(isB?'Wish '+r.name+' a happy birthday':isA?'Wish '+r.name+' a happy anniversary':r.name+' — '+(cname||'today')),body:(close?'Close · ':'Outside · ')+"it's today",src:'birthday',link:'apps/calendar.html'});
+    });
+  }
+  if(R('mealrem').on&&window.DietCore){
+    const rd=await readSafe(dietRef(),null);
+    if(rd.ok&&rd.exists&&rd.val&&Array.isArray(rd.val.meals)&&Array.isArray(rd.val.diary)){
+      const pid=state.profile.toLowerCase(),{rows}=DietCore.dayRows(rd.val,pid,date),lead=Number(R('mealrem').lead)||0,late=Number(R('mealrem').late)||45;
+      const at0=new Date(date+'T00:00:00').getTime();
+      rows.forEach(r=>{
+        if(r.status!=='planned'||r.t==null)return;
+        const kc=Math.round(r.n.calories),nowMs=Date.now();
+        if(at0+(r.t-lead)*60000>nowMs-300000)add({id:'meal:'+date+':'+r.meal.id+':pre',at:at0+(r.t-lead)*60000,title:r.name+(lead?' in '+lead+' min':' now'),body:kc+' kcal · '+Math.round(r.n.protein)+' g protein',src:'meal',link:'index.html'});
+        if(at0+(r.t+late)*60000>nowMs-3*3600e3)add({id:'meal:'+date+':'+r.meal.id+':late',at:at0+(r.t+late)*60000,title:r.name+' not logged yet',body:'Ate it? Tick it, or skip it.',src:'meal',link:'index.html'});
+      });
+    }
+  }
+  if((R('skinrem').on||R('skinstock').on)&&window.SkinCore){
+    const names=['stepLog','productState'],rs=await Promise.all(names.map(n=>readSafe(profileRef('skin-profiles',n),null)));
+    const sp=await profileRef('skin-profiles','programStart').get().then(s=>({ok:true,start:(s.exists&&s.data().startDate)||null})).catch(()=>({ok:false}));
+    if(rs.every(r=>r.ok)&&sp.ok&&(rs[0].exists||sp.start)){
+      const C=SkinCore,prof=state.profile,start=sp.start||C.TEMPLATE_START,log=(rs[0].exists&&rs[0].val&&typeof rs[0].val==='object')?rs[0].val:{},nowMs=Date.now();
+      if(R('skinrem').on){
+        const secs=C.sections(prof,date,start);
+        if(secs){
+          const left=s=>s.steps.some((x,i)=>!x.optional&&!log[C.stepKey(date,s.key,i)]);
+          const am=secs.find(s=>s.key==='am'),pm=secs.find(s=>s.key==='face'||s.key==='pm'),nz=secs.find(s=>s.key==='nizoral');
+          const night=secs.filter(s=>s.key!=='am');
+          if(am&&left(am)){const at=atMs(date,R('skinrem').am);if(at>nowMs-3*3600e3)add({id:'skin:'+date+':am',at,title:'Morning skin routine',body:am.steps.filter(x=>!x.optional).map(x=>x.text.split(' — ')[0]).join(', '),src:'skin',link:'apps/skin.html'})}
+          if(night.some(left)){const at=atMs(date,R('skinrem').pm);if(at>nowMs-3*3600e3)add({id:'skin:'+date+':pm',at,title:'Night skin routine'+(pm&&pm.treat?' · '+pm.treat:''),body:night.filter(left).map(s=>s.label).join(', ')+(nz?' (Nizoral tonight)':''),src:'skin',link:'apps/skin.html'})}
+        }
+      }
+      if(R('skinstock').on){
+        const ps=C.seedState((rs[1].exists&&rs[1].val&&typeof rs[1].val==='object')?rs[1].val:{},prof);
+        C.low(ps,prof).filter(p=>p.pct<=15).forEach(p=>add({id:'skinlow:'+p.id+':'+date.slice(0,7),at:atMs(date,R('skinstock').time),title:p.name+' is almost out',body:p.pct+'% left. Send it to Grocery from the Skin widget.',src:'skin',link:'apps/skin.html'}));
+      }
+    }
+  }
+  if(R('listrem').on&&window.NotesCore){
+    const rl=await readSafe(appRef('checklist','state'),null);
+    if(rl.ok&&rl.exists&&rl.val&&Array.isArray(rl.val.lists)){
+      const lead=Math.max(0,Math.min(7,Number(R('listrem').lead)||0)),nowMs=Date.now();
+      NotesCore.active(rl.val.lists,state.profile).forEach(l=>{
+        if(!l.due)return;
+        const open=NotesCore.openFor(l,state.profile);if(!open.length)return;
+        const at=atMs(dAdd(l.due,-lead),R('listrem').time),mine=open.filter(x=>x.a===state.profile).length;
+        if(at>nowMs-3*3600e3)add({id:'list:'+l.id+':'+l.due+':'+lead,at,title:l.title+(lead?' is due '+(lead===1?'tomorrow':'in '+lead+' days'):' is due today'),body:open.length+' item'+(open.length>1?'s':'')+' left'+(mine?' · '+mine+' for you':''),src:'list',link:'apps/checklist.html?list='+encodeURIComponent(l.id)});
+      });
+    }
+  }
+  out.tasks=await linkApplyTasks(specs);
+  if(out.tasks)linkS.log.push({t:Date.now(),r:'tasks',k:'t'+Date.now(),l:out.tasks+' task'+(out.tasks>1?'s':'')+' added or ticked automatically',a:1});
+  await linkSaveReminders(rem);
+  return out;
+}
+
+/* ---- reminders ---- */
+async function linkSaveReminders(fresh){
+  const cur=await readJson(remindersRef(),null),list=(cur&&Array.isArray(cur.list))?cur.list:[],byId={};list.forEach(r=>byId[r.id]=r);
+  const now=Date.now(),next=[];
+  fresh.forEach(r=>{const o=byId[r.id];if(r.at>now+14*864e5)return;next.push(Object.assign({state:'pending'},r,o?{state:o.state}:{}));delete byId[r.id]});
+  Object.keys(byId).forEach(id=>{const r=byId[id];if(r.at>now-2*864e5&&!(r.src==='bills'||r.src==='grocery'||r.src==='birthday'||r.src==='meal'||r.src==='skin'||r.src==='list'))next.push(r);else if(r.at>now-864e5&&r.state!=='pending')next.push(r)}); // keep recent history only
+  next.sort((a,b)=>a.at-b.at);
+  const s=JSON.stringify({v:1,list:next});
+  if(s!==JSON.stringify({v:1,list:list}))await remindersRef().set({json:s,updatedAt:firebase.firestore.FieldValue.serverTimestamp()});
+  linkRem=next;
+}
+let linkRem=[];
+async function linkDueReminders(){
+  if(!linkRem.length||(linkS&&linkS.enabled===false))return;
+  const now=Date.now();let dirty=false;
+  const tEl=document.getElementById('toast');
+  linkRem.forEach(r=>{
+    if(r.state!=='pending'||r.at>now)return;
+    if(now-r.at<3*3600e3&&tEl&&tEl.classList.contains('show')&&tEl.classList.contains('has-act'))return;   // never cover an Undo toast: try again next tick
+    r.state=(now-r.at>3*3600e3)?'missed':'shown';dirty=true;
+    if(r.state==='shown'){
+      toast(r.title+(r.body?' — '+r.body:''));
+      try{if('Notification'in window&&Notification.permission==='granted')new Notification(r.title,{body:r.body||'',icon:'icon-192.png',tag:r.id})}catch(e){}
+    }
+  });
+  if(dirty)try{await remindersRef().set({json:JSON.stringify({v:1,list:linkRem}),updatedAt:firebase.firestore.FieldValue.serverTimestamp()})}catch(e){}
+}
+
+/* ---- nudges: what still needs you, right now ---- */
+async function linkNudges(){
+  const date=today(),out=[],R=linkRule;
+  if(!R('nudges').on||(linkS&&linkS.enabled===false))return out;
+  const nowM=new Date().getHours()*60+new Date().getMinutes(),[nh,nm]=String(R('nudges').time||'20:00').split(':').map(Number),late=nowM>=(nh*60+(nm||0));
+  const tasks=(state.personalTasks||[]).concat(state.sharedTasks||[]);
+  const overdue=tasks.filter(t=>!t.done&&t.auto&&t.auto.src==='bill'&&t.due&&t.due<date);
+  overdue.forEach(t=>out.push({k:'bill:'+t.id,t:t.title.replace(/^Pay /,'')+' is overdue',s:'Due '+t.due,link:'budget.html'}));
+  if(late){
+    const open=tasks.filter(t=>!t.done&&t.due===date);
+    if(open.length)out.push({k:'tasks',t:open.length+' task'+(open.length>1?'s':'')+' still open today',s:open.slice(0,3).map(t=>t.title).join(' · '),link:'apps/todo.html'});
+    try{const miss=waterPlanList(date).filter(p=>wStatus(p,date).s==='missed').length;if(miss)out.push({k:'water',t:miss+' planned drink'+(miss>1?'s':'')+' missed',s:'Water plan',link:null})}catch(e){}
+  }
+  return out;
+}
+
+async function linkRun(manual){
+  if(linkBusy||!state.user||!state.profile)return null;
+  linkBusy=true;let changed=0,extra=0;
+  try{
+    await linkEnsure();
+    if(linkS.enabled===false){linkBusy=false;if(document.getElementById('links-card'))renderLinksCard();return 0}
+    const date=today(),dn=DAYS[new Date().getDay()],S={skin:true,diet:true,ev:false,task:false};
+    // fresh copies of what the rules read from the To-Do and Chores apps
+    const [chores,personal,shared]=await Promise.all([readJson(appRef('chores','chores'),null),readJson(profileRef('todo-profiles','tasks'),null),readJson(sharedTodoRef(),null)]);
+    if(Array.isArray(chores))state.chores=chores;if(Array.isArray(personal))state.personalTasks=personal;if(Array.isArray(shared))state.sharedTasks=shared;
+    let part2=null;try{part2=await linkSyncTasks(manual)}catch(e){console.warn('link engine tasks',e)}
+    extra=part2?(part2.tasks||0)+(part2.paid||0):0;
+    await schedLoadLog(true,S);
+    const facts={gym:linkRule('gym').on?await linkGymDone(date):false,focus:linkRule('focus').on?await linkFocusMin(date):0};
+    const {blocks}=schedBuild(S);
+    const now=Date.now(),log=[],map=Object.assign({},schedLog.map);
+    blocks.forEach(b=>{
+      const key=date+':'+b.idx,checks=linkChecks(b,dn,date,facts),ticked=!!map[key],isAuto=!!linkS.auto[key];
+      if(!checks.length){delete linkS.auto[key];return}      // rule switched off / no longer applies: the tick stays, the engine lets go of it
+      const all=checks.every(c=>c.ok),names=checks.map(c=>c.id).join('+');
+      if(ticked){
+        if(isAuto&&!all){delete map[key];delete linkS.auto[key];changed++;log.push({t:now,r:names,k:key,l:b.t,a:0})}   // what made it true is gone again
+      }else{
+        if(isAuto){if(all){delete linkS.auto[key];linkS.off[key]=true}else delete linkS.auto[key];return}   // you unticked it yourself
+        if(linkS.off[key]){if(!all)delete linkS.off[key];return}                                          // stay off until the condition drops
+        if(all){map[key]=true;linkS.auto[key]=true;changed++;log.push({t:now,r:names,k:key,l:b.t,a:1})}
+      }
+    });
+    if(changed){
+      const ref=profileRef('schedule-profiles','templateLog'),rl=await readSafe(ref,{});if(!rl.ok)throw new Error('schedule log unreadable');const m=(rl.val&&typeof rl.val==='object'&&!Array.isArray(rl.val))?rl.val:{};
+      log.forEach(e=>{if(e.a)m[e.k]=true;else delete m[e.k]});
+      await ref.set({json:JSON.stringify(m),updatedAt:firebase.firestore.FieldValue.serverTimestamp()},{merge:true});
+      schedLog.map=m;schedLog.t=Date.now();
+      if(state.insights&&state.insights.tplLog){log.forEach(e=>{if(e.a)state.insights.tplLog[e.k]=true;else delete state.insights.tplLog[e.k]})}
+      linkS.log=linkS.log.concat(log);
+      schedRedraw();
+      if(!manual)toast(log.length===1?(log[0].a?'Ticked ':'Unticked ')+log[0].l+' (auto)':'Auto-updated '+log.length+' blocks');
+    }
+    linkS.last=Date.now();await linkSave();
+  }catch(e){console.warn('link engine',e)}
+  linkBusy=false;
+  if(extra)hubSoftRefresh(true);
+  linkDueReminders();
+  if(document.getElementById('links-card'))renderLinksCard();
+  return changed+extra;
+}
+function linksStart(){
+  if(linkTimer)clearInterval(linkTimer);
+  linkS=null;linkKey=null;
+  setTimeout(()=>linkRun(false),2500);
+  if(window.linkRemTimer)clearInterval(window.linkRemTimer);window.linkRemTimer=setInterval(()=>{if(!document.hidden)linkDueReminders()},30000);
+  linkTimer=setInterval(()=>{if(!document.hidden&&!(document.getElementById('app-frame-overlay')&&!document.getElementById('app-frame-overlay').hidden))linkRun(false)},90000);
+}
+document.addEventListener('visibilitychange',()=>{if(!document.hidden&&state.user&&state.profile)setTimeout(()=>linkRun(false),1500)});
+function linkTime(t){const d=new Date(t);return d.toLocaleTimeString([],{hour:'numeric',minute:'2-digit'})}
+async function renderLinksCard(){
+  const el=document.getElementById('links-card');if(!el||!state.profile)return;
+  await linkEnsure();
+  const body=el.querySelector('#links-body');if(!body)return;
+  const pHtml=r=>(r.p||[]).length?'<div class="lk-in">'+r.p.map(q=>{
+    const v=linkRule(r.id)[q.k],a='data-lk-p="'+r.id+':'+q.k+'"';
+    if(q.t==='sel')return '<label>'+esc(q.l)+'<select class="ws-in" '+a+'>'+q.o.map(o=>'<option value="'+o[0]+'"'+(o[0]===v?' selected':'')+'>'+esc(o[1])+'</option>').join('')+'</select></label>';
+    if(q.t==='num')return '<label>'+esc(q.l)+'<input class="ws-in" type="number" min="'+q.lo+'" max="'+q.hi+'" '+a+' value="'+v+'" style="width:76px"></label>';
+    if(q.t==='time')return '<label>'+esc(q.l)+'<input class="ws-in" type="time" '+a+' value="'+esc(v)+'"></label>';
+    return '<label>'+esc(q.l)+'<input class="ws-in lk-kw" '+a+' value="'+esc(v)+'"></label>';
+  }).join('')+'</div>':'';
+  const master=el.querySelector('#links-master');if(master)master.checked=linkS.enabled!==false;
+  el.classList.toggle('lk-disabled',linkS.enabled===false);
+  body.innerHTML=LINK_GROUPS.map(g=>'<h3 class="lk-h">'+esc(g.label)+'</h3><p class="settings-hint" style="margin:0 0 4px">'+esc(g.hint)+'</p>'+LINK_RULES.filter(r=>r.g===g.id).map(r=>{
+    const c=linkRule(r.id);
+    return '<div class="lk-rule"><label class="lk-sw"><input type="checkbox" data-lk-on="'+r.id+'"'+(c.on?' checked':'')+'><span></span></label><div class="lk-tx"><strong>'+esc(r.label)+' <em>→ '+esc(r.to)+'</em></strong><small>'+esc(r.desc)+'</small>'+pHtml(r)+'</div></div>';
+  }).join('')).join('');
+  const log=(linkS.log||[]).slice(-12).reverse();
+  el.querySelector('#links-log').innerHTML=log.length?log.map(e=>'<div class="lk-ev"><span>'+(e.a?'✓':'↩')+'</span><b>'+esc(e.l)+'</b><small>'+esc(e.r)+' · '+esc(linkTime(e.t))+'</small></div>').join(''):'<p class="settings-hint">Nothing yet. Log a workout, eat a meal or finish a chore and the engine will do the rest.</p>';
+  const up=(linkRem||[]).filter(r=>r.state==='pending').slice(0,8);
+  const upEl=el.querySelector('#links-rem');
+  if(upEl)upEl.innerHTML=up.length?up.map(r=>'<div class="lk-ev"><span>⏰</span><b>'+esc(r.title)+'</b><small>'+esc(new Date(r.at).toLocaleString([],{weekday:'short',month:'short',day:'numeric',hour:'numeric',minute:'2-digit'}))+'</small></div>').join(''):'<p class="settings-hint">No reminders coming up.</p>';
+  const nd=await linkNudges();const ndEl=el.querySelector('#links-nudges');
+  if(ndEl)ndEl.innerHTML=nd.length?nd.map(n=>'<div class="lk-ev"><span>!</span><b>'+esc(n.t)+'</b><small>'+esc(n.s||'')+'</small></div>').join(''):'<p class="settings-hint">Nothing needs you right now.</p>';
+  el.querySelector('#links-status').textContent=linkS.last?'Last checked '+linkTime(linkS.last):'Not run yet';
+  const rb=el.querySelector('#links-run');if(rb&&!rb.dataset.wired){rb.dataset.wired=1;rb.onclick=async()=>{if(linkS.enabled===false){toast('Automatic links are switched off — turn them on first');return}rb.disabled=true;rb.textContent='Checking…';const n=await linkRun(true);rb.disabled=false;rb.textContent='Check now';toast(n?('Updated '+n+' item'+(n>1?'s':'')):'Everything is already up to date')}}
+  if(master&&!master.dataset.wired){master.dataset.wired=1;master.addEventListener('change',async()=>{linkS.enabled=master.checked;await linkSave();toast(master.checked?'Automatic links are on':'Automatic links are off for '+state.profile);if(master.checked)linkRun(true);else renderLinksCard()})}
+  if(!body.dataset.wired){
+    body.dataset.wired=1;
+    body.addEventListener('change',async e=>{
+      const t=e.target;let id;
+      if((id=t.dataset.lkOn)){linkS.rules[id]=Object.assign(linkS.rules[id]||{},{on:t.checked})}
+      else if(t.dataset.lkP){
+        const[rid,k]=t.dataset.lkP.split(':'),q=(LINK_RULES.find(r=>r.id===rid).p||[]).find(x=>x.k===k);let v=t.value;
+        if(q.t==='num')v=Math.max(q.lo,Math.min(q.hi,+v||q.d));if(q.t==='time'&&!/^\d\d:\d\d$/.test(v))v=q.d;
+        linkS.rules[rid]=Object.assign(linkS.rules[rid]||{},{[k]:v});
+      }else return;
+      await linkSave();linkRun(true);
+    });
+  }
 }
 function renderTasksInto(el,items){
   if(!el)return;
@@ -826,9 +1669,78 @@ function renderAgendaInto(el){
     else completeChoreFromWidget(b.dataset.agId,el,()=>renderAgendaInto(el));
   }));
 }
+/* ---- Diet widget settings (gear). Goals, meals and recipes come from the Diet app. ---- */
+const DIET_SETTINGS=[
+  {h:'Show'},
+  {key:'ring',label:'Calorie ring and protein bar',hint:'One arc per planned meal; it fills when you eat it',type:'bool',def:true},
+  {key:'macros',label:'Carbs, fat and meal count',type:'bool',def:true},
+  {key:'micro',label:'Sugar and saturated fat bars',hint:'Against the limits you set in Diet',type:'bool',def:true},
+  {key:'next',label:'Next meal card',hint:'Ate it, Skip, and a chooser for meals with options',type:'bool',def:true},
+  {key:'list',label:'Meal list',hint:'Tap a row for what is in it',type:'bool',def:true},
+  {key:'rescue',label:'Protein rescue',hint:'Suggests whey when the plan will not reach your protein',type:'bool',def:true},
+  {key:'pantry',label:'Pantry check on the next meal',hint:'Warns when an ingredient is low or finished in Grocery',type:'bool',def:true},
+  {key:'add',label:'"Ate something else" quick add',type:'bool',def:true},
+  {key:'week',label:'Last 7 days',hint:'Tap a bar to open that day',type:'bool',def:true},
+  {key:'flex',label:'Weekly flex bank',hint:'Calories saved or borrowed this week, so one off day evens out',type:'bool',def:true},
+  {key:'energy',label:'Eaten against burned',hint:'Uses your Gym height, weight and workouts',type:'bool',def:true},
+  {key:'streak',label:'Streak and weekly score',type:'bool',def:true},
+  {key:'feel',label:'"How did it sit" faces after a meal',type:'bool',def:true},
+  {key:'weight',label:'Weight line',hint:'Latest weigh-in from Gym',type:'bool',def:false},
+  {h:'Look'},
+  {key:'center',label:'Ring centre',type:'seg',opts:[['left','kcal left'],['eaten','kcal eaten']],def:'left'},
+  {key:'fmt',label:'Time format',type:'seg',opts:[['12','12 h'],['24','24 h']],def:'12'},
+  {key:'hideplan',label:'Hide calories of meals not eaten yet',hint:'Less number-watching until you have eaten',type:'bool',def:false},
+  {h:'Reminders'},
+  {key:'rem',label:'Meal reminders',hint:'"Lunch in 15 minutes" and a late nudge. Times and lead are in Settings, Links.',type:'bool',get:()=>{try{return linkRule('mealrem').on&&!(linkS&&linkS.enabled===false)}catch(e){return false}},
+    set:async v=>{await linkEnsure();linkS.rules.mealrem=Object.assign({},linkS.rules.mealrem,{on:!!v});await linkSave();if(v)linkRun(true).catch(()=>{})}}
+];
+/* ---- Skin widget settings (gear). The routine, products and program dates come from the Skin app. ---- */
+const PHOTO_SETTINGS=[
+  {h:'Slideshow'},
+  {key:'speed',label:'Seconds per photo',type:'seg',opts:[['3','3'],['5','5'],['8','8'],['15','15']],def:'5'},
+  {key:'auto',label:'Start playing on its own',type:'bool',def:false},
+  {key:'shuf',label:'Shuffle',type:'bool',def:false},
+  {key:'only',label:'Show',hint:'Favourites shows only the hearted photos (all of them until you heart one).',type:'seg',opts:[['all','All'],['fav','Favourites']],def:'all'},
+  {h:'Look'},
+  {key:'fit',label:'Photo fit',type:'seg',opts:[['fill','Fill'],['fit','Whole photo']],def:'fill'},
+  {key:'cap',label:'Show captions',type:'bool',def:true},
+  {key:'zoom',label:'Tap a photo to enlarge',type:'bool',def:true}
+];
+const NOTES_SETTINGS=[
+  {h:'Show'},
+  {key:'kind',label:'Show',type:'seg',opts:[['all','Both'],['notes','Notes'],['lists','Lists']],def:'all'},
+  {key:'sort',label:'Order',type:'seg',opts:[['new','Newest'],['edit','Edited'],['old','Oldest']],def:'new'},
+  {key:'pinfirst',label:'Pinned first',type:'bool',def:true},
+  {h:'Look'},
+  {key:'size',label:'Text size',type:'seg',opts:[['s','S'],['m','M'],['l','L']],def:'m'},
+  {key:'cols',label:'Columns',type:'seg',opts:[['auto','Auto'],['1','1'],['2','2']],def:'auto'},
+  {key:'bar',label:'Formatting toolbar',type:'seg',opts:[['edit','When editing'],['always','Always']],def:'edit'}
+];
+const SKIN_SETTINGS=[
+  {h:'Show'},
+  {key:'prog',label:'Program progress',hint:'Month, day of the program and the month objective',type:'bool',def:true},
+  {key:'streak',label:'Streak badge',type:'bool',def:true},
+  {key:'prod',label:'Product under each step',type:'bool',def:true},
+  {key:'qty',label:'How much to use',type:'bool',def:true},
+  {key:'timers',label:'Wait timers',hint:'Differin dry time, BHA wait',type:'bool',def:true},
+  {key:'hideDone',label:'Hide steps once done',type:'bool',def:false},
+  {key:'coming',label:'Next 7 nights',hint:'Which treatment each night is',type:'bool',def:true},
+  {key:'heat',label:'Last 28 days map',type:'bool',def:true},
+  {key:'cab',label:'Product stock',hint:'Running low shows a Send to Grocery button',type:'bool',def:true},
+  {key:'track',label:'Nightly tracking',hint:'Bhargav: sliders and reactions. Anusha: weekly check-in',type:'bool',def:true},
+  {key:'review',label:'Next review countdown',type:'bool',def:true},
+  {h:'Reminders'},
+  {key:'rem',label:'Routine reminders',hint:'Morning and night, naming tonight’s treatment. Times are in Settings, Links.',type:'bool',get:()=>{try{return linkRule('skinrem').on&&!(linkS&&linkS.enabled===false)}catch(e){return false}},
+    set:async v=>{await linkEnsure();linkS.rules.skinrem=Object.assign({},linkS.rules.skinrem,{on:!!v});await linkSave();if(v)linkRun(true).catch(()=>{})}},
+  {key:'remstock',label:'Running-low nudge',hint:'When a product drops to 15% or less',type:'bool',get:()=>{try{return linkRule('skinstock').on&&!(linkS&&linkS.enabled===false)}catch(e){return false}},
+    set:async v=>{await linkEnsure();linkS.rules.skinstock=Object.assign({},linkS.rules.skinstock,{on:!!v});await linkSave();if(v)linkRun(true).catch(()=>{})}},
+  {h:'Look'},
+  {key:'fmt',label:'Time format',type:'seg',opts:[['12','12 h'],['24','24 h']],def:'12'}
+];
 const WIDGET_TYPES={
-  schedule:{title:"Today's schedule",icon:'calendar-clock',desc:"Your planned blocks for today, same list as the Planner.",defaultSize:'lg',
-    render(el){renderTimelineInto(el,todaysTimeline())}},
+  schedule:{title:"Today's schedule",icon:'calendar-clock',desc:"Your day as a line you fill in: tick blocks, see events and tasks under the block they fall in. Gear for settings.",defaultSize:'lg',
+    settings:SCHEDULE_SETTINGS,
+    render(el,w){renderScheduleWidget(el,w);schedLoadLog(false,wsAll(w,WIDGET_TYPES.schedule)).then(ch=>{if(ch&&el.isConnected)renderScheduleWidget(el,w)}).catch(()=>{})}},
   priorities:{title:'Priorities',icon:'list-checks',desc:'Tasks due today — check them off right from the board.',defaultSize:'lg',
     headerAction:true, // shows the "+" quick-add button in this widget's own title bar — see renderWidgetBoard()
     render(el){renderTasksInto(el,dueTasks().slice(0,8))}},
@@ -848,32 +1760,9 @@ const WIDGET_TYPES={
         '</div>';updateProfileLinks();if(window.lucide)lucide.createIcons()}},
   agenda:{title:'Calendar & reminders',icon:'calendar-days',desc:"Today's events, birthdays and reminders, tasks and chores to tick off, plus the next 7 days.",defaultSize:'lg',
     render(el){renderAgendaInto(el)}},
-  focus:{title:'Focus today',icon:'timer',desc:"Minutes logged in Clock's focus timer today.",defaultSize:'sm',
-    async render(el){
-      wLoading(el);
-      try{
-        const ref=db.collection('users').doc(state.user.uid).collection('clock-profiles').doc(state.profile).collection('data').doc('focusSessions');
-        const snap=await ref.get();
-        const sessions=snap.exists?safeJson(snap.data().json,[]):[];
-        const todayStr=new Date().toDateString();
-        const mins=sessions.filter(s=>new Date(s.date).toDateString()===todayStr).reduce((s,x)=>s+(x.minutes||0),0);
-        el.innerHTML='<strong style="display:block;font-size:26px;font-weight:700;letter-spacing:-.02em">'+mins+'<small style="font-size:13px;font-weight:600;color:var(--muted)"> min</small></strong><p style="margin:4px 0 10px;color:var(--muted)">focused today</p><a class="widget-card-link" href="apps/clock.html" data-profile-link>Open Clock <i data-lucide="arrow-up-right"></i></a>';
-        updateProfileLinks();if(window.lucide)lucide.createIcons();
-      }catch(e){el.innerHTML='<div class="empty-state"><strong>Unavailable</strong>Could not load focus time.</div>'}
-    }},
-  skin:{title:'Skin program',icon:'sparkle',desc:'Which day of your current skin program you’re on.',defaultSize:'sm',
-    async render(el){
-      wLoading(el);
-      try{
-        const ref=db.collection('users').doc(state.user.uid).collection('skin-profiles').doc(state.profile).collection('data').doc('programStart');
-        const snap=await ref.get();
-        const startDate=(snap.exists&&snap.data().startDate)||null;
-        if(!startDate){el.innerHTML='<div class="empty-state"><strong>Not started</strong>No active skin program yet.</div>';return}
-        const dayNum=Math.max(1,daysBetween(startDate,today())+1);
-        el.innerHTML='<strong style="display:block;font-size:26px;font-weight:700;letter-spacing:-.02em">Day '+dayNum+'</strong><p style="margin:4px 0 10px;color:var(--muted)">of your skin program</p><a class="widget-card-link" href="apps/skin.html" data-profile-link>Open Skin <i data-lucide="arrow-up-right"></i></a>';
-        updateProfileLinks();if(window.lucide)lucide.createIcons();
-      }catch(e){el.innerHTML='<div class="empty-state"><strong>Unavailable</strong>Could not load skin program.</div>'}
-    }},
+  skin:{title:'Skin program',icon:'sparkle',desc:"Today's routine as tickable sections with the product and amount for each step, wait timers, tonight's treatment, product stock, nightly tracking and a 28-day map. Same data as the Skin app.",defaultSize:'lg',
+    settings:SKIN_SETTINGS,ready:()=>skinLoad(true),
+    render(el,w){return renderSkinInto(el,w)}},
   grocery:{title:'Grocery list',icon:'shopping-cart',desc:"How many items are still left to buy this week.",defaultSize:'sm',
     async render(el){
       wLoading(el);
@@ -943,12 +1832,31 @@ const WIDGET_TYPES={
         updateProfileLinks();if(window.lucide)lucide.createIcons();
       }catch(e){el.innerHTML='<div class="empty-state"><strong>Unavailable</strong>Could not load Pledge.</div>'}
     }},
-  checklist:{title:'Checklists',icon:'square-check-big',desc:"Make and tick checklists right here: sub-items, undo, history, templates, shared with Anusha, due dates.",defaultSize:'lg',
-    render(el){
-      const src='apps/checklist.html?widget=1&profile='+encodeURIComponent(state.profile);
-      const cur=el.querySelector('iframe.cl-frame');
-      if(cur&&cur.getAttribute('src')===src)return; // keep what you were doing; the page syncs itself
-      el.innerHTML='<iframe class="cl-frame" title="Checklists" src="'+src+'" style="width:100%;height:100%;min-height:420px;border:0;display:block;background:transparent"></iframe>';
+  activity:{title:'Recent ticks',icon:'history',desc:"Everything ticked or unticked across your apps, newest first, from the central tick log.",defaultSize:'md',
+    settings:[
+      {h:'What to show'},
+      {key:'who',label:'Whose ticks',type:'seg',opts:[['both','Both of us'],['mine','Just mine']],def:'both'},
+      {key:'count',label:'How many',type:'seg',opts:[['10','10'],['20','20'],['40','40']],def:'10'},
+      {key:'un',label:'Show unticks',hint:'Things you ticked then un-ticked',type:'bool',def:true}
+    ],
+    async render(el,w){
+      wLoading(el);
+      try{
+        const S=wsAll(w,WIDGET_TYPES.activity);
+        if(!window.TickLog){el.innerHTML='<div class="empty-state"><strong>Tick log not loaded</strong>Upload assets/ticklog.js and assets/firebase-config.js.</div>';return}
+        const who=S.who==='mine'?[state.profile]:['Bhargav','Anusha'];
+        let all=[];(await Promise.all(who.map(p=>window.TickLog.read(p)))).forEach(a=>all=all.concat(a));
+        if(!S.un)all=all.filter(e=>e.d===1);
+        all.sort((a,b)=>b.t-a.t);
+        const SRC={schedule:'Schedule',skin:'Skin',todo:'To-do',chores:'Chores',checklist:'Checklist',pledge:'Pledge',diet:'Diet',water:'Water'};
+        const td=today(),shown=all.slice(0,Number(S.count)||10);
+        if(!shown.length){el.innerHTML='<div class="empty-state"><strong>Nothing ticked yet</strong>Tick a block, task or chore and it shows up here.</div>';return}
+        const nToday=all.filter(e=>e.dt===td&&e.d===1).length;
+        const fmtT=t=>{const d=new Date(t),tm=d.toLocaleTimeString([],{hour:'numeric',minute:'2-digit'});return d.toDateString()===new Date().toDateString()?tm:d.toLocaleDateString([],{weekday:'short'})+' '+tm};
+        const label=e=>{if(e.l)return e.l;if(e.s==='schedule'){const m=/^\d{4}-\d{2}-\d{2}:(\d+)$/.exec(e.k);const b=m&&dayBlocksFor(e.dt);const x=b&&b[Number(m[1])];if(x)return x.activity||x.title}return 'an item'};
+        el.innerHTML='<div class="act-sum"><b>'+nToday+'</b> tick'+(nToday===1?'':'s')+' today'+(who.length>1?' between you':'')+'</div>'+
+          shown.map(e=>'<div class="act-row'+(e.d?'':' act-un')+'"><span class="act-av act-'+(e.p==='Anusha'?'a':'b')+'" title="'+esc(e.p)+'">'+esc((e.p||'?')[0])+'</span><span class="act-tx"><span class="act-l">'+esc(label(e))+'</span><small>'+(e.d?'Ticked':'Unticked')+' · '+esc(SRC[e.s]||e.s)+(e.x?' · '+esc(e.x):'')+'</small></span><time>'+esc(fmtT(e.t))+'</time></div>').join('');
+      }catch(err){el.innerHTML='<div class="empty-state"><strong>Unavailable</strong>Could not load the tick log.</div>'}
     }},
   taskmap:{title:'Task order map',icon:'git-branch',desc:"The same level-by-level order map from the To-Do app's Map view — see what's next and what's still waiting on something else, right from Today.",defaultSize:'lg',
     async render(el){
@@ -1004,133 +1912,252 @@ const WIDGET_TYPES={
         updateProfileLinks();if(window.lucide)lucide.createIcons();
       }catch(e){el.innerHTML='<div class="empty-state"><strong>Unavailable</strong>Could not load the task map.</div>'}
     }},
-  photos:{title:'Photo widget',icon:'image',desc:'Your own little rotating gallery — add a batch of photos, shuffle them, or let it play on its own. Add as many of these as you like.',defaultSize:'lg',bare:true,multiple:true,
+  photos:{title:'Photo widget',icon:'image',desc:'Your own little rotating gallery — add photos, caption and heart them, shuffle, play on its own, tap to enlarge. Add as many of these as you like.',defaultSize:'lg',bare:true,multiple:true,
+    settings:PHOTO_SETTINGS,
     render(el,w){renderPhotoWidgetInto(el,w.id)}},
-  notes:{title:'Sticky notes',icon:'sticky-note',desc:'The same sticky notes as your To-Do app — write one here or there and it stays in sync both ways.',defaultSize:'md',
-    render(el){renderNotesWidgetInto(el)}},
-  water:{title:'Water',icon:'droplets',desc:'Tap to log a cup or a bottle, see how close you are to your daily goal, and keep a streak going.',defaultSize:'md',
-    render(el){renderWaterInto(el)}}
+  notes:{title:'Notes & lists',icon:'sticky-note',desc:'Sticky notes and tick-box checklists in one place: pin, search, turn a note into a checklist, share lists with Anusha and assign items, due-date reminders, and a Recently deleted bin. In step with the To-Do and Checklists apps.',defaultSize:'lg',
+    settings:NOTES_SETTINGS,
+    render(el){return renderNotesWidgetInto(el)}},
+  water:{title:'Water',icon:'droplets',desc:'A body that fills as you drink. Plan your drinks, get reminded, tick missed ones, and look back through the last 30 days.',defaultSize:'lg',
+    settings:WATER_SETTINGS,resetData:waterResetData,ready:()=>ensureWater(),
+    render(el,w){return renderWaterInto(el,w)}},
+  diet:{title:'Diet',icon:'utensils',desc:'Your day as a plate: one arc per planned meal that fills when you eat it. Protein first, next meal, quick add, week, flex bank — all in step with the Diet app.',defaultSize:'lg',
+    settings:DIET_SETTINGS,ready:()=>dietLoad(true),
+    render(el,w){return renderDietInto(el,w)}}
 };
-/* ---- Water tracker: log is {date:[amountsInMl]} so the last tap can be undone; goal + unit are per profile.
-   Stored at users/{uid}/hub-profiles/{profile}/data/water. ---- */
-const OZ_ML=29.5735;
-async function ensureWater(){
-  if(state.water && state.waterProfile===state.profile) return;
-  let v=null;
-  try{ const snap=await profileRef('hub-profiles','water').get(); v=snap.exists?safeJson(snap.data().json,null):null; }catch(e){}
-  if(!v||typeof v!=='object') v={};
-  v.goal=Number(v.goal)>0?Number(v.goal):(/anusha/i.test(state.profile||'')?3000:3500); v.unit=v.unit==='oz'?'oz':'ml'; v.log=(v.log&&typeof v.log==='object')?v.log:{};
-  state.water=v; state.waterProfile=state.profile;
+/* ---- Water widget: the body fills to a 70% line at your goal. Today or any of the last 30 days; plan, reminders, drink matching. ---- */
+const WT_BODY={
+  m:'<rect x="14" y="30" width="12" height="52" rx="6"/><rect x="74" y="30" width="12" height="52" rx="6"/><rect x="28" y="28" width="44" height="58" rx="15"/><rect x="30" y="80" width="18" height="72" rx="8"/><rect x="52" y="80" width="18" height="72" rx="8"/><circle cx="50" cy="15" r="12"/>',
+  f:'<rect x="18" y="31" width="10" height="50" rx="5"/><rect x="72" y="31" width="10" height="50" rx="5"/><path d="M34 28H66q5 0 5 6l-1 22q-1 8-5 14q8 6 9 20H26q1-14 9-20q-4-6-5-14L29 34q0-6 5-6z"/><rect x="31" y="86" width="16" height="66" rx="7.5"/><rect x="53" y="86" width="16" height="66" rx="7.5"/><circle cx="50" cy="15" r="11.5"/><path d="M38 12q0-12 12-12t12 12q-3-5-12-5t-12 5z"/><path d="M58 8q16-1 15 15q0 8-5 13q1-9-4-14q-4-4-6-14z"/><circle cx="59.5" cy="9" r="2.6"/>'
+};
+const WT_LINES=['Glug glug','Refreshing','Nice one','Hydrated','Sip sip'];
+let waterView=null,waterPastDoneFor='',wtUi={custom:false,planAdd:false},wtTimer=null;
+const wtSize=el=>{const w=el.clientWidth,h=el.clientHeight;return w>=620?'wide':(h<330||w<290)?'sm':h<560?'md':'lg'};
+const wtKeys=()=>Array.from({length:30},(_,i)=>addDays(today(),i-29));
+const wtLabel=k=>{if(k===today())return'Today';const d=new Date(k+'T12:00:00');return d.toLocaleDateString([],{weekday:'short',month:'short',day:'numeric'})};
+function waterRepaintAll(anim){
+  document.querySelectorAll('[data-widget-type="water"] .widget-card-body').forEach(el=>{try{waterPaint(el,state.widgets.find(x=>x.type==='water'),anim)}catch(e){console.warn(e)}});
 }
-let waterSaveTimer=null;
-function saveWater(){
-  clearTimeout(waterSaveTimer);
-  const prof=state.profile, data=state.water;
-  waterSaveTimer=setTimeout(async()=>{
-    const keep=Object.keys(data.log).sort().slice(-90); const log={}; keep.forEach(k=>log[k]=data.log[k]); data.log=log;
-    try{ await db.collection('users').doc(state.user.uid).collection('hub-profiles').doc(prof).collection('data').doc('water').set({json:JSON.stringify(data)}); }catch(e){}
-  },400);
-}
-/* ---- Water <-> Gym sync. The Gym check-in keeps water in litres at profiles/{p}/dailyLogs/{date}.water.
-   That is the shared record: the widget reads it, adopts any change made in Gym, and writes every tap back.
-   w.sync[date] remembers the total (ml) both sides last agreed on, so we can tell who changed. ---- */
-function gymWaterDoc(prof,d){ return gymDailyLogsCol(prof).doc(d); }
-async function reconcileWater(days){
-  const w=state.water, prof=state.profile; if(!w||!prof) return;
-  w.sync=(w.sync&&typeof w.sync==='object')?w.sync:{};
-  let changed=false;
-  await Promise.all(days.map(async d=>{
-    let gymMl=0, exists=false;
-    try{ const s=await gymWaterDoc(prof,d).get(); exists=s.exists; gymMl=exists?Math.round((Number(s.data().water)||0)*1000):0; }catch(e){ return; }
-    const hubMl=waterTotal(d), base=w.sync[d];
-    if(base===undefined){
-      if(gymMl===hubMl){ w.sync[d]=gymMl; changed=true; return; }
-      if(gymMl>0){ w.log[d]=[gymMl]; w.sync[d]=gymMl; changed=true; return; }
-      await pushWaterToGym(prof,d,hubMl); w.sync[d]=hubMl; changed=true; return;
-    }
-    if(gymMl!==base){ w.log[d]=gymMl>0?[gymMl]:[]; w.sync[d]=gymMl; changed=true; }
-    else if(hubMl!==base){ await pushWaterToGym(prof,d,hubMl); w.sync[d]=hubMl; changed=true; }
-  }));
-  if(changed) saveWater();
-}
-async function pushWaterToGym(prof,d,ml){
-  try{ await gymWaterDoc(prof,d).set({date:d,water:Math.round(ml/10)/100},{merge:true}); FsCache.patch(gymDailyLogsCol(prof).path,d,{date:d,water:Math.round(ml/10)/100},{merge:true}); }catch(e){}
-}
-function pantryWater(d){ if(window.WaterPantry&&state.user&&state.profile) WaterPantry.sync(db,state.user.uid,state.profile,d,waterTotal(d)); }
-function waterTotal(date){ const a=state.water.log[date]; return Array.isArray(a)?a.reduce((s,x)=>s+(Number(x)||0),0):0; }
-function waterFmt(ml){ return state.water.unit==='oz'?Math.round(ml/OZ_ML)+' oz':Math.round(ml).toLocaleString()+' ml'; }
-let waterPastDoneFor='';
-async function renderWaterInto(el){
+async function renderWaterInto(el,wdg){
   if(!el)return;
   await ensureWater();
-  { const dd=today(); /* today every time (1 read); the six days before it only once per day per session, they rarely change */ const full=waterPastDoneFor!==dd; waterPastDoneFor=dd; await reconcileWater(full?Array.from({length:7},(_,i)=>addDays(dd,i-6)):[dd]); pantryWater(dd); }
-  const w=state.water, d=today(), total=waterTotal(d), pct=Math.min(100,Math.round(total/w.goal*100));
-  let streak=0, cur=total>=w.goal?d:addDays(d,-1);
-  while(waterTotal(cur)>=w.goal&&streak<400){streak++;cur=addDays(cur,-1)}
-  const days=Array.from({length:7},(_,i)=>addDays(d,i-6));
-  const bars=days.map(x=>{const t=waterTotal(x);const h=Math.max(4,Math.min(100,Math.round(t/w.goal*100)));return '<span class="water-bar'+(t>=w.goal?' hit':'')+(x===d?' today':'')+'" style="height:'+h+'%" title="'+esc(x)+': '+esc(waterFmt(t))+'"></span>'}).join('');
-  const cup=w.unit==='oz'?Math.round(8*OZ_ML):250, bottle=w.unit==='oz'?Math.round(17*OZ_ML):500;
-  el.innerHTML='<div class="water-top"><strong class="water-num">'+esc(waterFmt(total))+'</strong><span class="water-goal">of '+esc(waterFmt(w.goal))+(pct>=100?' · goal hit':'')+'</span></div>'+
-    '<div class="water-track"><i style="width:'+pct+'%"></i></div>'+
-    '<div class="water-btns"><button type="button" data-water-add="'+cup+'">+ Cup<small>'+(w.unit==='oz'?'8 oz':'250 ml')+'</small></button><button type="button" data-water-add="'+bottle+'">+ Bottle<small>'+(w.unit==='oz'?'17 oz':'500 ml')+'</small></button><button type="button" data-water-custom>+ Custom</button></div>'+
-    '<div class="water-foot"><div class="water-week">'+bars+'</div><div class="water-meta">'+(streak?'<b>'+streak+'</b> day streak':'No streak yet')+'<br><button type="button" data-water-undo>Undo</button> · <button type="button" data-water-settings>Goal</button></div></div>';
-  const syncToday=()=>{ w.sync=w.sync||{}; const t=waterTotal(d); w.sync[d]=t; pantryWater(d); return pushWaterToGym(state.profile,d,t); };
-  const add=async ml=>{ (w.log[d]=Array.isArray(w.log[d])?w.log[d]:[]).push(Math.round(ml)); await syncToday(); saveWater(); renderWaterInto(el); };
-  el.onclick=e=>{
-    const a=e.target.closest('[data-water-add]'); if(a){ add(Number(a.dataset.waterAdd)); return; }
-    if(e.target.closest('[data-water-custom]')){
-      const v=parseFloat(prompt('How much did you drink ('+w.unit+')?',''));
-      if(v>0&&v<5000) add(w.unit==='oz'?v*OZ_ML:v); return;
-    }
-    if(e.target.closest('[data-water-undo]')){ const arr=w.log[d]; if(Array.isArray(arr)&&arr.length){ arr.pop(); syncToday().then(()=>{ saveWater(); renderWaterInto(el); }); } return; }
-    if(e.target.closest('[data-water-settings]')){
-      const unit=(prompt('Units: type ml or oz',w.unit)||'').trim().toLowerCase();
-      if(unit==='ml'||unit==='oz') w.unit=unit; else if(unit) toast('Use ml or oz');
-      const cur=w.unit==='oz'?Math.round(w.goal/OZ_ML):w.goal;
-      const g=parseFloat(prompt('Daily goal ('+w.unit+')',String(cur)));
-      if(g>0&&g<20000){ w.goal=Math.round(w.unit==='oz'?g*OZ_ML:g); w.goalSet=true; }
-      saveWater(); renderWaterInto(el);
-    }
-  };
-  if(window.lucide)lucide.createIcons();
+  { const dd=today(); /* today every time (1 read); the six days before it only once per day per session, they rarely change */ const full=waterPastDoneFor!==dd; waterPastDoneFor=dd; await reconcileWater(full?Array.from({length:7},(_,i)=>addDays(dd,i-6)):[dd]); }
+  waterPaint(el,wdg||state.widgets.find(x=>x.type==='water'));
+  waterStartTick();
 }
-/* ---- Photo widget: a small self-contained gallery, its own upload +
-   shuffle + slideshow logic rather than a generic "widget data" blob,
-   since photos are genuinely different from every other widget (a list of
-   images the person keeps adding to, not a read-only view of another
-   app's data). Unlike every other widget type, this one can be added to
-   the board more than once (WIDGET_TYPES.photos.multiple — see
-   renderWidgetCatalog) — each instance keeps its own separate library,
-   order, shuffle and play state, keyed by that widget's own id. All
-   instances' photos still live together in one Firestore doc
-   (users/{uid}/hub-profiles/{profile}/data/photos, as {byWidget:{[id]:
-   photos[]}}) since they're small and share the per-profile scoping, so
-   the size budget below is a combined total across every instance, not
-   per widget. ---- */
+function waterStartTick(){
+  if(wtTimer)return;let n=0;
+  wtTimer=setInterval(()=>{
+    if(document.hidden||!state.water||!document.querySelector('[data-widget-type="water"] .widget-card-body'))return;
+    n++;if(n%10===0)reconcileWater([today()]).then(()=>waterRepaintAll()).catch(()=>{});
+    waterNotify();if(!wtUi.custom&&!wtUi.planAdd)waterRepaintAll();
+  },30000);
+}
+function waterPaint(el,wdg,anim){
+  if(!el||!state.water)return;
+  const w=state.water,S=wsAll(wdg,WIDGET_TYPES.water),td=today(),nowM=wNow();
+  if(waterView&&waterView>=td)waterView=null;
+  const k=waterView||td,isT=k===td,past=!isT,G=waterGoalFor(k),t=waterTotal(k),pct=Math.min(100,t/G*100);
+  const size=wtSize(el);el._wtSz=size;
+  ['wt-sm','wt-md','wt-lg','wt-wide'].forEach(c=>el.classList.remove(c));el.classList.add('wt','wt-'+size);
+  const fig=/anusha/i.test(state.profile||'')?'f':'m',shapes=WT_BODY[fig];
+  const s0=minutes(w.start),e0=minutes(w.end),frac=Math.max(0,Math.min(1,(nowM-s0)/(e0-s0))),exp=G*frac,diff=t-exp;
+  const keys=wtKeys(),ix=keys.indexOf(k);
+  // pace pill
+  let pace='',pcls='';
+  if(t>=G){pcls=' hit';pace=isT?'Done for the day':'Goal hit'}
+  else if(past){pcls=' behind';pace=waterFmt(G-t)+' short of goal'}
+  else if(!S.pace){pace=''}
+  else if(nowM<s0)pace='Day starts at '+time12(w.start);
+  else if(nowM>=e0){pcls=' behind';pace=waterFmt(G-t)+' short of goal'}
+  else if(diff>=-G*.03)pace='On pace'+(diff>G*.05?' · '+waterFmt(diff)+' ahead':'');
+  else{pcls=' behind';pace=waterFmt(-diff)+' behind pace'}
+  // plan rows
+  const plan=waterPlanList(k).slice().sort((a,b)=>a.time-b.time),rows=plan.map(p=>({p,st:wStatus(p,k)}));
+  const slotHtml=rows.length?rows.map(({p,st})=>{
+    const part=(st.s!=='done'&&st.fill>0)?'<small>'+esc(waterFmt(st.fill))+' of '+esc(waterFmt(p.ml))+'</small>':'';
+    const lab=part+(st.s==='done'?'<small>drank'+(st.at==null?'':' at '+esc(wT(st.at)))+'</small>':st.s==='missed'?'<small>missed</small>':st.s==='due'?'<small>due now</small>':st.s==='skipped'?'<small>skipped</small>':(w.rem&&p.remind!==false&&isT?'<small>reminder on</small>':''));
+    const un=(st.fill>0&&st.s!=='done')?'<button type="button" data-wt-un="'+esc(p.id)+'">Untick</button>':'';
+    const acts=un+(st.s==='missed'?'<button type="button" class="go" data-wt-do="'+esc(p.id)+'" data-w="plan">I drank it</button>'+(isT?'<button type="button" data-wt-do="'+esc(p.id)+'" data-w="now">Now</button>':'')+'<button type="button" data-wt-skip="'+esc(p.id)+'">Skip</button>'
+      :st.s==='due'?'<button type="button" class="go" data-wt-do="'+esc(p.id)+'" data-w="now">Drank it</button><button type="button" data-wt-skip="'+esc(p.id)+'">Skip</button>'
+      :st.s==='up'?(isT?'<button type="button" data-wt-bell="'+esc(p.id)+'" aria-label="Reminder on or off">'+(p.remind!==false?'🔔':'🔕')+'</button>':'')+'<button type="button" data-wt-del="'+esc(p.id)+'" aria-label="Remove from plan">×</button>'
+      :st.s==='skipped'?'<button type="button" data-wt-skip="'+esc(p.id)+'">undo</button>':'<button type="button" data-wt-un="'+esc(p.id)+'">Untick</button>');
+    const dot=st.s==='done'?' data-wt-un="'+esc(p.id)+'"':st.s==='missed'?' data-wt-do="'+esc(p.id)+'" data-w="plan"':st.s==='due'?' data-wt-do="'+esc(p.id)+'" data-w="now"':'';
+    return '<div class="wt-slot s'+st.s+'"><span class="wt-tm">'+esc(time12(wHm(p.time))).replace(' ','<br>')+'</span><button type="button" class="wt-dot"'+dot+' aria-label="'+st.s+'">'+(st.s==='done'?'✓':'')+'</button><span class="wt-nm">'+esc(waterFmt(p.ml))+lab+'</span><span class="wt-acts">'+acts+'</span></div>';
+  }).join(''):'<div class="wt-empty">Nothing planned'+(isT?'. Add a drink or tap Auto-plan.':' that day.')+'</div>';
+  // next line + reminder banner (today only)
+  const nx=isT&&(rows.find(r=>r.st.s==='due'||r.st.s==='missed')||rows.find(r=>r.st.s==='up'));
+  const nextLine=nx?(nx.st.s==='up'?'Next: <b>'+esc(waterFmt(nx.p.ml))+'</b> at '+esc(wT(nx.p.time)):nx.st.s==='due'?'<b>Time to drink '+esc(waterFmt(nx.p.ml))+'</b>':'<b>Missed '+esc(waterFmt(nx.p.ml))+'</b> at '+esc(wT(nx.p.time))):'';
+  const due=isT&&waterDue();
+  const banner=due?'<div class="wt-remind"><b>Time to drink '+esc(waterFmt(due.ml))+'</b><small>Planned for '+esc(wT(due.time))+'</small><div class="wt-rb"><button type="button" class="pri" data-wt-do="'+esc(due.id)+'" data-w="now">Drank it</button><button type="button" data-wt-snz="'+esc(due.id)+'">Snooze '+w.snooze+' min</button><button type="button" data-wt-skip="'+esc(due.id)+'">Skip</button></div></div>':'';
+  // buttons
+  const btns=[[w.ncup,w.cup,''],[w.nbottle,w.bottle,'']];if(w.third>0)btns.push([w.nthird,w.third,'wt-hs']);
+  const btnHtml=btns.map(([n,v,c])=>'<button type="button" class="'+c+'" data-wt-add="'+v+'">+ '+esc(n)+'<small>'+esc(waterFmt(v))+'</small></button>').join('')+'<button type="button" class="wt-hs" data-wt-custom>+ Custom<small>any amount or time</small></button>';
+  const last=waterSips(k).length?waterSips(k)[waterSips(k).length-1]:null;
+  // 30-day chart
+  const weekHtml=keys.map(d=>{const v=waterTotal(d),g=waterGoalFor(d),dd=Number(d.slice(8)),mon=new Date(d+'T12:00:00').toLocaleDateString([],{month:'short'});
+    return '<div class="wt-wc'+(d===td?' today':'')+(d===k?' sel':'')+'" data-wt-day="'+d+'" title="'+esc(wtLabel(d)+': '+waterFmt(v)+' of '+waterFmt(g))+'"><div class="wt-wbar"><em class="'+(v>=g?'hit':'')+'" style="height:'+Math.max(8,Math.min(100,v/g*100))+'%"></em></div><b>'+(d===td?'Today':new Date(d+'T12:00:00').toLocaleDateString([],{weekday:'narrow'}))+'</b><i>'+(dd===1?esc(mon)+' 1':dd)+'</i></div>'}).join('');
+  const st=waterStreak();
+  // when you drink (last 7 days, timed drinks only): the same data Gym insights reads
+  const hr=new Array(17).fill(0);keys.slice(-7).forEach(d=>waterSips(d).forEach(x=>{if(x.at==null)return;const h=Math.floor(x.at/60);if(h>=6&&h<=22)hr[h-6]+=x.ml}));
+  const mx=Math.max(1,...hr),top=hr.map((v,i)=>[v,i]).sort((a,b)=>b[0]-a[0]).slice(0,2).map(x=>x[1]),any=hr.some(v=>v>0);
+  const patHtml='<div class="wt-sh"><span>When you drink</span><span>last 7 days</span></div>'+(any?'<div class="wt-pbars">'+hr.map((v,i)=>'<i class="'+(top.includes(i)&&v>0?'pk':'')+'" style="height:'+Math.max(3,v/mx*100)+'%" title="'+esc(wT((i+6)*60)+': '+waterFmt(v))+'"></i>').join('')+'</div><div class="wt-ax"><span>6 AM</span><span>12 PM</span><span>10 PM</span></div><small>Busiest around '+esc(wT((top[0]+6)*60).replace(':00',''))+'. Gym insights reads this.</small>':'<div class="wt-empty">Log a few drinks and your pattern shows here.</div>');
+  const prevLvl=el._wtLv!=null?el._wtLv:152,prevW=el._wtW!=null?el._wtW:0;
+  const lvl=152-Math.min(1,t/G)*0.70*148-8;
+  const html=
+   '<div class="wt-main"><div class="wt-colA">'+
+   (past?'<div class="wt-dayhead"><button type="button" data-wt-nav="-1" '+(ix<=0?'disabled':'')+' aria-label="Previous day">‹</button><b>'+esc(wtLabel(k))+'</b><button type="button" data-wt-nav="1" '+(ix>=29?'disabled':'')+' aria-label="Next day">›</button><button type="button" data-wt-today>Today</button></div>':'')+
+   banner+
+   '<div class="wt-hero"><div class="wt-fig" title="Your body is about 70% water. Your goal fills it to the line."><div class="wt-say"></div><div class="wt-stream"></div>'+
+   '<svg viewBox="0 0 110 160"><defs><clipPath id="wtgc">'+shapes+'</clipPath><linearGradient id="wtwg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="var(--w1)"/><stop offset="1" stop-color="var(--w2)"/></linearGradient></defs>'+
+   '<g class="wt-bodyw"><g fill="none" stroke="var(--faint)" stroke-width="5" stroke-linejoin="round">'+shapes+'</g><g fill="var(--wsoft)">'+shapes+'</g>'+
+   '<g clip-path="url(#wtgc)"><g class="wt-lvl" style="transform:translateY('+prevLvl+'px)" data-to="'+lvl+'"><g class="wt-wave2"><path d="M-60 6q15-9 30 0t30 0 30 0 30 0 30 0 30 0 30 0V200H-60z" fill="var(--w1)"/></g><g class="wt-wave1"><path d="M-60 8q15-9 30 0t30 0 30 0 30 0 30 0 30 0 30 0V200H-60z" fill="url(#wtwg)"/></g></g></g></g>'+
+   '<line x1="6" x2="94" y1="48.4" y2="48.4" stroke="var(--muted)" stroke-width="1" stroke-dasharray="3 3" opacity=".7"/><text class="wt-lim" x="96" y="51">70%</text></svg></div>'+
+   '<div class="wt-nums"><div class="wt-big">'+esc(waterFmt(t))+'</div><div class="wt-of">of '+esc(waterFmt(G))+(t>=G?' · goal hit':'')+'</div>'+(pace?'<span class="wt-pace'+pcls+'">'+esc(pace)+'</span>':'')+'</div></div>'+
+   (isT&&!(size==='sm')?'<div class="wt-trackw"><div class="wt-track"><i style="width:'+prevW+'%" data-to="'+pct+'"></i>'+(S.pace?'<s style="left:calc('+(exp/G*100)+'% - 1px)"></s>':'')+'</div>'+(S.pace?'<div class="wt-tl"><span>'+esc(time12(w.start))+'</span><span>'+esc(time12(w.end))+'</span></div>':'')+'</div>':'')+
+   (nextLine&&(size==='sm'||!S.plan)?'<div class="wt-next">'+nextLine+'</div>':'')+
+   '<div class="wt-btns">'+btnHtml+'</div>'+
+   '<div class="wt-custom'+(wtUi.custom?' on':'')+'"><input type="number" inputmode="decimal" step="any" data-wt-cin placeholder="Amount in '+w.unit+'"><input type="time" data-wt-ctime value="'+wHm(isT?nowM:720)+'" title="When did you drink it?"><button type="button" data-wt-cgo>Add</button></div>'+
+   (last&&size!=='sm'?'<button type="button" class="wt-undo" data-wt-undo>Undo last drink ('+esc(waterFmt(last.ml)+(past||last.at==null?'':' · '+wT(last.at)))+')</button>':'')+
+   (S.plan&&size!=='sm'?'<div class="wt-plan"><div class="wt-ph"><span>'+(isT?'Plan for today':'Plan for '+esc(wtLabel(k)))+'</span>'+(isT?'<div><button type="button" class="wt-mini" data-wt-auto>Auto-plan</button><button type="button" class="wt-mini" data-wt-addplan>+ Add</button></div>':'')+'</div>'+
+     '<div class="wt-addrow'+(wtUi.planAdd&&isT?' on':'')+'"><input type="time" data-wt-pt value="'+wHm(Math.min(1380,Math.ceil((nowM+30)/30)*30))+'"><input type="number" inputmode="decimal" step="any" data-wt-pa placeholder="Amount" value="'+waterToUnit(w.bottle)+'"><button type="button" data-wt-pgo>Plan it</button></div>'+slotHtml+'</div>':'')+
+   '</div><div class="wt-colB">'+
+   ((S.week||S.streak)&&(size==='lg'||size==='wide')?'<div class="wt-foot">'+(S.week?'<div class="wt-week" data-wt-week>'+weekHtml+'</div>':'')+(S.streak?'<div class="wt-streak"><b>'+st+'</b>'+(st===1?'day':'days')+' streak</div>':'')+'</div>':'')+
+   (S.streak&&size==='md'?'<div class="wt-streak wt-sm1">'+st+' day streak</div>':'')+
+   (S.pat&&(size==='lg'||size==='wide')?'<div class="wt-pat">'+patHtml+'</div>':'')+
+   '</div></div>';
+  const keepScroll=el.querySelector('[data-wt-week]');const ws=keepScroll?keepScroll.scrollLeft:null,wasEnd=keepScroll?(keepScroll.scrollWidth-keepScroll.clientWidth-keepScroll.scrollLeft<4):true;
+  el.innerHTML=html;el._wtLv=lvl;el._wtW=pct;
+  requestAnimationFrame(()=>{const l=el.querySelector('.wt-lvl');if(l)l.style.transform='translateY('+lvl+'px)';const b=el.querySelector('.wt-track i');if(b)b.style.width=pct+'%';
+    const wk=el.querySelector('[data-wt-week]');if(wk){if(ws==null||wasEnd)wk.scrollLeft=wk.scrollWidth;else wk.scrollLeft=ws}});
+  if(!el._wtRO&&window.ResizeObserver){el._wtRO=new ResizeObserver(()=>{if(el.isConnected&&wtSize(el)!==el._wtSz)waterPaint(el,wdg)});el._wtRO.observe(el)}
+  wtWire(el,wdg,S);
+  if(anim)wtAnimate(el,S,anim);
+}
+function wtAnimate(el,S,kind){
+  if(!S.anim)return;const f=el.querySelector('.wt-fig');if(!f)return;
+  f.classList.add('pour','gulp');setTimeout(()=>f.classList.remove('pour','gulp'),1300);
+  for(let i=0;i<5;i++){const d=document.createElement('i');d.className='wt-drop';d.style.left=(36+Math.random()*30)+'px';d.style.top='-6px';f.appendChild(d);
+    d.animate([{opacity:.9,transform:'translateY(0)'},{opacity:0,transform:'translateY('+(18+Math.random()*26)+'px)'}],{duration:600+Math.random()*350,delay:i*70,easing:'ease-in'}).onfinish=()=>d.remove()}
+  const say=f.querySelector('.wt-say');if(say){say.textContent=kind==='goal'?'Goal hit!':WT_LINES[Math.floor(Math.random()*WT_LINES.length)];say.classList.add('show');setTimeout(()=>say.classList.remove('show'),1300)}
+  if(kind==='goal'){for(let i=0;i<14;i++){const p=document.createElement('i');p.style.cssText='position:absolute;left:50%;top:30%;width:6px;height:6px;border-radius:2px;background:'+['#5fb4e6','#3a95cf','#ffd166','#7bdca0','#ff8fab'][i%5]+';pointer-events:none';f.appendChild(p);
+    const a=Math.random()*Math.PI*2,r=40+Math.random()*50;p.animate([{transform:'translate(0,0)',opacity:1},{transform:'translate('+Math.cos(a)*r+'px,'+(Math.sin(a)*r-20)+'px) rotate(300deg)',opacity:0}],{duration:900+Math.random()*500,easing:'cubic-bezier(.2,.7,.3,1)'}).onfinish=()=>p.remove()}}
+}
+function wtWire(el,wdg,S){
+  const w=state.water;
+  const cur=()=>waterView||today();
+  const doAdd=(ml,at)=>{const k=cur(),was=waterTotal(k)<waterGoalFor(k),r=waterAddSip(k,ml,k===today()?(at==null?wNow():at):(at==null?null:at));
+    waterRepaintAll(was&&waterTotal(k)>=waterGoalFor(k)?'goal':'pour');
+    toast('+'+waterFmt(r.s.ml)+(k===today()?' at '+wT(r.s.at):' on '+wtLabel(k))+(r.matched?' · counted for your '+wT(r.matched.time)+' drink':''),'Undo',()=>{waterRemoveSips(k,[r.s.id]);waterRepaintAll()});};
+  const undoToast=(msg,k,gone)=>toast(msg,'Undo',()=>{waterRestoreSips(k,gone);waterRepaintAll()});
+  el.onclick=e=>{
+    const q=s=>e.target.closest(s);let x;
+    if(x=q('[data-wt-add]')){doAdd(Number(x.dataset.wtAdd));return}
+    if(q('[data-wt-custom]')){wtUi.custom=!wtUi.custom;waterPaint(el,wdg);if(wtUi.custom){const i=el.querySelector('[data-wt-cin]');if(i)i.focus()}return}
+    if(q('[data-wt-cgo]')){const v=parseFloat(el.querySelector('[data-wt-cin]').value);if(!(v>0&&v<5000)){toast('Enter an amount');return}
+      const tv=el.querySelector('[data-wt-ctime]').value;wtUi.custom=false;doAdd(waterFromUnit(v),tv?minutes(tv):null);return}
+    if(q('[data-wt-undo]')){const k=cur(),l=waterSips(k);if(!l.length)return;const gone=waterRemoveSips(k,[l[l.length-1].id]);waterRepaintAll();undoToast('Removed '+waterFmt(gone[0].ml),k,gone);return}
+    if(x=q('[data-wt-do]')){const k=cur(),p=waterPlanList(k).find(z=>z.id===x.dataset.wtDo);if(!p)return;
+      const at=(x.dataset.w==='now'&&k===today())?wNow():p.time,rest=Math.max(50,p.ml-wFill(p,k)),was=waterTotal(k)<waterGoalFor(k);
+      const r=waterAddSip(k,rest,at,p.id,'plan');delete waterSnooze[p.id];waterRepaintAll(was&&waterTotal(k)>=waterGoalFor(k)?'goal':'pour');
+      toast('Logged '+waterFmt(rest)+' at '+wT(at),'Undo',()=>{waterRemoveSips(k,[r.s.id]);waterRepaintAll()});return}
+    if(x=q('[data-wt-un]')){const k=cur(),id=x.dataset.wtUn,ids=waterSips(k).filter(s=>s.plan===id).map(s=>s.id);if(!ids.length)return;
+      const gone=waterRemoveSips(k,ids);waterRepaintAll();undoToast('Unticked: removed '+waterFmt(gone.reduce((a,s)=>a+s.ml,0)),k,gone);return}
+    if(x=q('[data-wt-skip]')){const p=waterPlanList(cur()).find(z=>z.id===x.dataset.wtSkip);if(p){p.skipped=!p.skipped;saveWater();waterRepaintAll()}return}
+    if(x=q('[data-wt-del]')){const pl=waterPlan(today()),i=pl.findIndex(z=>z.id===x.dataset.wtDel);if(i<0)return;const p=pl.splice(i,1)[0];waterPlanChanged();waterRepaintAll();
+      toast('Removed from plan','Undo',()=>{pl.splice(i,0,p);waterPlanChanged();waterRepaintAll()});return}
+    if(x=q('[data-wt-bell]')){const p=waterPlan(today()).find(z=>z.id===x.dataset.wtBell);if(p){p.remind=p.remind===false;waterPlanChanged();waterRepaintAll()}return}
+    if(x=q('[data-wt-snz]')){waterSnooze[x.dataset.wtSnz]=wNow()+w.snooze;waterRepaintAll();toast('Snoozed '+w.snooze+' min');return}
+    if(q('[data-wt-addplan]')){wtUi.planAdd=!wtUi.planAdd;waterPaint(el,wdg);return}
+    if(q('[data-wt-pgo]')){const v=parseFloat(el.querySelector('[data-wt-pa]').value),tv=el.querySelector('[data-wt-pt]').value;
+      if(!(v>0)||!tv){toast('Pick a time and amount');return}
+      if(!waterPlan(today()))state.water.plans[today()]=[];waterPlan(today()).push({id:'p'+wId(),time:minutes(tv),ml:waterFromUnit(v),remind:true});wtUi.planAdd=false;waterPlanChanged();waterRepaintAll();return}
+    if(q('[data-wt-auto]')){
+      const d=today(),pl=waterPlanList(d),before=JSON.stringify(pl),s0=minutes(w.start),e0=minutes(w.end),step=w.every*60,nowM=wNow(),left=Math.max(0,waterGoalFor(d)-waterTotal(d));
+      const kept=pl.filter(p=>wFill(p,d)>0||p.skipped),times=[];let tm=nowM<s0?s0:Math.max(s0,Math.ceil((nowM+1)/step)*step);
+      for(;tm<=e0;tm+=step)times.push(tm);if(!times.length){toast('No time left in your day');return}
+      const each=Math.max(100,Math.round(left/times.length/50)*50);
+      state.water.plans[d]=kept.concat(times.map(m=>({id:'p'+wId(),time:m,ml:each,remind:true})));waterPlanChanged();waterRepaintAll();
+      toast('Planned '+times.length+' drinks of '+waterFmt(each),'Undo',()=>{state.water.plans[d]=JSON.parse(before);waterPlanChanged();waterRepaintAll()});return}
+    if(x=q('[data-wt-nav]')){const keys=wtKeys(),i=keys.indexOf(cur())+Number(x.dataset.wtNav);if(i>=0&&i<keys.length){waterView=keys[i]===today()?null:keys[i];waterRepaintAll()}return}
+    if(q('[data-wt-today]')){waterView=null;waterRepaintAll();return}
+    if(x=q('[data-wt-day]')){const d=x.dataset.wtDay;waterView=d===today()?null:d;waterRepaintAll();el.scrollTo({top:0,behavior:'smooth'});return}
+    if(q('.wt-fig')){const f=q('.wt-fig');f.classList.remove('wig');void f.offsetWidth;f.classList.add('wig');setTimeout(()=>f.classList.remove('wig'),700)}   // a wiggle, nothing is logged
+  };
+  el.onkeydown=e=>{if(e.key==='Enter'){if(e.target.matches('[data-wt-cin],[data-wt-ctime]'))el.querySelector('[data-wt-cgo]').click();if(e.target.matches('[data-wt-pa],[data-wt-pt]'))el.querySelector('[data-wt-pgo]').click()}};
+}
+
+/* ---- Photo widget: a small self-contained gallery. Each widget instance
+   (WIDGET_TYPES.photos.multiple) keeps its own library, keyed by the widget's
+   id, in one Firestore doc per profile:
+   users/{uid}/hub-profiles/{profile}/data/photos  ->  {byWidget:{[id]:[{id,src,cap?,fav?}]}}
+   (old photos without cap/fav keep working). The shared doc has a combined
+   size budget (PHOTO_MAX_BASE64_TOTAL) across every instance. Every change
+   re-reads the doc first and only replaces THIS widget's list, so another
+   device or another photo widget is never overwritten, and a failed save is
+   rolled back and said out loud instead of silently lost. ---- */
 const PHOTO_MAX_COUNT=24; // per widget instance
 const PHOTO_MAX_BASE64_TOTAL=900000; // combined across every photo widget instance — keeps the shared doc under Firestore's ~1MiB cap
-let photoWidgetRuntime={}; // { [widgetId]: {order,pos,shuffle,playing,timer} } — browsing/playback state, not persisted
+let photoWidgetRuntime={}; // { [widgetId]: {order(ids),pos,shuffle,playing,timer,sig,editing} } — browsing/playback state, not persisted
+let photoQueue=Promise.resolve();
 function pwRuntime(widgetId){
-  return photoWidgetRuntime[widgetId] || (photoWidgetRuntime[widgetId]={order:[],pos:0,shuffle:false,playing:false,timer:null});
+  return photoWidgetRuntime[widgetId] || (photoWidgetRuntime[widgetId]={order:[],pos:0,shuffle:false,playing:false,timer:null,sig:'',editing:false});
 }
 function photoWidgetPhotos(widgetId){
   return state.photosByWidget[widgetId] || (state.photosByWidget[widgetId]=[]);
 }
-function photoWidgetBuildOrder(widgetId){
-  const rt=pwRuntime(widgetId);
-  const idx=photoWidgetPhotos(widgetId).map((_,i)=>i);
-  if(rt.shuffle){
-    for(let i=idx.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[idx[i],idx[j]]=[idx[j],idx[i]];}
-  }
-  rt.order=idx;
-  rt.pos=0;
+function pwSettings(widgetId){return wsAll(state.widgets.find(x=>x.id===widgetId),WIDGET_TYPES.photos)}
+function pwVisible(photos,S){
+  const favs=photos.filter(p=>p.fav);
+  return S.only==='fav'&&favs.length?favs:photos;
 }
-async function savePhotoWidgets(){try{await profileRef('hub-profiles','photos').set({json:JSON.stringify({byWidget:state.photosByWidget})})}catch(e){}}
+function pwSpace(){return Math.min(100,Math.round(allPhotoWidgetsTotalLength()/PHOTO_MAX_BASE64_TOTAL*100))}
+function photoWidgetBuildOrder(widgetId){
+  const rt=pwRuntime(widgetId),photos=photoWidgetPhotos(widgetId),cur=rt.order[rt.pos];
+  const ids=pwVisible(photos,pwSettings(widgetId)).map(p=>p.id);
+  if(rt.shuffle){for(let i=ids.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[ids[i],ids[j]]=[ids[j],ids[i]];}}
+  rt.order=ids;
+  const k=(!rt.shuffle&&cur)?ids.indexOf(cur):-1; // keep your place when the list is rebuilt without shuffling
+  rt.pos=k>=0?k:0;
+}
+function pwRepaint(widgetId,el){
+  const b=document.querySelector('[data-widget-id="'+widgetId+'"] .widget-card-body')||el;
+  if(b&&b.isConnected)renderPhotoWidgetInto(b,widgetId);
+}
+// Replace only this widget's list in the shared doc. Resolves true when saved.
+async function photoSave(widgetId,opt){
+  opt=opt||{};
+  const r=await readSafe(profileRef('hub-profiles','photos'),null);
+  if(!r.ok)return false;
+  const remote=r.val&&!Array.isArray(r.val)&&r.val.byWidget?r.val.byWidget:null;
+  let out;
+  if(remote){
+    out=Object.assign({},remote);
+    if(opt.drop)delete out[widgetId];else out[widgetId]=photoWidgetPhotos(widgetId);
+    const total=Object.values(out).reduce((s,l)=>s+(l||[]).reduce((a,p)=>a+((p&&p.src)||'').length,0),0);
+    if(total>PHOTO_MAX_BASE64_TOTAL+20000)return false; // another device filled the shared space
+  }else out=state.photosByWidget; // first save after the old flat format
+  try{await profileRef('hub-profiles','photos').set({json:JSON.stringify({byWidget:out})})}catch(e){return false}
+  if(remote)for(const k of Object.keys(out)){if(k!==widgetId)state.photosByWidget[k]=out[k]}
+  return true;
+}
+// Change this widget's list, save, and roll back (with a message) if it can't be saved.
+function photoCommit(widgetId,mutate){
+  const run=async()=>{
+    const snap=photoWidgetPhotos(widgetId).map(p=>Object.assign({},p));
+    mutate(photoWidgetPhotos(widgetId));
+    const ok=await photoSave(widgetId);
+    if(!ok){state.photosByWidget[widgetId]=snap;toast('Couldn’t save — check your connection and try again')}
+    return ok;
+  };
+  photoQueue=photoQueue.then(run,run);
+  return photoQueue;
+}
 function renderPhotoWidgetInto(el,widgetId){
   if(!el)return;
   const rt=pwRuntime(widgetId);
   if(rt.timer){clearInterval(rt.timer);rt.timer=null}
-  const photos=photoWidgetPhotos(widgetId);
+  const photos=photoWidgetPhotos(widgetId),S=pwSettings(widgetId);
   if(!photos.length){
     el.innerHTML='<div class="photo-widget"><div class="empty-state"><strong>No photos yet</strong>Add a few to start a little slideshow right here.'+
       '<button type="button" class="button secondary photo-widget-add-empty" data-photo-add><i data-lucide="plus"></i><span>Add photos</span></button></div>'+
@@ -1140,246 +2167,601 @@ function renderPhotoWidgetInto(el,widgetId){
     el.querySelector('[data-photo-file]').addEventListener('change',e=>{handlePhotoWidgetUpload(e.target.files,el,widgetId);e.target.value=''});
     return;
   }
-  if(rt.order.length!==photos.length)photoWidgetBuildOrder(widgetId);
+  const sig=[S.shuf,S.auto,S.only].join();
+  if(rt.sig!==sig){rt.sig=sig;rt.shuffle=!!S.shuf;rt.playing=!!S.auto;rt.order=[]} // a changed setting restarts from that setting
+  const vis=pwVisible(photos,S);
+  if(rt.order.length!==vis.length||!vis.every(p=>rt.order.includes(p.id)))photoWidgetBuildOrder(widgetId);
   rt.pos=((rt.pos%rt.order.length)+rt.order.length)%rt.order.length;
-  const currentIdx=rt.order[rt.pos];
-  const photo=photos[currentIdx];
-  el.innerHTML='<div class="photo-widget">'+
-    '<div class="photo-widget-frame"><img src="'+photo.src+'" alt=""></div>'+
+  const photo=photos.find(p=>p.id===rt.order[rt.pos])||photos[0];
+  const n=rt.order.length,many=n>1,space=pwSpace();
+  el.innerHTML='<div class="photo-widget'+(S.fit==='fit'?' pw-contain':'')+'">'+
+    '<div class="photo-widget-frame'+(S.zoom?' pw-zoomable':'')+'" data-photo-frame><img src="'+photo.src+'" alt="'+esc(photo.cap||'Photo')+'"></div>'+
+    '<button type="button" class="pw-heart'+(photo.fav?' on':'')+'" data-photo-fav title="'+(photo.fav?'Remove from favourites':'Favourite')+'" aria-pressed="'+(photo.fav?'true':'false')+'"><i data-lucide="heart"></i></button>'+
+    (S.cap&&photo.cap&&!rt.editing?'<div class="pw-cap">'+esc(photo.cap)+'</div>':'')+
+    (rt.editing?'<form class="pw-capform" data-photo-capform><input type="text" maxlength="80" placeholder="Add a caption" value="'+esc(photo.cap||'')+'" data-photo-capin><button type="submit" class="icon-button" title="Save caption"><i data-lucide="check"></i></button><button type="button" class="icon-button" data-photo-capcancel title="Cancel"><i data-lucide="x"></i></button></form>':'')+
     '<div class="photo-widget-controls">'+
-      '<button type="button" class="icon-button" data-photo-prev title="Previous photo"'+(photos.length<2?' disabled':'')+'><i data-lucide="chevron-left"></i></button>'+
-      '<button type="button" class="icon-button" data-photo-play title="'+(rt.playing?'Pause slideshow':'Play slideshow')+'"'+(photos.length<2?' disabled':'')+'><i data-lucide="'+(rt.playing?'pause':'play')+'"></i></button>'+
-      '<button type="button" class="icon-button" data-photo-next title="Next photo"'+(photos.length<2?' disabled':'')+'><i data-lucide="chevron-right"></i></button>'+
-      '<button type="button" class="icon-button'+(rt.shuffle?' active':'')+'" data-photo-shuffle title="Shuffle"'+(photos.length<2?' disabled':'')+'><i data-lucide="shuffle"></i></button>'+
-      '<span class="photo-widget-count">'+(rt.pos+1)+' / '+photos.length+'</span>'+
-      '<button type="button" class="icon-button" data-photo-add title="Add photos"><i data-lucide="plus"></i></button>'+
+      '<button type="button" class="icon-button" data-photo-prev title="Previous photo"'+(many?'':' disabled')+'><i data-lucide="chevron-left"></i></button>'+
+      '<button type="button" class="icon-button" data-photo-play title="'+(rt.playing?'Pause slideshow':'Play slideshow')+'"'+(many?'':' disabled')+'><i data-lucide="'+(rt.playing?'pause':'play')+'"></i></button>'+
+      '<button type="button" class="icon-button" data-photo-next title="Next photo"'+(many?'':' disabled')+'><i data-lucide="chevron-right"></i></button>'+
+      '<button type="button" class="icon-button'+(rt.shuffle?' active':'')+'" data-photo-shuffle title="Shuffle"'+(many?'':' disabled')+'><i data-lucide="shuffle"></i></button>'+
+      '<span class="photo-widget-count">'+(rt.pos+1)+' / '+n+(space>=70?' · '+space+'% full':'')+'</span>'+
+      '<button type="button" class="icon-button" data-photo-cap title="Caption"><i data-lucide="type"></i></button>'+
+      '<button type="button" class="icon-button" data-photo-add title="Add photos ('+Math.max(0,100-space)+'% space left)"><i data-lucide="plus"></i></button>'+
       '<button type="button" class="icon-button" data-photo-remove title="Remove this photo"><i data-lucide="trash-2"></i></button>'+
     '</div>'+
     '<input type="file" accept="image/*" multiple hidden data-photo-file>'+
   '</div>';
   if(window.lucide)lucide.createIcons();
-  const advance=dir=>{ rt.pos+=dir; renderPhotoWidgetInto(el,widgetId); };
-  el.querySelector('[data-photo-prev]').addEventListener('click',()=>advance(-1));
-  el.querySelector('[data-photo-next]').addEventListener('click',()=>advance(1));
-  el.querySelector('[data-photo-shuffle]').addEventListener('click',()=>{ rt.shuffle=!rt.shuffle; photoWidgetBuildOrder(widgetId); renderPhotoWidgetInto(el,widgetId); });
-  el.querySelector('[data-photo-play]').addEventListener('click',()=>{ rt.playing=!rt.playing; renderPhotoWidgetInto(el,widgetId); });
-  el.querySelector('[data-photo-add]').addEventListener('click',()=>el.querySelector('[data-photo-file]').click());
-  el.querySelector('[data-photo-file]').addEventListener('change',e=>{handlePhotoWidgetUpload(e.target.files,el,widgetId);e.target.value=''});
-  el.querySelector('[data-photo-remove]').addEventListener('click',()=>{
-    photos.splice(currentIdx,1);
-    rt.order=[];
-    savePhotoWidgets();
-    renderPhotoWidgetInto(el,widgetId);
+  const advance=dir=>{rt.pos+=dir;renderPhotoWidgetInto(el,widgetId)};
+  const q=s=>el.querySelector(s);
+  q('[data-photo-prev]').addEventListener('click',()=>advance(-1));
+  q('[data-photo-next]').addEventListener('click',()=>advance(1));
+  q('[data-photo-shuffle]').addEventListener('click',()=>{rt.shuffle=!rt.shuffle;photoWidgetBuildOrder(widgetId);renderPhotoWidgetInto(el,widgetId)});
+  q('[data-photo-play]').addEventListener('click',()=>{rt.playing=!rt.playing;renderPhotoWidgetInto(el,widgetId)});
+  q('[data-photo-add]').addEventListener('click',()=>q('[data-photo-file]').click());
+  q('[data-photo-file]').addEventListener('change',e=>{handlePhotoWidgetUpload(e.target.files,el,widgetId);e.target.value=''});
+  q('[data-photo-fav]').addEventListener('click',async()=>{
+    const id=photo.id,was=!!photo.fav;
+    await photoCommit(widgetId,l=>{const p=l.find(x=>x.id===id);if(p){if(was)delete p.fav;else p.fav=true}});
+    if(!was&&S.only==='fav')toast('Added to favourites');
+    pwRepaint(widgetId,el);
   });
-  if(rt.playing&&photos.length>1){
-    rt.timer=setInterval(()=>advance(1),4500);
+  q('[data-photo-cap]').addEventListener('click',()=>{rt.editing=true;renderPhotoWidgetInto(el,widgetId);const i=el.querySelector('[data-photo-capin]');if(i){i.focus();i.select()}});
+  const cf=q('[data-photo-capform]');
+  if(cf){
+    const done=()=>{rt.editing=false;pwRepaint(widgetId,el)};
+    cf.addEventListener('submit',async e=>{
+      e.preventDefault();const id=photo.id,v=cf.querySelector('input').value.trim().slice(0,80);
+      await photoCommit(widgetId,l=>{const p=l.find(x=>x.id===id);if(p){if(v)p.cap=v;else delete p.cap}});
+      done();
+    });
+    q('[data-photo-capcancel]').addEventListener('click',done);
+    cf.querySelector('input').addEventListener('keydown',e=>{if(e.key==='Escape')done()});
   }
+  q('[data-photo-remove]').addEventListener('click',async()=>{
+    const id=photo.id,idx=photos.findIndex(p=>p.id===id),keep=Object.assign({},photo);
+    if(idx<0)return;
+    const ok=await photoCommit(widgetId,l=>{const i=l.findIndex(p=>p.id===id);if(i>=0)l.splice(i,1)});
+    if(!ok)return;
+    pwRepaint(widgetId,el);
+    toast('Photo removed','Undo',async()=>{
+      const back=await photoCommit(widgetId,l=>{if(!l.some(p=>p.id===id))l.splice(Math.min(idx,l.length),0,keep)});
+      if(back){const r2=pwRuntime(widgetId);r2.order=[];}
+      pwRepaint(widgetId,el);
+    });
+  });
+  // swipe to move, tap to enlarge
+  const fr=q('[data-photo-frame]');let sx=null,sy=0,swiped=false;
+  fr.addEventListener('pointerdown',e=>{sx=e.clientX;sy=e.clientY;swiped=false});
+  fr.addEventListener('pointerup',e=>{
+    if(sx===null)return;const dx=e.clientX-sx,dy=e.clientY-sy;sx=null;
+    if(many&&Math.abs(dx)>45&&Math.abs(dx)>Math.abs(dy)*1.5){swiped=true;advance(dx<0?1:-1)}
+  });
+  fr.addEventListener('pointercancel',()=>{sx=null});
+  fr.addEventListener('click',()=>{if(swiped||widgetEditMode||!S.zoom)return;photoLightbox(widgetId,el)});
+  if(rt.playing&&many){
+    rt.timer=setInterval(()=>{
+      if(!el.isConnected){clearInterval(rt.timer);rt.timer=null;return}
+      if(document.hidden||rt.editing||document.querySelector('.pw-lb'))return;
+      advance(1);
+    },Math.max(2,parseInt(S.speed,10)||5)*1000);
+  }
+}
+function photoLightbox(widgetId,wel){
+  const rt=pwRuntime(widgetId),photos=photoWidgetPhotos(widgetId),S=pwSettings(widgetId);
+  const ids=rt.order.slice();let pos=rt.pos;
+  if(!ids.length||document.querySelector('.pw-lb'))return;
+  const lb=document.createElement('div');lb.className='pw-lb';lb.setAttribute('role','dialog');lb.setAttribute('aria-label','Photo');
+  const draw=()=>{
+    const p=photos.find(x=>x.id===ids[pos]);if(!p){close();return}
+    lb.innerHTML='<img src="'+p.src+'" alt="'+esc(p.cap||'Photo')+'">'+
+      (S.cap&&p.cap?'<div class="pw-lb-cap">'+esc(p.cap)+'</div>':'')+
+      '<button type="button" class="pw-lb-x" data-lb-x title="Close"><i data-lucide="x"></i></button>'+
+      (ids.length>1?'<button type="button" class="pw-lb-nav pw-lb-prev" data-lb-prev title="Previous"><i data-lucide="chevron-left"></i></button><button type="button" class="pw-lb-nav pw-lb-next" data-lb-next title="Next"><i data-lucide="chevron-right"></i></button>':'')+
+      '<div class="pw-lb-n">'+(pos+1)+' / '+ids.length+'</div>';
+    if(window.lucide)lucide.createIcons();
+  };
+  const step=d=>{pos=(pos+d+ids.length)%ids.length;draw()};
+  const close=()=>{document.removeEventListener('keydown',key);lb.remove();rt.pos=Math.max(0,Math.min(rt.order.length-1,rt.order.indexOf(ids[pos])));pwRepaint(widgetId,wel)};
+  const key=e=>{if(e.key==='Escape')close();else if(e.key==='ArrowRight'&&ids.length>1)step(1);else if(e.key==='ArrowLeft'&&ids.length>1)step(-1)};
+  let sx=null;
+  lb.addEventListener('pointerdown',e=>{sx=e.clientX});
+  lb.addEventListener('pointerup',e=>{if(sx===null)return;const dx=e.clientX-sx;sx=null;if(ids.length>1&&Math.abs(dx)>45){lb.dataset.sw='1';step(dx<0?1:-1);setTimeout(()=>{delete lb.dataset.sw},50)}});
+  lb.addEventListener('click',e=>{
+    if(lb.dataset.sw)return;
+    if(e.target.closest('[data-lb-prev]'))step(-1);
+    else if(e.target.closest('[data-lb-next]'))step(1);
+    else if(!e.target.closest('img'))close();
+  });
+  document.addEventListener('keydown',key);
+  document.body.appendChild(lb);draw();
 }
 function allPhotoWidgetsTotalLength(){
   return Object.values(state.photosByWidget).reduce((sum,photos)=>sum+photos.reduce((s,p)=>s+p.src.length,0),0);
 }
 async function handlePhotoWidgetUpload(fileList,el,widgetId){
   const files=Array.from(fileList||[]).filter(f=>/^image\//.test(f.type));
-  if(!files.length)return;
+  if(!files.length){if(fileList&&fileList.length)toast('Only photos can be added here');return}
   const photos=photoWidgetPhotos(widgetId);
-  if(photos.length>=PHOTO_MAX_COUNT){toast('Your photo widget is full — remove a few first');return}
-  let added=0,skippedForSize=false;
+  if(photos.length>=PHOTO_MAX_COUNT){toast('This photo widget is full ('+PHOTO_MAX_COUNT+') — remove a few first');return}
+  toast('Adding '+files.length+' photo'+(files.length===1?'':'s')+'…');
+  const fresh=[];let unreadable=0,skippedForSize=false,skippedForCount=false,used=allPhotoWidgetsTotalLength();
   for(const file of files){
-    if(photos.length>=PHOTO_MAX_COUNT)break;
+    if(photos.length+fresh.length>=PHOTO_MAX_COUNT){skippedForCount=true;break}
     try{
       const img=await fileToImage(file);
       const dataUrl=compressImageToDataUrl(img,900,160000);
-      if(!dataUrl)continue;
-      const totalLen=allPhotoWidgetsTotalLength()+dataUrl.length;
-      if(totalLen>PHOTO_MAX_BASE64_TOTAL){skippedForSize=true;break}
-      photos.push({id:'ph-'+Date.now()+'-'+Math.random().toString(36).slice(2,7),src:dataUrl});
-      added++;
-    }catch(e){console.warn(e)}
+      if(!dataUrl){unreadable++;continue}
+      if(used+dataUrl.length>PHOTO_MAX_BASE64_TOTAL){skippedForSize=true;break}
+      used+=dataUrl.length;
+      fresh.push({id:'ph-'+Date.now()+'-'+Math.random().toString(36).slice(2,7),src:dataUrl});
+    }catch(e){unreadable++}
   }
-  if(added){ pwRuntime(widgetId).order=[]; await savePhotoWidgets(); }
-  if(skippedForSize)toast(added?added+' photo'+(added===1?'':'s')+' added — your library is getting full, so the rest were skipped':'Your photo library is full — remove a few or try smaller photos');
-  renderPhotoWidgetInto(el,widgetId);
+  let added=0;
+  if(fresh.length){
+    const ok=await photoCommit(widgetId,l=>{l.push(...fresh)});
+    if(ok){added=fresh.length;pwRuntime(widgetId).order=[]}
+  }
+  if(added||unreadable||skippedForSize||skippedForCount){
+    const bits=[];
+    if(added)bits.push(added+' photo'+(added===1?'':'s')+' added');
+    if(skippedForSize)bits.push('the rest didn’t fit — your photo space is full, remove a few');
+    if(skippedForCount)bits.push('this widget holds '+PHOTO_MAX_COUNT+' at most');
+    if(unreadable)bits.push(unreadable+' couldn’t be read (try JPG or PNG)');
+    if(added||!fresh.length)toast(bits.join(' · '));
+  }
+  pwRepaint(widgetId,el);
 }
-/* ---- Sticky notes widget: shows the exact same notes as the To-Do app's
-   Sticky Notes (apps/todo.html), not a separate copy. Both read/write the
-   one Firestore doc at todo-profiles/{profile}/data/stickyNotes — here via
-   profileRef('todo-profiles','stickyNotes'), there via todo.html's own
-   profileDoc(activeProfile,'stickyNotes'), which resolves to the identical
-   path. A live onSnapshot listener (same pattern as startHubAlarmWatch
-   below) means a note added/edited in one place shows up in the other
-   without needing a reload — genuinely synced, not just "same data on next
-   visit". ---- */
-const HUB_NOTE_COLORS=['#F6E7A6','#F1D7DE','#D9E8D3','#DCE6EE','#E6DCF0','#F2DFC7'];
-const HUB_NOTE_FONTS=[{value:'',label:'Font…'},{value:'Georgia, serif',label:'Serif'},{value:"'Courier New', monospace",label:'Mono'},{value:"'Caveat', cursive",label:'Handwritten'},{value:"'Comic Sans MS', cursive",label:'Casual'}];
-const HUB_NOTE_LIST_STYLES=[{value:'',label:'Style…'},{value:'decimal',label:'1, 2, 3'},{value:'lower-alpha',label:'a, b, c'},{value:'upper-roman',label:'I, II, III'},{value:'disc',label:'• Bullet'},{value:'circle',label:'○ Circle'},{value:'square',label:'▪ Square'}];
-// Notes were plain text (a <textarea>) before rich formatting existed. A
-// note already saved as plain text has no HTML tags in it at all, so it's
-// escaped for safe display; a note that's been through the new toolbar has
-// real <b>/<i>/<u>/<ul>/<ol>/<font>/<span> tags in it and is trusted as-is.
-// This one check is how old notes keep displaying correctly without a
-// one-time migration step.
-function hubNoteDisplayHtml(text){
-  if(!text)return'';
-  return /<\/?(b|i|u|font|span|ul|ol|li)[ \/>]/i.test(text)?text:esc(text);
+/* ---- Notes & lists widget ------------------------------------------------
+   One widget, two kinds of card.
+     notes   -> todo-profiles/{profile}/data/stickyNotes   (same doc as the To-Do app)
+     lists   -> apps/checklist/data/state                  (same doc as the Checklists app:
+                                                            owner 'shared' = both of you, otherwise private)
+   Every change is a transaction: read the current document, change only the
+   one note / list, write it back. A stale copy can never overwrite newer
+   data, a failed save is said out loud and nothing half-saved stays on screen.
+   Deleting never destroys: notes and lists go to "Recently deleted" for 30 days.
+   Logic lives in assets/notes-core.js (NotesCore). ---------------------------- */
+const nw={notes:[],lists:[],got:{n:false,l:false},err:false,unN:null,unL:null,view:'main',q:'',menu:false,help:false,focus:null,pending:false,down:false,q2:Promise.resolve(),undo:null,linkT:null,paintT:null};
+const nwNoteRef=()=>profileRef('todo-profiles','stickyNotes');
+const nwListRef=()=>appRef('checklist','state');
+const nwOtherRef=p=>db.collection('users').doc(state.user.uid).collection('todo-profiles').doc(p).collection('data').doc('stickyNotes');
+const nwTasksRef=()=>profileRef('todo-profiles','tasks');
+const nwOther=()=>state.profile==='Bhargav'?'Anusha':'Bhargav';
+const nwEls=()=>Array.from(document.querySelectorAll('[data-widget-type="notes"] .widget-card-body'));
+function nwStatus(s){nw.saved=s;document.querySelectorAll('[data-widget-type="notes"] .nw-saved').forEach(e=>{e.textContent=s;e.classList.toggle('bad',/Couldn/.test(s))})}
+function nwSettings(){return wsAll(state.widgets.find(x=>x.type==='notes'),WIDGET_TYPES.notes)}
+function nwQueue(task){const p=nw.q2.then(task,task);nw.q2=p.catch(()=>{});return p}
+function nwFail(e,what){nwStatus('Couldn’t save');toast(e&&e.full?'That is too big to save — trim it or delete something':'Couldn’t save '+(what||'that')+' — check your connection and try again')}
+function nwLinkSoon(){clearTimeout(nw.linkT);nw.linkT=setTimeout(()=>{try{linkRun(false)}catch(e){}},2500)}
+function nwSetUndo(label,fn){nw.undo={label,fn};toast(label,'Undo',async()=>{const u=nw.undo;nw.undo=null;if(u)await u.fn()})}
+
+/* ---- storage (transactions) ---- */
+function nwNotesTx(fn,other,quiet){
+  return nwQueue(async()=>{
+    nwStatus('Saving…');
+    try{
+      let out=null,skipped=false;
+      await db.runTransaction(async tx=>{
+        const ref=other?nwOtherRef(other):nwNoteRef(),sn=await tx.get(ref);
+        let list=sn.exists&&sn.data().json?NotesCore.parseNotes(sn.data().json):[];
+        skipped=false;if(fn(list)===false){skipped=true;return}
+        list=NotesCore.purge(list);
+        if(NotesCore.docSize(list)>NotesCore.LIM.docChars)throw Object.assign(new Error('full'),{full:true});
+        tx.set(ref,{json:JSON.stringify(list)});out=list;
+      });
+      if(!skipped&&!other){nw.notes=out;if(!quiet)nwPaint(true)}
+      nwStatus(skipped?'':'Saved ✓');return{ok:true,skipped,list:out};
+    }catch(e){console.warn(e);nwFail(e,'the note');return{ok:false}}
+  });
 }
-let hubStickyNotes=[];
-let hubStickyNotesUnsub=null;
-// Tracks the json we most recently wrote ourselves. onSnapshot fires again
-// the instant that write lands (even just the local-cache echo of our own
-// set()), and re-rendering on every single one of those was wiping out and
-// rebuilding the whole widget's DOM mid-keystroke — destroying the textarea
-// you were actively focused in/typing into, which is what looked like the
-// cursor "exiting" the widget. If the incoming data is exactly what we just
-// saved, there's nothing new to show, so skip the rebuild entirely; a
-// genuine change (from another device/tab) always has different json and
-// still re-renders normally.
-let hubStickyNotesLastSyncedJson=null;
-function startHubNotesWatch(){
-  if(hubStickyNotesUnsub){ try{hubStickyNotesUnsub();}catch(e){} hubStickyNotesUnsub=null; }
-  hubStickyNotes=[];
-  hubStickyNotesLastSyncedJson=null;
-  if(!state.user||!state.profile) return;
+function nwListsTx(fn){
+  return nwQueue(async()=>{
+    nwStatus('Saving…');
+    try{
+      let out=null,skipped=false;
+      await db.runTransaction(async tx=>{
+        const ref=nwListRef(),sn=await tx.get(ref);
+        const lists=sn.exists&&sn.data().json?NotesCore.parseLists(sn.data().json):[];
+        skipped=false;if(fn(lists)===false){skipped=true;return}
+        const s=JSON.stringify({version:1,lists});
+        if(s.length>900000)throw Object.assign(new Error('full'),{full:true});
+        tx.set(ref,{json:s,updatedAt:firebase.firestore.FieldValue.serverTimestamp()});out=lists;
+      });
+      if(!skipped){nw.lists=out;nwPaint(true);nwLinkSoon()}
+      nwStatus(skipped?'':'Saved ✓');return{ok:true,skipped};
+    }catch(e){console.warn(e);nwFail(e,'the list');return{ok:false}}
+  });
+}
+
+/* ---- note operations ---- */
+async function notesAdd(text,opt){
+  opt=opt||{};const n=NotesCore.newNote(text,opt.color,opt.from);let full=false;
+  const r=await nwNotesTx(l=>{if(NotesCore.live(l).length>=NotesCore.LIM.notes){full=true;return false}l.unshift(n)});
+  if(full){toast('You have '+NotesCore.LIM.notes+' notes — delete a few first');return{ok:false,full:true}}
+  if(r.ok&&!opt.quiet)nwLinkSoon();
+  return{ok:r.ok,id:n.id};
+}
+async function notesEdit(id,patch,quiet){return nwNotesTx(l=>{if(!NotesCore.patchNote(l,id,patch))return false},null,quiet)}
+async function notesDelete(id){
+  const r=await nwNotesTx(l=>{if(!NotesCore.softDelete(l,id))return false});
+  if(r.ok&&!r.skipped)nwSetUndo('Note deleted',()=>notesRestore(id));
+  return r;
+}
+async function notesRestore(id){return nwNotesTx(l=>{if(!NotesCore.restore(l,id))return false})}
+async function notesForever(id){return nwNotesTx(l=>{const i=l.findIndex(n=>n.id===id);if(i<0)return false;l.splice(i,1)})}
+async function nwSendNote(id){
+  const n=nw.notes.find(x=>x.id===id);if(!n)return;const to=nwOther(),copy=NotesCore.newNote(n.text,n.color,state.profile);
+  const r=await nwNotesTx(l=>{l.unshift(copy)},to);
+  if(r.ok)nwSetUndo('Sent a copy to '+to,()=>nwNotesTx(l=>{const i=l.findIndex(x=>x.id===copy.id);if(i<0)return false;l.splice(i,1)},to));
+}
+async function nwNoteToTask(id){
+  const n=nw.notes.find(x=>x.id===id);if(!n)return;
+  const txt=NotesCore.plain(n.text);if(!txt){toast('Write something in the note first');return}
+  const parts=NotesCore.display(n.text).replace(/<\/(li|div|p)>|<br\s*\/?>/gi,'\n');const d=document.createElement('div');d.innerHTML=parts;
+  const lines=(d.textContent||'').split('\n').map(s=>s.trim()).filter(Boolean),title=lines[0].slice(0,120),rest=lines.slice(1).join('\n').slice(0,1000);
+  const task={id:'task-'+Date.now()+'-'+Math.floor(Math.random()*1000),title,done:false,priority:0,startDate:today(),due:null,dueTime:null,repeat:'none',notes:rest,link:'',tags:[],subtasks:[],listId:'personal',createdBy:state.profile,order:Date.now(),createdAt:new Date().toISOString()};
+  const rr=await readSafe(nwTasksRef(),[]);if(!rr.ok||!Array.isArray(rr.val)){toast('Couldn’t reach your tasks — try again');return}
   try{
-    hubStickyNotesUnsub=profileRef('todo-profiles','stickyNotes').onSnapshot(doc=>{
-      const json=(doc.exists&&doc.data().json)?doc.data().json:'[]';
-      if(json===hubStickyNotesLastSyncedJson) return;
-      hubStickyNotesLastSyncedJson=json;
-      hubStickyNotes=safeJson(json,[]);
-      document.querySelectorAll('[data-widget-type="notes"] .widget-card-body').forEach(el=>renderNotesWidgetInto(el));
-    },()=>{});
-  }catch(e){}
+    await nwTasksRef().set({json:JSON.stringify(rr.val.concat([task])),updatedAt:firebase.firestore.FieldValue.serverTimestamp()},{merge:true});
+    state.personalTasks=rr.val.concat([task]);if(typeof renderDashboard==='function')renderDashboard();
+    nwSetUndo('Task added to your To-Do',async()=>{const r2=await readSafe(nwTasksRef(),[]);if(!r2.ok)return toast('Couldn’t undo — try again');const keep=r2.val.filter(t=>t.id!==task.id);await nwTasksRef().set({json:JSON.stringify(keep),updatedAt:firebase.firestore.FieldValue.serverTimestamp()},{merge:true});state.personalTasks=keep;if(typeof renderDashboard==='function')renderDashboard()});
+  }catch(e){toast('Couldn’t add the task — try again')}
 }
-async function saveHubStickyNotes(){
-  const json=JSON.stringify(hubStickyNotes);
-  hubStickyNotesLastSyncedJson=json;
-  try{await profileRef('todo-profiles','stickyNotes').set({json});}catch(e){toast('Could not save note — try again')}
+
+/* ---- list operations ---- */
+async function nwNewList(title,items,owner){
+  const l=NotesCore.newList(title,owner||state.profile,items||[],'sink');NotesCore.hist(l,state.profile,'new','List created');let full=false;
+  const r=await nwListsTx(ls=>{if(NotesCore.active(ls,state.profile).length>=NotesCore.LIM.lists){full=true;return false}ls.push(l)});
+  if(full){toast('You have '+NotesCore.LIM.lists+' checklists — archive or delete a few first');return null}
+  return r.ok?l:null;
+}
+async function nwListOp(id,fn,undoLabel){
+  const before=nw.lists.find(l=>l.id===id),snap=before?JSON.parse(JSON.stringify(before)):null;let ret;
+  const r=await nwListsTx(ls=>{const l=ls.find(x=>x.id===id);if(!l||l.gone)return false;ret=fn(l,ls);if(ret===false)return false;NotesCore.touch(l)});
+  if(r.ok&&!r.skipped&&undoLabel&&snap)nwSetUndo(undoLabel,()=>nwListsTx(ls=>{const i=ls.findIndex(x=>x.id===snap.id),o=Object.assign({},snap,{u:Date.now()});if(i<0)ls.push(o);else ls[i]=o}));
+  return{ok:r.ok&&!r.skipped,ret};
+}
+const nwBy=()=>state.profile;
+async function nwTick(id,iid){
+  let fin=false;const r=await nwListOp(id,l=>{const t=NotesCore.toggle(l,iid,nwBy());if(!t)return false;fin=t.finished});
+  if(r.ok&&fin)toast('All done! 🎉');
+}
+async function nwListToNote(id){
+  const l=nw.lists.find(x=>x.id===id);if(!l)return;const html=NotesCore.listToNoteHtml(l),n=NotesCore.newNote(html,l.color||undefined);let full=false;
+  const r=await nwNotesTx(ns=>{if(NotesCore.live(ns).length>=NotesCore.LIM.notes){full=true;return false}ns.unshift(n)});
+  if(full){toast('You have '+NotesCore.LIM.notes+' notes — delete a few first');return}if(!r.ok)return;
+  const r2=await nwListOp(id,x=>{x.deleted=true;NotesCore.hist(x,nwBy(),'del','Turned into a note')});
+  if(!r2.ok){await notesForever(n.id);return}
+  nwSetUndo('Turned into a note',async()=>{await notesForever(n.id);await nwListsTx(ls=>{const x=ls.find(y=>y.id===id);if(!x)return false;x.deleted=false;x.u=Date.now()})});
+}
+async function nwNoteToList(id){
+  const n=nw.notes.find(x=>x.id===id);if(!n)return;
+  if(!NotesCore.plain(n.text)){toast('Write something in the note first');return}
+  const l=NotesCore.noteToList(n.text,state.profile,state.profile);if(n.color)l.color=n.color;if(n.pin)l.pin=true;
+  if(!l.items.length){toast('Nothing to turn into tick boxes yet');return}
+  let full=false;const r=await nwListsTx(ls=>{if(NotesCore.active(ls,state.profile).length>=NotesCore.LIM.lists){full=true;return false}ls.push(l)});
+  if(full){toast('You have '+NotesCore.LIM.lists+' checklists — archive or delete a few first');return}if(!r.ok)return;
+  const r2=await nwNotesTx(ns=>{if(!NotesCore.softDelete(ns,id))return false});
+  if(!r2.ok){await nwListsTx(ls=>{const x=ls.find(y=>y.id===l.id);if(!x)return false;x.deleted=true;x.gone=true;x.items=[]});return}
+  nwSetUndo('Turned into a checklist · '+l.items.length+' items',async()=>{await notesRestore(id);await nwListsTx(ls=>{const x=ls.find(y=>y.id===l.id);if(!x)return false;x.deleted=true;x.gone=true;x.items=[];x.u=Date.now()})});
+}
+
+/* ---- watching both documents (live sync with the To-Do and Checklists apps, and with Anusha) ---- */
+function startHubNotesWatch(){
+  ['unN','unL'].forEach(k=>{if(nw[k]){try{nw[k]()}catch(e){}nw[k]=null}});
+  nw.notes=[];nw.lists=[];nw.got={n:false,l:false};nw.err=false;nw.view='main';nw.q='';nw.undo=null;
+  if(!state.user||!state.profile)return;
+  const ok=()=>{nw.err=false;nwPaint()};
+  try{
+    nw.unN=nwNoteRef().onSnapshot(d=>{nw.notes=d.exists&&d.data().json?NotesCore.parseNotes(d.data().json):[];nw.got.n=true;ok()},()=>{nw.err=true;nw.got.n=true;nwPaint()});
+    nw.unL=nwListRef().onSnapshot(d=>{nw.lists=d.exists&&d.data().json?NotesCore.parseLists(d.data().json):[];nw.got.l=true;ok()},()=>{nw.err=true;nw.got.l=true;nwPaint()});
+  }catch(e){nw.err=true}
+}
+
+/* ---- painting ---- */
+function nwPaint(force){
+  clearTimeout(nw.paintT);
+  if(force)nw.force=true; // a forced repaint must never be downgraded by a later gentle one
+  nw.paintT=setTimeout(()=>{
+    const force=nw.force;nw.force=false;
+    nwEls().forEach(el=>{
+      const a=document.activeElement;
+      if(!force&&a&&el.contains(a)&&(a.isContentEditable||a.tagName==='INPUT'||a.tagName==='SELECT')){nw.pending=true;return}
+      if(nw.down&&!force){nw.pending=true;return}
+      try{renderNotesWidgetInto(el)}catch(e){console.warn(e)}
+    });
+  },force?0:30);
+}
+function nwSearchText(c){return(c.k==='n'?NotesCore.plain(c.o.text):c.o.title+' '+c.o.items.map(i=>i.t).join(' ')).toLowerCase()}
+const NW_TIP={b:'Bold: make the selected text heavier (Ctrl+B)',i:'Italic: slant the selected text (Ctrl+I)',u:'Underline the selected text (Ctrl+U)',ul:'Bullet list: start a list with dots',ol:'Numbered list: start a list with 1, 2, 3',chk:'Turn this note into a checklist: every bullet or line becomes a tick box',ls:'List style: change the dots or numbers of the list you are in',f:'Font: change the typeface of the selected text'};
+function nwNoteHtml(n){
+  const o=nwOther(),sel=(arr,tip,att)=>'<select data-tip="'+tip+'" '+att+'>'+arr.map(f=>'<option value="'+esc(f.value)+'">'+f.label+'</option>').join('')+'</select>';
+  return '<div class="nw-card nw-note'+(n.pin?' pinned':'')+'" style="background:'+esc(n.color||NotesCore.COLORS[0])+'" data-id="'+esc(n.id)+'" data-kind="n">'+
+    (n.pin?'<span class="nw-pin"><i data-lucide="pin"></i></span>':'')+
+    '<div class="nw-tb">'+
+      '<button type="button" data-tip="'+NW_TIP.b+'" data-cmd="bold"><i data-lucide="bold"></i></button>'+
+      '<button type="button" data-tip="'+NW_TIP.i+'" data-cmd="italic"><i data-lucide="italic"></i></button>'+
+      '<button type="button" data-tip="'+NW_TIP.u+'" data-cmd="underline"><i data-lucide="underline"></i></button><span class="nw-sep"></span>'+
+      '<button type="button" data-tip="'+NW_TIP.ul+'" data-cmd="insertUnorderedList"><i data-lucide="list"></i></button>'+
+      '<button type="button" data-tip="'+NW_TIP.ol+'" data-cmd="insertOrderedList"><i data-lucide="list-ordered"></i></button>'+
+      sel(NotesCore.LIST_STYLES,NW_TIP.ls,'data-liststyle')+sel(NotesCore.FONTS,NW_TIP.f,'data-font')+
+      '<button type="button" class="nw-conv" data-tip="'+NW_TIP.chk+'" data-a="tolist"><i data-lucide="square-check-big"></i><span>Checklist</span></button>'+
+    '</div>'+
+    (n.from?'<div class="nw-from">from '+esc(n.from)+'</div>':'')+
+    '<div class="nw-text" contenteditable="true" data-ed="note" data-placeholder="Write anything…">'+NotesCore.display(n.text)+'</div>'+
+    '<div class="nw-meta"><span class="nw-when">edited '+NotesCore.ago(n.u||NotesCore.created(n))+'</span>'+
+      '<div class="nw-dots">'+NotesCore.COLORS.map(c=>'<span class="nw-dot'+(n.color===c?' sel':'')+'" style="background:'+c+'" data-a="color" data-c="'+c+'"></span>').join('')+'</div>'+
+      '<div class="nw-act">'+
+        '<button type="button" data-tip="'+(n.pin?'Unpin':'Pin to the top')+'" data-a="pin"><i data-lucide="pin"></i></button>'+
+        '<button type="button" data-tip="Send a copy to '+o+'" data-a="send"><i data-lucide="send"></i></button>'+
+        '<button type="button" data-tip="Make a To-Do task from this note" data-a="task"><i data-lucide="list-todo"></i></button>'+
+        '<button type="button" data-tip="Delete (kept 30 days in Recently deleted)" data-a="del"><i data-lucide="trash-2"></i></button>'+
+      '</div></div></div>';
+}
+function nwListHtml(l){
+  const p=NotesCore.prog(l),d=NotesCore.dueInfo(l,today()),shared=l.owner==='shared',mode=l.hide||'keep',rows=NotesCore.rows(l),hid=NotesCore.hiddenCount(l);
+  const doneN=l.items.some(i=>i.done),modeLbl={keep:'Ticked stay',sink:'Ticked go last',hide:'Ticked hidden'}[mode]||'Ticked stay';
+  return '<div class="nw-card nw-list'+(l.pin?' pinned':'')+'" style="background:'+esc(l.color||NotesCore.COLORS[2])+'" data-id="'+esc(l.id)+'" data-kind="l">'+
+    (l.pin?'<span class="nw-pin"><i data-lucide="pin"></i></span>':'')+
+    '<div class="nw-ttl" contenteditable="true" data-ed="ttl" data-placeholder="Checklist title" spellcheck="false">'+esc(l.title)+'</div>'+
+    '<div class="nw-chips">'+
+      '<button type="button" class="nw-chip" data-a="share" data-tip="'+(shared?'Shared with both of you. Tap to make it private to you.':'Private to you. Tap to share it with '+nwOther()+'.')+'"><i data-lucide="'+(shared?'users':'lock')+'"></i>'+(shared?'Shared':'Private')+'</button>'+
+      '<label class="nw-chip'+(d&&d.c?' '+d.c:'')+'" data-tip="Set a due date. A reminder appears that morning while items are left."><i data-lucide="alarm-clock"></i>'+(d?d.t:'Due date')+'<input type="date" value="'+esc(l.due||'')+'" data-date></label>'+
+    '</div>'+
+    '<div class="nw-prog'+(p.n&&p.pct===100?' full':'')+'"><i style="width:'+p.pct+'%"></i></div>'+
+    rows.map(r=>{const it=r.it,isSub=r.sub,k=NotesCore.kids(l,it.id),part=k.length&&!it.done&&k.some(x=>x.done);
+      return '<div class="nw-it'+(isSub?' sub':'')+(it.done?' done':'')+'" data-iid="'+esc(it.id)+'">'+
+        '<span class="nw-grip" draggable="true" data-tip="Drag to reorder">⋮⋮</span>'+
+        '<button type="button" class="nw-cb'+(it.done?' on':part?' part':'')+'" data-a="tick" aria-label="Tick">'+(it.done?'✓':part?'–':'')+'</button>'+
+        '<span class="nw-t" contenteditable="true" data-ed="it" spellcheck="false">'+esc(it.t)+'</span>'+
+        (shared?'<button type="button" class="nw-asg'+(it.a?' on '+it.a.toLowerCase():'')+'" data-a="asg" data-tip="'+(it.a?'Assigned to '+it.a+'. Tap to change.':'Assign this item. Tap to cycle you, '+nwOther()+', nobody.')+'">'+(it.a?it.a[0]:'+')+'</button>':'')+
+        '<button type="button" class="nw-x" data-tip="Delete item" data-a="delit"><i data-lucide="x"></i></button></div>';
+    }).join('')+
+    (hid?'<div class="nw-hint">'+hid+' ticked item'+(hid>1?'s':'')+' hidden</div>':'')+
+    '<div class="nw-add" data-a="additem"><i data-lucide="plus"></i> Add item <small>Enter = next · Tab = sub-item</small></div>'+
+    '<div class="nw-count">'+p.d+' of '+p.n+' done</div>'+
+    '<div class="nw-tools">'+(doneN?'<button type="button" data-tip="Remove every ticked item" data-a="clear">Clear ticked</button><button type="button" data-tip="Untick everything so the list can be used again" data-a="reset">Untick all</button>':'')+
+      '<button type="button" data-tip="Where ticked items go: stay, go last, or hidden" data-a="mode">'+modeLbl+'</button>'+
+      '<a href="apps/checklist.html?list='+encodeURIComponent(l.id)+'" data-profile-link data-tip="Open in Checklists: templates, history, archive">Open ↗</a></div>'+
+    '<div class="nw-meta"><span class="nw-when">edited '+NotesCore.ago(l.u||l.createdAt||0)+'</span>'+
+      '<div class="nw-dots">'+NotesCore.COLORS.map(c=>'<span class="nw-dot'+(l.color===c?' sel':'')+'" style="background:'+c+'" data-a="color" data-c="'+c+'"></span>').join('')+'</div>'+
+      '<div class="nw-act">'+
+        '<button type="button" data-tip="'+(l.pin?'Unpin':'Pin to the top')+'" data-a="pin"><i data-lucide="pin"></i></button>'+
+        '<button type="button" data-tip="Turn this checklist back into a plain note" data-a="tonote"><i data-lucide="file-text"></i></button>'+
+        '<button type="button" data-tip="Delete (kept 30 days in Recently deleted)" data-a="del"><i data-lucide="trash-2"></i></button>'+
+      '</div></div></div>';
+}
+function nwTrashHtml(){
+  const ns=NotesCore.trashed(nw.notes),ls=NotesCore.trashedLists(nw.lists,state.profile);
+  return '<div class="nw-trash"><div class="nw-trash-h"><button type="button" class="nw-back" data-a="back">← Back</button><strong>Recently deleted</strong><small>kept 30 days</small></div>'+
+    (ns.length||ls.length?'':'<div class="nw-empty">Nothing deleted lately.</div>')+
+    (ns.length?'<div class="nw-sec">Notes</div>'+ns.map(n=>'<div class="nw-trow" data-id="'+esc(n.id)+'" data-kind="n"><span class="nw-tdot" style="background:'+esc(n.color||'#eee')+'"></span><span class="nw-tt">'+esc(NotesCore.firstLine(n.text)||'(empty note)')+'<small>deleted '+NotesCore.ago(n.u||0)+'</small></span><button type="button" data-a="restore">Restore</button><button type="button" class="bad" data-a="forever">Delete forever</button></div>').join(''):'')+
+    (ls.length?'<div class="nw-sec">Checklists</div>'+ls.map(l=>'<div class="nw-trow" data-id="'+esc(l.id)+'" data-kind="l"><span class="nw-tdot" style="background:'+esc(l.color||'#eee')+'"></span><span class="nw-tt">'+esc(l.title)+'<small>'+NotesCore.prog(l).d+' of '+NotesCore.prog(l).n+' done · deleted '+NotesCore.ago(l.u||0)+'</small></span><button type="button" data-a="restore">Restore</button><button type="button" class="bad" data-a="forever">Delete forever</button></div>').join(''):'')+
+    '</div>';
+}
+function nwHelpHtml(){
+  return '<div class="nw-help"><div class="nw-trash-h"><button type="button" class="nw-back" data-a="helpx">← Back</button><strong>What the tools do</strong></div><dl>'+
+    '<dt>B / I / U</dt><dd>Bold, italic, underline the selected text.</dd>'+
+    '<dt>Bullets / numbers</dt><dd>Start a dotted or numbered list.</dd>'+
+    '<dt>List style</dt><dd>Change the dots or numbers of the list you are in.</dd>'+
+    '<dt>Font</dt><dd>Change the typeface of the selected text.</dd>'+
+    '<dt>☑ Checklist</dt><dd>Turn the note into a checklist: every line or bullet becomes a tick box (indented bullets become sub-items).</dd>'+
+    '<dt>File icon on a checklist</dt><dd>Turn the checklist back into a plain note.</dd>'+
+    '<dt>Pin</dt><dd>Keep it at the top.</dd>'+
+    '<dt>Send</dt><dd>Send a copy of the note to '+nwOther()+'.</dd>'+
+    '<dt>Task</dt><dd>Make a To-Do task from the note.</dd>'+
+    '<dt>Trash</dt><dd>Delete. It stays in Recently deleted for 30 days.</dd>'+
+    '<dt>Shared / Private</dt><dd>A shared checklist is visible and editable by both of you. Each item can be assigned to one of you with the small circle.</dd>'+
+    '<dt>Checklist keys</dt><dd>Enter = next item · Backspace on an empty item = delete it · Tab / Shift+Tab = sub-item · Alt+↑/↓ = move · drag ⋮⋮ to reorder.</dd>'+
+    '<dt>Voice</dt><dd>“Add a note that call the landlord” · “Add milk to my shopping list” · “Tick passport on my packing list” · “New checklist called weekend chores”.</dd>'+
+    '</dl><a class="nw-link" href="apps/checklist.html" data-profile-link>Open Checklists (templates, history, archive) ↗</a></div>';
 }
 function renderNotesWidgetInto(el){
   if(!el)return;
-  el.innerHTML='<div class="hub-notes-widget">'+
-    '<button type="button" class="hub-note-add-btn" data-hubnote-add><i data-lucide="plus"></i><span>New note</span></button>'+
-    '<div class="hub-notes-list">'+
-      (hubStickyNotes.length?hubStickyNotes.map(n=>
-        '<div class="hub-note-card" style="background:'+esc(n.color)+';" data-hubnote="'+esc(n.id)+'">'+
-          '<div class="hub-note-toolbar">'+
-            '<button type="button" data-notecmd="bold" title="Bold (Ctrl+B)"><i data-lucide="bold"></i></button>'+
-            '<button type="button" data-notecmd="italic" title="Italic (Ctrl+I)"><i data-lucide="italic"></i></button>'+
-            '<button type="button" data-notecmd="underline" title="Underline (Ctrl+U)"><i data-lucide="underline"></i></button>'+
-            '<span class="hub-note-sep"></span>'+
-            '<button type="button" data-notecmd="insertUnorderedList" title="Bullet list"><i data-lucide="list"></i></button>'+
-            '<button type="button" data-notecmd="insertOrderedList" title="Numbered list"><i data-lucide="list-ordered"></i></button>'+
-            '<select data-noteliststyle title="Numbering / bullet style">'+HUB_NOTE_LIST_STYLES.map(f=>'<option value="'+f.value+'">'+f.label+'</option>').join('')+'</select>'+
-            '<select data-notefont title="Font">'+HUB_NOTE_FONTS.map(f=>'<option value="'+esc(f.value)+'">'+f.label+'</option>').join('')+'</select>'+
-          '</div>'+
-          '<div class="hub-note-text" contenteditable="true" data-hubnotetext="'+esc(n.id)+'" data-placeholder="Write anything…">'+hubNoteDisplayHtml(n.text)+'</div>'+
-          '<div class="hub-note-footer"><div class="hub-note-colors">'+HUB_NOTE_COLORS.map(c=>
-            '<span class="hub-note-dot'+(n.color===c?' selected':'')+'" style="background:'+c+';" data-hubnotecolor="'+esc(n.id)+'" data-color="'+c+'"></span>'
-          ).join('')+'</div><button type="button" class="hub-note-del-btn" data-hubnotedel="'+esc(n.id)+'" title="Delete note"><i data-lucide="x"></i></button></div>'+
-        '</div>'
-      ).join(''):'<div class="empty-state"><strong>No notes yet</strong>Jot anything down — it shows up in your To-Do app too.</div>')+
-    '</div>'+
-  '</div>';
+  nw.pending=false;
+  const S=nwSettings(),P=state.profile;
+  if(!nw.got.n||!nw.got.l){el.innerHTML='<div class="nw-empty">Loading…</div>';nwWire(el);return}
+  if(nw.err&&!nw.notes.length&&!nw.lists.length){el.innerHTML='<div class="nw-empty">Couldn’t load your notes. <button type="button" class="nw-retry" data-a="retry">Try again</button></div>';nwWire(el);return}
+  if(nw.view==='trash'){el.innerHTML=nwTrashHtml();nwFinish(el);return}
+  if(nw.help){el.innerHTML=nwHelpHtml();nwFinish(el);return}
+  const liveN=NotesCore.live(nw.notes),liveL=NotesCore.active(nw.lists,P);
+  const all=[];
+  if(S.kind!=='lists')liveN.forEach(n=>all.push({k:'n',o:n,pin:!!n.pin,cr:NotesCore.created(n),ed:n.u||NotesCore.created(n)}));
+  if(S.kind!=='notes')liveL.forEach(l=>all.push({k:'l',o:l,pin:!!l.pin,cr:l.createdAt||0,ed:l.u||0}));
+  const q=nw.q.trim().toLowerCase(),f=q?all.filter(c=>nwSearchText(c).includes(q)):all;
+  const sorted=NotesCore.sort(f,S.sort,S.pinfirst,c=>c.pin,c=>c.cr,c=>c.ed);
+  const pins=S.pinfirst?sorted.filter(c=>c.pin):[],rest=S.pinfirst?sorted.filter(c=>!c.pin):sorted;
+  const grid=a=>'<div class="nw-grid">'+a.map(c=>c.k==='n'?nwNoteHtml(c.o):nwListHtml(c.o)).join('')+'</div>';
+  const trashN=NotesCore.trashed(nw.notes).length+NotesCore.trashedLists(nw.lists,P).length;
+  el.innerHTML='<div class="nw-root nw-s-'+esc(S.size)+' nw-c-'+esc(S.cols)+(S.bar==='always'?' nw-bar-always':'')+'">'+
+    '<div class="nw-top"><span class="nw-saved'+(/Couldn/.test(nw.saved||'')?' bad':'')+'">'+esc(nw.saved||'')+'</span>'+
+      '<button type="button" class="nw-ib" data-tip="Recently deleted (kept 30 days)" data-a="trash"><i data-lucide="trash-2"></i>'+(trashN?'<b>'+trashN+'</b>':'')+'</button>'+
+      '<button type="button" class="nw-ib" data-tip="What do the tools do?" data-a="help"><i data-lucide="circle-help"></i></button></div>'+
+    '<div class="nw-bar"><input class="nw-quick" data-quick placeholder="Jot a note… ([ ] for a checklist)" maxlength="2000" enterkeyhint="done">'+
+      '<div class="nw-addwrap"><button type="button" class="nw-add-btn" data-tip="New note or checklist" data-a="menu"><i data-lucide="plus"></i><i data-lucide="chevron-down"></i></button>'+
+      '<div class="nw-menu'+(nw.menu?' show':'')+'"><button type="button" data-a="newnote">Note<small>Free text, bullets, bold…</small></button><button type="button" data-a="newlist">Checklist<small>Tick boxes, sub-items, due date, share</small></button></div></div></div>'+
+    (all.length>3||q?'<input class="nw-search" data-search placeholder="Search notes and lists" value="'+esc(nw.q)+'">':'')+
+    '<div class="nw-body">'+
+      (pins.length?'<div class="nw-sec">Pinned</div>'+grid(pins):'')+
+      (rest.length?(pins.length?'<div class="nw-sec">Others</div>':'')+grid(rest):'')+
+      (!sorted.length?'<div class="nw-empty">'+(q?'Nothing matches “'+esc(nw.q)+'”':'No notes or checklists yet. Jot something above.')+'</div>':'')+
+    '</div></div>';
+  nwFinish(el);
+  if(nw.focus){const f2=nw.focus;nw.focus=null;const t=el.querySelector(f2.sel);if(t){t.focus();if(f2.end)nwSetCaret(t)}}
+}
+function nwFinish(el){
+  if(!el.__nwRO&&window.ResizeObserver){el.__nwRO=new ResizeObserver(()=>{const n=el.clientWidth<430;if(n!==el.__nwN){el.__nwN=n;el.classList.toggle('nw-narrow',n)}});el.__nwRO.observe(el)}
+  el.classList.toggle('nw-narrow',el.clientWidth<430);
   if(window.lucide)lucide.createIcons();
-  el.querySelector('[data-hubnote-add]').addEventListener('click',async()=>{
-    hubStickyNotes.unshift({id:'note-'+Date.now(),text:'',color:HUB_NOTE_COLORS[Math.floor(Math.random()*HUB_NOTE_COLORS.length)]});
-    await saveHubStickyNotes();
-    renderNotesWidgetInto(el);
-    const first=el.querySelector('[data-hubnotetext]');
-    if(first)first.focus();
-  });
-  el.querySelectorAll('.hub-note-card').forEach(card=>{
-    const id=card.dataset.hubnote;
-    const textEl=card.querySelector('[data-hubnotetext]');
-    let debounce;
-    const commit=()=>{
-      clearTimeout(debounce);
-      debounce=setTimeout(async()=>{
-        const n=hubStickyNotes.find(x=>x.id===id);
-        if(n){n.text=textEl.innerHTML;await saveHubStickyNotes();}
-      },400);
-    };
-    // Toolbar buttons show whether bold/italic/underline is "on" at the
-    // cursor — without this there was no way to tell a format had taken
-    // until you looked at the text itself, which read as the toolbar just
-    // not working.
-    const updateToolbarState=()=>{
-      try{
-        const b=card.querySelector('[data-notecmd="bold"]'),i=card.querySelector('[data-notecmd="italic"]'),u=card.querySelector('[data-notecmd="underline"]');
-        if(b)b.classList.toggle('active',document.queryCommandState('bold'));
-        if(i)i.classList.toggle('active',document.queryCommandState('italic'));
-        if(u)u.classList.toggle('active',document.queryCommandState('underline'));
-      }catch(e){}
-    };
-    textEl.addEventListener('input',commit);
-    textEl.addEventListener('keyup',updateToolbarState);
-    textEl.addEventListener('mouseup',updateToolbarState);
-    textEl.addEventListener('focus',updateToolbarState);
-    // Pasting from anywhere else (an email, a webpage, another app) used to
-    // drag in that source's own fonts, colors and sizes along with the
-    // text — a note could suddenly have five different fonts in it and
-    // look broken. This strips all of that and keeps only the plain text,
-    // which then picks up this note's own formatting normally.
-    textEl.addEventListener('paste',e=>{
-      e.preventDefault();
-      const text=(e.clipboardData||window.clipboardData).getData('text/plain');
-      document.execCommand('insertText',false,text);
-      commit();
-    });
-    textEl.addEventListener('keydown',e=>{
-      const mod=e.ctrlKey||e.metaKey;
-      if(!mod)return;
-      const k=e.key.toLowerCase();
-      if(k==='b'||k==='i'||k==='u'){
-        e.preventDefault();
-        document.execCommand(k==='b'?'bold':k==='i'?'italic':'underline');
-        commit();
-        updateToolbarState();
+  if(typeof updateProfileLinks==='function')updateProfileLinks();
+  nwWire(el);
+}
+function nwFocusSel(sel,end){nw.focus={sel,end:!!end}}
+function nwSetCaret(t){try{if(t.setSelectionRange&&t.value!==undefined){const n=t.value.length;t.setSelectionRange(n,n)}else{const r=document.createRange();r.selectNodeContents(t);r.collapse(false);const s=getSelection();s.removeAllRanges();s.addRange(r)}}catch(e){}}
+async function nwCommitItem(t){
+  const card=t.closest('.nw-card'),row=t.closest('.nw-it');if(!card||!row)return;
+  const id=card.dataset.id,iid=row.dataset.iid,l=nw.lists.find(x=>x.id===id),it=l&&l.items.find(x=>x.id===iid);if(!it)return;
+  const v=t.textContent.replace(/\s+/g,' ').trim();
+  if(!v){await nwListOp(id,x=>NotesCore.delItem(x,iid,nwBy()));return}
+  if(v!==it.t)await nwListOp(id,x=>{if(!NotesCore.editText(x,iid,v,nwBy()))return false});
+}
+async function nwCommitTitle(t){
+  const card=t.closest('.nw-card'),id=card.dataset.id,l=nw.lists.find(x=>x.id===id);if(!l)return;
+  const v=t.textContent.replace(/\s+/g,' ').trim().slice(0,NotesCore.LIM.title);
+  if(!v){t.textContent=l.title;return}
+  if(v!==l.title)await nwListOp(id,x=>{x.title=v;NotesCore.hist(x,nwBy(),'rename',v)});
+}
+const nwNoteTimers={};
+function nwNoteQueueSave(t){
+  const card=t.closest('.nw-card'),id=card.dataset.id;clearTimeout(nwNoteTimers[id]);
+  nwStatus('Typing…');
+  nwNoteTimers[id]=setTimeout(()=>nwNoteFlush(t),700);
+}
+async function nwNoteFlush(t){
+  const card=t.closest&&t.closest('.nw-card');if(!card)return;const id=card.dataset.id;clearTimeout(nwNoteTimers[id]);delete nwNoteTimers[id];
+  const n=nw.notes.find(x=>x.id===id);if(!n)return;
+  const html=NotesCore.sanitize(t.innerHTML);
+  if(html.length>NotesCore.LIM.noteChars){toast('This note is too long to save — trim it a little');nwStatus('Couldn’t save');return}
+  if(html===NotesCore.sanitize(n.text||'')||(html===''&&!n.text))return nwStatus('Saved ✓');
+  await nwNotesTx(l=>{if(!NotesCore.patchNote(l,id,{text:html}))return false},null,true);
+}
+function nwWire(el){
+  if(el.__nwWired)return;el.__nwWired=true;
+  el.addEventListener('pointerdown',()=>{nw.down=true});
+  const up=()=>{if(!nw.down)return;nw.down=false;if(nw.pending)setTimeout(()=>nwPaint(),60)};
+  el.addEventListener('pointerup',up);el.addEventListener('pointercancel',up);
+  el.addEventListener('mousedown',e=>{if(e.target.closest('.nw-tb button'))e.preventDefault()});
+  el.addEventListener('click',async e=>{
+    const b=e.target.closest('[data-a]');
+    if(nw.menu&&!e.target.closest('.nw-addwrap')){nw.menu=false;const m=el.querySelector('.nw-menu');m&&m.classList.remove('show')}
+    if(!b)return;
+    const a=b.dataset.a,card=b.closest('.nw-card')||b.closest('.nw-trow'),id=card&&card.dataset.id,kind=card&&card.dataset.kind,row=b.closest('.nw-it'),iid=row&&row.dataset.iid,by=nwBy();
+    const N=nw.notes.find(x=>x.id===id),L=nw.lists.find(x=>x.id===id);
+    if(a==='menu'){nw.menu=!nw.menu;const m=el.querySelector('.nw-menu');m&&m.classList.toggle('show',nw.menu);return}
+    if(a==='newnote'){nw.menu=false;const r=await notesAdd('');if(r.ok)nwFocusSel('[data-id="'+r.id+'"] [data-ed="note"]');nwPaint(true);return}
+    if(a==='newlist'){nw.menu=false;const l=await nwNewList('New checklist');if(l)nwFocusSel('[data-id="'+l.id+'"] [data-ed="ttl"]',true);nwPaint(true);return}
+    if(a==='trash'){nw.view='trash';nw.menu=false;nwPaint(true);return}
+    if(a==='back'){nw.view='main';nwPaint(true);return}
+    if(a==='help'){nw.help=true;nwPaint(true);return}
+    if(a==='helpx'){nw.help=false;nwPaint(true);return}
+    if(a==='retry'){startHubNotesWatch();nwPaint(true);return}
+    if(a==='restore'){if(kind==='n')await notesRestore(id);else await nwListsTx(ls=>{const x=ls.find(y=>y.id===id);if(!x)return false;x.deleted=false;x.archived=false;x.u=Date.now()});toast('Restored');return}
+    if(a==='forever'){if(!confirm('Delete this for good? This cannot be undone.'))return;if(kind==='n')await notesForever(id);else await nwListsTx(ls=>{const x=ls.find(y=>y.id===id);if(!x)return false;x.gone=true;x.deleted=true;x.items=[];x.u=Date.now()});return}
+    if(kind==='n'&&N){
+      if(a==='pin')return void await notesEdit(id,{pin:N.pin?null:true});
+      if(a==='color')return void await notesEdit(id,{color:b.dataset.c});
+      if(a==='del'){clearTimeout(nwNoteTimers[id]);return void await notesDelete(id)}
+      if(a==='send')return void await nwSendNote(id);
+      if(a==='task')return void await nwNoteToTask(id);
+      if(a==='tolist'){const t=card.querySelector('[data-ed="note"]');if(t)await nwNoteFlush(t);return void await nwNoteToList(id)}
+    }
+    if(kind==='l'&&L){
+      if(a==='pin')return void await nwListOp(id,l=>{if(l.pin)delete l.pin;else l.pin=true});
+      if(a==='color')return void await nwListOp(id,l=>{l.color=b.dataset.c});
+      if(a==='del')return void await nwListOp(id,l=>{l.deleted=true;NotesCore.hist(l,by,'del','Deleted')},'Checklist deleted');
+      if(a==='tonote')return void await nwListToNote(id);
+      if(a==='tick')return void await nwTick(id,iid);
+      if(a==='delit')return void await nwListOp(id,l=>NotesCore.delItem(l,iid,by),'Item deleted');
+      if(a==='clear')return void await nwListOp(id,l=>{if(!NotesCore.clearTicked(l,by))return false},'Ticked items cleared');
+      if(a==='reset')return void await nwListOp(id,l=>NotesCore.reset(l,by),'All items unticked');
+      if(a==='mode')return void await nwListOp(id,l=>{const o=['keep','sink','hide'];l.hide=o[(o.indexOf(l.hide||'keep')+1)%3]});
+      if(a==='asg')return void await nwListOp(id,l=>{const it=l.items.find(x=>x.id===iid);if(!it)return false;NotesCore.assign(l,iid,NotesCore.nextAssignee(it.a))});
+      if(a==='share'){
+        const shared=L.owner==='shared';
+        if(shared&&!confirm('Make “'+L.title+'” private to you? '+nwOther()+' will no longer see it, and assignments are cleared.'))return;
+        return void await nwListOp(id,l=>NotesCore.setOwner(l,!shared,state.profile,by),shared?'Now private':null);
       }
-    });
-    card.querySelectorAll('[data-notecmd]').forEach(btn=>{
-      btn.addEventListener('mousedown',e=>e.preventDefault());
-      btn.addEventListener('click',()=>{
-        textEl.focus();
-        document.execCommand(btn.dataset.notecmd);
-        commit();
-        updateToolbarState();
-      });
-    });
-    const listStyleSel=card.querySelector('[data-noteliststyle]');
-    if(listStyleSel)listStyleSel.addEventListener('change',()=>{
-      const style=listStyleSel.value;
-      listStyleSel.value='';
-      if(!style)return;
-      textEl.focus();
-      const sel=window.getSelection();
-      let node=sel&&sel.rangeCount?sel.getRangeAt(0).startContainer:null;
-      while(node&&node!==textEl&&node.nodeName!=='OL'&&node.nodeName!=='UL')node=node.parentNode;
-      if(node&&(node.nodeName==='OL'||node.nodeName==='UL'))node.style.listStyleType=style;
-      commit();
-    });
-    const fontSel=card.querySelector('[data-notefont]');
-    if(fontSel)fontSel.addEventListener('change',()=>{
-      const font=fontSel.value;
-      fontSel.value='';
-      if(!font)return;
-      textEl.focus();
-      document.execCommand('fontName',false,font);
-      commit();
-    });
+      if(a==='additem'){
+        let nid=null;const r=await nwListOp(id,l=>{if(l.items.length>=NotesCore.LIM.items)return false;nid='i-'+NotesCore.uid()+l.items.length;l.items.push({id:nid,t:'',done:false,parent:null})});
+        if(!r.ok&&L.items.length>=NotesCore.LIM.items)toast('A checklist holds '+NotesCore.LIM.items+' items at most');
+        if(r.ok&&nid)nwFocusSel('[data-iid="'+nid+'"] [data-ed="it"]');nwPaint(true);return;
+      }
+    }
   });
-  el.querySelectorAll('[data-hubnotecolor]').forEach(dot=>{
-    dot.addEventListener('click',async()=>{
-      const n=hubStickyNotes.find(x=>x.id===dot.dataset.hubnotecolor);
-      if(n){n.color=dot.dataset.color;await saveHubStickyNotes();renderNotesWidgetInto(el);}
-    });
+  el.addEventListener('change',async e=>{
+    const d=e.target.closest('[data-date]');
+    if(d){const id=d.closest('.nw-card').dataset.id,v=d.value;await nwListOp(id,l=>NotesCore.setDue(l,v,nwBy()));toast(v?'Due date set · reminder that morning':'Due date removed');return}
+    const sel=e.target.closest('[data-liststyle],[data-font]');
+    if(sel){
+      const card=sel.closest('.nw-card'),t=card.querySelector('[data-ed="note"]'),val=sel.value;sel.value='';if(!val||!t)return;
+      t.focus();
+      if(sel.hasAttribute('data-font'))document.execCommand('fontName',false,val);
+      else{const s=getSelection();let n=s&&s.rangeCount?s.getRangeAt(0).startContainer:null;while(n&&n!==t&&n.nodeName!=='OL'&&n.nodeName!=='UL')n=n.parentNode;if(n&&(n.nodeName==='OL'||n.nodeName==='UL'))n.style.listStyleType=val;else toast('Put the cursor inside a list first')}
+      nwNoteQueueSave(t);
+    }
   });
-  el.querySelectorAll('[data-hubnotedel]').forEach(btn=>{
-    btn.addEventListener('click',async()=>{
-      hubStickyNotes=hubStickyNotes.filter(x=>x.id!==btn.dataset.hubnotedel);
-      await saveHubStickyNotes();
-      renderNotesWidgetInto(el);
-    });
+  el.addEventListener('click',e=>{
+    const c=e.target.closest('.nw-tb [data-cmd]');if(!c)return;
+    const t=c.closest('.nw-card').querySelector('[data-ed="note"]');t.focus();document.execCommand(c.dataset.cmd);nwNoteQueueSave(t);nwToolbarState(c.closest('.nw-card'));
   });
+  el.addEventListener('input',e=>{
+    const t=e.target;
+    if(t.matches&&t.matches('[data-ed="note"]')){nwNoteQueueSave(t);return}
+    if(t.matches&&t.matches('[data-search]')){nw.q=t.value;nwFocusSel('[data-search]',true);nwPaint(true)}
+  });
+  el.addEventListener('keyup',e=>{const t=e.target;if(t.matches&&t.matches('[data-ed="note"]'))nwToolbarState(t.closest('.nw-card'))});
+  el.addEventListener('paste',async e=>{
+    const t=e.target;if(!t.matches)return;
+    if(t.matches('[data-ed="note"]')){e.preventDefault();document.execCommand('insertText',false,(e.clipboardData||window.clipboardData).getData('text/plain'));nwNoteQueueSave(t);return}
+    if(t.matches('[data-ed="it"],[data-ed="ttl"]')){
+      const txt=(e.clipboardData||window.clipboardData).getData('text/plain');e.preventDefault();
+      if(t.matches('[data-ed="it"]')&&/\n/.test(txt.trim())){const id=t.closest('.nw-card').dataset.id;await nwListOp(id,l=>{const add=NotesCore.addItems(l,txt);if(!add.length)return false;NotesCore.hist(l,nwBy(),'add',add.length+' items')});return}
+      document.execCommand('insertText',false,txt.replace(/\s*\n\s*/g,' '));
+    }
+  });
+  el.addEventListener('keydown',async e=>{
+    const t=e.target;if(!t.matches)return;
+    if(t.matches('[data-quick]')&&e.key==='Enter'){
+      const v=t.value.trim();if(!v||e.isComposing)return;t.value='';
+      if(/^\[\s?\]/.test(v)){const title=v.replace(/^\[\s?\]\s*/,'')||'New checklist';const l=await nwNewList(title);if(l){nwFocusSel('[data-id="'+l.id+'"] [data-ed="it"]');nwSetUndo('Checklist created',()=>nwListsTx(ls=>{const x=ls.find(y=>y.id===l.id);if(!x)return false;x.deleted=true;x.gone=true;x.items=[];x.u=Date.now()}))}return}
+      const r=await notesAdd(v.slice(0,NotesCore.LIM.noteChars).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'));
+      if(r.ok){nwSetUndo('Note added',()=>notesForever(r.id));const q=nwEls()[0]&&nwEls()[0].querySelector('[data-quick]');if(q)q.focus()}
+      return;
+    }
+    if(t.matches('[data-ed="note"]')&&(e.ctrlKey||e.metaKey)){
+      const k=e.key.toLowerCase();if(k==='b'||k==='i'||k==='u'){e.preventDefault();document.execCommand(k==='b'?'bold':k==='i'?'italic':'underline');nwNoteQueueSave(t);nwToolbarState(t.closest('.nw-card'))}
+      return;
+    }
+    if(t.matches('[data-ed="ttl"]')){if(e.key==='Enter'){e.preventDefault();t.blur()}else if(e.key==='Escape'){t.blur()}return}
+    if(t.matches('[data-ed="it"]')){
+      const card=t.closest('.nw-card'),id=card.dataset.id,row=t.closest('.nw-it'),iid=row.dataset.iid,by=nwBy();
+      const txt=t.textContent.replace(/\s+/g,' ').trim();
+      if(e.key==='Enter'){
+        e.preventDefault();if(!txt)return;let nid=null;
+        const r=await nwListOp(id,l=>{NotesCore.editText(l,iid,txt,by);const n=NotesCore.insertAfter(l,iid,'');if(!n)return false;nid=n.id});
+        if(r.ok&&nid){nwFocusSel('[data-iid="'+nid+'"] [data-ed="it"]');nwPaint(true)}else if(!nid)toast('A checklist holds '+NotesCore.LIM.items+' items at most');
+      }else if(e.key==='Backspace'&&!txt){
+        e.preventDefault();const rows=Array.from(card.querySelectorAll('.nw-it')),i=rows.indexOf(row),prev=rows[i-1];
+        if(prev)nwFocusSel('[data-iid="'+prev.dataset.iid+'"] [data-ed="it"]',true);
+        await nwListOp(id,l=>NotesCore.delItem(l,iid,by));nwPaint(true);
+      }else if(e.key==='Tab'){
+        const l=nw.lists.find(x=>x.id===id),it=l&&l.items.find(x=>x.id===iid);if(!it)return;
+        const can=e.shiftKey?!!it.parent:(!it.parent&&l.items.indexOf(it)>0);if(!can)return;
+        e.preventDefault();nwFocusSel('[data-iid="'+iid+'"] [data-ed="it"]',true);
+        await nwListOp(id,x=>{if(txt)NotesCore.editText(x,iid,txt,by);return e.shiftKey?NotesCore.outdent(x,iid):NotesCore.indent(x,iid)});nwPaint(true);
+      }else if(e.altKey&&(e.key==='ArrowUp'||e.key==='ArrowDown')){
+        e.preventDefault();nwFocusSel('[data-iid="'+iid+'"] [data-ed="it"]',true);
+        await nwListOp(id,x=>NotesCore.move(x,iid,e.key==='ArrowUp'?-1:1));nwPaint(true);
+      }else if(e.key==='Escape'){t.blur()}
+    }
+  });
+  el.addEventListener('focusout',e=>{
+    const t=e.target;if(!t.matches)return;
+    if(t.matches('[data-ed="note"]'))nwNoteFlush(t);
+    else if(t.matches('[data-ed="it"]'))nwCommitItem(t);
+    else if(t.matches('[data-ed="ttl"]'))nwCommitTitle(t);
+    setTimeout(()=>{if(nw.pending&&!nw.down)nwPaint()},150);
+  });
+  let drag=null;
+  el.addEventListener('dragstart',e=>{const g=e.target.closest&&e.target.closest('.nw-grip');if(!g){return}const row=g.closest('.nw-it');drag={id:row.closest('.nw-card').dataset.id,iid:row.dataset.iid};row.classList.add('drag');try{e.dataTransfer.setData('text/plain',drag.iid);e.dataTransfer.effectAllowed='move';e.dataTransfer.setDragImage(row,12,12)}catch(x){}});
+  el.addEventListener('dragover',e=>{const row=e.target.closest&&e.target.closest('.nw-it');if(drag&&row&&row.closest('.nw-card').dataset.id===drag.id){e.preventDefault();row.classList.add('over')}});
+  el.addEventListener('dragleave',e=>{const row=e.target.closest&&e.target.closest('.nw-it');row&&row.classList.remove('over')});
+  el.addEventListener('drop',async e=>{const row=e.target.closest&&e.target.closest('.nw-it');if(!drag||!row)return;e.preventDefault();row.classList.remove('over');const d=drag;drag=null;if(row.closest('.nw-card').dataset.id!==d.id)return;await nwListOp(d.id,l=>NotesCore.dropOn(l,d.iid,row.dataset.iid))});
+  el.addEventListener('dragend',()=>{drag=null;el.querySelectorAll('.nw-it.drag,.nw-it.over').forEach(r=>r.classList.remove('drag','over'))});
+}
+function nwToolbarState(card){
+  try{[['bold','bold'],['italic','italic'],['underline','underline']].forEach(([c,q])=>{const b=card.querySelector('[data-cmd="'+c+'"]');if(b)b.classList.toggle('active',document.queryCommandState(q))})}catch(e){}
 }
 let saveWidgetsTimer=null;
 function saveWidgetLayout(){
@@ -1413,8 +2795,568 @@ function widgetSetEditMode(on){
 /* Widgets that fetch their own data used to blank out to "Loading…" on every refresh. The last drawn
    content is now kept and shown straight away while fresh data loads, so refreshes are invisible. */
 const widgetHtmlCache=new Map();
-const WIDGET_NO_CACHE={notes:1,photos:1,checklist:1};
+/* ---- Diet widget: a plate ring, one arc per planned meal. Reads and writes the Diet app's own data (src: assets/diet-core.js) ---- */
+const dietW={S:null,key:null,t:0,view:null,ui:{add:false,open:{},choose:null,pick:{}},groc:null,gt:0,en:null,et:0,busy:false,timer:null};
+const DT_FEEL=['😋','😐','😴'];
+const dtPid=()=>String(state.profile||'').toLowerCase();
+const dtT=(m,S)=>{if(m==null)return'';const h=Math.floor(m/60),mm=String(m%60).padStart(2,'0');if(S&&S.fmt==='24')return String(h).padStart(2,'0')+':'+mm;return(h%12||12)+':'+mm+' '+(h>=12?'PM':'AM')};
+const dtN=(n,d)=>Math.round((Number(n)||0)*(d||1))/(d||1);
+function dtLabel(k){const t=today();if(k===t)return'Today';if(k===addDays(t,-1))return'Yesterday';return new Date(k+'T12:00:00').toLocaleDateString([],{weekday:'short',month:'short',day:'numeric'})}
+async function dietLoad(force){
+  const k=state.user.uid+'|'+state.profile;
+  if(dietW.key!==k){dietW.S=null;dietW.groc=null;dietW.en=null;dietW.view=null;dietW.t=0;dietW.key=k}
+  if(!force&&dietW.S&&Date.now()-dietW.t<20000)return dietW.S;
+  const rd=await readSafe(dietRef(),null);
+  if(rd.ok&&rd.exists&&rd.val&&Array.isArray(rd.val.meals)&&Array.isArray(rd.val.diary)){dietW.S=rd.val;dietW.t=Date.now()}
+  return dietW.S;
+}
+async function dietGroc(){
+  if(dietW.groc&&Date.now()-dietW.gt<300000)return dietW.groc;
+  const rd=await readSafe(groceryRef(),null);if(rd.ok&&rd.exists&&rd.val&&typeof rd.val==='object'){dietW.groc=rd.val;dietW.gt=Date.now()}
+  return dietW.groc;
+}
+async function dietEnergy(date,eaten){
+  const ck=date;
+  if(dietW.en&&dietW.en.date===ck&&Date.now()-dietW.et<300000)return DietCore.energy(dietW.en.stats,dietW.en.kg,dietW.en.cardio,dietW.en.sec,eaten);
+  try{
+    const col=db.collection('users').doc(state.user.uid).collection('profiles').doc(state.profile.toLowerCase()),fp=firebase.firestore.FieldPath.documentId();
+    const [st,c,l]=await Promise.all([col.get().catch(()=>null),col.collection('cardioLogs').doc(date).get().catch(()=>null),col.collection('workoutLogs').where(fp,'>=',date+':').where(fp,'<',date+';').get().catch(()=>null)]);
+    const stats=(st&&st.exists)?st.data():{};let sec=0;if(l)l.forEach(d=>{const x=d.data()||{};sec+=x.sessionDurationSec||0});
+    const cardio=(c&&c.exists&&Array.isArray(c.data().entries))?c.data().entries:[];
+    let kg=0;const dl=state.insights&&state.insights.daily||{};Object.keys(dl).sort().forEach(d=>{if(dl[d].weight)kg=dl[d].weight});
+    dietW.en={date:ck,stats,kg,cardio,sec};dietW.et=Date.now();
+    return DietCore.energy(stats,kg,cardio,sec,eaten);
+  }catch(e){return null}
+}
+function dietRepaintAll(){document.querySelectorAll('[data-widget-type="diet"] .widget-card-body').forEach(el=>{try{dietPaint(el,state.widgets.find(x=>x.type==='diet'))}catch(e){console.warn(e)}})}
+async function renderDietInto(el,wdg){
+  if(!el)return;
+  if(!dietW.S)el.innerHTML='<div class="empty-state">Loading your day…</div>';
+  await dietLoad(false);
+  if(!dietW.S){el.innerHTML='<div class="empty-state"><strong>Diet is not set up yet</strong>Open the Diet app once to create your meals and goals.<a class="widget-card-link" href="apps/diet.html" data-profile-link>Open Diet <i data-lucide="arrow-up-right"></i></a></div>';updateProfileLinks();if(window.lucide)lucide.createIcons();return}
+  dietPaint(el,wdg||state.widgets.find(x=>x.type==='diet'));
+  dietStartTick();
+  const S=wsAll(wdg,WIDGET_TYPES.diet);
+  if(S.pantry)dietGroc().then(()=>{if(el.isConnected&&!dietW.ui.add)dietPaint(el,wdg)}).catch(()=>{});
+  if(S.energy||S.weight)dietEnergy(dietW.view||today(),DietCore.totals(dietW.S,dtPid(),dietW.view||today()).calories).then(r=>{if(r&&el.isConnected&&!dietW.ui.add&&!dietW.energyShown){dietW.energyShown=1;dietPaint(el,wdg)}}).catch(()=>{});
+}
+function dietStartTick(){
+  if(dietW.timer)return;
+  dietW.timer=setInterval(async()=>{
+    if(document.hidden||dietW.busy||!document.querySelector('[data-widget-type="diet"] .widget-card-body'))return;
+    if(dietW.ui.add)return;
+    await dietLoad(true);dietW.energyShown=0;dietRepaintAll();
+  },60000);
+  document.addEventListener('visibilitychange',()=>{if(!document.hidden&&dietW.S&&Date.now()-dietW.t>30000&&document.querySelector('[data-widget-type="diet"] .widget-card-body'))dietLoad(true).then(dietRepaintAll).catch(()=>{})});
+}
+function dietNext(rows,nowM){
+  const pl=rows.filter(r=>r.status==='planned');if(!pl.length)return null;
+  const timed=pl.filter(r=>r.t!=null).sort((a,b)=>a.t-b.t),untimed=pl.filter(r=>r.t==null);
+  return timed.find(r=>r.t>=nowM-45)||timed[0]||untimed[0];
+}
+function dietPaint(el,wdg){
+  const D=dietW.S;if(!D||!el)return;
+  const S=wsAll(wdg,WIDGET_TYPES.diet),C=DietCore,pid=dtPid(),td=today(),nowM=wNow();
+  if(dietW.view&&dietW.view>=td)dietW.view=null;
+  const k=dietW.view||td,isT=k===td,past=!isT;
+  const size=wtSize(el);el._dtSz=size;
+  ['dt-sm','dt-md','dt-lg','dt-wide'].forEach(c=>el.classList.remove(c));el.classList.add('dt','dt-'+size);
+  const {rows,extras}=C.dayRows(D,pid,k),t=C.totals(D,pid,k),G=C.goals(D,pid),g=G.goals,mg=G.micro;
+  rows.sort((a,b)=>(a.t==null?9999+a.idx:a.t)-(b.t==null?9999+b.idx:b.t));
+  const eatenN=rows.filter(r=>r.status==='eaten').length+extras.length,totalN=rows.length;
+  const nx=isT?dietNext(rows,nowM):null;
+  const left=g.calories-t.calories,over=left<0;
+  /* protein pace */
+  let expP=null,pace={c:'idle',t:dtLabel(k)};
+  if(isT){
+    expP=rows.filter(r=>r.t!=null&&r.t<=nowM).reduce((a,r)=>a+(r.n.protein||0),0)/g.protein*100;
+    const late=rows.filter(r=>r.status==='planned'&&r.t!=null&&nowM-r.t>45);
+    if(late.length)pace={c:'bad',t:late.length===1?late[0].slot+' is running late':late.length+' meals are late'};
+    else if(!eatenN&&!rows.some(r=>r.t!=null&&r.t<=nowM))pace={c:'idle',t:'Day not started'};
+    else pace={c:'ok',t:'On pace'};
+  }else{const s=C.dayStat(D,pid,k);pace=s.eaten?{c:s.state==='ok'?'ok':s.state==='over'?'bad':'warn',t:s.state==='ok'?'On target':s.state==='over'?'Over':'Under'}:{c:'idle',t:'Nothing logged'}}
+  /* ring */
+  const R=60,CI=2*Math.PI*R,planned=rows.reduce((a,r)=>a+(r.n.calories||0),0)+extras.reduce((a,r)=>a+(r.n.calories||0),0),tot=Math.max(planned,g.calories,1),gap=3;
+  let acc=0,arcs='';
+  const arc=(len,cls,key)=>{const l=Math.max(0,len/tot*CI-gap),off=-acc/tot*CI;acc+=len;return '<circle class="dt-seg '+cls+'" data-dt-arc="'+esc(key||'')+'" cx="75" cy="75" r="'+R+'" stroke-dasharray="'+l+' '+CI+'" stroke-dashoffset="'+off+'"></circle>'};
+  rows.forEach(r=>{arcs+=arc(r.n.calories||0,(r.status==='eaten'?'eaten':r.status==='skipped'?'skip':'plan')+(nx&&nx.key===r.key?' next':''),r.key)});
+  extras.forEach(r=>{arcs+=arc(r.n.calories||0,'extra',r.key)});
+  const centre=S.center==='eaten'?'<b>'+Math.round(t.calories).toLocaleString()+'</b><span>of '+Math.round(g.calories).toLocaleString()+' kcal</span>':'<b>'+Math.abs(Math.round(left)).toLocaleString()+'</b><span>'+(over?'kcal over':'kcal left')+'</span>';
+  const bar=(v,gl,col,mk,warn)=>'<div class="dt-bar"><i style="width:'+Math.min(100,gl>0?v/gl*100:0)+'%;background:'+(warn&&v>gl?'var(--danger)':col)+'"></i>'+(mk!=null?'<s style="left:'+Math.min(100,mk)+'%"></s>':'')+'</div>';
+  const ringHtml=S.ring?'<div class="dt-hero"><div class="dt-ring"><svg viewBox="0 0 150 150">'+arcs+'</svg><div class="dt-rc'+(over?' over':'')+'">'+centre+'</div></div>'+
+    '<div class="dt-kv"><div><div class="dt-row1"><span>Protein</span><b>'+Math.round(t.protein)+'<small> / '+Math.round(g.protein)+' g</small></b></div>'+bar(t.protein,g.protein,'var(--dt-p)',expP)+'</div>'+
+    '<div class="dt-row1 dt-eaten"><span>Eaten</span><b>'+Math.round(t.calories).toLocaleString()+' kcal</b></div>'+
+    '<span class="dt-pace '+pace.c+'">'+(pace.c==='ok'?'●':pace.c==='bad'?'▲':'○')+' '+esc(pace.t)+'</span></div></div>':'';
+  const macroHtml=S.macros?'<div class="dt-macros"><div class="dt-mac"><small><span>Carbs</span><span>'+Math.round(g.carbs)+'g</span></small><b>'+Math.round(t.carbs)+'g</b>'+bar(t.carbs,g.carbs,'var(--dt-c)')+'</div>'+
+    '<div class="dt-mac"><small><span>Fat</span><span>'+Math.round(g.fat)+'g</span></small><b>'+Math.round(t.fat)+'g</b>'+bar(t.fat,g.fat,'var(--dt-f)')+'</div>'+
+    '<div class="dt-mac"><small><span>Meals</span><span>'+totalN+'</span></small><b>'+rows.filter(r=>r.status==='eaten').length+'/'+totalN+'</b>'+bar(rows.filter(r=>r.status==='eaten').length,Math.max(1,totalN),'var(--accent)')+'</div></div>':'';
+  const microHtml=S.micro?'<div class="dt-micro"><div><div class="dt-row1"><span>Sugar</span><b>'+Math.round(t.sugar)+'<small> / '+Math.round(mg.sugar)+' g</small></b></div>'+bar(t.sugar,mg.sugar,'var(--dt-s)',null,true)+'</div><div><div class="dt-row1"><span>Saturated fat</span><b>'+Math.round(t.satFat)+'<small> / '+Math.round(mg.satFat)+' g</small></b></div>'+bar(t.satFat,mg.satFat,'var(--dt-sf)',null,true)+'</div></div>':'';
+  /* next meal */
+  const ago=r=>{if(r.t==null)return'';const d=r.t-nowM;if(d>=0)return d<60?'in '+d+' min':'in '+Math.floor(d/60)+'h '+(d%60)+'m';const a=-d;return a<60?a+' min ago':Math.floor(a/60)+'h ago'};
+  const pant=S.pantry?C.pantryCheck(D,rows,dietW.groc):{};
+  const chooserHtml=(r)=>{
+    const ch=C.choices(D,r.meal),pick=dietW.ui.pick[r.key]||{};
+    let h='<div class="dt-choose"><div class="dt-cfix">'+ch.fixed.map(x=>esc(x.name)).join(' + ')+'</div>';
+    Object.keys(ch.groups).forEach(gk=>{
+      const sel=pick[gk]||ch.groups[gk][0].id;
+      h+='<div class="dt-chips">'+ch.groups[gk].map(x=>'<button type="button" class="dt-chip'+(sel===x.id?' on':'')+'" data-dt-pick="'+esc(r.key)+'" data-g="'+esc(gk)+'" data-r="'+esc(x.id)+'">'+esc(x.name)+'<small>'+Math.round(C.recipeServingN(D,x).calories)+' kcal</small></button>').join('')+'</div>';
+    });
+    return h+'<div class="dt-btns"><button type="button" class="dt-btn pri" data-dt-chooseok="'+esc(r.key)+'">✓ Log it</button><button type="button" class="dt-btn" data-dt-choosex>Cancel</button></div></div>';
+  };
+  const nextHtml=S.next&&isT?(nx?'<div class="dt-next"><div class="dt-nt"><span>NEXT · '+esc(String(nx.slot||'').toUpperCase())+'</span><span>'+(nx.t!=null?esc(dtT(nx.t,S))+' · '+esc(ago(nx)):'anytime')+'</span></div><div class="dt-nn">'+esc(nx.icon||'')+' '+esc(nx.name)+'</div><div class="dt-nm">'+Math.round(nx.n.calories)+' kcal · '+Math.round(nx.n.protein)+' g protein · '+Math.round(nx.n.carbs)+' g carbs · '+Math.round(nx.n.fat)+' g fat</div>'+
+    (pant[nx.key]?'<div class="dt-pant">⚠ '+pant[nx.key].map(b=>esc(b.name)+(b.status==='finished'?' is finished':' is low')).join(', ')+'<button type="button" data-dt-buy="'+esc(nx.key)+'">Add to my list</button></div>':'')+
+    (dietW.ui.choose===nx.key?chooserHtml(nx):'<div class="dt-btns"><button type="button" class="dt-btn pri" data-dt-ate="'+esc(nx.key)+'">✓ Ate it</button><button type="button" class="dt-btn" data-dt-skip="'+esc(nx.key)+'">Skip</button>'+(nx.choice?'':'')+'</div>')+'</div>'
+    :(totalN?'<div class="dt-next done"><div class="dt-nn">All meals handled for today ✓</div><div class="dt-nm">'+Math.round(t.calories)+' of '+Math.round(g.calories)+' kcal · '+Math.round(t.protein)+' of '+Math.round(g.protein)+' g protein</div></div>':'<div class="dt-next done"><div class="dt-nn">No meals planned</div><div class="dt-nm">Add meals in the Diet app, or use “Ate something else”.</div></div>')):'';
+  /* protein rescue */
+  let rescueHtml='';
+  if(S.rescue&&isT&&eatenN){
+    const remP=g.protein-t.protein,nxP=nx?(nx.n.protein||0):0,restP=rows.filter(r=>r.status==='planned'&&r!==nx).reduce((a,r)=>a+(r.n.protein||0),0),gap=remP-nxP-restP;
+    const whey=(D.foods||[]).find(f=>/whey/i.test(f.name)&&f.protein>0);
+    if(remP>8&&gap>8&&whey){
+      const unit=whey.unit==='g'?'g':whey.unit,per=whey.unit==='scoop'?1:(whey.unit==='g'?30:1),pn=C.nutrients(D,{foodId:whey.id,qty:per,unit:unit}),sc=Math.max(1,Math.round(gap/(pn.protein||24)));
+      rescueHtml='<div class="dt-rescue"><div><b>'+Math.round(remP)+' g protein left.</b> The rest of the plan covers '+Math.round(nxP+restP)+' g. '+sc+' scoop'+(sc>1?'s':'')+' of whey closes it.</div><button type="button" class="dt-btn sm" data-dt-whey="'+esc(whey.id)+'" data-q="'+(per*sc)+'" data-u="'+esc(unit)+'">＋ Whey</button></div>';
+    }else if(remP>8&&gap<=8){rescueHtml='<div class="dt-rescue ok"><div><b>'+Math.round(remP)+' g protein to go.</b> You are covered if you eat what is planned.</div></div>'}
+  }
+  /* list */
+  const feelOf=r=>{const e=(D.diary||[]).find(x=>x.id===r.id);return e&&e.note?e.note:''};
+  const listRows=rows.map(r=>{
+    const late=isT&&r.status==='planned'&&r.t!=null&&nowM-r.t>45,isNx=nx&&nx.key===r.key&&!late,open=!!dietW.ui.open[r.key],showK=!(S.hideplan&&r.status==='planned');
+    const feel=(r.status==='eaten'&&r.id)?feelOf(r):'';
+    const feelHtml=(S.feel&&r.status==='eaten'&&r.id)?'<div class="dt-feel"><span>How did it sit?</span>'+DT_FEEL.map(f=>'<button type="button" class="'+(feel.indexOf(f)===0?'on':'')+'" data-dt-feel="'+esc(r.id)+'" data-f="'+f+'">'+f+'</button>').join('')+'</div>':'';
+    const acts='<div class="dt-btns">'+(r.status==='planned'?'<button type="button" class="dt-btn sm pri" data-dt-ate="'+esc(r.key)+'">Ate it</button><button type="button" class="dt-btn sm" data-dt-skip="'+esc(r.key)+'">Skip</button>':r.status==='skipped'?'<button type="button" class="dt-btn sm" data-dt-skip="'+esc(r.key)+'">Un-skip</button>':'<button type="button" class="dt-btn sm" data-dt-un="'+esc(r.key)+'">Not eaten</button>')+'</div>';
+    return '<div class="dt-meal '+r.status+(open?' open':'')+'"><button type="button" class="dt-ck" data-dt-ck="'+esc(r.key)+'" aria-label="Toggle '+esc(r.name)+'">'+(r.status==='eaten'?'✓':r.status==='skipped'?'–':'')+'</button>'+
+      '<div class="dt-mn" data-dt-open="'+esc(r.key)+'" role="button"><div class="dt-mnm">'+esc(r.icon||'')+' '+esc(r.name)+(late?'<span class="dt-tag late">late</span>':'')+(isNx?'<span class="dt-tag now">next</span>':'')+'</div><small>'+esc(r.slot||'')+(r.t!=null?' · '+esc(dtT(r.t,S)):'')+'</small></div>'+
+      '<div class="dt-kc">'+(showK?Math.round(r.n.calories)+' kcal':'· · ·')+'<small>'+(showK?Math.round(r.n.protein)+' g protein':'')+'</small></div>'+
+      '<div class="dt-det">'+esc(r.detail||'')+(feel?'<div class="dt-fl">'+esc(feel)+'</div>':'')+feelHtml+(dietW.ui.choose===r.key&&r.status==='planned'?chooserHtml(r):acts)+'</div></div>';
+  }).join('');
+  const exRows=extras.map(r=>'<div class="dt-meal eaten x"><button type="button" class="dt-ck" data-dt-delx="'+esc(r.id)+'" title="Remove">✓</button><div class="dt-mn"><div class="dt-mnm">'+esc(r.icon||'➕')+' '+esc(r.name)+'<span class="dt-tag x">added</span></div><small>'+esc(r.quick?'Quick add':r.detail)+'</small></div><div class="dt-kc">'+Math.round(r.n.calories)+' kcal<small>'+Math.round(r.n.protein)+' g protein</small></div></div>').join('');
+  const listHtml=S.list&&(rows.length||extras.length)?'<div class="dt-sec"><span>'+(isT?"Today's meals":esc(dtLabel(k))+"'s meals")+'</span><span>'+eatenN+' of '+(totalN+extras.length)+' eaten</span></div><div class="dt-meals">'+listRows+exRows+'</div>':'';
+  const addHtml=S.add?'<button type="button" class="dt-btn sm dt-addbtn" data-dt-addtoggle>＋ Ate something else</button><div class="dt-add'+(dietW.ui.add?' on':'')+'"><input data-dt-an placeholder="What did you eat?" style="flex:2 1 130px"><input data-dt-ak type="number" inputmode="decimal" placeholder="kcal" style="width:70px"><input data-dt-ap type="number" inputmode="decimal" placeholder="protein g" style="width:84px"><input data-dt-asu type="number" inputmode="decimal" class="dt-more" placeholder="sugar g" style="width:72px"><input data-dt-asf type="number" inputmode="decimal" class="dt-more" placeholder="sat fat g" style="width:76px"><button type="button" class="dt-btn pri sm" data-dt-addgo>Add</button></div>':'';
+  /* week, flex, streak */
+  const wk=C.week(D,pid,k),dn=['S','M','T','W','T','F','S'];
+  const onT=wk.filter(x=>x.state==='ok'&&x.proteinOk).length,logged=wk.filter(x=>x.eaten>0),avgP=logged.length?Math.round(logged.reduce((a,x)=>a+x.protein,0)/logged.length):0;
+  const weekHtml=S.week?'<div class="dt-sec"><span>Last 7 days</span><span>tap a day</span></div><div class="dt-week">'+wk.map(x=>{const h=Math.max(6,Math.min(46,x.kcal/g.calories*40));return '<div class="dt-wd s-'+x.state+(x.date===k?' sel':'')+'" data-dt-day="'+x.date+'"><div class="dt-col"><div style="height:'+h+'px"></div></div><small>'+dn[new Date(x.date+'T12:00:00').getDay()]+'</small><small class="d">'+(x.eaten?Math.round(x.kcal/10)*10:'–')+'</small></div>'}).join('')+'</div><div class="dt-wkf"><span><b>'+onT+' of '+logged.length+'</b> days on target</span><span>Avg protein <b>'+avgP+' g</b></span></div>':'';
+  const fx=C.flex(D,pid,td);
+  const flexHtml=(S.flex&&isT)?'<div class="dt-line"><span>Flex bank this week</span><b class="'+(fx.bank<0?'neg':'')+'">'+(fx.bank>0?'+':'')+fx.bank.toLocaleString()+' kcal</b><small>'+(fx.doneDays?'Today you can have up to '+fx.todayCap.toLocaleString()+' kcal and still land on the week.':'Starts after your first full day this week.')+'</small></div>':'';
+  const streakN=S.streak?C.streak(D,pid,td):0,score=wk.filter(x=>x.eaten>0&&x.state==='ok').length;
+  const streakHtml=S.streak?'<div class="dt-line"><span>Streak</span><b>'+streakN+(streakN===1?' day':' days')+'</b><small>Protein goal hit on logged days'+(logged.length?' · this week '+score+'/7 on calories':'')+'</small></div>':'';
+  const en=(S.energy&&dietW.en&&dietW.en.date===k)?C.energy(dietW.en.stats,dietW.en.kg,dietW.en.cardio,dietW.en.sec,t.calories):null;
+  const energyHtml=(S.energy&&en)?'<div class="dt-line"><span>Eaten vs burned</span><b class="'+(en.net>0?'':'')+'">'+Math.round(t.calories).toLocaleString()+' / '+en.burned.toLocaleString()+'</b><small>'+(en.net>0?'+'+en.net:en.net)+' kcal net · '+en.neat+' baseline + '+en.exercise+' from Gym</small></div>':'';
+  let kgW=0;{const dl=state.insights&&state.insights.daily||{};Object.keys(dl).sort().forEach(d=>{if(dl[d].weight)kgW=dl[d].weight})}
+  const weightHtml=(S.weight&&kgW)?'<div class="dt-line"><span>Weight</span><b>'+kgW+' kg</b><small>Latest from Gym</small></div>':'';
+  const head='<div class="dt-head"><div class="dt-hl"><a class="dt-open" href="apps/diet.html" data-profile-link title="Open the Diet app" aria-label="Open the Diet app">Open Diet ↗</a></div><div class="dt-nav"><button type="button" data-dt-nav="-1" aria-label="Earlier day">‹</button>'+(past?'<button type="button" class="dt-today" data-dt-today>'+esc(dtLabel(k))+' · back to today</button>':'<span>Today</span>')+'<button type="button" data-dt-nav="1" '+(past?'':'disabled')+' aria-label="Later day">›</button></div></div>';
+  const A=ringHtml+macroHtml+(size==='sm'?'':microHtml)+nextHtml,B=rescueHtml+listHtml+addHtml;
+  const C2=weekHtml+flexHtml+streakHtml+energyHtml+weightHtml;
+  const keep=el.scrollTop,addv=['an','ak','ap','asu','asf'].map(n=>{const i=el.querySelector('[data-dt-'+n+']');return i?i.value:''});
+  el.innerHTML=head+(size==='wide'?'<div class="dt-body"><div>'+A+C2+'</div><div>'+B+'</div></div>':A+B+C2);
+  if(dietW.ui.add){['an','ak','ap','asu','asf'].forEach((n,i)=>{const x=el.querySelector('[data-dt-'+n+']');if(x)x.value=addv[i]||''})}
+  el.scrollTop=keep;updateProfileLinks();
+  if(!el._dtRO&&window.ResizeObserver){el._dtRO=new ResizeObserver(()=>{if(el.isConnected&&wtSize(el)!==el._dtSz)dietPaint(el,wdg)});el._dtRO.observe(el)}
+  dtWire(el,wdg);
+}
+/* a change: read the Diet document fresh, apply, save whole, then update what you see. */
+async function dietCommit(fn,msg,undoFn){
+  if(dietW.busy)return null;dietW.busy=true;
+  try{
+    const rd=await readSafe(dietRef(),null);
+    if(!rd.ok||!rd.exists||!rd.val||!Array.isArray(rd.val.diary)){toast('Could not reach Diet, nothing was changed');return null}
+    const D=rd.val,res=fn(D);
+    if(!res||!res.changed){dietW.S=D;dietW.t=Date.now();dietRepaintAll();return res}
+    DietCore.trackUsage(D,res.jobs);
+    await dietRef().set({json:JSON.stringify(D),updatedAt:firebase.firestore.FieldValue.serverTimestamp()},{merge:true});
+    dietW.S=D;dietW.t=Date.now();dietW.energyShown=0;
+    try{if(schedX&&schedX.diet){schedX.diet=D;schedX.t=Date.now();schedRedraw()}}catch(e){}
+    try{insightsLoadedAt=0}catch(e){}
+    dietRepaintAll();
+    if(res.jobs&&res.jobs.length){
+      DietCore.trackGrocery(D,res.jobs,k=>appRef('grocery-v4',k),today()).then(r=>{dietW.groc=null;if(r&&r.low&&r.low.length)toast(r.low.map(x=>x.name).join(', ')+(r.low.length>1?' are':' is')+' running low');return dietGroc()}).then(()=>dietRepaintAll()).catch(e=>console.warn('grocery stock',e));
+    }
+    try{linkRun(false).catch(()=>{})}catch(e){}
+    if(msg)toast(msg,undoFn?'Undo':null,undoFn||null);
+    return res;
+  }catch(e){console.warn(e);toast('Could not save that');return null}
+  finally{dietW.busy=false}
+}
+function dtWire(el,wdg){
+  const S=wsAll(wdg,WIDGET_TYPES.diet),pid=dtPid();
+  const cur=()=>dietW.view||today();
+  const rowOf=key=>{const r=DietCore.dayRows(dietW.S,pid,cur());return r.rows.find(x=>x.key===key)};
+  const setTo=async(key,val,msgFn)=>{
+    const r=rowOf(key);if(!r)return;const date=cur(),was=r.status;
+    return dietCommit(D=>DietCore.setStatus(D,pid,date,key,val),msgFn(r),()=>dietCommit(D=>DietCore.setStatus(D,pid,date,key,was),null));
+  };
+  el.onclick=async e=>{
+    const q=s=>e.target.closest(s);let x;
+    if(x=q('[data-dt-nav]')){const d=Number(x.dataset.dtNav);if(d>0&&!dietW.view)return;const nk=addDays(cur(),d);dietW.view=nk>=today()?null:nk;dietPaint(el,wdg);return}
+    if(q('[data-dt-today]')){dietW.view=null;dietPaint(el,wdg);return}
+    if(x=q('[data-dt-day]')){dietW.view=x.dataset.dtDay>=today()?null:x.dataset.dtDay;dietPaint(el,wdg);return}
+    if(x=q('[data-dt-open]')){const k=x.dataset.dtOpen;dietW.ui.open[k]=!dietW.ui.open[k];dietPaint(el,wdg);return}
+    if(x=q('circle[data-dt-arc]')){const k=x.getAttribute('data-dt-arc');if(k){dietW.ui.open[k]=!dietW.ui.open[k];dietPaint(el,wdg)}return}
+    if(x=q('[data-dt-pick]')){const p=dietW.ui.pick[x.dataset.dtPick]=dietW.ui.pick[x.dataset.dtPick]||{};p[x.dataset.g]=x.dataset.r;dietPaint(el,wdg);return}
+    if(q('[data-dt-choosex]')){dietW.ui.choose=null;dietPaint(el,wdg);return}
+    if(x=q('[data-dt-chooseok]')){
+      const key=x.dataset.dtChooseok,r=rowOf(key);if(!r)return;const D=dietW.S,ch=DietCore.choices(D,r.meal),pick=dietW.ui.pick[key]||{};
+      const rs=ch.fixed.slice();Object.keys(ch.groups).forEach(gk=>{const id=pick[gk]||ch.groups[gk][0].id;const o=ch.groups[gk].find(z=>z.id===id);if(o)rs.push(o)});
+      const date=cur(),mid=r.meal.id;let newId=null;
+      dietW.ui.choose=null;
+      await dietCommit(D2=>{const res=DietCore.logMealWith(D2,pid,date,mid,rs.map(z=>(D2.recipes||[]).find(y=>y.id===z.id)||z));newId=res.id;return res},'Ate '+r.name+' · +'+Math.round(rs.reduce((a,z)=>a+DietCore.recipeServingN(D,z).calories,0))+' kcal',()=>dietCommit(D2=>{DietCore.undoLogMealWith(D2,pid,date,mid,newId);return{changed:true,jobs:[]}},null));
+      return;
+    }
+    const eat=async key=>{const r=rowOf(key);if(!r)return;if(r.choice&&r.status==='planned'){dietW.ui.choose=key;dietW.ui.open[key]=true;dietPaint(el,wdg);return}
+      await setTo(key,'eaten',r=>'Ate '+r.name+' · +'+Math.round(r.n.calories)+' kcal, +'+Math.round(r.n.protein)+' g protein')};
+    if(x=q('[data-dt-ate]')){await eat(x.dataset.dtAte);return}
+    if(x=q('[data-dt-ck]')){const r=rowOf(x.dataset.dtCk);if(!r)return;if(r.status==='eaten')await setTo(r.key,'planned',r=>'Unmarked '+r.name);else if(r.status==='skipped')await setTo(r.key,'planned',r=>'Back on the plan: '+r.name);else await eat(r.key);return}
+    if(x=q('[data-dt-skip]')){const r=rowOf(x.dataset.dtSkip);if(!r)return;if(r.status==='skipped')await setTo(r.key,'planned',r=>'Back on the plan: '+r.name);else await setTo(r.key,'skipped',r=>'Skipped '+r.name);return}
+    if(x=q('[data-dt-un]')){await setTo(x.dataset.dtUn,'planned',r=>'Unmarked '+r.name);return}
+    if(x=q('[data-dt-delx]')){const id=x.dataset.dtDelx,en=(dietW.S.diary||[]).find(z=>z.id===id),copy=en?JSON.parse(JSON.stringify(en)):null;
+      await dietCommit(D=>({changed:DietCore.removeEntry(D,id),jobs:[]}),'Removed '+(copy?copy.name:'entry'),()=>dietCommit(D=>{if(copy&&!D.diary.some(z=>z.id===id)){D.diary.push(copy);DietCore.applyConsumption(D,copy.status==='eaten'?copy.consumption||[]:[],-1);return{changed:true,jobs:[]}}return{changed:false}},null));return}
+    if(x=q('[data-dt-feel]')){const id=x.dataset.dtFeel,f=x.dataset.f,en=(dietW.S.diary||[]).find(z=>z.id===id);if(!en)return;
+      const old=en.note||'',rest=DT_FEEL.some(z=>old.indexOf(z)===0)?old.slice(2).trim():old,next=old.indexOf(f)===0?rest:(f+(rest?' '+rest:''));
+      await dietCommit(D=>({changed:DietCore.setNote(D,id,next),jobs:[]}),null);return}
+    if(q('[data-dt-addtoggle]')){dietW.ui.add=!dietW.ui.add;dietPaint(el,wdg);if(dietW.ui.add){const i=el.querySelector('[data-dt-an]');if(i)i.focus()}return}
+    if(q('[data-dt-addgo]')){
+      const v=n=>{const i=el.querySelector('[data-dt-'+n+']');return i?i.value.trim():''},name=v('an'),kc=Number(v('ak'));
+      if(!name||!(kc>0)){toast('Add a name and the calories');return}
+      let newId=null;dietW.ui.add=false;
+      await dietCommit(D=>{const res=DietCore.quickAdd(D,pid,cur(),{name:name,kcal:kc,protein:Number(v('ap'))||0,sugar:Number(v('asu'))||0,satFat:Number(v('asf'))||0});newId=res.id;return res},'Logged '+name+' · '+Math.round(kc)+' kcal',()=>dietCommit(D=>({changed:DietCore.removeEntry(D,newId),jobs:[]}),null));return}
+    if(x=q('[data-dt-whey]')){
+      const fid=x.dataset.dtWhey,qty=Number(x.dataset.q),unit=x.dataset.u;let nid=null;
+      await dietCommit(D=>{const f=(D.foods||[]).find(z=>z.id===fid);if(!f)return{changed:false};const res=DietCore.logFood(D,pid,cur(),f,qty,unit,f.name);nid=res.id;return res},'Logged whey',()=>dietCommit(D=>({changed:DietCore.removeEntry(D,nid),jobs:[]}),null));return}
+    if(x=q('[data-dt-buy]')){
+      const bad=(DietCore.pantryCheck(dietW.S,DietCore.dayRows(dietW.S,pid,cur()).rows,dietW.groc)[x.dataset.dtBuy]||[]);if(!bad.length)return;
+      try{await linkEnsure();await linkApplyTasks(bad.map(b=>({key:'dietbuy:'+b.name.toLowerCase()+':'+today(),src:'diet',shared:false,title:'Buy: '+b.name,due:today(),startDate:today(),tags:['grocery'],notes:'Needed for your next meal and '+(b.status==='finished'?'finished':'low')+' in the pantry.',link:'apps/grocery.html'})));toast('Added to your to-do list')}catch(err){toast('Could not add that')}
+      return}
+  };
+}
+
+/* ---- Diet by voice (used by assets/voice.js) ---- */
+async function dietVoice(kind,o){
+  const say=t=>{try{speak(t)}catch(e){toast(t)}};
+  const D=await dietLoad(true);if(!D){say("I couldn't open your Diet plan.");return true}
+  const pid=dtPid(),date=today();
+  if(kind==='add'){
+    const kc=Number(o.kcal)||0;if(!(kc>0)){say('How many calories?');return true}
+    let id=null;const r=await dietCommit(S=>{const x=DietCore.quickAdd(S,pid,date,{name:o.name||'Food',kcal:kc,protein:Number(o.protein)||0});id=x.id;return x},null);
+    if(!r){say("I couldn't log that.");return true}
+    try{voiceUndoPush('logging '+(o.name||'food'),()=>dietCommit(S=>({changed:DietCore.removeEntry(S,id),jobs:[]}),null))}catch(e){}
+    say('Logged '+(o.name||'food')+', '+Math.round(kc)+' calories.');return true;
+  }
+  const q=String(o.name||'').toLowerCase().trim(),{rows}=DietCore.dayRows(D,pid,date);
+  const hit=rows.find(r=>r.slot&&r.slot.toLowerCase()===q)||rows.find(r=>(r.name||'').toLowerCase().includes(q)||(r.slot||'').toLowerCase().includes(q));
+  if(!hit){say("I couldn't find a planned "+q+".");return true}
+  if(hit.status==='eaten'){say(hit.name+' is already logged.');return true}
+  if(kind==='ate'&&hit.choice){say(hit.name+' has options. Tick it on your Diet card to pick.');return true}
+  const val=kind==='skip'?'skipped':'eaten',was=hit.status,key=hit.key;
+  const r=await dietCommit(S=>DietCore.setStatus(S,pid,date,key,val),null);
+  if(!r||!r.changed){say("I couldn't update that.");return true}
+  try{voiceUndoPush((kind==='skip'?'skipping ':'logging ')+hit.name,()=>dietCommit(S=>DietCore.setStatus(S,pid,date,key,was),null))}catch(e){}
+  say(kind==='skip'?'Skipped '+hit.name+'.':'Logged '+hit.name+', '+Math.round(hit.n.calories)+' calories and '+Math.round(hit.n.protein)+' grams of protein.');
+  return true;
+}
+/* ---- Skin widget: today's routine as tickable sections. Reads and writes the Skin app's own data (src: assets/skin-core.js) ---- */
+const skinW={key:null,st:null,t:0,view:null,ui:{open:{},track:{open:false,vals:{},touched:{},overall:'',react:[],obs:''},ci:false},timer:null,int:null,busy:false,gym:null,gt:0};
+const skRef=k=>profileRef('skin-profiles',k);
+const skFmt=(S,t)=>{if(!t)return'';if(S&&S.fmt==='24')return t.length>5?t:t;return t};
+async function skinLoad(force){
+  const k=state.user.uid+'|'+state.profile;
+  if(skinW.key!==k){skinW.st=null;skinW.view=null;skinW.t=0;skinW.key=k;skinW.gym=null;skinW.ui.open={};skinW.ui.track={open:false,vals:{},touched:{},overall:'',react:[],obs:''}}
+  if(!force&&skinW.st&&Date.now()-skinW.t<20000)return skinW.st;
+  const names=['stepLog','productState','usageLedger','trackingLog','checkins','shoppingLog'];
+  const [rs,ps]=await Promise.all([Promise.all(names.map(n=>readSafe(skRef(n),null))),skRef('programStart').get().then(s=>({ok:true,start:(s.exists&&s.data().startDate)||null})).catch(()=>({ok:false}))]);
+  if(!rs.every(r=>r.ok)||!ps.ok)return skinW.st;
+  const obj=(r,fb)=>(r.exists&&r.val&&typeof r.val==='object'&&!Array.isArray(r.val))?r.val:fb;
+  const ci=obj(rs[4],{});
+  try{if(window.SkinPlan)window.SkinPlan.setStart(ps.start)}catch(e){}
+  skinW.st={stepLog:obj(rs[0],{}),productState:SkinCore.seedState(obj(rs[1],{}),state.profile),usageLedger:obj(rs[2],{}),trackingLog:obj(rs[3],{}),
+    checkins:{weight:ci.weight||[],waist:ci.waist||[],photos:ci.photos||[],pimples:ci.pimples||[]},shoppingLog:obj(rs[5],{}),start:ps.start||SkinCore.TEMPLATE_START};
+  skinW.t=Date.now();return skinW.st;
+}
+async function skinGym(){
+  if(skinW.gym&&Date.now()-skinW.gt<600000)return skinW.gym;
+  try{
+    const snap=await db.collection('users').doc(state.user.uid).collection('profiles').doc(state.profile.toLowerCase()).collection('dailyLogs').get(),all=[];
+    snap.forEach(d=>all.push(Object.assign({date:d.id},d.data())));all.sort((a,b)=>a.date<b.date?-1:1);
+    const last=k=>{const l=all.filter(x=>x[k]!=null&&x[k]!=='');return l.length?{date:l[l.length-1].date,value:l[l.length-1][k]}:null};
+    skinW.gym={weight:last('weight'),waist:last('waist')};skinW.gt=Date.now();
+  }catch(e){skinW.gym={weight:null,waist:null}}
+  return skinW.gym;
+}
+function skinRepaintAll(){document.querySelectorAll('[data-widget-type="skin"] .widget-card-body').forEach(el=>{try{skinPaint(el,state.widgets.find(x=>x.type==='skin'))}catch(e){console.warn(e)}})}
+async function renderSkinInto(el,wdg){
+  if(!el)return;
+  if(!skinW.st)el.innerHTML='<div class="empty-state">Loading your routine…</div>';
+  await skinLoad(false);
+  if(!skinW.st){el.innerHTML='<div class="empty-state"><strong>Unavailable</strong>Could not load your skin data.<a class="widget-card-link" href="apps/skin.html" data-profile-link>Open Skin <i data-lucide="arrow-up-right"></i></a></div>';updateProfileLinks();if(window.lucide)lucide.createIcons();return}
+  skinPaint(el,wdg||state.widgets.find(x=>x.type==='skin'));
+  skinStartTick();
+  if(state.profile==='Anusha')skinGym().then(()=>{if(el.isConnected&&!skinW.ui.track.open)skinPaint(el,wdg)}).catch(()=>{});
+}
+function skinStartTick(){
+  if(skinW.int)return;
+  skinW.int=setInterval(async()=>{
+    if(document.hidden||skinW.busy||!document.querySelector('[data-widget-type="skin"] .widget-card-body'))return;
+    if(skinW.ui.track.open||skinW.ui.ci)return;
+    await skinLoad(true);skinRepaintAll();
+  },60000);
+  document.addEventListener('visibilitychange',()=>{if(!document.hidden&&skinW.st&&Date.now()-skinW.t>30000&&document.querySelector('[data-widget-type="skin"] .widget-card-body'))skinLoad(true).then(skinRepaintAll).catch(()=>{})});
+}
+const skLabel=k=>{const t=today();if(k===t)return'Today';if(k===addDays(t,-1))return'Yesterday';return new Date(k+'T12:00:00').toLocaleDateString([],{weekday:'short',month:'short',day:'numeric'})};
+function skinPaint(el,wdg){
+  const st=skinW.st;if(!st||!el)return;
+  const S=wsAll(wdg,WIDGET_TYPES.skin),C=SkinCore,prof=state.profile,td=today(),isA=prof==='Anusha';
+  if(skinW.view&&skinW.view>=td)skinW.view=null;
+  const k=skinW.view||td,isT=k===td,past=!isT;
+  const size=wtSize(el);el._skSz=size;
+  ['sk-sm','sk-md','sk-lg','sk-wide'].forEach(c=>el.classList.remove(c));el.classList.add('sk','sk-'+size);
+  const cal=C.calendar(st.start),secs=C.sections(prof,k,st.start),month=isA?null:C.monthFor(st.start,k);
+  const first=cal.months[0].range[0],lastD=cal.months[cal.months.length-1].range[1];
+  const comp=C.completion(prof,k,st.start,st.stepLog);
+  const streak=S.streak?C.streak(prof,st.start,st.stepLog,td):0;
+  const head='<div class="sk-head"><div class="sk-hl"><a class="sk-open" href="apps/skin.html" data-profile-link title="Open the Skin app" aria-label="Open the Skin app">Open Skin ↗</a></div><div class="sk-nav"><button type="button" data-sk-nav="-1" aria-label="Earlier day">‹</button>'+(past?'<button type="button" class="sk-today" data-sk-today>'+esc(skLabel(k))+' · back to today</button>':'<span>Today</span>')+'<button type="button" data-sk-nav="1" '+(past?'':'disabled')+' aria-label="Later day">›</button></div></div>';
+  /* program header */
+  let prog='';
+  if(S.prog){
+    if(isA)prog='<div class="sk-prog"><div class="sk-top"><span><b>Daily routine</b></span><span>No fixed end date</span></div><div class="sk-obj">Same routine every day. Photos and measurements on a schedule.</div></div>';
+    else if(k<first)prog='<div class="sk-prog"><div class="sk-top"><span><b>Program starts '+esc(new Date(first+'T12:00:00').toLocaleDateString([],{month:'short',day:'numeric'}))+'</b></span></div></div>';
+    else if(k>lastD)prog='<div class="sk-prog"><div class="sk-top"><span><b>5-month program complete</b></span></div><div class="sk-obj">Keep this as your long-term maintenance routine.</div></div>';
+    else if(month){
+      const mi=cal.months.indexOf(month),dayN=C.daysBetween(first,k)+1,total=C.daysBetween(first,lastD)+1,dim=C.daysBetween(month.range[0],k)+1,mlen=C.daysBetween(month.range[0],month.range[1])+1;
+      prog='<div class="sk-prog"><div class="sk-top"><span><b>'+esc(month.name.split(' — ')[0])+'</b> · day '+dayN+' of '+total+'</span><span>'+dim+'/'+mlen+' this month</span></div><div class="sk-months">'+cal.months.map((m,i)=>'<i class="'+(i<mi?'done':i===mi?'cur':'')+'" style="--p:'+Math.round(dim/mlen*100)+'%"></i>').join('')+'</div><div class="sk-obj">'+esc(month.name.split(' — ')[1]||'')+'</div></div>';
+    }
+  }
+  /* empty (no plan for this day) */
+  if(!secs){
+    el.innerHTML=head+prog+'<div class="empty-state" style="padding:10px 0">No routine planned for '+esc(skLabel(k))+'.</div>'+skCabHtml(st,S,prof,C)+'<a class="widget-card-link" href="apps/skin.html" data-profile-link>Open Skin <i data-lucide="arrow-up-right"></i></a>';
+    updateProfileLinks();if(window.lucide)lucide.createIcons();skWire(el,wdg);return;
+  }
+  const secStat=s=>{const req=s.steps.map((x,i)=>({x,i})).filter(o=>!o.x.optional),d=req.filter(o=>st.stepLog[C.stepKey(k,s.key,o.i)]).length;return{n:req.length,d:d,all:s.steps.filter((x,i)=>st.stepLog[C.stepKey(k,s.key,i)]).length}};
+  const stats=secs.map(secStat),tD=stats.reduce((a,x)=>a+x.d,0),tN=stats.reduce((a,x)=>a+x.n,0);
+  const nextIdx=stats.findIndex(x=>x.d<x.n),nextSec=nextIdx>=0?secs[nextIdx]:null;
+  /* ring */
+  const R=52,CI=2*Math.PI*R,gap=4;let acc=0,arcs='';
+  secs.forEach((s,i)=>{const x=stats[i],len=CI/secs.length,l=Math.max(0,len-gap),off=-acc;acc+=len;
+    arcs+='<circle class="sk-seg bg" cx="62" cy="62" r="'+R+'" stroke-dasharray="'+l+' '+CI+'" stroke-dashoffset="'+off+'"/>';
+    if(x.d)arcs+='<circle class="sk-seg '+(x.d===x.n?'full':'fg')+'" cx="62" cy="62" r="'+R+'" stroke-dasharray="'+(l*x.d/x.n)+' '+CI+'" stroke-dashoffset="'+off+'"/>'});
+  const faceSec=secs.find(s=>s.key==='face'||s.key==='pm');
+  const tonight=faceSec?(faceSec.treat?faceSec.treat:'Night routine'):'';
+  const hero='<div class="sk-hero"><div class="sk-ring"><svg viewBox="0 0 124 124">'+arcs+'</svg><div class="sk-rc"><b>'+tD+'/'+tN+'</b><span>steps '+(isT?'today':esc(skLabel(k).toLowerCase()))+'</span></div></div><div class="sk-kv">'+
+    (tonight?'<div class="sk-sm1">'+(isT?'Tonight':'That night')+': <b>'+esc(tonight)+'</b></div>':'')+
+    (nextSec?'<div class="sk-sm1">Next up: <b>'+esc(nextSec.label)+'</b> · '+(stats[nextIdx].n-stats[nextIdx].d)+' step'+((stats[nextIdx].n-stats[nextIdx].d)===1?'':'s')+' left</div>':'<span class="sk-chip ok">✓ Everything done'+(isT?' today':'')+'</span>')+
+    (S.streak&&streak>0?'<span class="sk-chip fire">🔥 '+streak+'-day streak</span>':'')+
+    (nextSec?'<button type="button" class="sk-btn pri sm sk-nowbtn" data-sk-open="'+esc(nextSec.key)+'">Start '+esc(nextSec.label.toLowerCase())+'</button>':'')+'</div></div>';
+  /* sections */
+  const stepRow=(s,step,i)=>{
+    const key=C.stepKey(k,s.key,i),dn=!!st.stepLog[key];if(S.hideDone&&dn)return'';
+    const pn=S.prod?C.productName(prof,step):'',run=skinW.timer&&skinW.timer.key===key;
+    return '<div class="sk-step'+(dn?' done':'')+'"><button type="button" class="sk-ck" data-sk-step="'+esc(s.key)+':'+i+'" aria-label="Toggle step">'+(dn?'✓':'')+'</button><div><div class="sk-tx">'+esc(step.text)+(step.optional?'<span class="sk-opt">OPTIONAL</span>':'')+'</div>'+(pn?'<div class="sk-prod">🧴 '+esc(pn)+'</div>':'')+(S.qty&&step.qty?'<div class="sk-qty">'+esc(step.qty)+'</div>':'')+
+      (S.timers&&step.timerMinutes&&!dn&&isT?'<button type="button" class="sk-tm'+(run?' run':'')+'" data-sk-timer="'+esc(s.key)+':'+i+':'+step.timerMinutes+'">'+(run?'⏱ '+skTimerText()+' left · tap to stop':'Start '+step.timerMinutes+'-min wait timer')+'</button>':'')+'</div></div>';
+  };
+  const secHtml=secs.map((s,i)=>{
+    const x=stats[i],autoOpen=nextSec&&nextSec.key===s.key,op=skinW.ui.open[s.key]!=null?skinW.ui.open[s.key]:(autoOpen&&size!=='sm'&&size!=='md'?true:autoOpen);
+    const cnt=x.d===x.n?'✓ done':x.d+'/'+x.n;
+    return '<div class="sk-sect'+(op?' open':'')+(x.d===x.n?' alldone':'')+'"><div class="sk-sh" data-sk-toggle="'+esc(s.key)+'" role="button"><div><b>'+esc(s.icon)+' '+esc(s.label)+'</b>'+(s.treat?'<span class="sk-tag">'+esc(s.treat)+'</span>':'')+(s.time&&isT?'<span class="sk-time">'+esc(s.time)+'</span>':'')+'<br><small>'+esc(s.sub||'')+'</small></div><span class="sk-ct">'+cnt+'</span></div><div class="sk-sbar"><i style="width:'+(x.n?x.d/x.n*100:0)+'%"></i></div><div class="sk-steps">'+s.steps.map((step,j)=>stepRow(s,step,j)).join('')+(s.note?'<div class="sk-qty">'+esc(s.note)+'</div>':'')+'<div class="sk-alldo"><button type="button" class="sk-btn sm" data-sk-all="'+esc(s.key)+'">'+(x.d===x.n?'Untick all':'Tick all steps')+'</button></div></div></div>';
+  }).join('');
+  /* coming up + heat */
+  const dn=['S','M','T','W','T','F','S'];
+  const up=(S.coming&&!isA)?C.upcoming(prof,st.start,td,7):[];
+  const comingHtml=up.length&&up.some(u=>!u.none)?'<div class="sk-sec"><span>Next 7 nights</span><span>what each night is</span></div><div class="sk-coming">'+up.map(u=>u.none?'<div class="sk-cd"><b>'+dn[new Date(u.date+'T12:00:00').getDay()]+'</b><i class="t-regular">–</i></div>':'<div class="sk-cd" title="'+esc(u.label+(u.nizoral?' · Nizoral':'')+(u.ceraveSA?' · CeraVe SA':''))+'"><b>'+new Date(u.date+'T12:00:00').toLocaleDateString([],{weekday:'short'})+'</b><i class="t-'+esc(u.face)+'">'+esc(u.face==='regular'?'Regular':u.face==='differin'?'Differin':u.face==='azelaic'?'Azelaic':'BHA')+'</i>'+(u.nizoral?'<em>Nizoral</em>':'')+'</div>').join('')+'</div>':'';
+  const heat=C.heat(prof,st.start,st.stepLog,td,28),best=C.bestStreak(prof,st.start,st.stepLog,td),wk=heat.slice(-7).filter(h=>h.lv===4).length,planned=heat.filter(h=>h.total>0&&h.date<=td),fullN=planned.filter(h=>h.lv===4).length;
+  const heatHtml=S.heat?'<div class="sk-sec"><span>Last 28 days</span><span>'+fullN+' of '+planned.length+' days complete</span></div><div class="sk-heat">'+heat.map(h=>'<i class="h'+h.lv+'" title="'+esc(skLabel(h.date)+': '+(h.total?h.pct+'%':'no routine'))+'" data-sk-day="'+h.date+'"></i>').join('')+'</div><div class="sk-mini"><span>Best streak <b>'+best+'</b></span><span>This week <b>'+wk+'/7</b></span><span>Routine score <b>'+(planned.length?Math.round(planned.reduce((a,h)=>a+h.pct,0)/planned.length):0)+'%</b></span></div>':'';
+  const cabHtml=skCabHtml(st,S,prof,C);
+  /* tracking / check-in */
+  let trkHtml='';
+  if(S.track&&!isA&&month)trkHtml=skTrackHtml(st,k,month,C);
+  if(S.track&&isA)trkHtml=skCheckinHtml(st,td,C);
+  /* review countdown */
+  let revHtml='';
+  if(S.review&&!isA){const nx=cal.reviews.find(d=>d>=td);if(nx){const dl=C.daysBetween(td,nx),m=C.monthFor(st.start,nx);revHtml='<div class="sk-rev"><span><b>'+esc(m?m.name.split(' — ')[0]:'Program')+' review</b> '+(dl===0?'is today':'in '+dl+' day'+(dl===1?'':'s'))+' · '+esc(new Date(nx+'T12:00:00').toLocaleDateString([],{month:'short',day:'numeric'}))+'</span><a class="sk-btn sm" href="apps/skin.html" data-profile-link>Open in Skin</a></div>'}}
+  const A=prog+hero+secHtml,B=comingHtml+heatHtml+cabHtml+trkHtml+revHtml;
+  const keep=el.scrollTop;
+  const trackVals={};el.querySelectorAll('[data-sk-obs]').forEach(i=>trackVals.obs=i.value);
+  el.innerHTML=head+(size==='wide'?'<div class="sk-body"><div>'+A+'</div><div>'+B+'</div></div>':A+B);
+  if(skinW.ui.track.open){const o=el.querySelector('[data-sk-obs]');if(o)o.value=skinW.ui.track.obs||''}
+  el.scrollTop=keep;updateProfileLinks();
+  if(!el._skRO&&window.ResizeObserver){el._skRO=new ResizeObserver(()=>{if(el.isConnected&&wtSize(el)!==el._skSz)skinPaint(el,wdg)});el._skRO.observe(el)}
+  skWire(el,wdg);
+}
+function skTimerText(){if(!skinW.timer)return'';const l=Math.max(0,Math.round((skinW.timer.end-Date.now())/1000));return Math.floor(l/60)+':'+String(l%60).padStart(2,'0')}
+function skCabHtml(st,S,prof,C){
+  if(!S.cab)return'';
+  const prods=C.products(prof),low=C.low(st.productState,prof);
+  return '<div class="sk-sec"><span>Product stock</span><span>from your Cabinet</span></div><div class="sk-cab">'+prods.map(p=>{const pc=C.pct(st.productState,p.id),lw=pc<=30;return '<div class="sk-pr'+(lw?' low':'')+'"><span class="nm">'+esc(p.name)+'</span><div class="sk-pbar"><i style="width:'+pc+'%;background:'+(pc<=15?'var(--danger)':pc<=30?'var(--accent)':'var(--success)')+'"></i></div><span class="pc">'+pc+'%</span></div>'}).join('')+'</div>'+
+    low.map(p=>{const sent=st.shoppingLog[p.name];return '<div class="sk-low"><span>⚠ '+esc(p.name)+' is '+(p.pct<=15?'almost out':'running low')+' ('+p.pct+'%)'+(sent?' · sent '+(C.daysBetween(sent,today())===0?'today':C.daysBetween(sent,today())+'d ago'):'')+'</span><button type="button" data-sk-send="'+esc(p.id)+'">'+(sent?'Send again':'Send to Grocery')+'</button></div>'}).join('');
+}
+function skTrackHtml(st,k,month,C){
+  const fields=C.trackFields(month.key),rec=st.trackingLog[k]||{},T=skinW.ui.track;
+  if(!fields.length)return'';
+  const react=T.open?T.react:(rec.reactions||[]);
+  let h='<div class="sk-sec"><span>'+(k===today()?"Tonight's tracking":esc(skLabel(k))+' tracking')+'</span><span>'+(rec.savedAt?'saved ✓':'not saved yet')+'</span></div>';
+  if(!T.open){
+    const logged=Object.keys(st.trackingLog).filter(d=>st.trackingLog[d]&&st.trackingLog[d].savedAt),ov={better:0,same:0,worse:0};logged.forEach(d=>{const o=st.trackingLog[d].overall;if(ov[o]!=null)ov[o]++});
+    const f0=fields[0],pts=logged.sort().slice(-7).map(d=>({d,v:st.trackingLog[d][f0.key]})).filter(p=>p.v!=null&&p.v!=='');
+    h+='<button type="button" class="sk-btn sm" data-sk-trkopen>'+(rec.savedAt?'Edit tracking':'＋ Log tracking')+'</button>'+
+      (pts.length>1?'<div class="sk-sm1" style="margin-top:8px">Last '+pts.length+' nights · '+esc(f0.label.toLowerCase())+'</div><div class="sk-spark">'+pts.map(p=>'<i style="height:'+Math.max(8,Number(p.v)*10)+'%" title="'+esc(p.d+': '+p.v)+'"></i>').join('')+'</div>':'')+
+      '<div class="sk-mini"><span>🙂 <b>'+ov.better+'</b> better</span><span>😐 <b>'+ov.same+'</b> same</span><span>🙁 <b>'+ov.worse+'</b> worse</span><span><b>'+logged.length+'</b> nights logged</span></div>';
+    return h;
+  }
+  const val=(f)=>T.vals[f.key]!=null?T.vals[f.key]:(rec[f.key]!=null&&rec[f.key]!==''?rec[f.key]:5);
+  h+='<div class="sk-trk">'+fields.map(f=>f.type==='text'?'<div class="sk-trow"><span>'+esc(f.label)+'</span><input type="text" data-sk-fld="'+esc(f.key)+'" data-t="text" placeholder="none" value="'+esc(T.vals[f.key]!=null?T.vals[f.key]:(rec[f.key]||''))+'"></div>':'<div class="sk-trow"><span>'+esc(f.label)+'</span><input type="range" min="0" max="10" step="1" data-sk-fld="'+esc(f.key)+'" value="'+val(f)+'"><b data-sk-fv="'+esc(f.key)+'">'+((T.touched[f.key]||(rec[f.key]!=null&&rec[f.key]!==''))?val(f):'–')+'</b></div>').join('')+
+    '<div class="sk-ov">'+['better','same','worse'].map(v=>'<button type="button" class="'+((T.overall||rec.overall)===v?'on':'')+'" data-sk-ov="'+v+'">'+(v==='better'?'🙂 Better':v==='same'?'😐 Same':'🙁 Worse')+'</button>').join('')+'</div>'+
+    '<div class="sk-chips">'+C.REACTIONS.map(r=>'<button type="button" class="'+(C.CONCERNING.includes(r)?'warn ':'')+(react.includes(r)?'on':'')+'" data-sk-re="'+esc(r)+'">'+esc(r)+'</button>').join('')+'</div>'+
+    (C.concerning(react)?'<div class="sk-alert">You logged a possible reaction. The tracker keeps the planned routine as-is, but this isn’t a diagnosis — consider pausing the affected active and checking with a doctor if it lasts.</div>':'')+
+    '<textarea rows="2" data-sk-obs placeholder="One observation">'+esc(T.obs!=null&&T.obs!==''?T.obs:(rec.observation||''))+'</textarea><div class="sk-btns"><button type="button" class="sk-btn pri sm" data-sk-trksave>'+(rec.savedAt?'Update tracking':'Save tracking')+'</button><button type="button" class="sk-btn sm" data-sk-trkclose>Close</button></div></div>';
+  return h;
+}
+function skCheckinHtml(st,td,C){
+  const g=skinW.gym||{},pim=st.checkins.pimples,ph=st.checkins.photos,dp=C.dueIn(pim,14,td),dph=C.dueIn(ph,28,td),lastP=pim.length?pim[pim.length-1]:null;
+  const fmt=d=>new Date(d+'T12:00:00').toLocaleDateString([],{month:'short',day:'numeric'});
+  return '<div class="sk-sec"><span>Check-ins</span><span>weight and waist come from Gym</span></div><div class="sk-ci"><div><b>'+(g.weight?esc(String(g.weight.value)):'–')+'</b><small>weight kg'+(g.weight?' · '+esc(fmt(g.weight.date)):'')+'</small></div><div><b>'+(g.waist?esc(String(g.waist.value)):'–')+'</b><small>waist cm'+(g.waist?' · '+esc(fmt(g.waist.date)):'')+'</small></div><div><b>'+(lastP?esc(String(lastP.value)):'–')+'</b><small>pimples'+(lastP?' · '+esc(fmt(lastP.date)):'')+'</small></div><div><b>'+(ph.length?esc(fmt(ph[ph.length-1].date)):'–')+'</b><small>last photos</small></div></div>'+
+    (skinW.ui.ci?'<div class="sk-trk" style="margin-top:8px"><div class="sk-trow" style="grid-template-columns:1fr 90px"><span>Active pimple count today</span><input type="number" inputmode="decimal" step="1" min="0" data-sk-pim></div><div class="sk-btns"><button type="button" class="sk-btn pri sm" data-sk-pimsave>Log today</button><button type="button" class="sk-btn sm" data-sk-ciclose>Close</button></div></div>':'<div class="sk-btns"><button type="button" class="sk-btn sm" data-sk-ciopen>＋ Log pimple count</button><button type="button" class="sk-btn sm" data-sk-photo>Photos taken today</button></div>')+
+    '<div class="sk-sm1" style="margin-top:6px">Pimples: '+(dp.never?'not logged yet':dp.due?'due now':'next in '+dp.left+' d')+' · Photos: '+(dph.never?'not logged yet':dph.due?'due now':'next in '+dph.left+' d')+'</div>';
+}
+/* a change: read each document fresh, apply, then save only what changed. A failed read changes nothing. */
+async function skinCommit(names,fn,msg,undoFn){
+  if(skinW.busy)return null;skinW.busy=true;
+  try{
+    const rs=await Promise.all(names.map(n=>readSafe(skRef(n),null)));
+    if(!rs.every(r=>r.ok)){toast('Could not reach Skin, nothing was changed');return null}
+    const docs={};names.forEach((n,i)=>{const v=rs[i];docs[n]=(v.exists&&v.val&&typeof v.val==='object'&&!Array.isArray(v.val))?v.val:(n==='checkins'?{weight:[],waist:[],photos:[],pimples:[]}:{})});
+    if(docs.productState)docs.productState=SkinCore.seedState(docs.productState,state.profile);
+    const before={};names.forEach(n=>before[n]=JSON.stringify(docs[n]));
+    const res=fn(docs);
+    if(!res||!res.changed){return res}
+    for(const n of names){if(JSON.stringify(docs[n])!==before[n])await skRef(n).set({json:JSON.stringify(docs[n])})}
+    const st=skinW.st||{};
+    skinW.st=Object.assign({},st,{stepLog:docs.stepLog||st.stepLog,productState:docs.productState||st.productState,usageLedger:docs.usageLedger||st.usageLedger,trackingLog:docs.trackingLog||st.trackingLog,checkins:docs.checkins||st.checkins,shoppingLog:docs.shoppingLog||st.shoppingLog});
+    skinW.t=Date.now();
+    try{if(schedX&&schedX.steps&&docs.stepLog){schedX.steps=docs.stepLog;schedX.t=Date.now();schedRedraw()}}catch(e){}
+    try{insightsLoadedAt=0}catch(e){}
+    skinRepaintAll();
+    if(docs.stepLog){try{linkRun(false).catch(()=>{})}catch(e){}}
+    if(msg)toast(msg,undoFn?'Undo':null,undoFn||null);
+    return res;
+  }catch(e){console.warn(e);toast('Could not save that');return null}
+  finally{skinW.busy=false}
+}
+function skWire(el,wdg){
+  const S=wsAll(wdg,WIDGET_TYPES.skin),C=SkinCore,prof=state.profile;
+  const cur=()=>skinW.view||today();
+  const secOf=key=>{const st=skinW.st;return C.sections(prof,cur(),st.start).find(s=>s.key===key)};
+  const setSteps=async(secKey,idxs,on,msg)=>{
+    const date=cur(),s=secOf(secKey);if(!s)return;const changedIdx=[];
+    const apply=(d,list,val)=>{let any=false;list.forEach(i=>{const r=C.setStep({stepLog:d.stepLog,productState:d.productState,usageLedger:d.usageLedger},C.stepKey(date,secKey,i),s.steps[i],val);if(r.changed){any=true;if(val===on)changedIdx.push(i)}});return{changed:any}};
+    const names=['stepLog','productState','usageLedger'];
+    return skinCommit(names,d=>apply(d,idxs,on),msg,()=>skinCommit(names,d=>{let any=false;changedIdx.forEach(i=>{const r=C.setStep({stepLog:d.stepLog,productState:d.productState,usageLedger:d.usageLedger},C.stepKey(date,secKey,i),s.steps[i],!on);if(r.changed)any=true});return{changed:any}},null));
+  };
+  el.onclick=async e=>{
+    const q=s=>e.target.closest(s);let x;
+    if(x=q('[data-sk-nav]')){const d=Number(x.dataset.skNav);if(d>0&&!skinW.view)return;const nk=addDays(cur(),d);skinW.view=nk>=today()?null:nk;skinPaint(el,wdg);return}
+    if(q('[data-sk-today]')){skinW.view=null;skinPaint(el,wdg);return}
+    if(x=q('[data-sk-day]')){const d=x.dataset.skDay;skinW.view=d>=today()?null:d;skinPaint(el,wdg);return}
+    if(x=q('[data-sk-toggle]')){const k=x.dataset.skToggle,cs=el.querySelector('[data-sk-toggle="'+k+'"]').parentElement;skinW.ui.open[k]=!cs.classList.contains('open');skinPaint(el,wdg);return}
+    if(x=q('[data-sk-open]')){skinW.ui.open[x.dataset.skOpen]=true;skinPaint(el,wdg);const sc=el.querySelector('.sk-sect.open');return}
+    if(x=q('[data-sk-step]')){const[k,i]=x.dataset.skStep.split(':'),idx=Number(i),s=secOf(k);if(!s)return;const was=!!skinW.st.stepLog[C.stepKey(cur(),k,idx)];await setSteps(k,[idx],!was,(was?'Unticked: ':'Ticked: ')+s.steps[idx].text.slice(0,40)+(s.steps[idx].product&&!was?' · stock updated':''));return}
+    if(x=q('[data-sk-all]')){const k=x.dataset.skAll,s=secOf(k);if(!s)return;const st=skinW.st,idx=s.steps.map((_,i)=>i);const req=idx.filter(i=>!s.steps[i].optional),allDone=req.every(i=>st.stepLog[C.stepKey(cur(),k,i)]);
+      await setSteps(k,allDone?idx:req,!allDone,(allDone?'Unticked all: ':'Ticked all: ')+s.label);return}
+    if(x=q('[data-sk-timer]')){const[k,i,m]=x.dataset.skTimer.split(':'),key=C.stepKey(cur(),k,+i);clearInterval(skinW.tint);
+      if(skinW.timer&&skinW.timer.key===key){skinW.timer=null;skinPaint(el,wdg);return}
+      skinW.timer={key,end:Date.now()+Number(m)*60000};
+      skinW.tint=setInterval(()=>{const b=document.querySelector('[data-sk-timer]');if(!skinW.timer){clearInterval(skinW.tint);return}
+        if(Date.now()>=skinW.timer.end){clearInterval(skinW.tint);skinW.timer=null;toast('⏱ Wait time is up');try{if('Notification'in window&&Notification.permission==='granted')new Notification('Skin: wait time is up',{icon:'icon-192.png'})}catch(e){}skinRepaintAll();return}
+        document.querySelectorAll('[data-sk-timer].run').forEach(bb=>{bb.textContent='⏱ '+skTimerText()+' left · tap to stop'})},1000);
+      skinPaint(el,wdg);return}
+    if(x=q('[data-sk-send]')){
+      const id=x.dataset.skSend,p=C.products(prof).find(z=>z.id===id);if(!p)return;x.disabled=true;x.textContent='Sending…';
+      const r=await C.sendToGrocery(groceryRef(),{name:p.name});
+      if(r&&r.error){x.disabled=false;x.textContent='Send to Grocery';toast("Couldn't reach Grocery — open the Grocery app once first, then try again");return}
+      await skinCommit(['shoppingLog'],d=>{d.shoppingLog[p.name]=today();return{changed:true}},r.added?'Added '+p.name+' to Grocery':p.name+' is already on your Grocery list',null);return}
+    /* tracking */
+    const T=skinW.ui.track;
+    if(q('[data-sk-trkopen]')){const rec=(skinW.st.trackingLog[cur()]||{});T.open=true;T.vals={};T.touched={};T.overall=rec.overall||'';T.react=(rec.reactions||[]).slice();T.obs=rec.observation||'';skinPaint(el,wdg);return}
+    if(q('[data-sk-trkclose]')){T.open=false;skinPaint(el,wdg);return}
+    if(x=q('[data-sk-ov]')){T.overall=x.dataset.skOv;skinPaint(el,wdg);return}
+    if(x=q('[data-sk-re]')){const r=x.dataset.skRe;if(r==='No reaction')T.react=['No reaction'];else{T.react=T.react.filter(v=>v!=='No reaction');const i=T.react.indexOf(r);i>=0?T.react.splice(i,1):T.react.push(r)}const o=el.querySelector('[data-sk-obs]');if(o)T.obs=o.value;skinPaint(el,wdg);return}
+    if(q('[data-sk-trksave]')){
+      const date=cur(),obs=(el.querySelector('[data-sk-obs]')||{}).value||'',vals={};
+      el.querySelectorAll('[data-sk-fld]').forEach(i=>{if(i.dataset.t==='text'){if(i.value)vals[i.dataset.skFld]=i.value}else if(T.touched[i.dataset.skFld]||(skinW.st.trackingLog[date]&&skinW.st.trackingLog[date][i.dataset.skFld]!=null))vals[i.dataset.skFld]=i.value});
+      const prev=skinW.st.trackingLog[date]?JSON.parse(JSON.stringify(skinW.st.trackingLog[date])):null;
+      T.open=false;
+      await skinCommit(['trackingLog'],d=>{C.trackSave(d.trackingLog,date,vals,T.overall,T.react,obs);return{changed:true}},'Saved tracking for '+skLabel(date).toLowerCase(),()=>skinCommit(['trackingLog'],d=>{if(prev)d.trackingLog[date]=prev;else delete d.trackingLog[date];return{changed:true}},null));return}
+    /* Anusha check-ins */
+    if(q('[data-sk-ciopen]')){skinW.ui.ci=true;skinPaint(el,wdg);return}
+    if(q('[data-sk-ciclose]')){skinW.ui.ci=false;skinPaint(el,wdg);return}
+    if(q('[data-sk-pimsave]')){const v=parseFloat((el.querySelector('[data-sk-pim]')||{}).value);if(isNaN(v)){toast('Enter the pimple count');return}skinW.ui.ci=false;
+      await skinCommit(['checkins'],d=>{d.checkins.pimples=d.checkins.pimples||[];d.checkins.pimples.push({date:today(),value:v});return{changed:true}},'Logged '+v+' pimples',()=>skinCommit(['checkins'],d=>{const a=d.checkins.pimples||[];for(let i=a.length-1;i>=0;i--)if(a[i].date===today()&&a[i].value===v){a.splice(i,1);break}return{changed:true}},null));return}
+    if(q('[data-sk-photo]')){
+      await skinCommit(['checkins'],d=>{d.checkins.photos=d.checkins.photos||[];d.checkins.photos.push({date:today()});return{changed:true}},'Marked photos taken today',()=>skinCommit(['checkins'],d=>{const a=d.checkins.photos||[];for(let i=a.length-1;i>=0;i--)if(a[i].date===today()){a.splice(i,1);break}return{changed:true}},null));return}
+  };
+  el.oninput=e=>{const t=e.target,T=skinW.ui.track;
+    if(t.dataset&&t.dataset.skFld!=null&&t.type==='range'){T.touched[t.dataset.skFld]=true;T.vals[t.dataset.skFld]=t.value;const b=el.querySelector('[data-sk-fv="'+t.dataset.skFld+'"]');if(b)b.textContent=t.value}
+    else if(t.dataset&&t.dataset.skFld!=null){T.vals[t.dataset.skFld]=t.value}
+    else if(t.dataset&&t.dataset.skObs!=null){T.obs=t.value}};
+}
+
+/* ---- Skin by voice (used by assets/voice.js): "I did my morning skincare" ---- */
+async function skinVoice(word){
+  const say=t=>{try{speak(t)}catch(e){toast(t)}};
+  const st=await skinLoad(true);if(!st){say("I couldn't open your skin routine.");return true}
+  const C=SkinCore,prof=state.profile,date=today(),secs=C.sections(prof,date,st.start);
+  if(!secs){say('There is no skin routine planned for today.');return true}
+  const w=String(word||'').toLowerCase();
+  const pick=/morning|am\b/.test(w)?secs.filter(s=>s.key==='am'):/night|evening|pm\b|face/.test(w)?secs.filter(s=>s.key!=='am'&&s.key!=='body'):/body|shower/.test(w)?secs.filter(s=>s.key==='body'):/nizoral|scalp|hair/.test(w)?secs.filter(s=>s.key==='nizoral'):secs;
+  if(!pick.length){say("There's no "+w+" routine today.");return true}
+  const names=['stepLog','productState','usageLedger'],done=[];
+  const r=await skinCommit(names,d=>{let any=false;pick.forEach(s=>s.steps.forEach((x,i)=>{if(x.optional)return;const r=C.setStep({stepLog:d.stepLog,productState:d.productState,usageLedger:d.usageLedger},C.stepKey(date,s.key,i),x,true);if(r.changed){any=true;done.push([s.key,i,x])}}));return{changed:any}},null);
+  if(!r){say("I couldn't save that.");return true}
+  if(!r.changed){say('That routine is already done.');return true}
+  try{voiceUndoPush('ticking the skin routine',()=>skinCommit(names,d=>{let any=false;done.forEach(([k,i,x])=>{const rr=C.setStep({stepLog:d.stepLog,productState:d.productState,usageLedger:d.usageLedger},C.stepKey(date,k,i),x,false);if(rr.changed)any=true});return{changed:any}},null))}catch(e){}
+  say('Ticked '+done.length+' skin step'+(done.length===1?'':'s')+'.');return true;
+}
+
+const WIDGET_NO_CACHE={notes:1,photos:1,schedule:1,water:1,diet:1,skin:1};
 function wLoading(el){ if(!el.firstChild) el.innerHTML='<div class="empty-state"><strong>Loading…</strong></div>'; }
+
+/* ---- per-widget settings: the gear turns the card over to its settings ---- */
+function widgetSettingsHtml(def,w){
+  const cur=wsAll(w,def);
+  return '<div class="widget-settings" aria-hidden="true"><div class="ws-head"><strong>'+esc(def.title)+' settings</strong><button type="button" class="widget-card-gear" data-ws-close aria-label="Back">✕</button></div>'+
+    def.settings.map(o=>{
+      if(o.h)return '<h4>'+esc(o.h)+'</h4>';
+      const val=o.get?o.get(w):cur[o.key];
+      if(o.type==='seg')return '<div class="ws-opt"><span>'+esc(o.label)+'</span><div class="ws-seg" data-ws-seg="'+o.key+'">'+o.opts.map(([v,l])=>'<button type="button" data-v="'+v+'" class="'+(val===v?'on':'')+'">'+esc(l)+'</button>').join('')+'</div></div>';
+      if(o.type==='num'||o.type==='time'||o.type==='text')return '<label class="ws-opt"><span>'+esc(o.label)+(o.hint?'<small>'+esc(o.hint)+'</small>':'')+'</span><input class="ws-in" data-ws-in="'+o.key+'" type="'+(o.type==='num'?'number':o.type)+'"'+(o.type==='num'?' inputmode="decimal" step="any"':'')+(o.min!=null?' min="'+o.min+'"':'')+' value="'+esc(String(val==null?'':val))+'"></label>';
+      return '<label class="ws-opt"><span>'+esc(o.label)+(o.hint?'<small>'+esc(o.hint)+'</small>':'')+'</span><input type="checkbox" class="ws-sw" data-ws-key="'+o.key+'"'+(val?' checked':'')+'></label>';
+    }).join('')+
+    '<button type="button" class="ws-done" data-ws-close>Done</button><button type="button" class="ws-reset" data-ws-reset>Reset to defaults</button></div>';
+}
+function wireWidgetSettings(card,def,w){
+  if(!w)return;
+  const panel=card.querySelector('.widget-settings'),body=card.querySelector('.widget-card-body');if(!panel)return;
+  const flip=on=>{card.classList.toggle('flipped',on);panel.setAttribute('aria-hidden',on?'false':'true')};
+  const optOf=k=>(def.settings||[]).find(o=>o.key===k);
+  // some settings live with the app's own data (not the widget layout): they carry get()/set(), and the panel re-reads them after a change
+  const refresh=()=>{
+    panel.querySelectorAll('[data-ws-in]').forEach(i=>{const o=optOf(i.dataset.wsIn);if(o&&o.get&&document.activeElement!==i)i.value=o.get(w)});
+    panel.querySelectorAll('[data-ws-key]').forEach(i=>{const o=optOf(i.dataset.wsKey);if(o&&o.get)i.checked=!!o.get(w)});
+    panel.querySelectorAll('[data-ws-seg]').forEach(g=>{const o=optOf(g.dataset.wsSeg);if(o&&o.get){const v=o.get(w);g.querySelectorAll('button').forEach(b=>b.classList.toggle('on',b.dataset.v===v))}});
+  };
+  const apply=(key,val)=>{
+    const o=optOf(key);
+    if(o&&o.set){Promise.resolve(o.set(val,w)).then(()=>{refresh();try{def.render(body,w)}catch(e){console.warn(e)}}).catch(e=>console.warn(e));return}
+    w.settings=w.settings||{};w.settings[key]=val;saveWidgetLayout();try{def.render(body,w)}catch(e){console.warn(e)}};
+  card.querySelector('[data-widget-gear]').addEventListener('click',e=>{e.stopPropagation();Promise.resolve(def.ready?def.ready():null).then(()=>{refresh();flip(true)})});
+  panel.querySelectorAll('[data-ws-in]').forEach(i=>i.addEventListener('change',()=>apply(i.dataset.wsIn,i.value)));
+  panel.querySelectorAll('[data-ws-close]').forEach(b=>b.addEventListener('click',()=>flip(false)));
+  panel.querySelectorAll('[data-ws-key]').forEach(i=>i.addEventListener('change',()=>apply(i.dataset.wsKey,i.checked)));
+  panel.querySelectorAll('[data-ws-seg]').forEach(g=>g.querySelectorAll('button').forEach(b=>b.addEventListener('click',()=>{g.querySelectorAll('button').forEach(x=>x.classList.toggle('on',x===b));apply(g.dataset.wsSeg,b.dataset.v)})));
+  panel.querySelector('[data-ws-reset]').addEventListener('click',()=>{
+    w.settings={};saveWidgetLayout();if(def.resetData)def.resetData(w);const cur=wsAll(w,def);
+    panel.querySelectorAll('[data-ws-key]').forEach(i=>{const o=optOf(i.dataset.wsKey);i.checked=o&&o.get?!!o.get(w):!!cur[i.dataset.wsKey]});
+    panel.querySelectorAll('[data-ws-seg]').forEach(g=>{const o=optOf(g.dataset.wsSeg);g.querySelectorAll('button').forEach(b=>b.classList.toggle('on',b.dataset.v===(o&&o.get?o.get(w):cur[g.dataset.wsSeg])))});
+    refresh();
+    try{def.render(body,w)}catch(e){}
+  });
+}
 function renderWidgetBoard(){
   const board=$('widget-board');if(!board||!state.widgets)return;
   if(!state.widgets.length){board.innerHTML='<div class="widget-board-empty">No widgets yet — use <strong>+ Add widget</strong> above to put something here.</div>';return}
@@ -1431,10 +3373,13 @@ function renderWidgetBoard(){
       '<button type="button" class="widget-remove-badge" data-widget-remove title="Remove widget" tabindex="-1"><i data-lucide="minus"></i></button>'+
       (bare
         ?'<span class="widget-drag-handle widget-drag-handle-bare" data-widget-drag title="Drag to move"><i data-lucide="grip-vertical"></i></span>'
+          +(def.settings?'<button type="button" class="widget-card-gear widget-gear-bare" data-widget-gear title="Widget settings" aria-label="Widget settings"><i data-lucide="settings"></i></button>':'')
         :'<div class="widget-card-head"><div class="widget-card-title"><span class="widget-drag-handle" data-widget-drag title="Drag to move"><i data-lucide="grip-vertical"></i></span><strong>'+esc(def.title)+'</strong></div>'
           +(def.headerAction?'<button type="button" class="widget-card-quick-add" data-widget-quick-add title="Add task" aria-label="Add task"><i data-lucide="plus"></i></button>':'')
+          +(def.settings?'<button type="button" class="widget-card-gear" data-widget-gear title="Widget settings" aria-label="Widget settings"><i data-lucide="settings"></i></button>':'')
           +'</div>')+
       '<div class="widget-card-body"></div>'+
+      (def.settings?widgetSettingsHtml(def,w):'')+
       '<span class="widget-resize-handle" data-widget-resize title="Drag to resize" tabindex="-1"><i data-lucide="move-diagonal-2"></i></span>'+
     '</div>';
   }).join('');
@@ -1449,6 +3394,7 @@ function renderWidgetBoard(){
       if(!WIDGET_NO_CACHE[type]) Promise.resolve(r).then(()=>{ if(body.isConnected&&body.innerHTML&&!/Loading…|Unavailable/.test(body.innerHTML)) widgetHtmlCache.set(ck,body.innerHTML); }).catch(()=>{});
     }
     wireWidgetCard(card);
+    if(def&&def.settings)wireWidgetSettings(card,def,w);
     const qaBtn=card.querySelector('[data-widget-quick-add]');
     if(qaBtn) qaBtn.addEventListener('click',e=>{e.stopPropagation();openQuickAdd()});
   });
@@ -1591,7 +3537,7 @@ function wireWidgetCard(card){
     // A removed photo widget takes its photos with it — otherwise they'd keep using up the shared photo space with no way to free it.
     if(state.photosByWidget&&state.photosByWidget[removedId]){
       const rt=photoWidgetRuntime[removedId]; if(rt&&rt.timer){clearInterval(rt.timer)}
-      delete photoWidgetRuntime[removedId]; delete state.photosByWidget[removedId]; savePhotoWidgets();
+      delete photoWidgetRuntime[removedId]; delete state.photosByWidget[removedId]; photoSave(removedId,{drop:true});
     }
     saveWidgetLayout();renderWidgetBoard();
   });
@@ -1844,7 +3790,7 @@ function insBuildMods(){
   const def=id=>WS_MODS.find(m=>m.id===id);
   // schedule: routine blocks planned for that weekday vs ticks in templateLog
   {const m=Object.assign({},def('schedule'));m.since=minKey(ins.tplLog);
-    m.get=d=>{const blocks=(state.templates&&state.templates[DAYS[insDow(d)]])||[],total=blocks.length;if(!total)return null;let done=0;for(let i=0;i<total;i++)if(ins.tplLog[d+':'+i])done++;return{done,total}};
+    m.get=d=>{const blocks=dayBlocksFor(d),total=blocks.length;if(!total)return null;let done=0;for(let i=0;i<total;i++)if(ins.tplLog[d+':'+i])done++;return{done,total}};
     m.detail=(d,v)=>v?v.done+' of '+v.total+' blocks ticked':'No routine planned';out.push(m)}
   // gym: planned session + the daily weigh-in
   {const m=Object.assign({},def('gym'));m.since=g.startDate;
@@ -1888,8 +3834,9 @@ function insBuildMods(){
   {const m=Object.assign({},def('water')),w=state.water;
     if(w&&w.goal&&w.log){const ds=Object.keys(w.log).filter(d=>(w.log[d]||[]).length).sort();m.since=ds.length?ds[0]:null;
       const tot=d=>{const a=w.log[d];return Array.isArray(a)?a.reduce((s,x)=>s+(Number(x)||0),0):0};
-      m.get=d=>{const f=Math.min(1,tot(d)/w.goal);return{done:f>=1?1:0,total:1,frac:f}};m.frac=true;
-      m.detail=d=>(tot(d)/1000).toFixed(1)+' of '+(w.goal/1000).toFixed(1)+' L'}
+      const gd=d=>Number(w.goals&&w.goals[d])>0?Number(w.goals[d]):w.goal;
+      m.get=d=>{const f=Math.min(1,tot(d)/gd(d));return{done:f>=1?1:0,total:1,frac:f}};m.frac=true;
+      m.detail=d=>(tot(d)/1000).toFixed(1)+' of '+(gd(d)/1000).toFixed(1)+' L'}
     else{m.since=null;m.get=()=>null;m.detail=()=>'No data'}
     m.link='#';out.push(m)}
   // pledge: each pledge counts only on the weekdays you chose, inside its window
@@ -2227,6 +4174,8 @@ function renderSettingsPage(){
     }).join('');
   }
   renderBannerGallery();
+  renderInstallCard();
+  renderLinksCard();
   if(window.lucide)lucide.createIcons();
   wireSettingsEvents();
 }
@@ -2951,7 +4900,7 @@ if($('app-frame-back')) $('app-frame-back').addEventListener('click',closeAppFra
 if($('app-frame-profile')){
   $('app-frame-profile').addEventListener('click',()=>{
     const next=state.profile==='Bhargav'?'Anusha':'Bhargav';
-    setProfile(next);
+    setProfile(next);linksStart();
     const openUrl=$('app-frame-open').href;
     if(openUrl && !$('app-frame-overlay').hidden){
       let u;
@@ -2984,14 +4933,33 @@ function closeQuickAdd(){$('quick-add-modal').hidden=true;$('quick-add-form').re
 document.querySelectorAll('[data-open-quick-add]').forEach(x=>x.addEventListener('click',openQuickAdd));$('quick-add-close').addEventListener('click',closeQuickAdd);$('quick-add-cancel').addEventListener('click',closeQuickAdd);$('quick-add-modal').addEventListener('click',e=>{if(e.target===$('quick-add-modal'))closeQuickAdd()});
 $('quick-add-form').addEventListener('submit',async e=>{e.preventDefault();const shared=$('qa-shared').value==='shared',task={id:'task-'+Date.now()+'-'+Math.floor(Math.random()*1000),title:$('qa-title').value.trim(),done:false,priority:Number($('qa-priority').value)||0,startDate:today(),due:$('qa-date').value||null,dueTime:$('qa-time').value||null,repeat:'none',notes:'',link:'',tags:[],subtasks:[],listId:shared?'shared':'personal',createdBy:state.profile,order:Date.now(),createdAt:new Date().toISOString()};if(!task.title)return;const list=shared?state.sharedTasks:state.personalTasks,ref=shared?sharedTodoRef():profileRef('todo-profiles','tasks');list.push(task);$('qa-save').disabled=true;try{await mergeBeforeWrite(ref,list,[task.id]);await ref.set({json:JSON.stringify(list),updatedAt:firebase.firestore.FieldValue.serverTimestamp()},{merge:true});closeQuickAdd();renderDashboard();toast('Task added')}catch(err){list.pop();toast('Could not save. Try again.')}finally{$('qa-save').disabled=false}});
 
-function toast(message){const el=$('toast');el.textContent=message;el.classList.add('show');clearTimeout(toast.timer);toast.timer=setTimeout(()=>el.classList.remove('show'),2200)}
+function toast(message,actLabel,actFn){const el=$('toast');el.textContent=message;el.classList.toggle('has-act',!!(actLabel&&actFn));
+  if(actLabel&&actFn){const b=document.createElement('button');b.type='button';b.className='toast-act';b.textContent=actLabel;b.onclick=()=>{el.classList.remove('show');actFn()};el.appendChild(b)}
+  el.classList.add('show');clearTimeout(toast.timer);toast.timer=setTimeout(()=>el.classList.remove('show'),actLabel?4500:2200)}
 function chooseProfile(){setGate('profile')}
-document.querySelectorAll('[data-profile-choice]').forEach(btn=>btn.addEventListener('click',()=>{setProfile(btn.dataset.profileChoice);loadDashboard()}));
+document.querySelectorAll('[data-profile-choice]').forEach(btn=>btn.addEventListener('click',()=>{setProfile(btn.dataset.profileChoice);loadDashboard().then(linksStart,linksStart)}));
 $('profile-switch').addEventListener('click',chooseProfile);$('mobile-profile').addEventListener('click',chooseProfile);$('signout').addEventListener('click',()=>{localStorage.removeItem(PROFILE_KEY);if(clockTimer)clearInterval(clockTimer);auth.signOut()});
 $('auth-form').addEventListener('submit',async e=>{e.preventDefault();$('auth-error').textContent='';$('auth-submit').disabled=true;try{await auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL);await auth.signInWithEmailAndPassword($('auth-email').value.trim(),$('auth-password').value)}catch(err){$('auth-error').textContent=(err.message||'Sign in failed').replace('Firebase: ','')}finally{$('auth-submit').disabled=false}});
 
-auth.onAuthStateChanged(user=>{state.user=user;if(!user){setGate('auth');return}const saved=localStorage.getItem(PROFILE_KEY);if(saved==='Bhargav'||saved==='Anusha'){setProfile(saved);loadDashboard()}else setGate('profile')});
+auth.onAuthStateChanged(user=>{state.user=user;if(!user){setGate('auth');return}const saved=localStorage.getItem(PROFILE_KEY);if(saved==='Bhargav'||saved==='Anusha'){setProfile(saved);loadDashboard().then(linksStart,linksStart)}else setGate('profile')});
 lucide.createIcons();
+
+/* ---- Install as an app (PWA) ---- */
+let _installEv=null;
+window.addEventListener('beforeinstallprompt',e=>{e.preventDefault();_installEv=e;renderInstallCard()});
+window.addEventListener('appinstalled',()=>{_installEv=null;renderInstallCard()});
+function isStandalone(){return window.matchMedia('(display-mode: standalone)').matches||window.navigator.standalone===true}
+function renderInstallCard(){
+  const b=document.getElementById('install-btn'),st=document.getElementById('install-status'),h=document.getElementById('install-hint');
+  if(!b)return;
+  const ios=/iphone|ipad|ipod/i.test(navigator.userAgent);
+  if(isStandalone()){b.hidden=true;st.textContent='Installed — you are using the app.';return}
+  b.hidden=false;
+  if(_installEv){b.textContent='Install app';st.textContent='';b.onclick=async()=>{_installEv.prompt();try{await _installEv.userChoice}catch(e){}_installEv=null;renderInstallCard()};return}
+  if(ios){b.textContent='How to install';st.textContent='';b.onclick=()=>toast('In Safari: tap Share, then “Add to Home Screen”.');h.textContent='iPhone and iPad: open this page in Safari, tap the Share button, then “Add to Home Screen”. Installing is also what lets notifications reach you later.';return}
+  b.textContent='How to install';st.textContent='';
+  b.onclick=()=>toast('Use your browser menu: “Install Home Hub” (Chrome/Edge) or “Add to Home screen” (Android).');
+}
 if('serviceWorker'in navigator){
   const hadController=!!navigator.serviceWorker.controller;
   let reloaded=false;

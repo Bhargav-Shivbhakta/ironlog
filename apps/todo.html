@@ -721,6 +721,7 @@
     <div class="notes-modal">
       <div class="notes-modal-head">
         <h3>Sticky notes</h3>
+        <button type="button" class="note-add-btn inline" id="notes-trash-btn" style="margin-right:2px">Recently deleted</button>
         <button type="button" class="note-add-btn inline" id="note-add-btn">+ New note</button>
         <button type="button" class="notes-modal-close" id="notes-modal-close">✕</button>
       </div>
@@ -1045,6 +1046,7 @@ async function enterProfile(profileId){
   // Three independent reads, previously one after another — run them
   // together so the app isn't waiting on three separate round trips.
   await Promise.all([loadLists(), loadTasks(), loadStickyNotes(), loadScheduleDayTemplatesForBlockPicker()]);
+  startNotesWatch();
   render();
   // Deep-link support: ?task=ID jumps straight to that task, expanded and
   // highlighted, instead of leaving the person to hunt for it themselves.
@@ -1490,9 +1492,15 @@ function showUndo(msg){
   document.getElementById('undo-text').textContent = msg;
   document.getElementById('undo-toast').classList.add('show');
   clearTimeout(undoTimer);
-  undoTimer = setTimeout(function(){ document.getElementById('undo-toast').classList.remove('show'); lastDeleted=null; }, 5000);
+  undoTimer = setTimeout(function(){ document.getElementById('undo-toast').classList.remove('show'); lastDeleted=null; lastNoteDeleted=null; }, 5000);
 }
 document.getElementById('undo-btn').addEventListener('click', async function(){
+  if(lastNoteDeleted){
+    const id = lastNoteDeleted; lastNoteDeleted = null;
+    document.getElementById('undo-toast').classList.remove('show');
+    await noteTx(function(l){ const n = l.find(function(x){ return x.id===id; }); if(!n) return false; delete n.del; n.u = Date.now(); });
+    return;
+  }
   if(!lastDeleted) return;
   const arr = lastDeleted.isShared ? sharedTasks : personalTasks;
   arr.splice(lastDeleted.idx, 0, lastDeleted.item);
@@ -1613,7 +1621,8 @@ function renderCommandCenter(){
   const upcomingList = sortTasks(active.filter(function(t){ return t.due && t.due>todayStr(); }));
   const notesBody = stickyNotes.length
     ? stickyNotes.slice(0,3).map(function(n){
-        const text = n.text ? escapeHtml(n.text) : '<span style="color:var(--text-faint);">Empty note</span>';
+        const plain = noteDisplayText(n.text);
+        const text = plain ? escapeHtml(plain.slice(0,90)) : '<span style="color:var(--text-faint);">Empty note</span>';
         return '<div class="command-note-preview" data-command-opennotes="1"><span class="command-note-dot" style="background:'+n.color+';"></span><span class="command-note-text">'+text+'</span></div>';
       }).join('')
     : '<div class="command-empty">No notes yet — jot anything down.</div>';
@@ -2520,14 +2529,90 @@ const NOTE_LIST_STYLES = [{value:'',label:'Style…'},{value:'decimal',label:'1,
 // Hub's copy of this logic (assets/app.js, hubNoteDisplayHtml) in sync.
 function noteDisplayHtml(text){
   if(!text) return '';
-  return /<\/?(b|i|u|font|span|ul|ol|li)[ \/>]/i.test(text) ? text : escapeHtml(text);
+  return /<\/?(b|i|u|s|font|span|ul|ol|li|div|p|br)[ \/>]/i.test(text) ? sanitizeNoteHtml(text) : escapeHtml(text).replace(/\n/g,'<br>');
 }
-let stickyNotes = [];
+// Notes live in one doc per profile. KEEP IN SYNC with assets/notes-core.js and the
+// Hub's "Notes & lists" widget: every change is a transaction (read the current
+// doc, change ONE note, write it back) so a stale copy can never overwrite a
+// newer one, and a delete only marks the note (del:true) so it can be restored
+// from "Recently deleted" for 30 days.
+let stickyAll = [];        // everything in the doc, including deleted notes
+let stickyNotes = [];      // what this page shows: live notes, pinned first
+let notesTrashView = false;
+let lastNoteDeleted = null;
+const NOTE_TRASH_DAYS = 30;
+function refreshLiveNotes(){
+  stickyNotes = stickyAll.filter(function(n){ return !n.del; }).map(function(n,i){ return {n:n,i:i}; })
+    .sort(function(a,b){ return ((b.n.pin?1:0)-(a.n.pin?1:0)) || (a.i-b.i); }).map(function(x){ return x.n; });
+}
+function parseNotesJson(raw){ try{ const a = JSON.parse(raw); return Array.isArray(a) ? a.filter(function(n){ return n && n.id; }) : []; }catch(e){ return []; } }
 async function loadStickyNotes(){
-  try{ const doc = await profileDoc(activeProfile,'stickyNotes').get(); stickyNotes = (doc.exists && doc.data().json) ? JSON.parse(doc.data().json) : []; }
-  catch(e){ stickyNotes = []; }
+  try{ const doc = await profileDoc(activeProfile,'stickyNotes').get(); stickyAll = (doc.exists && doc.data().json) ? parseNotesJson(doc.data().json) : []; }
+  catch(e){ stickyAll = []; }
+  refreshLiveNotes();
 }
-async function saveStickyNotes(){ try{ await profileDoc(activeProfile,'stickyNotes').set({json: JSON.stringify(stickyNotes)}); }catch(e){ console.error(e); } }
+// quiet = true: update data but do not repaint (used while typing)
+async function noteTx(fn, quiet){
+  try{
+    let out = null, skipped = false;
+    await db.runTransaction(async function(tx){
+      const ref = profileDoc(activeProfile,'stickyNotes'), sn = await tx.get(ref);
+      let list = (sn.exists && sn.data().json) ? parseNotesJson(sn.data().json) : [];
+      skipped = false;
+      if(fn(list) === false){ skipped = true; return; }
+      const cut = Date.now() - NOTE_TRASH_DAYS*864e5;
+      list = list.filter(function(n){ return !n.del || (n.u||0) > cut; });
+      if(JSON.stringify(list).length > 700000) throw new Error('full');
+      tx.set(ref, {json: JSON.stringify(list)});
+      out = list;
+    });
+    if(out){ stickyAll = out; refreshLiveNotes(); if(!quiet){ renderNotesPanel(); renderCommandCenter(); } }
+    return true;
+  }catch(e){
+    console.error(e);
+    showUndo(e && e.message==='full' ? 'That note is too big to save' : 'Could not save the note — check your connection');
+    return false;
+  }
+}
+const NOTE_OK_TAGS = {B:1,STRONG:1,I:1,EM:1,U:1,S:1,STRIKE:1,UL:1,OL:1,LI:1,BR:1,DIV:1,P:1,FONT:1,SPAN:1};
+const NOTE_LIST_OK = /^(decimal|lower-alpha|upper-roman|disc|circle|square)$/;
+function sanitizeNoteHtml(html){
+  const d = new DOMParser().parseFromString('<body>'+String(html||'')+'</body>','text/html').body;
+  (function walk(n){
+    Array.prototype.slice.call(n.childNodes).forEach(function(c){
+      if(c.nodeType===3) return;
+      if(c.nodeType!==1){ n.removeChild(c); return; }
+      if(/^(SCRIPT|STYLE|IFRAME|OBJECT)$/.test(c.tagName)){ n.removeChild(c); return; }
+      walk(c);
+      if(!NOTE_OK_TAGS[c.tagName]){ while(c.firstChild) n.insertBefore(c.firstChild,c); n.removeChild(c); return; }
+      const face = c.tagName==='FONT' ? c.getAttribute('face') : null;
+      const ls = (c.tagName==='UL'||c.tagName==='OL') ? (c.style && c.style.listStyleType) : null;
+      const ff = c.tagName==='SPAN' ? (c.style && c.style.fontFamily) : null;
+      Array.prototype.slice.call(c.attributes).forEach(function(a){ c.removeAttribute(a.name); });
+      if(face && /^[\w ,'"-]{1,60}$/.test(face)) c.setAttribute('face',face);
+      if(ls && NOTE_LIST_OK.test(ls)) c.style.listStyleType = ls;
+      if(ff && /^[\w ,'"-]{1,60}$/.test(ff)) c.style.fontFamily = ff;
+    });
+  })(d);
+  return d.innerHTML;
+}
+function noteDisplayText(text){ const d = document.createElement('div'); d.innerHTML = noteDisplayHtml(text); return (d.textContent||'').replace(/\s+/g,' ').trim(); }
+function notesAgo(t){ const s=(Date.now()-t)/1000; if(s<60) return 'just now'; if(s<3600) return Math.floor(s/60)+' min ago'; if(s<86400) return Math.floor(s/3600)+'h ago'; const d=Math.floor(s/86400); return d===1?'yesterday':d+'d ago'; }
+// live sync from the Hub widget / the other profile
+let notesUnsub = null;
+function startNotesWatch(){
+  if(notesUnsub){ try{ notesUnsub(); }catch(e){} notesUnsub = null; }
+  try{
+    notesUnsub = profileDoc(activeProfile,'stickyNotes').onSnapshot(function(d){
+      if(d.metadata && d.metadata.hasPendingWrites) return;
+      const next = (d.exists && d.data().json) ? parseNotesJson(d.data().json) : [];
+      if(JSON.stringify(next) === JSON.stringify(stickyAll)) return;
+      const ae = document.activeElement, editing = ae && (ae.isContentEditable || ae.tagName==='SELECT') && ae.closest && ae.closest('#notes-panel-list');
+      stickyAll = next; refreshLiveNotes();
+      if(!editing){ renderNotesPanel(); renderCommandCenter(); }
+    }, function(){});
+  }catch(e){}
+}
 
 // Always-visible inline panel in the left rail (no FAB/drawer) — renders
 // into #notes-panel-list, which has its own max-height + scroll so a long
@@ -2535,8 +2620,21 @@ async function saveStickyNotes(){ try{ await profileDoc(activeProfile,'stickyNot
 function renderNotesPanel(){
   const list = document.getElementById('notes-panel-list');
   if(!list) return;
+  const trashBtn = document.getElementById('notes-trash-btn');
+  const trashed = stickyAll.filter(function(n){ return n.del && Date.now()-(n.u||0) < NOTE_TRASH_DAYS*864e5; }).sort(function(a,b){ return (b.u||0)-(a.u||0); });
+  if(trashBtn){ trashBtn.textContent = notesTrashView ? '← Notes' : ('Recently deleted'+(trashed.length?' ('+trashed.length+')':'')); }
+  const addBtn = document.getElementById('note-add-btn'); if(addBtn) addBtn.style.display = notesTrashView ? 'none' : '';
+  if(notesTrashView){
+    list.innerHTML = trashed.length ? trashed.map(function(n){
+      return '<div class="note-card compact" style="background:'+n.color+';opacity:.85" data-trashid="'+n.id+'"><div class="note-text" style="min-height:0">'+noteDisplayHtml(n.text)+'</div>'+
+        '<div class="nc-footer"><span style="font-size:10.5px;opacity:.7">deleted '+notesAgo(n.u||0)+'</span><span><button type="button" class="nc-del-btn" style="width:auto;padding:0 8px" data-noterestore="'+n.id+'">Restore</button> <button type="button" class="nc-del-btn" style="width:auto;padding:0 8px" data-noteforever="'+n.id+'">Delete forever</button></span></div></div>';
+    }).join('') : '<div class="empty-note" style="padding:14px 4px;">Nothing deleted lately. Deleted notes are kept for 30 days.</div>';
+    list.querySelectorAll('[data-noterestore]').forEach(function(b){ b.addEventListener('click', function(){ noteTx(function(l){ const n=l.find(function(x){ return x.id===b.dataset.noterestore; }); if(!n) return false; delete n.del; n.u=Date.now(); }); }); });
+    list.querySelectorAll('[data-noteforever]').forEach(function(b){ b.addEventListener('click', function(){ if(!confirm('Delete this note for good? This cannot be undone.')) return; noteTx(function(l){ const i=l.findIndex(function(x){ return x.id===b.dataset.noteforever; }); if(i<0) return false; l.splice(i,1); }); }); });
+    return;
+  }
   list.innerHTML = stickyNotes.length ? stickyNotes.map(function(n){
-    return '<div class="note-card compact" style="background:'+n.color+';" data-notecard="'+n.id+'">'+
+    return '<div class="note-card compact" style="background:'+n.color+';" data-notecard="'+n.id+'">'+(n.pin?'<div style="font-size:10.5px;opacity:.7;margin-bottom:3px">📌 Pinned</div>':'')+(n.from?'<div style="font-size:10.5px;opacity:.7;margin-bottom:3px">from '+escapeHtml(n.from)+'</div>':'')+
       '<div class="note-toolbar">'+
         '<button type="button" data-notecmd="bold" title="Bold (Ctrl+B)"><b>B</b></button>'+
         '<button type="button" data-notecmd="italic" title="Italic (Ctrl+I)"><i>I</i></button>'+
@@ -2550,7 +2648,7 @@ function renderNotesPanel(){
       '<div class="note-text" contenteditable="true" data-notetext="'+n.id+'" data-placeholder="Write anything…">'+noteDisplayHtml(n.text)+'</div>'+
       '<div class="nc-footer"><div class="nc-colors">'+NOTE_COLORS.map(function(c){
         return '<span class="nc-color-dot '+(n.color===c?'selected':'')+'" style="background:'+c+';" data-notecolor="'+n.id+'" data-color="'+c+'"></span>';
-      }).join('')+'</div><button type="button" class="nc-del-btn" data-notedel="'+n.id+'">✕</button></div>'+
+      }).join('')+'</div><span><button type="button" class="nc-del-btn" data-notepin="'+n.id+'" title="'+(n.pin?'Unpin':'Pin to the top')+'">📌</button> <button type="button" class="nc-del-btn" data-notedel="'+n.id+'" title="Delete (kept 30 days in Recently deleted)">✕</button></span></div>'+
     '</div>';
   }).join('') : '<div class="empty-note" style="padding:14px 4px;">No notes yet — jot anything down above.</div>';
 
@@ -2560,10 +2658,10 @@ function renderNotesPanel(){
     let debounce;
     const commit = function(){
       clearTimeout(debounce);
-      debounce = setTimeout(async function(){
-        const n = stickyNotes.find(function(x){ return x.id===id; });
-        if(n){ n.text = textEl.innerHTML; await saveStickyNotes(); }
-      }, 400);
+      debounce = setTimeout(function(){
+        const html = sanitizeNoteHtml(textEl.innerHTML);
+        noteTx(function(l){ const n = l.find(function(x){ return x.id===id; }); if(!n) return false; if(n.text===html) return false; n.text = html; n.u = Date.now(); }, true);
+      }, 500);
     };
     const updateToolbarState = function(){
       try{
@@ -2574,6 +2672,7 @@ function renderNotesPanel(){
       }catch(e){}
     };
     textEl.addEventListener('input', commit);
+    textEl.addEventListener('blur', function(){ clearTimeout(debounce); const html = sanitizeNoteHtml(textEl.innerHTML); noteTx(function(l){ const n = l.find(function(x){ return x.id===id; }); if(!n||n.text===html) return false; n.text = html; n.u = Date.now(); }, true); });
     textEl.addEventListener('keyup', updateToolbarState);
     textEl.addEventListener('mouseup', updateToolbarState);
     textEl.addEventListener('focus', updateToolbarState);
@@ -2626,16 +2725,20 @@ function renderNotesPanel(){
     });
   });
   list.querySelectorAll('[data-notecolor]').forEach(function(dot){
-    dot.addEventListener('click', async function(){
-      const n = stickyNotes.find(function(x){ return x.id===dot.dataset.notecolor; });
-      if(n){ n.color = dot.dataset.color; await saveStickyNotes(); renderNotesPanel(); }
+    dot.addEventListener('click', function(){
+      noteTx(function(l){ const n = l.find(function(x){ return x.id===dot.dataset.notecolor; }); if(!n) return false; n.color = dot.dataset.color; n.u = Date.now(); });
     });
   });
   list.querySelectorAll('[data-notedel]').forEach(function(btn){
     btn.addEventListener('click', async function(){
-      stickyNotes = stickyNotes.filter(function(n){ return n.id!==btn.dataset.notedel; });
-      await saveStickyNotes();
-      renderNotesPanel();
+      const id = btn.dataset.notedel;
+      const ok = await noteTx(function(l){ const n = l.find(function(x){ return x.id===id; }); if(!n) return false; n.del = true; n.u = Date.now(); });
+      if(ok){ lastDeleted = null; lastNoteDeleted = id; showUndo('Note deleted'); }
+    });
+  });
+  list.querySelectorAll('[data-notepin]').forEach(function(btn){
+    btn.addEventListener('click', function(){
+      noteTx(function(l){ const n = l.find(function(x){ return x.id===btn.dataset.notepin; }); if(!n) return false; if(n.pin) delete n.pin; else n.pin = true; n.u = Date.now(); });
     });
   });
 }
@@ -2650,8 +2753,10 @@ function closeNotesModal(){
   if(overlay) overlay.hidden = true;
 }
 async function addStickyNote(){
-  stickyNotes.unshift({ id:'note-'+Date.now(), text:'', color: NOTE_COLORS[Math.floor(Math.random()*NOTE_COLORS.length)] });
-  await saveStickyNotes();
+  notesTrashView = false;
+  const note = { id:'note-'+Date.now()+Math.random().toString(36).slice(2,5), text:'', color: NOTE_COLORS[Math.floor(Math.random()*NOTE_COLORS.length)], u: Date.now() };
+  const ok = await noteTx(function(l){ if(l.filter(function(n){ return !n.del; }).length >= 100){ return false; } l.unshift(note); });
+  if(!ok) return;
   renderNotesPanel();
   const list = document.getElementById('notes-panel-list');
   const first = list && list.querySelector('[data-notetext]');
@@ -3045,6 +3150,7 @@ function initControls(){
     renderTaskMap();
   });
   document.getElementById('note-add-btn').addEventListener('click', addStickyNote);
+  document.getElementById('notes-trash-btn').addEventListener('click', function(){ notesTrashView = !notesTrashView; renderNotesPanel(); });
   document.getElementById('backup-button').addEventListener('click', openBackupModal);
   document.getElementById('task-detail-panel-close').addEventListener('click', closeTaskDetailPanel);
   document.getElementById('notes-modal-close').addEventListener('click', closeNotesModal);

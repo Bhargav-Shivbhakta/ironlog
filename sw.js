@@ -1,4 +1,4 @@
-const CACHE_NAME = 'fit-hub-v43';
+const CACHE_NAME = 'fit-hub-v52';
 // Every page + shared asset the Hub actually needs to work offline on a
 // completely fresh install — not just the Hub shell itself. Before this,
 // only 7 files were pre-cached at install; everything else (every app
@@ -10,8 +10,8 @@ const CACHE_NAME = 'fit-hub-v43';
 // all with no connection until each had been visited once. Listing them
 // here means they're all ready offline from the very first install.
 const ASSETS = [
-  './', './index.html', './manifest.json', './icon-192.png', './icon-512.png',
-  './assets/app.css', './assets/app.js', './assets/banners.css', './assets/banners.js', './assets/theme.js', './assets/schedcats.js', './assets/voice.js', './assets/motion.css', './assets/motion.js', './assets/waterpantry.js', './assets/fscache.js', './assets/bhargav-plan.js', './assets/firebase-config.js',
+  './', './index.html', './manifest.json', './icon-192.png', './icon-512.png', './icon-maskable-192.png', './icon-maskable-512.png',
+  './assets/app.css', './assets/app.js', './assets/banners.css', './assets/banners.js', './assets/theme.js', './assets/schedcats.js', './assets/voice.js', './assets/motion.css', './assets/motion.js', './assets/waterpantry.js', './assets/fscache.js', './assets/bhargav-plan.js', './assets/skin-plan.js', './assets/diet-core.js', './assets/skin-core.js', './assets/notes-core.js', './assets/firebase-config.js', './assets/ticklog.js',
   './apps/todo.html', './apps/diet.html', './apps/schedule.html', './apps/grocery.html',
   './apps/chores.html', './apps/skin.html', './apps/calendar.html', './apps/clock.html',
   './apps/budget.html', './apps/pledge.html', './apps/checklist.html',

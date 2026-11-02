@@ -989,6 +989,19 @@ if(typeof Chart==='undefined'){ window.Chart=function(){ this.destroy=function()
         <div class="empty-note" id="water-trend-empty" style="display:none;">No water logged in the last 14 days.</div>
       </div>
     </div>
+    <div class="grid-2" style="margin:14px 0;">
+      <div class="chart-card">
+        <h3>Water — when you drink</h3>
+        <div class="panel-subtitle" style="margin:-8px 0 12px;">Litres by hour of day over the last 14 days, from the drink times logged in the Hub's Water widget.</div>
+        <canvas id="chart-water-time" height="200"></canvas>
+        <div class="empty-note" id="water-time-empty" style="display:none;">Drink times appear here once you log water in the Hub's Water widget.</div>
+      </div>
+      <div class="chart-card">
+        <h3>Water — your rhythm</h3>
+        <div class="panel-subtitle" style="margin:-8px 0 12px;">What the timing says, and how well you keep your plan.</div>
+        <div id="water-time-note" style="font-size:13px;line-height:1.7;"></div>
+      </div>
+    </div>
 
     <!-- Reference material — the plan itself (meal plan, rules, supplements,
          roadmap), not what's actually been logged. Collapsed by default so
@@ -3645,7 +3658,6 @@ async function loadLiveDietData(){
     const doc = await dietStateDoc().get();
     dietStateLive = (doc.exists && doc.data().json) ? JSON.parse(doc.data().json) : null;
     const profileId = activeProfile.id; // 'bhargav' / 'anusha' — matches Diet's own profileId values exactly
-    if(dietStateLive && activeProfile.id==='bhargav' && window.BHARGAV_PLAN){ try{ window.BHARGAV_PLAN.applyDietPhase(dietStateLive, todayStr()); }catch(e){} } // display-only: Diet itself saves the switch when opened
     dietFoodsLive = dietStateLive ? (dietStateLive.foods||[]) : null;
     dietRecipesLive = dietStateLive ? (dietStateLive.recipes||[]) : null;
     dietMealsLive = dietStateLive ? (dietStateLive.meals||[]).filter(function(m){ return m.profileId===profileId; }) : null;
@@ -3895,6 +3907,59 @@ async function renderDietToday(){
   (dailyAll||[]).forEach(function(d){ if(d.water) waterByDate[d.date] = d.water; });
   const waterVals = dates14.map(function(d){ return waterByDate[d] || 0; });
   singleLineChart('waterTrend', 'chart-water-trend', 'water-trend-empty', waterVals, p.waterTarget, 'Water (L)', accentA, waterVals.some(function(v){ return v>0; }));
+  renderWaterTiming(dates14, accentA, gridColor).catch(function(e){ console.warn('water timing failed', e); });
+}
+// Drink times are saved by the Hub's Water widget (hub-profiles/{Profile}/data/water, sips[date] = [{ml, at(minutes), plan}]).
+// Gym's own check-in still stores only the day's total; this reads the same doc, read-only.
+async function renderWaterTiming(dates14, color, gridColor){
+  const canvas = document.getElementById('chart-water-time'), empty = document.getElementById('water-time-empty'), note = document.getElementById('water-time-note');
+  if(!canvas) return;
+  destroyChart('waterTime');
+  let doc = null;
+  try{
+    const name = activeProfile.id.charAt(0).toUpperCase() + activeProfile.id.slice(1);
+    const snap = await db.collection('users').doc(currentUser.uid).collection('hub-profiles').doc(name).collection('data').doc('water').get();
+    doc = (snap.exists && snap.data().json) ? JSON.parse(snap.data().json) : null;
+  }catch(e){ doc = null; }
+  const sips = (doc && doc.sips) || {}, plans = (doc && doc.plans) || {};
+  const hours = new Array(17).fill(0);   // 6 AM .. 10 PM
+  let timed = 0, before = 0, evening = 0, drinks = 0, daysWith = {};
+  dates14.forEach(function(d){
+    (Array.isArray(sips[d]) ? sips[d] : []).forEach(function(s){
+      if(s.at == null) return;
+      const ml = Number(s.ml) || 0, h = Math.floor(s.at / 60);
+      hours[Math.max(6, Math.min(22, h)) - 6] += ml; timed += ml; drinks++; daysWith[d] = 1;
+      if(h < 12) before += ml; if(h >= 18) evening += ml;
+    });
+  });
+  if(!timed){ canvas.style.display = 'none'; if(empty) empty.style.display = 'block'; if(note) note.innerHTML = '<span style="color:var(--text-faint);">No timed drinks yet.</span>'; return; }
+  canvas.style.display = ''; if(empty) empty.style.display = 'none';
+  const labels = hours.map(function(_, i){ const h = i + 6; return (h % 12 || 12) + (h < 12 ? 'a' : 'p'); });
+  const top = hours.map(function(v, i){ return [v, i]; }).sort(function(a, b){ return b[0] - a[0]; })[0][1] + 6;
+  charts['waterTime'] = new Chart(canvas, {
+    type: 'bar',
+    data: { labels: labels, datasets: [{ label: 'Litres', data: hours.map(function(v){ return Math.round(v / 10) / 100; }), backgroundColor: hours.map(function(_, i){ return i + 6 === top ? color : color + '66'; }), borderRadius: 4 }] },
+    options: { responsive: true, scales: { y: { beginAtZero: true, grid: { color: gridColor } }, x: { grid: { display: false } } }, plugins: { legend: { display: false } } }
+  });
+  // plan: drinks that were planned and are now in the past, how many were drunk
+  const todayS = todayStr(), nowMin = new Date().getHours() * 60 + new Date().getMinutes();
+  let planned = 0, kept = 0;
+  dates14.forEach(function(d){
+    (Array.isArray(plans[d]) ? plans[d] : []).forEach(function(p){
+      if(p.skipped || (d === todayS && p.time > nowMin)) return;
+      planned++;
+      const got = (Array.isArray(sips[d]) ? sips[d] : []).filter(function(s){ return s.plan === p.id; }).reduce(function(a, s){ return a + (Number(s.ml) || 0); }, 0);
+      if(got >= (Number(p.ml) || 0) - 1) kept++;
+    });
+  });
+  const fmtH = function(h){ return (h % 12 || 12) + ':00 ' + (h < 12 ? 'AM' : 'PM'); };
+  const nd = Object.keys(daysWith).length;
+  note.innerHTML =
+    '<div><strong>Busiest hour:</strong> ' + fmtH(top) + '</div>' +
+    '<div><strong>Before noon:</strong> ' + Math.round(before / timed * 100) + '% of your water</div>' +
+    '<div><strong>After 6 PM:</strong> ' + Math.round(evening / timed * 100) + '% of your water</div>' +
+    '<div><strong>Average:</strong> ' + (drinks / nd).toFixed(1) + ' drinks a day over ' + nd + ' logged day' + (nd === 1 ? '' : 's') + '</div>' +
+    '<div><strong>Plan kept:</strong> ' + (planned ? kept + ' of ' + planned + ' planned drinks (' + Math.round(kept / planned * 100) + '%)' : 'no planned drinks yet') + '</div>';
 }
 async function renderDiet(){
   const p = activeProfile;

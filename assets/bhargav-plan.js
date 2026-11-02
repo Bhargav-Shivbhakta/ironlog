@@ -320,3 +320,51 @@
     suryaFor:suryaFor,warmupFor:warmupFor,applyDietPhase:applyDietPhase,restoreDietMenu:restoreDietMenu,menuTotals:menuTotals,addDays:addDays
   };
 })();
+
+/* ---------------------------------------------------------------------
+   Which blocks a day really has. The Schedule app swaps Bhargav's Saturday
+   between a laundry-week and a deep-clean-week version (by week number)
+   whenever the saved Saturday still matches one of them, and a tick is
+   saved by the block's position in THAT list. Everything outside the
+   Schedule app (Today widgets, Insights, Pledge, voice) must count blocks
+   the same way or ticks land on the wrong block.
+   KEEP IN SYNC with buildBhargavSaturday() / resolveDayBlocks() in
+   apps/schedule.html.
+--------------------------------------------------------------------- */
+(function(){
+  const tR=(start,end,activity)=>({start,end,activity,category:null});
+  function saturday(variant){
+    const mid=variant==='laundry'?[
+      tR('10:30','10:45','Take laundry and trash down; start washer'),tR('10:45','10:55','GitHub/LinkedIn update'),
+      tR('10:55','11:15','Study while laundry runs'),tR('11:15','11:25','Transfer clothes to dryer'),
+      tR('11:25','12:00','Study while clothes dry'),tR('12:00','12:30','Collect, fold and organize clothes')
+    ]:[
+      tR('10:30','10:45','Deep clean — kitchen and common areas'),tR('10:45','10:55','GitHub/LinkedIn update'),
+      tR('10:55','11:30','Deep clean — bedroom and closet'),tR('11:30','12:00','Organize and declutter'),
+      tR('12:00','12:30','Wipe down surfaces and final reset')
+    ];
+    return [
+      tR('04:30','05:00','Get ready and food preparation'),tR('05:00','07:00','LeetCode'),tR('07:00','07:20','Home workout'),
+      tR('07:20','07:50','Study'),tR('07:50','08:00','Travel to gym'),tR('08:00','09:30','Gym'),tR('09:30','09:40','Travel home'),
+      tR('09:40','10:00','Bath and get ready'),tR('10:00','10:25','Breakfast'),tR('10:25','10:30','Quick review')
+    ].concat(mid).concat([
+      tR('12:30','13:25','Lunch and social break'),tR('13:25','16:30','Study'),tR('16:30','16:45','Snack'),tR('16:45','19:00','Study'),
+      tR('19:00','19:25','Dinner'),tR('19:25','19:55','Dishwashing'),tR('19:55','20:45','Study'),tR('20:45','21:10','Open/reset time'),
+      tR('21:10','21:20','Plan the next day'),tR('21:20','21:30','Prepare for sleep'),tR('21:30','04:30','Sleep')
+    ]);
+  }
+  function parity(dateStr){
+    const ref=new Date('2026-01-03T12:00:00'),d=new Date(dateStr+'T12:00:00');
+    const weeks=Math.floor(Math.round((d-ref)/864e5)/7);
+    return((weeks%2)+2)%2;                       // 0 = laundry week, 1 = deep-clean week
+  }
+  window.resolveDayBlocks=function(profile,dayName,dateStr,templates){
+    const stored=(templates&&templates[dayName])||[];
+    if(profile==='Bhargav'&&dayName==='Saturday'&&dateStr){
+      const L=saturday('laundry'),D=saturday('deepclean');
+      const same=v=>stored.length===v.length&&stored.every((b,i)=>b.activity===v[i].activity);
+      if(same(L)||same(D))return parity(dateStr)===0?L:D;
+    }
+    return stored;
+  };
+})();

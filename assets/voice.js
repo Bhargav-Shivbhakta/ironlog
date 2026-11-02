@@ -142,18 +142,12 @@ async function voiceAddTask(title,due){
 async function voiceAddNote(text){
   text=(text||'').trim();
   if(!text){ speak("I didn't catch what to note down."); return; }
-  if(typeof hubStickyNotes==='undefined'){ speak("Notes aren't available right now."); return; }
-  hubStickyNotes.unshift({id:'note-'+Date.now(),text,color:HUB_NOTE_COLORS[Math.floor(Math.random()*HUB_NOTE_COLORS.length)]});
-  try{
-    await saveHubStickyNotes();
-    document.querySelectorAll('[data-widget-type="notes"] .widget-card-body').forEach(el=>renderNotesWidgetInto(el));
-    const noteId=hubStickyNotes[0]&&hubStickyNotes[0].id;
-    voiceUndoPush('that note',async()=>{ const i=hubStickyNotes.findIndex(n=>n.id===noteId); if(i>=0) hubStickyNotes.splice(i,1); await saveHubStickyNotes(); document.querySelectorAll('[data-widget-type="notes"] .widget-card-body').forEach(el=>renderNotesWidgetInto(el)); });
-    speak('Noted: "'+text+'"');
-  }catch(e){
-    hubStickyNotes.shift();
-    speak("I couldn't save that note — try again.");
-  }
+  if(typeof notesAdd!=='function'){ speak("Notes aren't available right now."); return; }
+  const safe=text.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  const r=await notesAdd(safe,{quiet:true});
+  if(!r.ok){ speak(r.full?"You have too many notes — delete a few first.":"I couldn't save that note — try again."); return; }
+  voiceUndoPush('that note',async()=>{ await notesForever(r.id); });
+  speak('Noted: "'+text+'"');
 }
 
 // Switching profile by voice is a convenience, not a security boundary —
@@ -257,7 +251,7 @@ async function voiceAiContext(){
   try{ ctx.open_tasks=(state.personalTasks||[]).filter(t=>!t.done).slice(0,15).map(t=>({title:t.title,due:t.due||null})); }catch(e){}
   try{ if(typeof choresDueToday==='function') ctx.chores_due_today=choresDueToday().map(c=>c.name).slice(0,15); }catch(e){}
   try{ if(typeof ensureWater==='function'){ await ensureWater(); const d=today(); ctx.water_today_ml=waterTotal(d); ctx.water_goal_ml=state.water.goal; } }catch(e){}
-  try{ const bl=(state.templates&&state.templates[DAYS[new Date().getDay()]])||[]; ctx.schedule_blocks_today=bl.map(b=>String(b.activity||b.title||'')).filter(Boolean).slice(0,25); }catch(e){}
+  try{ const bl=dayBlocksFor(today()); ctx.schedule_blocks_today=bl.map(b=>String(b.activity||b.title||'')).filter(Boolean).slice(0,25); }catch(e){}
   try{ ctx.checklists=(await voiceClLoad()).slice(0,12).map(l=>({title:l.title,open_items:voiceClUnits(l).filter(u=>!u.done).slice(0,10).map(u=>u.t)})); }catch(e){}
   const el=id=>{const x=document.getElementById(id);return x?x.textContent.trim():''};
   ctx.next_event=el('stat-next'); ctx.tasks_remaining_today=el('stat-tasks');
@@ -335,12 +329,10 @@ const VOICE_AI_ACTIONS={
     const ml=Math.round(Number(a.ml)); if(!(ml>=50&&ml<=3000)) return false;
     if(typeof ensureWater!=='function'){ return false; }
     await ensureWater();
-    const d=today(),w=state.water;
-    (w.log[d]=Array.isArray(w.log[d])?w.log[d]:[]).push(ml);
-    w.sync=w.sync||{}; w.sync[d]=waterTotal(d);
-    try{ if(typeof pantryWater==='function') pantryWater(d); if(typeof pushWaterToGym==='function') await pushWaterToGym(state.profile,d,waterTotal(d)); saveWater(); }catch(e){}
-    document.querySelectorAll('[data-widget-type="water"] .widget-card-body').forEach(el=>{ try{ renderWaterInto(el); }catch(e){} });
-    voiceUndoPush('logging '+ml+' millilitres',async()=>{ const arr=w.log[d]; if(Array.isArray(arr)){ const i=arr.lastIndexOf(ml); if(i>=0) arr.splice(i,1); } w.sync[d]=waterTotal(d); try{ if(typeof pantryWater==='function') pantryWater(d); if(typeof pushWaterToGym==='function') await pushWaterToGym(state.profile,d,waterTotal(d)); saveWater(); }catch(e){} document.querySelectorAll('[data-widget-type="water"] .widget-card-body').forEach(el=>{ try{ renderWaterInto(el); }catch(e){} }); });
+    const d=today();
+    const r=waterAddSip(d,ml,wNow(),undefined,'voice');          // counts toward the planned drink closest to now, like the buttons
+    try{ waterRepaintAll(); }catch(e){}
+    voiceUndoPush('logging '+ml+' millilitres',async()=>{ try{ waterRemoveSips(d,[r.s.id]); waterRepaintAll(); }catch(e){} });
     speak('Logged '+ml+' millilitres. That is '+(waterTotal(d)/1000).toFixed(1)+' litres today.');
     return true;
   },
@@ -476,7 +468,7 @@ async function voiceLogSteps(n){
 // ---- schedule blocks ----
 async function voiceTickBlock(name,done){
   done=done!==false;
-  const d=today(),blocks=((state.templates&&state.templates[DAYS[new Date().getDay()]])||[]).map((b,i)=>({i,name:String(b.activity||b.title||'').trim()})).filter(b=>b.name);
+  const d=today(),blocks=dayBlocksFor(d).map((b,i)=>({i,name:String(b.activity||b.title||'').trim()})).filter(b=>b.name);
   return voicePickFrom(blocks,'name',name,'a block today',async b=>{
     const ref=profileRef('schedule-profiles','templateLog'),key=d+':'+b.i;
     let log={}; try{ const sn=await ref.get(); if(sn.exists) log=JSON.parse(sn.data().json||'{}'); }catch(e){}
@@ -624,7 +616,7 @@ async function voiceClRun(c){
 // "tick X": try a Schedule block, then an open task, then a chore due today, then a pledge
 async function voiceTickAnything(name){
   const q=voiceNorm(name); if(!q){ speak('Tick what?'); return; }
-  const blocks=((state.templates&&state.templates[DAYS[new Date().getDay()]])||[]).map(b=>({name:String(b.activity||b.title||'')}));
+  const blocks=dayBlocksFor(today()).map(b=>({name:String(b.activity||b.title||'')}));
   if(voiceMatch(blocks,'name',q).length){ await voiceTickBlock(name,true); return; }
   const tasks=(state.personalTasks||[]).filter(t=>!t.done);
   if(voiceMatch(tasks,'title',q).length){ await VOICE_AI_ACTIONS.complete_task({title:name}); return; }
@@ -670,6 +662,14 @@ function handleVoiceCommand(rawText){
   const untickMatch=t.match(/^(?:untick|uncheck)\s+(?:the\s+)?(.+)$/);
   if(untickMatch){ voiceTickBlock(untickMatch[1],false); return; }
   if(/^how am i doing|^how('?s| is) my (week|day|progress)|^give me (a )?(summary|update)|^am i on track/.test(t)){ voiceInsightsSummary(); return; }
+  const skMatch=t.match(/^(?:i )?(?:did|finished|completed|done with|have done)(?: my| the)? (morning|night|evening|body|shower|nizoral|scalp|face|skin)(?: skin ?care| skin| care)?(?: routine| steps)?$|^(?:my )?(morning|night|evening) (?:skin ?care|skin|routine) is done$/);
+  if(skMatch&&typeof skinVoice==='function'){ skinVoice(skMatch[1]||skMatch[2]); return; }
+  const dAte=t.match(/^(?:i )?(?:just )?(?:ate|had|finished|have eaten|did)(?: my| the| some)? (breakfast|lunch|dinner|supper|snack|brunch|[a-z ]{3,30}?)(?: meal)?$/);
+  const dSkip=t.match(/^(?:skip|i skipped|skipped)(?: my| the)? (breakfast|lunch|dinner|supper|snack|brunch)$/);
+  const dAdd=t.match(/^(?:i (?:ate|had)|log|add)\s+(?:a |an |some )?(.{2,40}?)[, ]+(\d{2,4})\s*(?:calories|kcal|cals?)(?:\s*(?:and|with)?\s*(\d{1,3})\s*(?:g|grams?)?\s*(?:of )?protein)?$/);
+  if(dSkip&&typeof dietVoice==='function'){ dietVoice('skip',{name:dSkip[1]}); return; }
+  if(dAdd&&typeof dietVoice==='function'){ dietVoice('add',{name:dAdd[1],kcal:dAdd[2],protein:dAdd[3]}); return; }
+  if(dAte&&/^(breakfast|lunch|dinner|supper|snack|brunch)$/.test(dAte[1])&&typeof dietVoice==='function'){ dietVoice('ate',{name:dAte[1]==='supper'?'dinner':dAte[1]}); return; }
   const waterMatch=t.match(/^(?:log |add |i (?:just )?drank |drank )(?:a |an |one )?(glass|bottle|large bottle|litre|liter|\d+(?:\.\d+)?\s*(?:ml|milliliters?|millilitres?|l|litres?|liters?))(?: of water)?$/);
   if(waterMatch){
     const w=waterMatch[1],n=parseFloat(w);let ml=0;

@@ -112,6 +112,10 @@
   @keyframes bday-pop{0%{transform:scale(0.92);opacity:0;}100%{transform:scale(1);opacity:1;}}
   .bday-row:first-of-type{border-top:none;}
   .bday-row .bd-name{font-size:13.5px;font-weight:600;}
+  .bday-add-row input[type=number]{width:58px;flex:none;}
+  .bd-circ{display:inline-block;min-width:18px;height:18px;line-height:18px;text-align:center;border-radius:5px;font-size:10.5px;font-weight:800;margin-right:4px;vertical-align:1px;}
+  .bd-circ.c{background:#E0567E;color:#fff;}
+  .bd-circ.o{background:var(--surface-alt);color:var(--text-soft);}
   .bday-row .bd-date{font-size:11.5px;color:var(--text-faint);}
   .bday-row button{background:var(--danger-soft,#FCE1E5);color:var(--danger,#F0596B);border:none;border-radius:8px;width:26px;height:26px;font-size:12px;}
   .bday-close-btn{width:100%;margin-top:14px;padding:10px;background:var(--surface-alt);border:none;border-radius:10px;font-size:13px;font-weight:700;color:var(--text-soft);}
@@ -1903,6 +1907,7 @@ function openBirthdaysPanel(){
         '<input type="number" id="bday-month-input" placeholder="MM" min="1" max="12">'+
         '<input type="number" id="bday-day-input" placeholder="DD" min="1" max="31">'+
         '<select id="bday-cat-select" style="flex:1;font-size:12.5px;padding:8px;border-radius:9px;border:1px solid var(--border);">'+categoryOptionsHtml(reminderCategories[0]?reminderCategories[0].id:'')+'</select>'+
+        '<select id="bday-circle-select" title="C = close person (gift reminder a week ahead + wish). O = outside person (night-before reminder + wish)." style="font-size:12.5px;padding:8px;border-radius:9px;border:1px solid var(--border);"><option value="O">O · Outside</option><option value="C">C · Close</option></select>'+
         '<button type="button" id="bday-add-btn">Add</button>'+
       '</div>'+
       (sorted.length ? sorted.map(function(r){ return reminderRowHtml(r, categoryOptionsHtml); }).join('') : '<p style="color:var(--text-faint);font-size:12.5px;text-align:center;">No reminders added yet.</p>')+
@@ -1935,7 +1940,7 @@ function openBirthdaysPanel(){
       const categoryId = document.getElementById('bday-cat-select').value;
       if(!name || !month || !day || month<1 || month>12 || day<1 || day>31) return;
       if(day>reminderDaysInMonth(month)){ alert('Month '+month+' only has '+reminderDaysInMonth(month)+' days.'); return; }
-      reminders.push({ id:'rem-'+Date.now(), name:name, month:String(month).padStart(2,'0'), day:String(day).padStart(2,'0'), categoryId:categoryId });
+      reminders.push({ id:'rem-'+Date.now(), name:name, month:String(month).padStart(2,'0'), day:String(day).padStart(2,'0'), categoryId:categoryId, circle:(document.getElementById('bday-circle-select').value==='C'?'C':'O') });
       await saveReminders();
       draw(); render(); renderBirthdayBanner();
     });
@@ -1962,7 +1967,7 @@ function openBirthdaysPanel(){
         const categoryId = row.querySelector('.be-cat').value;
         if(!name || !month || !day || month<1 || month>12 || day<1 || day>31) return;
       if(day>reminderDaysInMonth(month)){ alert('Month '+month+' only has '+reminderDaysInMonth(month)+' days.'); return; }
-        r.name = name; r.month = String(month).padStart(2,'0'); r.day = String(day).padStart(2,'0'); r.categoryId = categoryId;
+        r.name = name; r.month = String(month).padStart(2,'0'); r.day = String(day).padStart(2,'0'); r.categoryId = categoryId; r.circle = (row.querySelector('.be-circle').value==='C'?'C':'O');
         editingReminderId = null;
         await saveReminders();
         draw(); render(); renderBirthdayBanner();
@@ -1979,11 +1984,12 @@ function reminderRowHtml(r, categoryOptionsHtml){
       '<div style="display:flex;gap:6px;"><input type="text" class="be-name" value="'+escapeHtml(r.name)+'" style="flex:2;font-size:12.5px;padding:6px 8px;border-radius:7px;border:1px solid var(--border);">'+
       '<input type="number" class="be-month" value="'+parseInt(r.month,10)+'" min="1" max="12" style="flex:1;font-size:12.5px;padding:6px 6px;border-radius:7px;border:1px solid var(--border);">'+
       '<input type="number" class="be-day" value="'+parseInt(r.day,10)+'" min="1" max="31" style="flex:1;font-size:12.5px;padding:6px 6px;border-radius:7px;border:1px solid var(--border);"></div>'+
-      '<select class="be-cat" style="font-size:12.5px;padding:6px;border-radius:7px;border:1px solid var(--border);">'+categoryOptionsHtml(r.categoryId)+'</select>'+
+      '<div style="display:flex;gap:6px;"><select class="be-cat" style="flex:1;font-size:12.5px;padding:6px;border-radius:7px;border:1px solid var(--border);">'+categoryOptionsHtml(r.categoryId)+'</select>'+
+      '<select class="be-circle" style="font-size:12.5px;padding:6px;border-radius:7px;border:1px solid var(--border);"><option value="O"'+(r.circle==='C'?'':' selected')+'>O · Outside</option><option value="C"'+(r.circle==='C'?' selected':'')+'>C · Close</option></select></div>'+
       '<div style="display:flex;gap:6px;"><button type="button" class="btn-mini primary" style="flex:1;" data-savebday="'+r.id+'">Save</button><button type="button" class="btn-mini ghost" style="flex:1;" data-editbday="'+r.id+'">Cancel</button></div>'+
     '</div>';
   }
-  return '<div class="bday-row"><div><div class="bd-name">'+categoryIcon(r.categoryId)+' '+escapeHtml(r.name)+'</div><div class="bd-date">'+parseInt(r.month,10)+'/'+parseInt(r.day,10)+' every year · '+escapeHtml(categoryName(r.categoryId))+'</div></div>'+
+  return '<div class="bday-row"><div><div class="bd-name"><span class="bd-circ '+(r.circle==='C'?'c':'o')+'" title="'+(r.circle==='C'?'Close':'Outside')+'">'+(r.circle==='C'?'C':'O')+'</span> '+categoryIcon(r.categoryId)+' '+escapeHtml(r.name)+'</div><div class="bd-date">'+parseInt(r.month,10)+'/'+parseInt(r.day,10)+' every year · '+escapeHtml(categoryName(r.categoryId))+'</div></div>'+
     '<div style="display:flex;gap:5px;"><button type="button" data-editbday="'+r.id+'" style="background:var(--surface-alt);color:var(--text-soft);">✎</button><button type="button" data-delbday="'+r.id+'">✕</button></div></div>';
 }
 // Every event source, filtered down to whichever circles are currently on.
