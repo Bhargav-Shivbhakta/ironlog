@@ -3406,7 +3406,7 @@ WIDGET_TYPES.water.blocks=[{id:'alerts',label:'Reminder'},{id:'fig',label:'Body 
 WIDGET_TYPES.diet.blocks=[{id:'head',label:'Day switcher'},{id:'ring',label:'Calories ring'},{id:'macros',label:'Protein, carbs & fat'},{id:'micro',label:'Micronutrients'},{id:'next',label:'Next meal'},{id:'rescue',label:'Protein rescue'},{id:'meals',label:'Meals list'},{id:'add',label:'Add something else'},{id:'week',label:'Last 7 days'},{id:'flex',label:'Flex bank'},{id:'streak',label:'Streak'},{id:'energy',label:'Eaten vs burned'},{id:'weight',label:'Weight'}];
 WIDGET_TYPES.skin.blocks=[{id:'head',label:'Day switcher'},{id:'top',label:'Progress & today'},{id:'sec-am',label:'Morning routine'},{id:'sec-body',label:'Shower & body'},{id:'sec-face',label:'Face routine'},{id:'sec-nizoral',label:'Nizoral shampoo'},{id:'sec-pm',label:'Night routine'},{id:'coming',label:'Coming up'},{id:'heat',label:'Heat map'},{id:'cab',label:'Product cabinet'},{id:'trk',label:'Check-ins'},{id:'rev',label:'Review'}];
 WIDGET_TYPES.schedule.blocks=[{id:'progress',label:'Progress bar'},{id:'timeline',label:'Timeline'},{id:'anytime',label:'Anytime today'},{id:'next',label:'Up next'}];
-const FH={COLS:12,RU:8,CG:8};let fhEditId=null;
+const FH={COLS:12,RU:8,CG:8};   // RU (row height) follows the widget's width so block heights scale with itlet fhEditId=null;
 const fhOn=w=>!!(w&&w.fh&&Array.isArray(w.fh.items));
 const fhHit=(a,b)=>a.x<b.x+b.w&&b.x<a.x+a.w&&a.y<b.y+b.h&&b.y<a.y+a.h;
 // a block stays exactly where it was put; only one that would overlap another is pushed down
@@ -3424,13 +3424,24 @@ function fhPack(items){
   });
 }
 // text scales with the block so it just fills it (about 80% of the width), never out of bounds
-function fhZoom(inn,W){
+const FH_MINZ=.9,FH_MINPX=10.5;   // text never gets smaller than 90% of its normal size and never under ~10.5px on screen: it wraps (and the block grows) instead
+function fhLo(inn){
+  let mn=99;inn.querySelectorAll('*').forEach(e=>{if(e.closest('svg'))return;for(const n of e.childNodes){if(n.nodeType===3&&n.textContent.trim()){const f=parseFloat(getComputedStyle(e).fontSize);if(f&&f<mn)mn=f;break}}});
+  return mn>=99?FH_MINZ:Math.min(1.4,Math.max(FH_MINZ,FH_MINPX/mn));
+}
+function fhZoom(inn,W,cap){
   const ct=inn.style.containerType;inn.style.containerType='normal';inn.style.transform='none';inn.style.width='max-content';
   const Mc=inn.offsetWidth;inn.style.containerType=ct;
-  return Math.min(1.25,Math.max(.6,.8*W/Math.max(Mc,1)));
+  const lo=fhLo(inn);return Math.min(Math.max(cap||1.25,lo),Math.max(lo,.8*W/Math.max(Mc,1)));
+}
+// narrowest a block may be so its unbreakable parts still fit at the smallest text size
+function fhMinCols(cell,g){
+  const inn=cell.querySelector('.fh-in'),ct=inn.style.containerType;inn.style.containerType='normal';inn.style.transform='none';inn.style.width='min-content';
+  const mc=inn.offsetWidth*fhLo(inn);inn.style.containerType=ct;
+  return Math.max(2,Math.min(6,Math.ceil((mc+FH.CG+2)/g.cw)));
 }
 function fhSizeCell(cell,i,g){
-  const inn=cell.querySelector('.fh-in'),W=i.w*g.cw-FH.CG,m=fhZoom(inn,W);
+  const inn=cell.querySelector('.fh-in'),W=i.w*g.cw-FH.CG,m=fhZoom(inn,W,g.cap);
   inn.style.width=(W/m)+'px';inn.style.transform='scale('+m+')';
   return inn.offsetHeight*m;
 }
@@ -3441,7 +3452,7 @@ function fhView(wrap,items){
   const a=items.map(i=>({...i,x:0,w:FH.COLS}));let y=0;a.sort((p,q)=>p.y-q.y||p.x-q.x).forEach(i=>{i.y=y;y+=i.h});return a;
 }
 function fhPaint(wrap,list,skip){
-  const g=wrap.__g,on=new Set(list.map(i=>i.id));
+  const g=wrap.__g;FH.RU=g.ru;const on=new Set(list.map(i=>i.id));
   Object.keys(wrap.__cells).forEach(id=>{wrap.__cells[id].hidden=!on.has(id)});
   list.forEach(i=>{if(i.id!==skip)fhPlace(wrap.__cells[i.id],i,g)});
   wrap.__grid.style.height=(Math.max(0,...list.map(i=>i.y+i.h))*FH.RU)+'px';
@@ -3451,12 +3462,13 @@ function fhRelayout(wrap){
   const body=wrap.parentNode,def=wrap.__def,w=wrap.__w,F=w.fh;
   const bw=wrap.__grid.clientWidth;if(!bw)return;
   wrap.__narrow=body.clientWidth<380;
-  const g=wrap.__g={cw:(bw+FH.CG)/FH.COLS,w:bw};
+  FH.RU=Math.max(6,bw/72);const g=wrap.__g={cw:(bw+FH.CG)/FH.COLS,w:bw,ru:FH.RU,cap:Math.min(1.7,Math.max(1.15,bw/560))};
   wrap.classList.toggle('fh-narrow',wrap.__narrow);
   const items=F.items.filter(i=>wrap.__cells[i.id]);
   const view=wrap.__narrow?items.map(i=>({...i,x:0,w:FH.COLS})):items;
   view.forEach(i=>{
     const cell=wrap.__cells[i.id];cell.style.transition='none';
+    if(!wrap.__narrow)i.w=Math.max(i.w,Math.min(FH.COLS-i.x,fhMinCols(cell,g)));
     const hv=fhSizeCell(cell,i,g),nat=fhRows(hv);
     i.h=i.auto?nat:Math.max(i.h||0,nat);
     cell.style.width=(i.w*g.cw-FH.CG)+'px';cell.style.height=(i.h*FH.RU-FH.CG)+'px';void cell.offsetHeight;cell.style.transition='';
@@ -3503,21 +3515,21 @@ function fhWire(wrap){
     if(fhEditId!==w.id||wrap.__narrow)return;const cell=e.target.closest('.fh-blk');if(!cell)return;
     const it=F.items.find(i=>i.id===cell.dataset.id);if(!it)return;
     if(e.target.closest('.fh-x')){F.items=F.items.filter(i=>i!==it);F.hide=(F.hide||[]).concat(it.id);saveWidgetLayout();redrawFh(wrap);return}
-    const r=cell.getBoundingClientRect(),gr=grid.getBoundingClientRect();
+    FH.RU=wrap.__g.ru;const r=cell.getBoundingClientRect(),gr=grid.getBoundingClientRect();
     drag={mode:e.target.classList.contains('fh-rz')?'rz':'mv',it,cell,startH:r.height,ox:e.clientX-r.left,oy:e.clientY-r.top,left:r.left-gr.left,top:r.top-gr.top,trial:null};
     cell.classList.add('drag');try{cell.setPointerCapture(e.pointerId)}catch(x){}ghost.hidden=false;e.preventDefault();
   });
   grid.addEventListener('pointermove',e=>{
-    if(!drag)return;const g=wrap.__g,gr=grid.getBoundingClientRect(),{it,cell}=drag;let t={...it};
+    if(!drag)return;const g=wrap.__g;FH.RU=g.ru;const gr=grid.getBoundingClientRect(),{it,cell}=drag;let t={...it};
     if(drag.mode==='mv'){
       const px=e.clientX-gr.left-drag.ox,py=e.clientY-gr.top-drag.oy;cell.style.left=px+'px';cell.style.top=py+'px';
       t.x=Math.max(0,Math.min(FH.COLS-it.w,Math.round(px/g.cw)));t.y=Math.max(0,Math.round(py/FH.RU));
     }else{
       const wpx=Math.max(g.cw*2-FH.CG,e.clientX-gr.left-drag.left),hpx=Math.max(3*FH.RU-FH.CG,e.clientY-gr.top-drag.top);
-      t.w=Math.max(2,Math.min(FH.COLS-it.x,Math.round((wpx+FH.CG)/g.cw)));
+      t.w=Math.max(fhMinCols(cell,g),Math.min(FH.COLS-it.x,Math.round((wpx+FH.CG)/g.cw)));
       const nat=fhRows(fhSizeCell(cell,t,g));
       if(Math.abs(hpx-drag.startH)<14){t.h=it.auto?nat:Math.max(it.h,nat);t.auto=it.auto}else{t.h=Math.max(nat,Math.round((hpx+FH.CG)/FH.RU));t.auto=false}
-      cell.style.width=(wpx)+'px';cell.style.height=Math.max(t.h*FH.RU-FH.CG,hpx)+'px';
+      cell.style.width=Math.max(wpx,t.w*g.cw-FH.CG)+'px';cell.style.height=Math.max(t.h*FH.RU-FH.CG,hpx)+'px';
     }
     const trial=F.items.map(i=>i.id===it.id?t:{...i});fhSettle(trial,it.id);drag.trial=trial;
     const me=trial.find(i=>i.id===it.id);fhPlace(ghost,me,g);
