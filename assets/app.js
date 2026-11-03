@@ -3429,10 +3429,12 @@ function fhLo(inn){
   let mn=99;inn.querySelectorAll('*').forEach(e=>{if(e.closest('svg'))return;for(const n of e.childNodes){if(n.nodeType===3&&n.textContent.trim()){const f=parseFloat(getComputedStyle(e).fontSize);if(f&&f<mn)mn=f;break}}});
   return mn>=99?FH_MINZ:Math.min(1.4,Math.max(FH_MINZ,FH_MINPX/mn));
 }
-function fhZoom(inn,W,cap){
-  const ct=inn.style.containerType;inn.style.containerType='normal';inn.style.transform='none';inn.style.width='max-content';
-  const Mc=inn.offsetWidth;inn.style.containerType=ct;
-  const lo=fhLo(inn);return Math.min(Math.max(cap||1.25,lo),Math.max(lo,.8*W/Math.max(Mc,1)));
+const FH_FS=[.7,.8,.9,1,1.15,1.3,1.5,1.75,2];
+// text stays readable and grows only a little with the block's width; "A− / A+" on a block changes its whole font size
+function fhZoom(inn,W,f,cap){
+  const base=1+Math.min(1,Math.max(0,(W-320)/520))*.3;f=f||1;
+  inn.style.transform='none';
+  return f===1?Math.max(fhLo(inn),base):Math.max(.7,base*f);
 }
 // narrowest a block may be so its unbreakable parts still fit at the smallest text size
 function fhMinCols(cell,g){
@@ -3441,7 +3443,7 @@ function fhMinCols(cell,g){
   return Math.max(2,Math.min(6,Math.ceil((mc+FH.CG+2)/g.cw)));
 }
 function fhSizeCell(cell,i,g){
-  const inn=cell.querySelector('.fh-in'),W=i.w*g.cw-FH.CG,m=fhZoom(inn,W,g.cap);
+  const inn=cell.querySelector('.fh-in'),W=i.w*g.cw-FH.CG;inn.style.height='';const m=fhZoom(inn,W,i.f);cell._m=m;
   inn.style.width=(W/m)+'px';inn.style.transform='scale('+m+')';
   return inn.offsetHeight*m;
 }
@@ -3471,7 +3473,8 @@ function fhRelayout(wrap){
     if(!wrap.__narrow)i.w=Math.max(i.w,Math.min(FH.COLS-i.x,fhMinCols(cell,g)));
     const hv=fhSizeCell(cell,i,g),nat=fhRows(hv);
     i.h=i.auto?nat:Math.max(i.h||0,nat);
-    cell.style.width=(i.w*g.cw-FH.CG)+'px';cell.style.height=(i.h*FH.RU-FH.CG)+'px';void cell.offsetHeight;cell.style.transition='';
+    cell.style.width=(i.w*g.cw-FH.CG)+'px';cell.style.height=(i.h*FH.RU-FH.CG)+'px';
+    cell.querySelector('.fh-in').style.height=i.auto?'':(((i.h*FH.RU-FH.CG)/cell._m)+'px');void cell.offsetHeight;cell.style.transition='';
   });
   if(wrap.__narrow){items.forEach(o=>{const v=view.find(x=>x.id===o.id);if(v&&o.auto)o.h=v.h})}
   if(F.needPack&&!wrap.__narrow){fhPack(items);F.needPack=false;saveWidgetLayout()}else if(!wrap.__narrow)fhSettle(items,null);
@@ -3492,7 +3495,7 @@ function fhApply(body,def,w){
     if(!els[b.id].length||F.hide.includes(b.id))return;
     if(!F.items.some(i=>i.id===b.id)){if(!F.items.length)F.needPack=true;F.items.push({id:b.id,x:0,w:b.w||FH.COLS,y:Math.max(0,...F.items.map(i=>i.y+(i.h||2))),h:0,auto:true})}
     const cell=document.createElement('div');cell.className='fh-blk';cell.dataset.id=b.id;
-    cell.innerHTML='<div class="fh-clip"><div class="fh-in"></div></div><span class="fh-name">'+esc(b.label)+'</span><button type="button" class="fh-x" aria-label="Hide '+esc(b.label)+'">✕</button><span class="fh-rz" title="Drag to resize · double-click to fit the content"></span>';
+    cell.innerHTML='<div class="fh-clip"><div class="fh-in"></div></div><span class="fh-fs"><button type="button" data-fs="-1" title="Smaller text in this block">A\u2212</button><button type="button" data-fs="1" title="Bigger text in this block">A+</button></span><span class="fh-name">'+esc(b.label)+'</span><button type="button" class="fh-x" aria-label="Hide '+esc(b.label)+'">✕</button><span class="fh-rz" title="Drag to resize · double-click to fit the content"></span>';
     els[b.id].forEach(e=>cell.querySelector('.fh-in').appendChild(e));grid.appendChild(cell);wrap.__cells[b.id]=cell;
   });
   const rest=[...body.querySelectorAll('.widget-card-link')];
@@ -3504,6 +3507,8 @@ function fhWire(wrap){
   const grid=wrap.__grid,ghost=grid.querySelector('.fh-ghost'),w=wrap.__w,F=w.fh;let drag=null;
   const save=()=>{saveWidgetLayout();fhRelayout(wrap)};
   wrap.addEventListener('click',e=>{
+    const fs=e.target.closest('[data-fs]');
+    if(fs){const id=fs.closest('.fh-blk').dataset.id,it=F.items.find(i=>i.id===id);if(it){const cur=it.f||1;let k=FH_FS.reduce((bi,v,j)=>Math.abs(v-cur)<Math.abs(FH_FS[bi]-cur)?j:bi,0);k=Math.max(0,Math.min(FH_FS.length-1,k+(+fs.dataset.fs)));if(FH_FS[k]===1)delete it.f;else it.f=FH_FS[k];save()}return}
     const t=e.target.closest('[data-fh-auto],[data-fh-undo],[data-fh-reset],[data-fh-done],[data-fh-add]');if(!t)return;
     if(t.hasAttribute('data-fh-done')){fhEditId=null;wrap.classList.remove('fh-edit');redrawFh(wrap);return}
     if(t.hasAttribute('data-fh-undo')){HubHist.run('undo');return}
@@ -3514,6 +3519,7 @@ function fhWire(wrap){
   grid.addEventListener('pointerdown',e=>{
     if(fhEditId!==w.id||wrap.__narrow)return;const cell=e.target.closest('.fh-blk');if(!cell)return;
     const it=F.items.find(i=>i.id===cell.dataset.id);if(!it)return;
+    if(e.target.closest('.fh-fs'))return;
     if(e.target.closest('.fh-x')){F.items=F.items.filter(i=>i!==it);F.hide=(F.hide||[]).concat(it.id);saveWidgetLayout();redrawFh(wrap);return}
     FH.RU=wrap.__g.ru;const r=cell.getBoundingClientRect(),gr=grid.getBoundingClientRect();
     drag={mode:e.target.classList.contains('fh-rz')?'rz':'mv',it,cell,startH:r.height,ox:e.clientX-r.left,oy:e.clientY-r.top,left:r.left-gr.left,top:r.top-gr.top,trial:null};
@@ -3529,7 +3535,7 @@ function fhWire(wrap){
       t.w=Math.max(fhMinCols(cell,g),Math.min(FH.COLS-it.x,Math.round((wpx+FH.CG)/g.cw)));
       const nat=fhRows(fhSizeCell(cell,t,g));
       if(Math.abs(hpx-drag.startH)<14){t.h=it.auto?nat:Math.max(it.h,nat);t.auto=it.auto}else{t.h=Math.max(nat,Math.round((hpx+FH.CG)/FH.RU));t.auto=false}
-      cell.style.width=Math.max(wpx,t.w*g.cw-FH.CG)+'px';cell.style.height=Math.max(t.h*FH.RU-FH.CG,hpx)+'px';
+      cell.style.width=Math.max(wpx,t.w*g.cw-FH.CG)+'px';cell.style.height=Math.max(t.h*FH.RU-FH.CG,hpx)+'px';cell.querySelector('.fh-in').style.height=t.auto?'':((Math.max(t.h*FH.RU-FH.CG,hpx)/cell._m)+'px');
     }
     const trial=F.items.map(i=>i.id===it.id?t:{...i});fhSettle(trial,it.id);drag.trial=trial;
     const me=trial.find(i=>i.id===it.id);fhPlace(ghost,me,g);
