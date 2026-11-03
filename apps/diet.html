@@ -272,7 +272,7 @@
     </section>
 
     <section class="page" id="settings">
-      <div class="two-col"><div class="card"><div class="section-head"><div><h2>Daily goals</h2><div class="subtle">Set targets that fit your plan</div></div></div><div class="goal-grid"><div class="field"><label>Calories (kcal)</label><input class="input goal" id="goalCalories" type="number"></div><div class="field"><label>Protein (g)</label><input class="input goal" id="goalProtein" type="number"></div><div class="field"><label>Carbohydrates (g)</label><input class="input goal" id="goalCarbs" type="number"></div><div class="field"><label>Fat (g)</label><input class="input goal" id="goalFat" type="number"></div></div><button class="btn" style="margin-top:16px" onclick="saveGoals()">Save goals</button></div><div class="card"><div class="section-head"><div><h2>Data controls</h2><div class="subtle">Export a backup, import one, or restore the approved starting plan</div></div></div><div style="display:grid;gap:10px"><button class="btn secondary" onclick="exportData()">Export all data (.json)</button><label class="btn ghost" style="text-align:center">Import data<input type="file" accept="application/json" hidden onchange="importData(event)"></label><button class="btn danger" onclick="resetData()">Restore original plans</button></div></div></div>
+      <div class="two-col"><div class="card"><div class="section-head"><div><h2>Daily goals</h2><div class="subtle">Set targets that fit your plan</div></div></div><div class="goal-grid"><div class="field"><label>Calories (kcal)</label><input class="input goal" id="goalCalories" type="number"></div><div class="field"><label>Protein (g)</label><input class="input goal" id="goalProtein" type="number"></div><div class="field"><label>Carbohydrates (g)</label><input class="input goal" id="goalCarbs" type="number"></div><div class="field"><label>Fat (g)</label><input class="input goal" id="goalFat" type="number"></div></div><button class="btn" style="margin-top:16px" onclick="saveGoals()">Save goals</button></div><div class="card"><div class="section-head"><div><h2>Data controls</h2><div class="subtle">Export a backup, import one, or restore the approved starting plan</div></div></div><div style="display:grid;gap:10px"><button class="btn secondary" onclick="exportData()">Export all data (.json)</button><label class="btn ghost" style="text-align:center">Import data<input type="file" accept="application/json" hidden onchange="importData(event)"></label><button class="btn danger" onclick="resetData()">Restore original plans</button></div></div></div><div class="card" id="phaseMenuCard" style="margin-top:16px;display:none"><div class="section-head"><div><h2>Phase menu</h2><div class="subtle" id="phaseMenuStatus"></div></div></div><div style="display:grid;gap:10px"><button class="btn secondary" id="phaseMenuApply" onclick="applyPhaseMenu()"></button><button class="btn ghost" id="phaseMenuRestore" onclick="restorePhaseMenu()">Restore my previous menu</button></div></div>
       <div class="card" style="margin-top:20px"><div class="section-head"><div><h2>How accurate nutrition tracking works</h2><div class="subtle">The model behind the interface</div></div></div><div class="why-list"><div class="why"><i>1</i><div><b>One standardized nutrition basis</b><span>Every food stores nutrients for a known reference amount such as 100 g, 100 ml, or one item.</span></div></div><div class="why"><i>2</i><div><b>Unit-aware conversion</b><span>Grams, ounces, cups, tablespoons, teaspoons, pieces, and servings convert through the ingredient’s density or unit weight.</span></div></div><div class="why"><i>3</i><div><b>Recipe scaling</b><span>Ingredient totals are summed, then divided by the recipe’s serving count. A logged half-serving is multiplied by 0.5.</span></div></div><div class="why"><i>4</i><div><b>Editable source data</b><span>Labels and brands vary. Custom foods let you enter the exact package values you use.</span></div></div></div></div>
     </section>
   </main>
@@ -346,19 +346,7 @@ function logStep(i,direction){const it=logDraft.items[i],step=['piece','serving'
 function logChangeFood(i,id){const f=food(id);if(!f)return;logDraft.items[i]={foodId:id,qty:f.basis,unit:f.unit};renderLogEditor()}
 function removeLogItem(i){logDraft.items.splice(i,1);renderLogEditor()}
 function addLogItem(){const f=food($('logFoodSelect').value),qty=Number($('logFoodQty').value);if(!f||qty<=0)return toast('Enter a valid amount');logDraft.items.push({foodId:f.id,qty,unit:$('logFoodUnit').value});renderLogEditor()}
-function renderFoods(){let q=($('foodSearch').value||'').toLowerCase();$('foodRows').innerHTML=state.foods.filter(f=>f.name.toLowerCase().includes(q)).map(f=>`<tr><td><div class="food-name">${esc(f.name)}</div><span class="tag">${f.id.startsWith('custom')?'Custom':'Built-in'}</span></td><td>${f.basis} ${f.unit}</td><td class="num">${f.calories}</td><td class="num">${f.protein} g</td><td class="num">${f.carbs} g</td><td class="num">${f.fat} g</td><td class="num">${f.fiber} g</td><td><button class="btn ghost small" onclick="openFoodModal('${f.id}')">Edit</button> <button class="btn ghost small" style="color:#b3261e" onclick="deleteFood('${f.id}')">Delete</button></td></tr>`).join('')}
-/* Delete an ingredient from the Foods list. Refused (with the reason) while a recipe or a logged/planned entry still uses it, so nothing in your recipes or history can break. */
-function deleteFood(id){
-  const f=food(id);if(!f)return;
-  const inRecipes=state.recipes.filter(r=>(r.items||[]).some(i=>i.foodId===id));
-  if(inRecipes.length){const names=inRecipes.slice(0,4).map(r=>'“'+r.name+'”').join(', ')+(inRecipes.length>4?' and '+(inRecipes.length-4)+' more':'');return toast('“'+f.name+'” is still used in '+names+'. Remove it from there first, then delete it.')}
-  const inDiary=state.diary.filter(d=>(d.consumption||[]).some(c=>c.foodId===id)).length;
-  if(inDiary)return toast('“'+f.name+'” appears in '+inDiary+' logged or planned entr'+(inDiary===1?'y':'ies')+', so deleting it would break that history. It is kept.');
-  if(!confirm('Delete “'+f.name+'” from your ingredients? This cannot be undone.'))return;
-  state.foods=state.foods.filter(x=>x.id!==id);
-  state.pantry=(state.pantry||[]).filter(p=>p.foodId!==id);
-  persist();renderAll();toast('Ingredient deleted');
-}
+function renderFoods(){let q=($('foodSearch').value||'').toLowerCase();$('foodRows').innerHTML=state.foods.filter(f=>f.name.toLowerCase().includes(q)).map(f=>`<tr><td><div class="food-name">${esc(f.name)}</div><span class="tag">${f.id.startsWith('custom')?'Custom':'Built-in'}</span></td><td>${f.basis} ${f.unit}</td><td class="num">${f.calories}</td><td class="num">${f.protein} g</td><td class="num">${f.carbs} g</td><td class="num">${f.fat} g</td><td class="num">${f.fiber} g</td><td><button class="btn ghost small" onclick="openFoodModal('${f.id}')">Edit</button></td></tr>`).join('')}
 function closeFoodModal(){$('foodModal').classList.remove('open')}
 function num(id){return Math.max(0,Number($(id).value)||0)}
 function exportData(){let blob=new Blob([JSON.stringify(state,null,2)],{type:'application/json'}),a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='nourish-data.json';a.click();URL.revokeObjectURL(a.href)}
@@ -491,7 +479,7 @@ function bundleChange(pi,ii,key,val){let it=bundleDraft.parts[pi].recipe.items[i
 function bundleStep(pi,ii,d){let it=bundleDraft.parts[pi].recipe.items[ii],step=['piece','serving','scoop'].includes(it.unit)?.25:1;it.qty=Math.max(.01,round(it.qty+d*step,2));renderBundle()}
 function bundleRemove(pi,ii){bundleDraft.parts[pi].recipe.items.splice(ii,1);renderBundle()}
 function bundleAdd(pi){let f=food($(`bf-${pi}`).value),q=+$(`bq-${pi}`).value;if(!f||q<=0)return toast('Enter a valid amount');bundleDraft.parts[pi].recipe.items.push(I(f.id,q,$(`bu-${pi}`).value));renderBundle()}
-function loadGoalInputs(){let g=active().goals;$('goalCalories').value=g.calories;$('goalProtein').value=g.protein;$('goalCarbs').value=g.carbs;$('goalFat').value=g.fat}
+function loadGoalInputs(){let g=active().goals;$('goalCalories').value=g.calories;$('goalProtein').value=g.protein;$('goalCarbs').value=g.carbs;$('goalFat').value=g.fat;try{renderPhaseMenuCard()}catch(e){}}
 saveGoals=function(){let g={calories:num('goalCalories'),protein:num('goalProtein'),carbs:num('goalCarbs'),fat:num('goalFat')};if(Object.values(g).some(v=>v<=0))return toast('All goals must be greater than zero');active().goals=g;persist();renderDashboard();toast(`${active().name}’s goals updated`)}
 draft=clone(state.recipes.find(r=>r.profileId===state.activeProfile));fillFoodSelect();
 </script>
@@ -601,20 +589,36 @@ function selectToday(){selectDate(localToday())}function moveWeek(n){state.weekA
 function copyPreviousDay(){let src=addDaysISO(state.selectedDate,-1),old=state.diary.filter(x=>x.date===src&&x.profileId===state.activeProfile),existingNames=new Set(state.diary.filter(x=>x.date===state.selectedDate&&x.profileId===state.activeProfile).map(x=>x.name)),toCopy=old.filter(x=>!existingNames.has(x.name));if(!old.length)return toast('Previous day has no entries');if(!toCopy.length)return toast('Every meal from the previous day is already on this date');toCopy.forEach((x,i)=>state.diary.push({...clone(x),id:`d-copy-${Date.now()}-${i}`,date:state.selectedDate,status:'planned',note:'Copied from previous day'}));persist();renderAll();toast(`${toCopy.length} meal${toCopy.length===1?'':'s'} copied as planned`)}
 // Each day (today or later) gets the standard meal plan as one-tap "planned" rows the first time it is opened —
 // otherwise a new day looked empty until you dug into the Week tab. Done once per profile+date, so deleting a row sticks.
-/* Bhargav's five-phase plan (assets/bhargav-plan.js): at each phase start his daily goals and menu amounts switch over.
-   Past days, eaten/skipped/replaced entries and Anusha's plan are never touched. */
-function applyBhargavPhase(){
-  try{
-    return false; /* auto-apply OFF: your own recipes and goals are never changed */
-    const BP=window.BHARGAV_PLAN;if(!BP||!state||!state.recipes)return false;
-    if(!BP.applyDietPhase(state,localToday()))return false;
-    persist();
-    try{const ph=BP.phaseFor(localToday());toast('Phase '+ph.n+' menu applied · '+ph.cal.toLocaleString()+' kcal, '+ph.protein+' g protein')}catch(e){}
-    return true;
-  }catch(e){console.warn('phase menu',e);return false}
+/* Bhargav's five-phase menu (assets/bhargav-plan.js) is OPT-IN: nothing changes your recipes or goals unless you press the
+   buttons in Settings > "Phase menu". Applying keeps a backup so "Restore my previous menu" always works. */
+function phaseSeed(){
+  const ids=['b-oats','b-eggs','b-riceyog','b-lsalad','b-paneer','b-dal','b-dsalad'];
+  const dn=FM.find(m=>m.id==='b-dinner');
+  return{recipes:clone(FR.filter(r=>ids.includes(r.id))),goals:{calories:1720,protein:154,carbs:175,fat:60},dinnerRule:dn?dn.rule:''};
+}
+function renderPhaseMenuCard(){
+  const el=$('phaseMenuCard');if(!el)return;
+  const BP=window.BHARGAV_PLAN;if(!BP||state.activeProfile!=='bhargav'){el.style.display='none';return}
+  el.style.display='';
+  const ph=BP.phaseFor(localToday())||BP.phases[0];
+  const applied=state.bPhaseApplied;
+  $('phaseMenuStatus').innerHTML=applied?`Phase ${applied} menu is in use. Your previous recipes ${state.bMenuBackup?'are saved and can be restored':'can be restored to the app’s original starting recipes'}.`:'You are using your own recipes and goals. Nothing has been changed.';
+  $('phaseMenuApply').textContent=`Use Phase ${ph.n} menu (${ph.cal.toLocaleString()} kcal, ${ph.protein} g protein)`;
+  $('phaseMenuRestore').style.display=applied?'':'none';
+}
+function applyPhaseMenu(){
+  const BP=window.BHARGAV_PLAN;if(!BP)return;
+  const ph=BP.phaseFor(localToday())||BP.phases[0];
+  if(!confirm(`Switch Bhargav to the Phase ${ph.n} menu?\n\nThis changes the amounts in your default recipes and your daily goals (${ph.cal} kcal, ${ph.protein} g protein), and rebuilds today’s unlogged planned meals. Meals you have eaten and past days are not touched. Your current recipes are saved so you can restore them.`))return;
+  if(BP.applyDietPhase(state,localToday())){persist();renderAll();renderPhaseMenuCard();toast(`Phase ${ph.n} menu applied`)}
+}
+function restorePhaseMenu(){
+  const BP=window.BHARGAV_PLAN;if(!BP)return;
+  if(!confirm('Put your previous recipes and goals back? Today’s unlogged planned meals are rebuilt from them. Meals you have eaten are not touched.'))return;
+  const how=BP.restoreDietMenu(state,localToday(),phaseSeed());
+  if(how){persist();renderAll();renderPhaseMenuCard();toast(how==='backup'?'Your previous menu is back':'Original starting recipes restored')}else toast('Nothing to restore')
 }
 function seedPlanForDate(){
-  applyBhargavPhase();
   if(!state.meals||!state.diary)return;const d=state.selectedDate,p=state.activeProfile;if(!d||d<localToday())return;
   state.planSeeded=state.planSeeded||{};const k=p+'|'+d;if(state.planSeeded[k])return;state.planSeeded[k]=true;
   const old=addDaysISO(localToday(),-14);Object.keys(state.planSeeded).forEach(x=>{if(x.split('|')[1]<old)delete state.planSeeded[x]});

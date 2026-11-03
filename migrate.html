@@ -1,0 +1,160 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<title>Move my data</title>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<style>
+:root{--bg:#f4f3ee;--card:#fff;--ink:#22201a;--muted:#6f6b60;--line:#e2dfd4;--accent:#b07d1f;--bad:#b3261e;--good:#1f7a43}
+@media(prefers-color-scheme:dark){:root{--bg:#151410;--card:#1e1d18;--ink:#f1eee4;--muted:#a8a396;--line:#34322a;--accent:#e0b04a;--bad:#ff8a80;--good:#7ddc9b}}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.5 system-ui,-apple-system,Segoe UI,sans-serif;padding:20px 16px 60px}
+main{max-width:760px;margin:0 auto}h1{font-size:22px;margin:0 0 4px}h2{font-size:16px;margin:0 0 8px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px;margin:14px 0}
+.sub{color:var(--muted);font-size:13.5px}label{display:block;font-size:12.5px;font-weight:700;color:var(--muted);margin:10px 0 4px}
+input,textarea{width:100%;padding:10px 12px;border-radius:10px;border:1px solid var(--line);background:var(--bg);color:var(--ink);font:inherit}
+textarea{min-height:130px;font:12.5px/1.45 ui-monospace,Menlo,Consolas,monospace}
+button{padding:10px 16px;border-radius:10px;border:1px solid var(--line);background:var(--card);color:var(--ink);font:inherit;font-weight:700;cursor:pointer}
+button.primary{background:var(--accent);border-color:var(--accent);color:#fff}button:disabled{opacity:.5;cursor:default}
+#log{white-space:pre-wrap;font:12.5px/1.5 ui-monospace,Menlo,Consolas,monospace;max-height:340px;overflow:auto;background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:10px}
+.row{display:grid;grid-template-columns:1fr 1fr;gap:10px}@media(max-width:560px){.row{grid-template-columns:1fr}}
+.bad{color:var(--bad)}.good{color:var(--good)}
+</style>
+</head>
+<body>
+<main>
+<h1>Move my data to a new Firebase project</h1>
+<div class="sub">One-time tool. It <b>only reads</b> from the old project and <b>only writes</b> to the new one. It never deletes anything, so the old project stays untouched as your backup. Nothing is sent anywhere except those two Firebase projects.</div>
+
+<div class="card">
+<h2>1 · Old project (where your data is now)</h2>
+<div class="sub">Pre-filled with the current project. Sign in with the email and password you use for the app.</div>
+<label>Old project config (JSON)</label>
+<textarea id="oldCfg" spellcheck="false">{
+  "apiKey": "AIzaSyBe01eR2RZwSbU_aoJMeh_2MMJ5mqkVuKk",
+  "authDomain": "iron-log-bfc55.firebaseapp.com",
+  "projectId": "iron-log-bfc55",
+  "storageBucket": "iron-log-bfc55.firebasestorage.app",
+  "messagingSenderId": "106586808946",
+  "appId": "1:106586808946:web:f4736554ba9fc82c6fd8eb"
+}</textarea>
+<div class="row"><div><label>Email</label><input id="oldEmail" type="email" autocomplete="username"></div><div><label>Password</label><input id="oldPass" type="password" autocomplete="current-password"></div></div>
+</div>
+
+<div class="card">
+<h2>2 · New project (where it should go)</h2>
+<div class="sub">In the new project: Authentication → turn on Email/Password; Firestore → create a database and paste the rules from MIGRATION.md. Then paste the new project's web-app config here.</div>
+<label>New project config (JSON, or the <code>const firebaseConfig = {…}</code> block)</label>
+<textarea id="newCfg" spellcheck="false" placeholder='{ "apiKey": "...", "authDomain": "...", "projectId": "...", "storageBucket": "...", "messagingSenderId": "...", "appId": "..." }'></textarea>
+<div class="row"><div><label>Email (can be the same one)</label><input id="newEmail" type="email" autocomplete="off"></div><div><label>Password</label><input id="newPass" type="password" autocomplete="new-password"></div></div>
+<label style="display:flex;gap:8px;align-items:center;font-weight:600"><input type="checkbox" id="createAcct" style="width:auto"> Create this account in the new project if it doesn't exist yet</label>
+</div>
+
+<div class="card">
+<h2>3 · Names to copy</h2>
+<div class="sub">Browsers can't list empty "folders", so these names are spelled out. The defaults cover every app in this project.</div>
+<div class="row"><div><label>Profiles</label><input id="profiles" value="Bhargav,Anusha"></div><div><label>App folders</label><input id="apps" value="hub,chores,calendar,grocery-v4,nourish-diet-v2,pledge-v2"></div></div>
+</div>
+
+<div class="card">
+<h2>4 · Run</h2>
+<div class="sub">Start with the check: it counts what would be copied and writes nothing.</div>
+<p><button id="dry">Check (writes nothing)</button> <button id="go" class="primary">Copy to new project</button></p>
+<div id="log">Ready.</div>
+</div>
+</main>
+<script>
+(function(){
+  var $=function(i){return document.getElementById(i)};
+  function log(m,c){var l=$('log'),d=document.createElement('div');d.textContent=m;if(c)d.className=c;l.appendChild(d);l.scrollTop=l.scrollHeight}
+  function parseCfg(t){
+    t=(t||'').trim();var m=t.match(/\{[\s\S]*\}/);if(!m)throw new Error('Could not find a config object');
+    var s=m[0];try{return JSON.parse(s)}catch(e){}
+    // JS-style object (unquoted keys, single quotes, trailing commas)
+    s=s.replace(/([{,]\s*)([A-Za-z_]\w*)\s*:/g,'$1"$2":').replace(/'([^']*)'/g,'"$1"').replace(/,\s*}/g,'}');
+    return JSON.parse(s);
+  }
+  var SUBS={ // collections under each profile folder
+    'schedule-profiles':['data'],'skin-profiles':['data'],'todo-profiles':['data'],'budget-profiles':['data'],'clock-profiles':['data'],'hub-profiles':['data']
+  };
+  var GYM_SUBS=['dailyLogs','workoutLogs','cardioLogs','meta','trash'];
+  async function signIn(app,email,pass,create){
+    var a=app.auth();
+    try{return (await a.signInWithEmailAndPassword(email,pass)).user}
+    catch(e){
+      if(create&&(e.code==='auth/user-not-found'||e.code==='auth/invalid-credential'||e.code==='auth/invalid-login-credentials')){
+        return (await a.createUserWithEmailAndPassword(email,pass)).user;
+      }
+      throw e;
+    }
+  }
+  /* Build the list of source doc refs: {path:[...segments below users/{uid}], data} */
+  async function collect(srcUser,profiles,apps,progress){
+    var out=[];
+    async function col(ref,pathSegs){
+      var snap=await ref.get();snap.forEach(function(d){out.push({segs:pathSegs.concat([d.id]),data:d.data()})});
+      progress(out.length);
+    }
+    for(var i=0;i<apps.length;i++){await col(srcUser.collection('apps').doc(apps[i]).collection('data'),['apps',apps[i],'data'])}
+    for(var g in SUBS){for(var p=0;p<profiles.length;p++){await col(srcUser.collection(g).doc(profiles[p]).collection('data'),[g,profiles[p],'data'])}}
+    await col(srcUser.collection('todo-shared'),['todo-shared']);
+    await col(srcUser.collection('budget-shared'),['budget-shared']);
+    for(var q=0;q<profiles.length;q++){
+      var pl=profiles[q].toLowerCase(),pdoc=srcUser.collection('profiles').doc(pl),ps=await pdoc.get();
+      if(ps.exists)out.push({segs:['profiles',pl],data:ps.data()});
+      for(var k=0;k<GYM_SUBS.length;k++){await col(pdoc.collection(GYM_SUBS[k]),['profiles',pl,GYM_SUBS[k]])}
+    }
+    var root=await srcUser.get();if(root.exists)out.push({segs:[],data:root.data()});
+    return out;
+  }
+  function refFor(userDoc,segs){
+    if(!segs.length)return userDoc;
+    var r=userDoc;for(var i=0;i<segs.length;i++){r=(i%2===0)?r.collection(segs[i]):r.doc(segs[i])}return r;
+  }
+  async function run(copy){
+    $('log').textContent='';$('dry').disabled=$('go').disabled=true;
+    try{
+      var oc=parseCfg($('oldCfg').value),nc=copy?parseCfg($('newCfg').value||'{}'):null;
+      var profiles=$('profiles').value.split(',').map(function(s){return s.trim()}).filter(Boolean);
+      var apps=$('apps').value.split(',').map(function(s){return s.trim()}).filter(Boolean);
+      var oldApp=firebase.initializeApp(oc,'old'+Date.now());
+      log('Signing in to the OLD project ('+oc.projectId+')…');
+      var ou=await signIn(oldApp,$('oldEmail').value.trim(),$('oldPass').value,false);
+      log('Signed in. Reading your data (read-only)…');
+      var items=await collect(oldApp.firestore().collection('users').doc(ou.uid),profiles,apps,function(n){});
+      var bytes=items.reduce(function(s,i){return s+JSON.stringify(i.data).length},0);
+      log('Found '+items.length+' documents (~'+Math.round(bytes/1024)+' KB).','good');
+      var by={};items.forEach(function(i){var k=i.segs.slice(0,i.segs[0]==='apps'||i.segs[0]==='profiles'?3:2).join('/');by[k]=(by[k]||0)+1});
+      Object.keys(by).sort().forEach(function(k){log('  '+by[k]+'  '+k)});
+      if(!copy){log('\nCheck finished. Nothing was written. If the numbers look right, press "Copy to new project".');return}
+      if(!$('newCfg').value.trim())throw new Error('Paste the NEW project config first.');
+      var newApp=firebase.initializeApp(nc,'new'+Date.now());
+      log('\nSigning in to the NEW project ('+nc.projectId+')…');
+      var nu=await signIn(newApp,$('newEmail').value.trim(),$('newPass').value,$('createAcct').checked);
+      var ndb=newApp.firestore(),userDoc=ndb.collection('users').doc(nu.uid);
+      log('Signed in as '+nu.email+'. Writing '+items.length+' documents…');
+      var done=0;
+      for(var i=0;i<items.length;i+=400){
+        var b=ndb.batch();
+        items.slice(i,i+400).forEach(function(it){b.set(refFor(userDoc,it.segs),it.data)});
+        await b.commit();done=Math.min(items.length,i+400);log('  '+done+' / '+items.length);
+      }
+      // verify
+      log('Verifying…');var bad=0;
+      for(var v=0;v<items.length;v+=Math.max(1,Math.floor(items.length/25))){
+        var s=await refFor(userDoc,items[v].segs).get();if(!s.exists||JSON.stringify(s.data())!==JSON.stringify(items[v].data))bad++;
+      }
+      log(bad?('Spot check found '+bad+' differences. Run the copy again.'):'Spot check passed.',bad?'bad':'good');
+      log('\nDone. Next: put the new config into assets/firebase-config.js and upload it (see MIGRATION.md). The old project was not changed.','good');
+    }catch(e){log('\nStopped: '+(e.code?e.code+' — ':'')+e.message,'bad')}
+    finally{$('dry').disabled=false;$('go').disabled=false}
+  }
+  $('dry').onclick=function(){run(false)};
+  $('go').onclick=function(){if(confirm('Copy your data into the new project now? Existing documents with the same names in the new project are overwritten.'))run(true)};
+})();
+</script>
+</body>
+</html>

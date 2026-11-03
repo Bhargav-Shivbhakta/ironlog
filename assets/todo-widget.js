@@ -150,7 +150,7 @@ function groups(){
   return{g,ready:over.concat(tod),all:items};
 }
 function draw(el){
-  const st=S(),today0=today(),root=el.querySelector('.td-root');
+  const st=S(),today0=today(),root=el.querySelector('.td-root')||(el.querySelector('.td-body')?el:null);
   if(!root){mount(el);return}
   if(!td.got.p&&!td.got.s&&!all().length){root.querySelector('.td-body').innerHTML='<div class="td-empty">Loading…</div>';return}
   const {g,ready}=groups(),ctx={today:today0},max=td.all?999:Math.max(3,parseInt(st.max,10)||10);
@@ -210,18 +210,19 @@ async function compSubmit(root){
   inp.focus();return t;
 }
 function mount(el){
-  el.innerHTML='<div class="td-root"><div class="td-comp"><div class="td-line"><input class="td-in" type="text" maxlength="240" placeholder="Add a task… try “call mom tomorrow 5pm urgent” or “pay rent for '+esc(other().toLowerCase())+'”" enterkeyhint="done" autocomplete="off"><button type="button" class="td-add" aria-label="Add task" disabled>Add</button><button type="button" class="td-mapb" data-a="map" title="Order map">Map</button></div>'+
+  el.innerHTML='<div class="td-root"><div data-blk="add"><div class="td-comp"><div class="td-line"><input class="td-in" type="text" maxlength="240" placeholder="Add a task… try “call mom tomorrow 5pm urgent” or “pay rent for '+esc(other().toLowerCase())+'”" enterkeyhint="done" autocomplete="off"><button type="button" class="td-add" aria-label="Add task" disabled>Add</button><button type="button" class="td-mapb" data-a="map" title="Order map">Map</button></div>'+
     '<div class="td-pv"></div>'+
     '<div class="td-ch"><span class="td-cg" data-g="day">'+[['today','Today'],['tom','Tomorrow'],['later','Later'],['none','No date']].map(([k,l])=>'<button type="button" data-day="'+k+'">'+l+'</button>').join('')+'</span>'+
     '<span class="td-cg" data-g="who">'+[['me','Me'],['shared','Both'],['other',other()]].map(([k,l])=>'<button type="button" data-who="'+k+'">'+esc(l)+'</button>').join('')+'</span>'+
     '<span class="td-cg" data-g="pri">'+[[0,'Normal'],[2,'Important'],[3,'Urgent']].map(([k,l])=>'<button type="button" data-pri="'+k+'">'+l+'</button>').join('')+'</span>'+
     '<button type="button" class="td-keep" title="Keep these choices for the next task">Keep</button></div>'+
-    '<div class="td-often"></div></div><div class="td-sum"><span class="td-count"></span></div><div class="td-body"></div></div>';
+    '<div class="td-often"></div></div></div><div data-blk="list"><div class="td-sum"><span class="td-count"></span></div><div class="td-body"></div></div></div>';
   const root=el.querySelector('.td-root'),inp=root.querySelector('.td-in');
   inp.value=td.comp.text;compChips(root);
-  inp.addEventListener('input',()=>{td.comp.text=inp.value;compChips(root)});
-  inp.addEventListener('keydown',e=>{if(e.key==='Enter'&&!e.isComposing){e.preventDefault();compSubmit(root)}else if(e.key==='Escape'){inp.value='';td.comp.text='';td.comp.ign=new Set();compChips(root);inp.blur()}});
-  root.addEventListener('click',e=>onClick(e,el,root));
+  const R=()=>el.querySelector('.td-root')||el;
+  inp.addEventListener('input',()=>{td.comp.text=inp.value;compChips(R())});
+  inp.addEventListener('keydown',e=>{if(e.key==='Enter'&&!e.isComposing){e.preventDefault();compSubmit(R())}else if(e.key==='Escape'){inp.value='';td.comp.text='';td.comp.ign=new Set();compChips(R());inp.blur()}});
+  if(!el.__tdClick){el.__tdClick=1;el.addEventListener('click',e=>onClick(e,el,el.querySelector('.td-root')||el))}
   draw(el);
 }
 function onClick(e,el,root){
@@ -389,6 +390,7 @@ function newBlock(pane,c,after){
 window.tdAddTask=addTask;
 /* ---------- widget definition ---------- */
 WIDGET_TYPES.todo={title:'To-Do',icon:'list-checks',desc:'Your tasks in one place: add with a sentence (“pay rent for Anusha tomorrow 4pm urgent”), hand tasks over, tick them off, and see what order to do them in on the Map. Same tasks as the To-Do app.',defaultSize:'lg',
+  blocks:[{id:'add',label:'Add a task'},{id:'list',label:'Task list'}],
   settings:TODO_SETTINGS,ready:()=>Promise.resolve(),
   render(el){if(!td.unP&&!td.unS)startHubTodoWatch();mount(el)}};
 if(typeof WIDGET_NO_CACHE==='object')WIDGET_NO_CACHE.todo=1;
