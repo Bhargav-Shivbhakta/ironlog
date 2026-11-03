@@ -1,0 +1,166 @@
+rules_version = '2';
+
+// Security rules for student sign-in and class rosters. Paste this whole file into
+// Firebase console → Firestore Database → Rules, then click Publish.
+//
+// 1. Put the site admin email(s) in admins() below (lowercase). Admins create classes
+//    and upload rosters. Class instructors are set per class on the Admin page.
+// 2. Change sdsu[.]edu if your school uses a different email ending.
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function admins() {
+      return ['bshivbhakta@sdsu.edu'];
+    }
+
+    function schoolAccount() {
+      return request.auth != null
+        && request.auth.token.email_verified == true
+        && request.auth.token.email.lower().matches('.*@sdsu[.]edu$');
+    }
+    function myEmail() { return request.auth.token.email.lower(); }
+    function isAdmin() { return schoolAccount() && myEmail() in admins(); }
+
+    function enrollmentPath() { return /databases/$(database)/documents/enrollments/$(myEmail()); }
+    function isEnrolledAnywhere() { return schoolAccount() && exists(enrollmentPath()) && get(enrollmentPath()).data.classes.size() > 0; }
+    function enrolledIn(classId) { return schoolAccount() && exists(enrollmentPath()) && classId in get(enrollmentPath()).data.classes; }
+
+    function classDoc(classId) { return get(/databases/$(database)/documents/classes/$(classId)).data; }
+    function teaches(classId) { return schoolAccount() && myEmail() in classDoc(classId).instructors; }
+
+    // ---- admin check (the site reads this to decide whether to show the Admin page)
+    match /admins/{email} {
+      allow read: if isAdmin();
+    }
+
+    // ---- classes, rosters and enrollments: only admins can change them
+    match /classes/{classId} {
+      allow read: if isAdmin() || teaches(classId) || enrolledIn(classId);
+      allow write: if isAdmin();
+      // a class's instructors can add or remove the exams they upload (nothing else)
+      allow update: if teaches(classId)
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['exams', 'updatedAt']);
+
+      // Exams and assignments uploaded on the site: everyone in the class reads them,
+      // the class's instructors (and admins) upload, replace and delete them.
+      match /exams/{examId} {
+        allow read: if isAdmin() || teaches(classId) || enrolledIn(classId);
+        allow write: if isAdmin() || teaches(classId);
+      }
+      match /examFiles/{examId} {
+        allow read: if isAdmin() || teaches(classId) || enrolledIn(classId);
+        allow write: if isAdmin() || teaches(classId);
+      }
+      match /assignmentSets/{examId} {
+        allow read: if isAdmin() || teaches(classId) || enrolledIn(classId);
+        allow write: if isAdmin() || teaches(classId);
+      }
+      // the original assignment files, including reference solutions: instructors only
+      match /assignmentFiles/{examId} {
+        allow read, write: if isAdmin() || teaches(classId);
+      }
+
+      // Announcements: the class's instructors post them, everyone in the class reads them.
+      match /announcements/{annId} {
+        allow read: if isAdmin() || teaches(classId) || enrolledIn(classId);
+        allow create, update: if (isAdmin() || teaches(classId))
+          && request.resource.data.text is string && request.resource.data.text.size() <= 500
+          && request.resource.data.authorEmail == myEmail();
+        allow delete: if isAdmin() || teaches(classId);
+      }
+
+      // Question reports from students: they create/replace their own, instructors read and resolve.
+      match /reports/{reportId} {
+        allow read: if isAdmin() || teaches(classId);
+        allow create, update: if enrolledIn(classId)
+          && request.resource.data.uid == request.auth.uid
+          && request.resource.data.email == myEmail()
+          && request.resource.data.classId == classId
+          && request.resource.data.examId in classDoc(classId).exams
+          && reportId.matches(request.auth.uid + '_.*')
+          && request.resource.data.note.size() <= 600
+          && request.resource.data.status == 'open';
+        allow update: if (isAdmin() || teaches(classId))
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'resolvedBy', 'resolvedAt']);
+        allow delete: if isAdmin();
+      }
+
+      // "This student has signed in": one small record per student per class, refreshed at most
+      // once a day, so the dashboard knows who signed in even before they practise an exam.
+      match /signins/{studentUid} {
+        allow read: if isAdmin() || teaches(classId);
+        allow create, update: if enrolledIn(classId) && studentUid == request.auth.uid
+          && request.resource.data.keys().hasOnly(['uid', 'email', 'at'])
+          && request.resource.data.uid == request.auth.uid
+          && request.resource.data.email == myEmail()
+          && request.resource.data.at is number;
+        allow write: if isAdmin();
+      }
+
+      // Real exam scores uploaded for the Analytics page: the class's staff only, never students.
+      match /grades/{gradeId} {
+        allow read, write: if isAdmin() || teaches(classId);
+      }
+
+      // A student's summary and code for one exam, readable by that class's instructors.
+      // Document id is "<uid>_<examId>"; students can only write their own, for exams of this class.
+      match /{kind}/{docId} {
+        allow read: if isAdmin() || teaches(classId);
+        allow create, update: if kind in ['summaries', 'code']
+          && enrolledIn(classId)
+          && request.resource.data.uid == request.auth.uid
+          && request.resource.data.email == myEmail()
+          && request.resource.data.classId == classId
+          && request.resource.data.examId in classDoc(classId).exams
+          && docId == request.auth.uid + '_' + request.resource.data.examId;
+        allow delete: if isAdmin();
+      }
+    }
+    match /rosters/{classId} {
+      allow read: if isAdmin() || teaches(classId);
+      allow write: if isAdmin();
+    }
+    match /enrollments/{email} {
+      allow read: if isAdmin() || (schoolAccount() && email == myEmail());
+      allow write: if isAdmin();
+    }
+
+    // ---- school accounts that signed in but aren't on any roster (so the admin can spot
+    //      email mismatches). Each person can only write their own email, name and time.
+    match /signins/{email} {
+      allow read: if isAdmin();
+      allow create, update: if schoolAccount() && email == myEmail()
+        && request.resource.data.keys().hasOnly(['email', 'name', 'at'])
+        && request.resource.data.email == myEmail()
+        && request.resource.data.name is string && request.resource.data.name.size() <= 120
+        && request.resource.data.at is number;
+      allow delete: if isAdmin();
+    }
+
+    // ---- each person's own progress (synced between their devices)
+    match /users/{uid} {
+      allow read: if isAdmin() || (schoolAccount() && request.auth.uid == uid);
+      allow create, update: if schoolAccount() && request.auth.uid == uid
+        && (isEnrolledAnywhere() || isAdmin())
+        && request.resource.data.uid == uid
+        && request.resource.data.email == myEmail();
+      allow delete: if false;
+
+      match /{kind}/{examId} {
+        allow read: if isAdmin() || (schoolAccount() && request.auth.uid == uid);
+        allow create, update: if schoolAccount() && request.auth.uid == uid
+          && (isEnrolledAnywhere() || isAdmin())
+          && kind in ['exams', 'code']
+          && request.resource.data.uid == uid
+          && request.resource.data.email == myEmail()
+          && request.resource.data.examId == examId;
+        allow delete: if false;
+      }
+    }
+
+    // Everything else is closed.
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
