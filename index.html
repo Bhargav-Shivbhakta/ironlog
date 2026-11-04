@@ -17,9 +17,9 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="assets/motion.css">
-  <link rel="stylesheet" href="assets/app.css">
-  <link rel="stylesheet" href="assets/banners.css?v=20261013a">
-  <link rel="stylesheet" href="assets/phone-home.css?v=20261104a">
+  <link rel="stylesheet" href="assets/app.css?v=20261104c">
+  <link rel="stylesheet" href="assets/banners.css?v=20261104c">
+  <link rel="stylesheet" href="assets/phone-home.css?v=20261104c">
   <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
@@ -274,6 +274,18 @@
           <div class="section-head with-icon"><span class="section-head-icon"><i data-lucide="sparkles"></i></span><div><p class="section-kicker">Appearance</p><h2>Theme</h2></div></div>
           <p class="settings-hint">Changes the look of the whole Hub — not just this page. Pick one now; more will show up here over time.</p>
           <div class="theme-mode-grid" id="settings-theme-modes"></div>
+          <div id="settings-glass" hidden style="margin-top:18px;display:grid;gap:12px">
+            <p class="section-kicker" style="margin:0">Glass colours</p>
+            <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px">
+              <label class="settings-picker-row" style="display:grid;gap:6px"><span>Glow, top left</span><input type="color" id="gl-c1" data-gl="c1" value="#7a2b3a"></label>
+              <label class="settings-picker-row" style="display:grid;gap:6px"><span>Glow, bottom right</span><input type="color" id="gl-c2" data-gl="c2" value="#2c5d8f"></label>
+              <label class="settings-picker-row" style="display:grid;gap:6px"><span>Background base</span><input type="color" id="gl-base" data-gl="base" value="#1a1320"></label>
+              <label class="settings-picker-row" style="display:grid;gap:6px"><span>Highlight (ticks, buttons)</span><input type="color" id="gl-gold" data-gl="gold" value="#e6b866"></label>
+            </div>
+            <label style="display:grid;gap:6px"><span>Glass opacity <b id="gl-op-v">8</b>%</span><input type="range" id="gl-op" data-gl="op" min="3" max="30" step="1" value="8"></label>
+            <label style="display:grid;gap:6px"><span>Frost blur <b id="gl-blur-v">28</b>px</span><input type="range" id="gl-blur" data-gl="blur" min="0" max="50" step="2" value="28"></label>
+            <div><button class="button secondary small" id="gl-reset" type="button">Reset glass colours</button></div>
+          </div>
         </section>
 
         <section class="surface settings-card">
@@ -473,6 +485,6 @@
   <script src="assets/todo-widget.js"></script>
   <script src="assets/calendar-widget.js"></script>
   <script src="assets/voice.js"></script>
-  <script src="assets/phone-home.js?v=20261104a"></script>
+  <script src="assets/phone-home.js?v=20261104c"></script>
 </body>
 </html>
