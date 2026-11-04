@@ -130,6 +130,16 @@ function wClick(b){const wd=b.closest('.w');const d=b.dataset;
   if(d.tddel!=null){const sh=f.sh,arr=tdArr(sh),i=arr.indexOf(t);if(i>=0)arr.splice(i,1);TD.sel=null;tdWrite(sh,[],[t.id]);refresh();toast('Task deleted',()=>{tdArr(sh).push(t);tdWrite(sh,[t.id]);refresh()});return}}
  if(d.chp!=null){openApp('chores',null);return}
  if(d.grp!=null){openApp('grocery',null);return}
+ if(d.bdo!=null){openApp('budget',null);return}
+ if(d.clo!=null){openApp('calendar',null);return}
+ if(d.clday!=null){CL.sel=d.clday;CL.d='';refresh();return}
+ if(d.clsh!=null){CL.sh=!CL.sh;refresh();return}
+ if(d.cladd!=null){clAdd();return}
+ if(d.rco!=null){openApp('diet',null);return}
+ if(d.rcs!=null){RC.slot[+d.rci||d.rci]=d.rcs;refresh();return}
+ if(d.rck!=null){RC.done[d.rck]=!RC.done[d.rck];refresh();return}
+ if(d.bdsc!=null){BD.sc=BD.sc==='shared'?'personal':'shared';BD.cat='';refresh();return}
+ if(d.bdadd!=null){bdAdd();return}
  if(d.inp!=null){openApp('insights',null);return}
  if(d.ckp!=null){openApp('clock',null);return}
  if(d.chk!=null){chComplete(d.chk);return}
@@ -146,7 +156,7 @@ function wClick(b){const wd=b.closest('.w');const d=b.dataset;
  if(d.ntadd!=null){ntAddItem(d.ntadd);return}
  if(d.ntnadd!=null){ntAddNote();return}
  if(d.cka!=null){ckToggle(d.cka);return}
- if(d.trapp!=null||d.trx!=null||d.tra!=null||d.trl!=null||d.trsv!=null){trClick(d);return}
+ if(d.trapp!=null||d.trx!=null||d.tra!=null||d.trl!=null||d.trsv!=null||d.trst!=null||d.tre!=null||d.trdn!=null||d.trrs!=null||d.trmin!=null){trClick(d);return}
  if(d.plk!=null){plTick(d.plk);return}
  if(d.skt!=null||d.sks!=null||d.ska!=null){skClick(d);return}
  if(b.dataset.sd!=null){const was=schedToggle(+b.dataset.sd);toast(was?'Block unticked':'Block done');return}if(b.dataset.tk&&typeof completeTask==='function'){const row=b.closest('.tk');if(row)row.classList.add('dn2');setTimeout(()=>{completeTask(b.dataset.tk);setTimeout(()=>{refresh()},60)},160);return}if(!wd||!WS())return;
@@ -167,6 +177,9 @@ const WG={water:{n:'Water',d:'Log drinks, see pace through the day',ic:'water',c
  pledge:{n:'Pledge',d:'One pledge: streak, prize, check in. Add one per pledge',ic:'pledge',c:'Planner',open:'pledge',html:(z,it)=>pledgeHtml(z,it)},
  gym:{n:'Training',d:'Today\'s workout. Log the whole thing from the Large size',ic:'gym',c:'Health',open:'gym',html:(z,it)=>trainHtml(z,it)},
  diet:{n:'Diet',d:'Calories and protein left, log or skip meals, quick add',ic:'diet',c:'Health',open:'diet',html:z=>dietHtml(z)},
+ agenda:{n:'Calendar',d:'Events, birthdays and reminders for the week. Add an event',ic:'calendar',c:'Planner',open:'calendar',html:z=>calendarHtml(z)},
+ recipes:{n:'Cook together',d:'Both recipes for breakfast, lunch, snack or dinner, side by side with amounts',ic:'diet',c:'Health',open:'diet',html:(z,it)=>recipesHtml(z,it)},
+ budget:{n:'Budget',d:'Spent this month, who owes whom, add spending in two taps',ic:'budget',c:'Home',open:'budget',html:z=>budgetHtml(z)},
  chores:{n:'Chores',d:'Chores due today, tick them off, undo',ic:'chores',c:'Home',open:'chores',html:(z,it)=>choresHtml(z,it)},
  grocery:{n:'Grocery',d:'What is left for this week, by store, and the budget',ic:'grocery',c:'Home',open:'grocery',html:z=>groceryHtml(z)},
  clock:{n:'Clock',d:'Time, next alarm, focus minutes. Switch alarms on or off',ic:'clock',c:'Tools',open:'clock',html:z=>clockHtml(z)},
@@ -175,7 +188,7 @@ const WG={water:{n:'Water',d:'Log drinks, see pace through the day',ic:'water',c
  ticks:{n:'Recent ticks',d:'What you and Anusha ticked across the apps',ic:'todo',c:'Insights',html:(z,it)=>ticksHtml(z,it)},
  qlinks:{n:'Quick links',d:'Shortcuts to the apps you pick',ic:'_',c:'Tools',html:(z,it)=>qlinksHtml(z,it)},
  notes:{n:'Notes & lists',d:'Tick checklist items, jot notes',ic:'_',c:'Planner',html:(z,it)=>notesHtml(z,it)}};
-const WKEYS=['water','tasks','schedule','skin','pledge','gym','diet','chores','grocery','clock','insights','ticks','qlinks','notes','banner'];const STK=['water','tasks','schedule'];
+const WKEYS=['water','tasks','schedule','skin','pledge','gym','diet','chores','grocery','budget','recipes','agenda','clock','insights','ticks','qlinks','notes','banner'];const STK=['water','tasks','schedule'];
 const curW=it=>it.ws[Math.min(it.si,it.ws.length-1)]||'water';
 const esc=s=>String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 const t12=t=>{const m=/^(\d{1,2}):(\d{2})/.exec(t||'');if(!m)return'';let h=+m[1];const ap=h>=12?'PM':'AM';h=h%12||12;return h+':'+m[2]+' '+ap};
@@ -339,7 +352,7 @@ function plSave(p){try{const ref=appRef('pledge-v3','state');ref.get().then(sn=>
 // ---- Training widget: today's workout from the same plan the Training app uses. The Large widget logs the whole workout ----
 const TRA_SCHED={Monday:'Push + Core',Tuesday:'Rest',Wednesday:'Pull',Thursday:'Legs A',Friday:'Upper + Core',Saturday:'Active Recovery',Sunday:'Legs B + Light Arms/Core'};
 const TRA_W={"Monday":[["mon1","Chest Press",3,12,15],["mon2","Pec Fly",2,12,15],["mon3","Shoulder Press",2,12,12],["mon4","Lateral Raise",2,15,15],["mon5","Triceps Pushdown",2,12,15],["mon6","Ab Crunch",3,15,20],["mon7","Back Extension",2,15,15]],"Wednesday":[["wed1","Lat Pulldown",3,12,15],["wed2","Low Row",3,12,15],["wed3","Rear Delt Fly",2,15,15],["wed4","Biceps Curl",2,12,15],["wed5","Back Extension",2,15,15]],"Thursday":[["thu1","Leg Press",3,12,15],["thu2","Leg Extension",2,12,15],["thu3","Leg Curl",3,12,15],["thu4","Glute Extension",2,12,15],["thu5","Inner Thigh",2,15,15],["thu6","Outer Thigh",2,15,15],["thu7","Calf Raise",2,15,20]],"Friday":[["fri1","Chest Press",2,15,15],["fri2","Low Row",2,15,15],["fri3","Lateral Raise",2,15,15],["fri4","Rear Delt Fly",2,15,15],["fri5","Triceps Pushdown",2,15,15],["fri6","Biceps Curl",2,15,15],["fri7","Ab Crunch",3,15,20],["fri8","Plank",3,30,45]],"Sunday":[["sun1","Leg Curl",3,12,15],["sun2","Leg Press",2,15,15],["sun3","Leg Extension",2,15,15],["sun4","Glute Extension",2,15,15],["sun5","Calf Raise",3,15,20],["sun6","Biceps Curl",2,15,15],["sun7","Ab Crunch",2,20,20]],"Tuesday":[],"Saturday":[]};
-const TR={date:'',pid:'',ready:false,busy:0,day:'',title:'',ex:[],rest:false,logged:null,last:{},draft:{},open:null,wk:{},unit:'',saved:''};
+const TR={rt:null,rtTot:90000,t0:0,date:'',pid:'',ready:false,busy:0,day:'',title:'',ex:[],rest:false,logged:null,last:{},draft:{},open:null,wk:{},unit:'',saved:''};
 const trDays=['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
 const trCol=n=>db.collection('users').doc(state.user.uid).collection('profiles').doc(state.profile.toLowerCase()).collection(n);
 function trPlan(date,ov){const pf=state.profile,dn=trDays[new Date(date+'T12:00:00').getDay()];let day=dn,rest=ov==='__rest';
@@ -348,9 +361,10 @@ function trPlan(date,ov){const pf=state.profile,dn=trDays[new Date(date+'T12:00:
  else{const BP=window.BHARGAV_PLAN;if(BP&&BP.active&&BP.active(date)){const r=BP.resolve(date);if(r){table=r.workouts;sched=Object.fromEntries(Object.entries(r.weekSchedule).map(([d,v])=>[d,v.main]))}}}
  if(!table)return null;if(ov&&ov!=='__rest'&&table[ov])day=ov;const ex=rest?[]:(table[day]||[]);
  return{day,rest:rest||!ex.length,ex,unit,title:rest?'Rest day':(sched&&sched[day])||day}}
+window.__TrainPlan={plan:trPlan,days:trDays};
 function trKey(){return 'ph-tr-'+state.profile+'-'+TR.date}
 function trKick(force){try{if(typeof db==='undefined'||typeof state==='undefined'||!state.user)return;const T=today(),pid=state.profile.toLowerCase();if(!force&&TR.ready&&TR.date===T&&TR.pid===pid)return;if(TR.busy&&Date.now()-TR.busy<5000)return;TR.busy=Date.now();
- if(TR.date!==T||TR.pid!==pid){TR.ready=false;TR.draft={};TR.open=null;TR.logged=null}TR.date=T;TR.pid=pid;
+ if(TR.date!==T||TR.pid!==pid){TR.rt=null;TR.t0=0;TR.ready=false;TR.draft={};TR.open=null;TR.logged=null}TR.date=T;TR.pid=pid;
  const cut=addDays(T,-70),fp=firebase.firestore.FieldPath.documentId();
  Promise.all([db.collection('users').doc(state.user.uid).collection('profiles').doc(pid).collection('meta').doc('workoutOverrides').get().catch(()=>null),trCol('workoutLogs').where(fp,'>=',cut).where(fp,'<',T+';').get().catch(()=>null)]).then(([ov,lg])=>{
   const map=(ov&&ov.exists&&ov.data()&&ov.data().map)||{};const pl=trPlan(T,map[T]);const docs=[];if(lg)lg.forEach(d=>{const x=d.data();if(x&&x.date&&x.mode==='regular'&&Array.isArray(x.exercises))docs.push(x)});docs.sort((a,b)=>a.date<b.date?1:-1);
@@ -359,18 +373,22 @@ function trKick(force){try{if(typeof db==='undefined'||typeof state==='undefined
   TR.wk={};const mon=addDays(T,-((new Date(T+'T12:00:00').getDay()+6)%7));docs.forEach(x=>{if(x.date>=mon)TR.wk[x.date]=1});
   return trCol('workoutLogs').doc(T+':regular:'+TR.day).get().catch(()=>null)}).then(sn=>{
   TR.logged=sn&&sn.exists?sn.data():null;
-  TR.ex.forEach(e=>{const lg=TR.logged&&(TR.logged.exercises||[]).find(x=>x.id===e.id);TR.draft[e.id]=Array.from({length:Math.max(e.sets,lg?lg.sets.length:0)},(_,i)=>lg&&lg.sets[i]?{w:String(lg.sets[i].weight),r:String(lg.sets[i].reps)}:{w:'',r:''})});
+  TR.ex.forEach(e=>{const lg=TR.logged&&(TR.logged.exercises||[]).find(x=>x.id===e.id);TR.draft[e.id]=Array.from({length:Math.max(e.sets,lg?lg.sets.length:0)},(_,i)=>lg&&lg.sets[i]?{w:String(lg.sets[i].weight),r:String(lg.sets[i].reps),e:lg.sets[i].effort||''}:{w:'',r:'',e:''})});
   try{const sv=JSON.parse(localStorage.getItem(trKey())||'null');if(sv&&typeof sv==='object')Object.keys(sv).forEach(k=>{if(TR.draft[k]&&Array.isArray(sv[k]))sv[k].forEach((v,i)=>{if(v&&(v.w!==''||v.r!=='')){if(!TR.draft[k][i])TR.draft[k][i]={w:'',r:''};if(TR.draft[k][i].w===''&&TR.draft[k][i].r==='')TR.draft[k][i]=v}})})}catch(e){}
   TR.saved=trSig();TR.ready=true;TR.busy=0;refresh()}).catch(()=>{TR.busy=0})}catch(e){}}
 const trNum=v=>v!==''&&v!=null&&isFinite(+v);
 const trSets=id=>(TR.draft[id]||[]).filter(s=>trNum(s.w)&&trNum(s.r)&&+s.r>0);
-const trSig=()=>JSON.stringify(TR.ex.map(e=>trSets(e.id).map(s=>[+s.w,+s.r])));
+const trSig=()=>JSON.stringify(TR.ex.map(e=>trSets(e.id).map(s=>[+s.w,+s.r,+s.e||0])));
 const trCount=()=>TR.ex.reduce((a,e)=>a+trSets(e.id).length,0);
 const trExDone=e=>trSets(e.id).length>=e.sets;
 function trLastFor(e,i){const L=TR.last[e.id]||TR.last['n:'+String(e.name).toLowerCase()];if(!L||!L.length)return null;return L[Math.min(i,L.length-1)]}
+const trStep=()=>TR.unit==='kg'?2.5:5;
+const trCur=e=>(TR.draft[e.id]||[]).findIndex(s=>!(trNum(s.w)&&trNum(s.r)&&+s.r>0));
+const trMS=ms=>{ms=Math.max(0,Math.round(ms/1000));return Math.floor(ms/60)+':'+String(ms%60).padStart(2,'0')};
+const trEff={3:'Low',6:'Med',9:'High'};
 function trExRow(e){const open=TR.open===e.id,n=trSets(e.id).length,L=TR.last[e.id]||TR.last['n:'+String(e.name).toLowerCase()],lt=L&&L[0]?`last ${L[0].weight}×${L[0].reps}`:'';
  let h=`<div class="trx${open?' op':''}"><button class="trh" data-trx="${esc(e.id)}"><i class="trc${trExDone(e)?' ok':''}"></i><span class="tn">${esc(e.name)}</span><small>${n}/${e.sets} · ${e.repMin===e.repMax?e.repMin:e.repMin+'–'+e.repMax}</small></button>`;
- if(open){const dr=TR.draft[e.id]||[];h+=(e.planText?`<div class="mu" style="font-size:10.5px;margin:2px 0 4px">${esc(e.planText)}</div>`:'')+dr.map((s,i)=>{const l=trLastFor(e,i);return`<div class="trs"><small>${i+1}</small><input class="tdi trw" inputmode="decimal" data-trw="${esc(e.id)}:${i}:w" value="${esc(s.w)}" placeholder="${l?l.weight:TR.unit}" aria-label="Weight"><span>×</span><input class="tdi trw" inputmode="numeric" data-trw="${esc(e.id)}:${i}:r" value="${esc(s.r)}" placeholder="${l?l.reps:'reps'}" aria-label="Reps">${l?`<button class="chp" data-trl="${esc(e.id)}:${i}" aria-label="Same as last time">Last</button>`:'<i></i>'}</div>`}).join('')+`<div class="fx" style="gap:8px;margin-top:4px"><button class="chp" data-tra="${esc(e.id)}">+ Set</button>${lt?`<small class="mu">${esc(lt)} ${TR.unit}</small>`:''}</div>`}
+ if(open){const dr=TR.draft[e.id]||[],cur=trCur(e),id=esc(e.id);h+=(e.planText?`<div class="mu" style="font-size:10.5px;margin:2px 0 4px">${esc(e.planText)}</div>`:'')+dr.map((s,i)=>{const l=trLastFor(e,i),done=trNum(s.w)&&trNum(s.r)&&+s.r>0;return`<div class="trs${i===cur?' cur':''}${done?' sfin':''}"><small>${i+1}</small><button class="trb" data-trst="${id}:${i}:w:-1" aria-label="Less weight">−</button><input class="tdi trw" inputmode="decimal" data-trw="${id}:${i}:w" value="${esc(s.w)}" placeholder="${l?l.weight:TR.unit}" aria-label="Weight"><button class="trb" data-trst="${id}:${i}:w:1" aria-label="More weight">+</button><span>×</span><button class="trb" data-trst="${id}:${i}:r:-1" aria-label="Fewer reps">−</button><input class="tdi trw trr" inputmode="numeric" data-trw="${id}:${i}:r" value="${esc(s.r)}" placeholder="${l?l.reps:'reps'}" aria-label="Reps"><button class="trb" data-trst="${id}:${i}:r:1" aria-label="More reps">+</button><button class="tre${s.e?' on':''}" data-tre="${id}:${i}" aria-label="Effort">${s.e?trEff[s.e]:'Effort'}</button><button class="trd${done?' ok':''}" data-trdn="${id}:${i}" aria-label="Done, start rest">✓</button></div>`}).join('')+`<div class="fx" style="gap:8px;margin-top:4px"><button class="chp" data-tra="${id}">+ Set</button>${dr.length>1?`<button class="chp" data-trmin="${id}">− Set</button>`:''}${cur>=0&&trLastFor(e,cur)?`<button class="chp" data-trl="${id}:c">Same as last</button>`:''}${lt?`<small class="mu">${esc(lt)} ${TR.unit}</small>`:''}</div>`}
  return h+'</div>'}
 function tronDot(){const T=today(),mon=addDays(T,-((new Date(T+'T12:00:00').getDay()+6)%7));const nm=['M','T','W','T','F','S','S'];return`<div class="plw" style="margin:0;flex:0 0 210px">${nm.map((n,i)=>{const d=addDays(mon,i),on=TR.wk[d]||(d===T&&(TR.logged||trCount()>0));return`<span><i class="plst${on?' pldn':d===T?' plnw':''}" style="width:18px;height:18px;font-size:10px">${on?'✓':''}</i><small>${n}</small></span>`}).join('')}</div>`}
 function trainHtml(z,it){trKick();if(!TR.ready)return`<div class="t"><span>Training</span></div><div class="shim"></div><div class="shim s2"></div>`;
@@ -382,18 +400,32 @@ function trainHtml(z,it){trKick();if(!TR.ready)return`<div class="t"><span>Train
  if(z==='s')return`<div class="t"><span>Training</span><span>${dn}/${tot}</span></div><div class="nx1" style="font-size:16px;-webkit-line-clamp:1">${esc(T)}</div><div class="mu">${dn===tot?'All exercises logged':'Next: '+esc(nx.name)}</div><div class="sbar" style="margin-top:auto"><i style="left:0;width:${tot?dn/tot*100:0}%;background:var(--accent)"></i></div>`;
  if(z==='m'){const l=nx?(TR.last[nx.id]||TR.last['n:'+nx.name.toLowerCase()]):null;return`<div class="t"><span>${esc(T)}</span><span>${dn}/${tot}</span></div><div class="sbar"><i style="left:0;width:${tot?dn/tot*100:0}%;background:var(--accent)"></i></div><div class="fx" style="margin-top:auto;gap:10px"><div class="g1"><div style="font-weight:700;font-size:15px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${nx?esc(nx.name):'Workout complete'}</div><div class="mu">${nx?nx.sets+' sets · '+(nx.repMin===nx.repMax?nx.repMin:nx.repMin+'–'+nx.repMax)+' reps'+(l&&l[0]?' · last '+l[0].weight+'×'+l[0].reps:''):sets+' sets logged'}</div></div><button class="pbtn ud" data-trapp="1" style="flex:none;padding:7px 14px">Open</button></div>`}
  if(TR.open==null&&nx)TR.open=nx.id;
- return`<div class="t"><span>${esc(T)}</span><span>${dn}/${tot} · ${sets} sets</span></div><div class="tks tdl trl">${TR.ex.map(trExRow).join('')}</div><button class="pbtn ${saved?'':'ud'}" data-trsv="1" style="width:100%;margin-top:6px;flex:none">${saved?'Saved ✓':'Save workout · '+sets+' set'+(sets===1?'':'s')}</button><div class="fx" style="justify-content:space-between;margin-top:6px;align-items:center;flex:none"><small class="mu">This week</small>${tronDot()}</div>`}
-async function trSave(){if(!TR.plan||TR.rest)return;const T=TR.date,exs=[];TR.ex.forEach(e=>{const sets=trSets(e.id).map(s=>({weight:+s.w,reps:Math.round(+s.r),effort:null}));if(sets.length)exs.push({id:e.id,name:e.name,sets})});
+ return`<div class="t"><span>${esc(T)}</span><span>${dn}/${tot} · ${sets} sets${TR.t0?` · <b data-trel>${trMS(Date.now()-TR.t0)}</b>`:''}</span></div>${TR.rt?`<div class="trrest"><b data-trrt>${trMS(TR.rt-Date.now())}</b><span>rest</span><button data-trrs="15">+15s</button><button data-trrs="skip">Skip</button></div>`:''}<div class="tks tdl trl">${TR.ex.map(trExRow).join('')}</div><button class="pbtn ${saved?'':'ud'}" data-trsv="1" style="width:100%;margin-top:6px;flex:none">${saved?'Saved ✓':'Save workout · '+sets+' set'+(sets===1?'':'s')}</button><div class="fx" style="justify-content:space-between;margin-top:6px;align-items:center;flex:none"><small class="mu">This week</small>${tronDot()}</div>`}
+async function trSave(){if(!TR.plan||TR.rest)return;const T=TR.date,exs=[];TR.ex.forEach(e=>{const sets=trSets(e.id).map(s=>({weight:+s.w,reps:Math.round(+s.r),effort:s.e?+s.e:null}));if(sets.length)exs.push({id:e.id,name:e.name,sets})});
  if(!exs.length){toast('Log at least one set first (weight and reps)');return}
  const old=TR.logged,oc=old?old.exercises.reduce((a,e)=>a+e.sets.length,0):0,nc=exs.reduce((a,e)=>a+e.sets.length,0);
  if(oc>nc){toast('Not saved: this would remove '+(oc-nc)+' logged set'+(oc-nc===1?'':'s'));return}
  const doc={date:T,day:TR.day,mode:'regular',exercises:exs};if(old){if(Array.isArray(old.sessions))doc.sessions=old.sessions;if(old.sessionDurationSec!=null)doc.sessionDurationSec=old.sessionDurationSec}
+ if(TR.t0){doc.sessionDurationSec=Math.max(doc.sessionDurationSec||0,Math.round((Date.now()-TR.t0)/1000))}
  try{await trCol('workoutLogs').doc(T+':regular:'+TR.day).set(doc);TR.logged=doc;TR.saved=trSig();TR.wk[T]=1;try{localStorage.removeItem(trKey())}catch(e){}refresh();toast('Workout saved · '+nc+' set'+(nc===1?'':'s'),old?null:()=>{trCol('workoutLogs').doc(T+':regular:'+TR.day).delete().then(()=>{TR.logged=null;TR.saved='';refresh()})})}catch(e){toast("Couldn't save, try again")}}
 function trClick(d){if(d.trapp!=null){openApp('gym',null);return}
  if(d.trx!=null){TR.open=TR.open===d.trx?null:d.trx;refresh();return}
  if(d.tra!=null){(TR.draft[d.tra]=TR.draft[d.tra]||[]).push({w:'',r:''});refresh();return}
- if(d.trl!=null){const[id,i]=d.trl.split(':'),e=TR.ex.find(x=>x.id===id);if(!e)return;const l=trLastFor(e,+i);if(l){TR.draft[id][+i]={w:String(l.weight),r:String(l.reps)};trPersist();refresh()}return}
- if(d.trsv!=null){trSave();return}}
+ if(d.trl!=null){const[id,i0]=d.trl.split(':'),e=TR.ex.find(x=>x.id===id);if(!e)return;const i=i0==='c'?trCur(e):+i0;if(i<0)return;const l=trLastFor(e,i);if(l){const o=TR.draft[id][i]||{};TR.draft[id][i]={w:String(l.weight),r:String(l.reps),e:o.e||''};trPersist();refresh()}return}
+ if(d.trsv!=null){trSave();return}
+ if(d.trst!=null){const[id,i,f,sg]=d.trst.split(':'),e=TR.ex.find(x=>x.id===id);if(!e)return;const s=(TR.draft[id]=TR.draft[id]||[])[+i];if(!s)return;const l=trLastFor(e,+i);
+  if(f==='w'){const b=trNum(s.w)?+s.w:(l?+l.weight:0);s.w=String(Math.max(0,Math.round((b+(+sg)*trStep())*100)/100))}
+  else{const b=trNum(s.r)?+s.r:(l?+l.reps:e.repMin);s.r=String(Math.max(0,Math.round(b+(+sg))))}
+  trPersist();refresh();return}
+ if(d.tre!=null){const[id,i]=d.tre.split(':'),s=(TR.draft[id]||[])[+i];if(!s)return;const o=['','3','6','9'];s.e=o[(o.indexOf(String(s.e||''))+1)%4];trPersist();refresh();return}
+ if(d.trdn!=null){const[id,i]=d.trdn.split(':'),e=TR.ex.find(x=>x.id===id),dr=TR.draft[id]||[],s=dr[+i];if(!e||!s)return;const l=trLastFor(e,+i),pv=dr[+i-1];
+  if(!trNum(s.w)){s.w=pv&&trNum(pv.w)?pv.w:(l?String(l.weight):'')}
+  if(!trNum(s.r)||+s.r<=0){s.r=l?String(l.reps):String(e.repMax)}
+  if(!trNum(s.w)){toast('Enter the weight first');return}
+  if(!TR.t0)TR.t0=Date.now();TR.rt=Date.now()+TR.rtTot;if(TR.open===id&&trExDone(e)){const nx=TR.ex.find(x=>!trExDone(x));if(nx)TR.open=nx.id}
+  trPersist();try{navigator.vibrate&&navigator.vibrate(30)}catch(x){}refresh();return}
+ if(d.trrs!=null){if(d.trrs==='skip')TR.rt=null;else TR.rt=Math.max(Date.now(),TR.rt||0)+15000;refresh();return}
+ if(d.trmin!=null){const dr=TR.draft[d.trmin]||[];const last=dr[dr.length-1];if(dr.length>1&&last&&!trNum(last.w)&&!trNum(last.r)){dr.pop();trPersist();refresh()}else toast('Clear the last set first');return}}
 function trPersist(){try{localStorage.setItem(trKey(),JSON.stringify(TR.draft))}catch(e){}}
 document.addEventListener('input',e=>{const t=e.target;if(t&&t.dataset){if(t.dataset.dtn!=null)DT.n=t.value;else if(t.dataset.dtkc!=null)DT.k=t.value;else if(t.dataset.dtp!=null)DT.p=t.value;else if(t.dataset.nta!=null)NT.add=t.value;else if(t.dataset.ntn!=null)NT.nt=t.value}if(!t||!t.dataset||t.dataset.trw==null)return;const[id,i,f]=t.dataset.trw.split(':');if(!TR.draft[id])return;const s=(TR.draft[id][+i]=TR.draft[id][+i]||{w:'',r:''});s[f]=t.value;trPersist();
  const b=document.querySelector('#ph [data-trsv]');if(b){const n=trCount(),sv=TR.saved===trSig()&&(TR.logged||n===0);b.textContent=sv?'Saved ✓':'Save workout · '+n+' set'+(n===1?'':'s');b.classList.toggle('ud',!sv)}
@@ -523,6 +555,99 @@ function groceryHtml(z){grKick();if(GR.d==null)return`<div class="t"><span>Groce
  const by={};left.forEach(x=>(by[x.store]=by[x.store]||[]).push(x));
  if(z==='m')return`<div class="t"><span>Grocery</span>${open2}</div><div class="fx" style="gap:14px;align-items:flex-start"><div><div class="big" style="font-size:30px">${left.length}</div><div class="mu">to buy</div></div><div class="g1 mu" style="line-height:1.35">${left.slice(0,3).map(x=>esc(x.n)+(x.q>1?' ×'+x.q:'')).join('<br>')}${left.length>3?'<br>+'+(left.length-3)+' more':''}</div></div>${bar}`;
  return`<div class="t"><span>Grocery</span><span>${left.length} to buy</span></div>${bar}<div class="tks tdl" style="max-height:none;flex:1;margin-top:4px">${Object.keys(by).map(s=>`<div class="mu" style="margin:4px 0 2px;font-weight:700">${esc(s)} · ${by[s].length}</div>`+by[s].map(x=>`<div class="tk"><button class="ck" data-grp="1" aria-label="Open Grocery to tick"></button><span>${esc(x.n)}</span>${x.q>1?`<i class="tg sh">×${x.q}</i>`:''}</div>`).join('')).join('')||'<div class="emp"><b>All bought</b></div>'}</div><div class="mu" style="margin-top:4px;font-size:11px">Tick items off in the Grocery app.</div>`}
+
+
+// ---- Budget widget: this month's spending, shared balance, last entries, quick add (same data as the Budget app) ----
+const BD={tx:null,sx:null,cats:null,scats:null,pid:'',ld:0,busy:0,amt:'',cat:'',sc:'personal'};
+const bdRef=k=>db.collection('users').doc(state.user.uid).collection('budget-profiles').doc(state.profile).collection('data').doc(k);
+const bdShared=k=>db.collection('users').doc(state.user.uid).collection('budget-shared').doc(k);
+const bdJ=sn=>sn&&sn.exists&&sn.data()&&sn.data().json?safeJson(sn.data().json,null):null;
+const bdM=n=>{n=Math.round(Math.abs(+n||0)*100)/100;return '$'+(Number.isInteger(n)?n.toLocaleString():n.toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2}))};
+function bdKick(force){try{if(typeof db==='undefined'||typeof state==='undefined'||!state.user)return;if(!force&&BD.tx&&BD.pid===state.profile&&Date.now()-BD.ld<30000)return;if(BD.busy&&Date.now()-BD.busy<4000)return;BD.busy=Date.now();const pid=state.profile;
+ Promise.all([bdRef('transactions').get(),bdShared('transactions').get(),bdRef('categories').get(),bdShared('categories').get()].map(p=>p.catch(()=>null))).then(([a,b,c,d])=>{BD.tx=bdJ(a)||[];BD.sx=bdJ(b)||[];BD.cats=bdJ(c);BD.scats=bdJ(d);BD.pid=pid;BD.ld=Date.now();BD.busy=0;refresh()}).catch(()=>{BD.busy=0})}catch(e){}}
+const bdCats=sc=>(sc==='shared'?BD.scats:BD.cats)||[];
+const bdCur=()=>{const a=bdCats(BD.sc);return BD.cat&&a.some(c=>c.id===BD.cat)?BD.cat:(a[0]&&a[0].id)||''};
+const bdName=(t,sh)=>{const c=bdCats(sh?'shared':'personal').find(x=>x.id===t.categoryId)||bdCats(sh?'personal':'shared').find(x=>x.id===t.categoryId);return t.note||(c&&c.name)||'Entry'};
+function bdModel(){const T=today(),mk=T.slice(0,7),me=state.profile,other=me==='Bhargav'?'Anusha':'Bhargav';
+ const owed=t=>t.owedAmount!=null?+t.owedAmount:(+t.amount||0)/2;
+ const inM=t=>t.date&&t.date.slice(0,7)===mk;
+ const mine=(BD.tx||[]).filter(t=>t.type==='expense'&&inM(t)),sh=(BD.sx||[]).filter(t=>t.type==='expense'&&inM(t));
+ const spent=mine.reduce((a,t)=>a+(+t.amount||0),0)+sh.reduce((a,t)=>a+(+t.amount||0),0);
+ const net=(BD.sx||[]).filter(t=>t.type==='expense'&&!t.settled&&t.who).reduce((a,t)=>a+(t.who===me?owed(t):-owed(t)),0);
+ const bud=(BD.cats||[]).concat(BD.scats||[]).reduce((a,c)=>a+(+c.budget||0),0);
+ const recent=[...(BD.tx||[]).map(t=>({t,sh:0})),...(BD.sx||[]).map(t=>({t,sh:1}))].sort((a,b)=>(b.t.date||'').localeCompare(a.t.date||'')||(b.t.createdAt||0)-(a.t.createdAt||0)).map(x=>({n:bdName(x.t,x.sh),a:+x.t.amount||0,inc:x.t.type==='income',sh:x.sh,d:x.t.date}));
+ return{spent,net,other,bud,recent,left:bud>0?bud-spent:null}}
+function bdAddRow(){const arr=bdCats(BD.sc),cur=bdCur();
+ return`<div class="bdr"><button class="chp${BD.sc==='shared'?' on':''}" data-bdsc="1" aria-label="Mine or shared">${BD.sc==='shared'?'Shared':'Mine'}</button><input class="tdi bdi" inputmode="decimal" data-bda="1" value="${esc(BD.amt)}" placeholder="$ amount" aria-label="Amount"><select class="tdi bdi" data-bdc="1" aria-label="Category">${arr.map(c=>`<option value="${esc(c.id)}"${c.id===cur?' selected':''}>${esc(c.name)}</option>`).join('')||'<option value="">Open Budget first</option>'}</select><button class="pbtn" data-bdadd="1">Add</button></div>`}
+function bdRow(r){return`<div class="bdt"><span class="bn">${esc(r.n)}</span>${r.sh?'<i class="tg sh">Shared</i>':''}<b class="${r.inc?'bdpos':''}">${r.inc?'+':'−'}${bdM(r.a)}</b></div>`}
+function budgetHtml(z){bdKick();const open=`<button class="tdp" data-bdo="1" aria-label="Open Budget">›</button>`;
+ if(BD.tx==null)return`<div class="t"><span>Budget</span></div><div class="shim"></div><div class="shim s2"></div>`;
+ const m=bdModel(),bal=Math.abs(m.net)<0.005?'All settled':(m.net>0?`${esc(m.other)} owes you ${bdM(m.net)}`:`You owe ${esc(m.other)} ${bdM(m.net)}`);
+ const bar=m.bud>0?`<div class="sbar" style="height:6px;margin:4px 0"><i style="left:0;width:${Math.min(100,m.spent/m.bud*100)}%;background:${m.spent>m.bud?'#ff8a8a':'var(--accent)'}"></i></div>`:'';
+ if(z==='xs')return`<div class="t"><span>Budget</span>${open}</div><div class="big" style="font-size:26px">${bdM(m.spent)}</div><div class="mu">spent this month</div>`;
+ if(z==='s')return`<div class="t"><span>Budget</span>${open}</div><div class="big" style="font-size:26px">${m.left!=null?bdM(m.left):bdM(m.spent)}</div><div class="mu">${m.left!=null?(m.left<0?'over budget':'left this month'):'spent this month'}</div>${bar}<div class="mu" style="font-size:11px;margin-top:auto">${bal}</div>`;
+ if(z==='m')return`<div class="t"><span>Budget</span>${open}</div><div class="fx" style="gap:12px;align-items:flex-end"><div><div class="big" style="font-size:26px">${bdM(m.spent)}</div><div class="mu">spent${m.left!=null?' · '+bdM(m.left)+(m.left<0?' over':' left'):''}</div></div><div class="g1 mu" style="text-align:right;font-size:11px">${bal}</div></div>${bar}<div style="margin-top:auto">${bdAddRow()}</div>`;
+ return`<div class="t"><span>Budget</span>${open}</div><div class="fx" style="gap:12px;align-items:flex-end"><div><div class="big" style="font-size:32px">${bdM(m.spent)}</div><div class="mu">spent this month${m.left!=null?' · '+bdM(m.left)+(m.left<0?' over':' left'):''}</div></div></div>${bar}<div class="bdbal">${bal}</div><div class="lbl" style="margin:8px 0 2px">QUICK ADD</div>${bdAddRow()}<div class="lbl" style="margin:10px 0 2px">RECENT</div><div class="tks tdl" style="max-height:none;flex:1">${m.recent.slice(0,6).map(bdRow).join('')||'<div class="emp"><b>No entries yet</b></div>'}</div>`}
+async function bdAdd(){const amt=parseFloat(BD.amt);if(!(amt>0)){toast('Enter an amount');return}const sc=BD.sc,cat=bdCur();if(!cat){toast('Open Budget once to set up categories');return}
+ const ref=sc==='shared'?bdShared('transactions'):bdRef('transactions');let cur=[];try{cur=bdJ(await ref.get())||[]}catch(e){toast("Couldn't reach Budget, try again");return}
+ const id='id-'+Date.now()+'-'+Math.random().toString(36).slice(2,8),sx=sc==='shared';
+ cur.unshift({id,amount:amt,type:'expense',categoryId:cat,who:sx?state.profile:null,date:today(),note:'',createdAt:Date.now(),splitMethod:sx?'half':null,owedAmount:sx?Math.round(amt/2*100)/100:null,settled:sx?false:undefined});
+ try{await ref.set({json:JSON.stringify(cur)})}catch(e){toast("Couldn't save, try again");return}
+ if(sx)BD.sx=cur;else BD.tx=cur;BD.amt='';refresh();
+ toast('Added '+bdM(amt)+(sx?' (shared)':''),async()=>{try{const c=(bdJ(await ref.get())||[]).filter(x=>x.id!==id);await ref.set({json:JSON.stringify(c)});if(sx)BD.sx=c;else BD.tx=c;refresh()}catch(e){toast("Couldn't undo")}})}
+document.addEventListener('input',e=>{const t=e.target;if(!t||!t.dataset)return;if(t.dataset.bda!=null)BD.amt=t.value;else if(t.dataset.bdc!=null)BD.cat=t.value});
+
+
+// ---- Recipes widget ("Cook together"): both people's recipes for one meal, side by side, with exact amounts ----
+const RC={slot:{},done:{}};
+function rcModel(it){dtKick();if(!dtOk()||!dietW.S)return null;const S=dietW.S,C=DietCore;if(!Array.isArray(S.meals)||!S.profiles)return{slots:[]};
+ const order=['After gym','Breakfast','Lunch','Snack','Dinner'],slots=[...new Set(S.meals.map(m=>m.slot))].sort((a,b)=>{const x=order.indexOf(a),y=order.indexOf(b);return(x<0?99:x)-(y<0?99:y)});if(!slots.length)return{slots:[]};
+ const h=new Date().getHours(),want=h<10?'Breakfast':h<15?'Lunch':h<18?'Snack':'Dinner';let sl=RC.slot[it&&it.id];if(!sl||!slots.includes(sl))sl=slots.includes(want)?want:slots[0];
+ const people=Object.keys(S.profiles).map(pid=>{const ms=S.meals.filter(m=>m.profileId===pid&&m.slot===sl),recs=[];ms.forEach(m=>(m.recipeIds||[]).forEach(id=>{const r=(S.recipes||[]).find(x=>x.id===id);if(r)recs.push(r)}));
+  let kc=0;recs.forEach(r=>{try{kc+=C.recipeServingN(S,r).calories}catch(e){}});return{pid,name:S.profiles[pid].name||pid,time:ms[0]&&ms[0].time,recs,kc,has:ms.length>0}});
+ return{slots,sl,people,S,C}}
+const rcQ=q=>String(Math.round(q*10)/10);
+function rcIng(m,pid,r){const per=r.servings||1;return(r.items||[]).map((x,i)=>{const f=m.C.food(m.S,x.foodId),k=pid+'|'+r.id+'|'+i,d=RC.done[k];return`<button class="rci${d?' dn2':''}" data-rck="${esc(k)}"><i class="rck"></i><span class="rn">${esc(f?f.name:x.foodId)}</span><b>${rcQ(x.qty/per)} ${esc(x.unit||'')}</b></button>`}).join('')}
+function recipesHtml(z,it){const open=`<button class="tdp" data-rco="1" aria-label="Open Diet">›</button>`,m=rcModel(it);
+ if(m==null)return`<div class="t"><span>Cook together</span></div><div class="shim"></div><div class="shim s2"></div>`;
+ if(!m.slots.length)return`<div class="t"><span>Cook together</span>${open}</div><div class="emp"><b>No meals yet</b><span class="mu">Add meals in Diet</span></div>`;
+ const tabs=`<span class="tabs rct">${m.slots.map(x=>`<button class="${x===m.sl?'on':''}" data-rcs="${esc(x)}" data-rci="${esc(it&&it.id||'')}">${esc(x)}</button>`).join('')}</span>`;
+ if(z==='xs')return`<div class="t"><span>Cook</span>${open}</div><div class="nx1" style="font-size:16px">${esc(m.sl)}</div><div class="mu">${m.people.map(p=>esc(p.name[0])+' '+p.recs.length).join(' · ')} items</div>`;
+ if(z==='s')return`<div class="t"><span>${esc(m.sl)}</span>${open}</div>${m.people.map(p=>`<div class="rcp"><b>${esc(p.name[0])}</b><span>${p.recs.length?esc(p.recs.map(r=>r.name).join(' + ')):'Nothing planned'}</span></div>`).join('')}`;
+ if(z==='m')return`<div class="t">${tabs}${open}</div><div class="rcc">${m.people.map(p=>`<div><div class="rch"><b>${esc(p.name)}</b><small>${Math.round(p.kc)} kcal</small></div>${p.recs.map(r=>`<div class="rcr">${esc(r.name)}</div>`).join('')||'<div class="mu">Nothing planned</div>'}</div>`).join('')}</div>`;
+ return`<div class="t">${tabs}${open}</div><div class="rcc l">${m.people.map(p=>`<div class="rcol"><div class="rch"><b>${esc(p.name)}</b><small>${p.time?esc(p.time)+' · ':''}${Math.round(p.kc)} kcal</small></div>${p.recs.map(r=>`<div class="rcr">${esc(r.name)}</div>${rcIng(m,p.pid,r)}${r.method?`<div class="rcm">${esc(r.method)}</div>`:''}`).join('')||`<div class="mu">${p.has?'No recipes in this meal':'Nothing planned'}</div>`}</div>`).join('')}</div>`}
+
+
+// ---- Calendar & reminders widget: events, birthdays and reminders for the week, add an event (same documents as the Calendar app) ----
+const CL={sel:null,t:'',d:'',tm:'',sh:false};
+const clT12=t=>{if(!t)return'';const[h,m]=String(t).split(':'),H=+h;return(H%12||12)+(m&&m!=='00'?':'+m:'')+(H<12?' am':' pm')};
+const clMin=t=>{if(!t)return null;const a=String(t).split(':');return(+a[0])*60+(+a[1]||0)};
+function clItems(date){const out=[];try{(state.reminders||[]).filter(r=>reminderHitsDateHub(r,date)).forEach(r=>{const c=typeof agCatName==='function'?agCatName(r.categoryId):'Reminder';out.push({k:'rem',sort:-5,time:'',title:r.name+(c==='Birthday'?"'s birthday":c==='Anniversary'?' anniversary':''),ico:c==='Birthday'?'🎂':c==='Anniversary'?'💍':'🔔',sub:'All day'})})}catch(e){}
+ try{(state.events||[]).filter(e=>eventOccursOnHub(e,date)&&(date===today()||!(e.recurring&&e.repeat&&e.repeat.type==='daily'))).forEach(e=>out.push({k:'ev',sort:e.time?clMin(e.time):-3,time:e.time||'',end:e.endTime||'',title:e.title||'Event',ico:'•',sub:[e.time?clT12(e.time)+(e.endTime?' – '+clT12(e.endTime):''):'All day',e.location||'',e.shared?'both':''].filter(Boolean).join(' · ')}))}catch(e){}
+ return out.sort((a,b)=>a.sort-b.sort)}
+const clDay=d=>d===today()?'Today':d===addDays(today(),1)?'Tomorrow':new Date(d+'T12:00:00').toLocaleDateString([],{weekday:'short',month:'short',day:'numeric'});
+const clRow=i=>`<div class="clr"><span class="cli">${i.ico}</span><span class="clc"><b>${esc(i.title)}</b><small>${esc(i.sub)}</small></span></div>`;
+function clAddRow(sel){const d=CL.d||sel;return`<div class="cla"><input class="tdi bdi cltt" data-clt="1" value="${esc(CL.t)}" placeholder="New event" aria-label="Event title"><div class="clb"><input class="tdi bdi" type="date" data-cldate="1" value="${esc(d)}" aria-label="Date"><input class="tdi bdi" type="time" data-cltm="1" value="${esc(CL.tm)}" aria-label="Time"><button class="chp${CL.sh?' on':''}" data-clsh="1" aria-label="Just me or both">${CL.sh?'Both':'Me'}</button><button class="pbtn" data-cladd="1">Add</button></div></div>`}
+function calendarHtml(z){const open=`<button class="tdp" data-clo="1" aria-label="Open Calendar">›</button>`;
+ if(typeof state==='undefined'||!state.events||typeof eventOccursOnHub!=='function'||typeof reminderHitsDateHub!=='function')return`<div class="t"><span>Calendar</span></div><div class="shim"></div><div class="shim s2"></div>`;
+ const t0=today(),sel=CL.sel&&CL.sel>=t0?CL.sel:t0,now=new Date(),nm=now.getHours()*60+now.getMinutes(),td=clItems(t0),dayI=sel===t0?td:clItems(sel);
+ const nx=td.find(i=>i.k==='ev'&&i.time&&clMin(i.time)>nm);
+ if(z==='xs')return`<div class="t"><span>Calendar</span>${open}</div><div class="nx1" style="font-size:15px;-webkit-line-clamp:2">${nx?esc(nx.title):td.length?esc(td[0].title):'Nothing today'}</div><div class="mu">${nx?clT12(nx.time):td.length+' today'}</div>`;
+ if(z==='s')return`<div class="t"><span>Today</span>${open}</div>${td.slice(0,2).map(clRow).join('')||'<div class="emp"><b>Nothing today</b></div>'}${td.length>2?`<div class="mu mor">+${td.length-2} more</div>`:''}`;
+ const week=`<div class="clw">${Array.from({length:7},(_,i)=>{const d=addDays(t0,i),n=clItems(d).length;return`<button class="${d===sel?'on':''}" data-clday="${d}"><small>${i===0?'Today':['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][new Date(d+'T12:00:00').getDay()]}</small><b>${new Date(d+'T12:00:00').getDate()}</b><i class="${n?'has':''}"></i></button>`}).join('')}</div>`;
+ if(z==='m')return`<div class="t"><span>${clDay(sel)}</span>${open}</div>${week}<div class="tks" style="margin-top:4px">${dayI.slice(0,2).map(clRow).join('')||'<div class="mu">Nothing planned</div>'}</div>`;
+ let up='';for(let i=1;i<=7;i++){const d=addDays(t0,i);if(d===sel)continue;const it=clItems(d);if(it.length)up+=`<div class="lbl" style="margin:8px 0 2px">${esc(clDay(d)).toUpperCase()}</div>`+it.map(clRow).join('')}
+ return`<div class="t"><span>${clDay(sel)}</span><span>${dayI.length} item${dayI.length===1?'':'s'}</span></div>${week}${nx&&sel===t0?`<div class="clx">Next up <b>${esc(nx.title)}</b> ${clT12(nx.time)}</div>`:''}<div class="tks tdl" style="max-height:none;flex:1;min-height:0;overflow-y:auto;margin-top:4px">${dayI.map(clRow).join('')||'<div class="mu" style="padding:6px 0">Nothing planned</div>'}${up}</div>${clAddRow(sel)}`}
+async function clAdd(){const title=(CL.t||'').trim();const sel=CL.sel&&CL.sel>=today()?CL.sel:today(),date=CL.d||sel;if(!title){toast('Give the event a title');return}
+ const time=CL.tm||null,shared=CL.sh,owner=state.profile,partner=owner==='Bhargav'?'Anusha':'Bhargav';
+ const ev={id:'meet-'+Date.now()+'-'+Math.floor(Math.random()*1000),kind:'event',title,date,startDate:null,recurring:false,repeat:null,time,endTime:null,color:'var(--schedule)',shared,notes:null,location:null,link:null,reminderMinutes:null};
+ const ref=p=>db.collection('users').doc(state.user.uid).collection('schedule-profiles').doc(p).collection('data').doc('events');
+ const put=async(p,e)=>{const r=ref(p);await db.runTransaction(async t=>{const sn=await t.get(r);const a=sn.exists&&sn.data().json?safeJson(sn.data().json,[]):[];a.push(e);t.set(r,{json:JSON.stringify(a)})})};
+ const drop=async p=>{const r=ref(p);await db.runTransaction(async t=>{const sn=await t.get(r);const a=sn.exists&&sn.data().json?safeJson(sn.data().json,[]):[];t.set(r,{json:JSON.stringify(a.filter(x=>x.id!==ev.id))})})};
+ try{await put(owner,ev);if(shared)await put(partner,Object.assign({},ev,{mirrored:true,ownerProfile:owner}))}catch(e){toast("Couldn't save, try again");return}
+ if(!(state.events||[]).some(x=>x.id===ev.id))(state.events=state.events||[]).push(ev);
+ CL.t='';CL.tm='';CL.d='';refresh();toast('Added “'+title+'” · '+clDay(date),async()=>{try{await drop(owner);if(shared)await drop(partner);state.events=(state.events||[]).filter(x=>x.id!==ev.id);refresh()}catch(e){toast("Couldn't undo")}})}
+document.addEventListener('input',e=>{const t=e.target;if(!t||!t.dataset)return;if(t.dataset.clt!=null)CL.t=t.value;else if(t.dataset.cldate!=null)CL.d=t.value;else if(t.dataset.cltm!=null)CL.tm=t.value});
 
 // ---- Insights (read only): last 7 finished days, same scoring as the Insights page ----
 const IN={mods:null,ld:0,busy:0,key:''};
@@ -878,7 +1003,7 @@ $('#shi').addEventListener('click',e=>{if(e.target.id==='dn'){$('#sheet').classL
 function refreshOne(it){const el=EL.get(it.id);if(el)fillEl(it,el)}
 $('#sheet').addEventListener('click',e=>{if(e.target.id==='sheet')$('#sheet').classList.remove('on')});
 let gz=0,gk='water';const GS=[['xs','Extra small',160,80],['s','Small',160,170],['m','Medium',336,170],['l','Large',336,366]];
-const GTYPES=[['water','Water'],['tasks','To-Do'],['schedule','Schedule'],['skin','Skin'],['pledge','Pledge'],['gym','Training'],['diet','Diet'],['chores','Chores'],['grocery','Grocery'],['clock','Clock'],['insights','Insights'],['ticks','Recent ticks'],['qlinks','Quick links'],['notes','Notes'],['banner','Banner'],['stack','Stack']];
+const GTYPES=[['water','Water'],['tasks','To-Do'],['schedule','Schedule'],['skin','Skin'],['pledge','Pledge'],['gym','Training'],['diet','Diet'],['chores','Chores'],['grocery','Grocery'],['budget','Budget'],['recipes','Cook together'],['agenda','Calendar'],['clock','Clock'],['insights','Insights'],['ticks','Recent ticks'],['qlinks','Quick links'],['notes','Notes'],['banner','Banner'],['stack','Stack']];
 function galleryDraw(keep){const old=gz;const info=gk==='stack'?{n:'Widget stack',d:'Water, To-Do and Schedule in one widget. Swipe up or down on it to flip.',ic:'_',c:'Tools'}:WG[gk];const wk=gk==='stack'?'water':gk;
  const prev=z=>{const fake={ws:gk==='stack'?STK:[gk],si:0,z,o:{}};return `<div class="w${gk==='stack'?' stk':''}">${WG[wk].html(z,fake)}</div>${gk==='stack'?'<div class="sdt"><i class="on"></i><i></i><i></i></div>':''}`};
  $('#shi').innerHTML=`<div class="grab"></div><h3>Add a widget</h3><div class="chips" style="margin-top:8px">${GTYPES.map(([k,n])=>`<button data-gk="${k}" class="${gk===k?'on':''}">${n}</button>`).join('')}</div><div class="gin"><span class="gic"><div class="tile c-${info.c}"><svg viewBox="0 0 24 24">${P[info.ic]||P._}</svg></div></span><div class="n"><b>${info.n}</b><span>${info.d}</span></div></div><div class="gcar" id="gcar">${GS.map(([z,n,w,h])=>`<div class="gsl"><div class="gp it ${z}" style="width:${w}px;height:${h}px;${z==='l'?'transform:scale(.8)!important;transform-origin:top center;margin-bottom:-70px':''}"><div class="in">${prev(z)}</div></div></div>`).join('')}</div><div class="gdots" id="gdots">${GS.map((_,i)=>`<i class="${i===(keep?old:0)?'on':''}"></i>`).join('')}</div><div class="gnm" id="gnm">${GS[keep?old:0][1]}</div><button class="gadd" id="gadd" data-gadd="${GS[keep?old:0][0]}">Add Widget</button><div class="mu" style="text-align:center;margin-top:8px;font-size:11px">Swipe to change size. After adding, drag it to the screen edge to move it to another page.</div><button class="dn" id="dn">Close</button>`;
@@ -937,7 +1062,8 @@ function apply(){const on=active();document.body.classList.toggle('ph-on',on);if
  if(started&&view==='home'&&pgAct&&pgAct.dataset.page!=='today'&&!frameOpen()){$('#ph').classList.add('away');view='route';routeNow=pgAct.dataset.page}}
 function ready(){return typeof state!=='undefined'&&state.user&&state.profile&&document.getElementById('app-shell')&&!document.getElementById('app-shell').hidden&&typeof ensureWater==='function'}
 let sig='';const taskSig=()=>{try{if(!hasTasks())return 0;return dueTasks().map(t=>t.id).join(',')+'|'+state.personalTasks.length+'|'+(state.events||[]).length}catch(e){return 1}};
-function tick(){if(!ready()){return}
+function trTick(){if(TR.rt){const left=TR.rt-Date.now();if(left<=0){TR.rt=null;toast('Rest over, next set');try{navigator.vibrate&&navigator.vibrate([100,60,100])}catch(e){}refresh()}else{const el=document.querySelector('[data-trrt]');if(el)el.textContent=trMS(left)}}if(TR.t0){const el=document.querySelector('[data-trel]');if(el)el.textContent=trMS(Date.now()-TR.t0)}}
+function tick(){trTick();if(!ready()){return}
  if(active()&&(!started||profileNow!==state.profile)){document.body.classList.add('ph-on');start();apply();return}
  if(!active()||!started)return;syncApps();
  if(drag||document.hidden||view==='switch')return;const ae=document.activeElement;if(ae&&(/^cu-/.test(ae.id||'')||(ae.classList&&ae.classList.contains('tdi'))))return;

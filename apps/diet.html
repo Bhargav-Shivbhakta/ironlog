@@ -116,6 +116,15 @@
     .headline-stat b{font-size:20px}
   }
 </style>
+<style>
+.cook-tabs{display:flex;gap:8px;flex-wrap:wrap;margin:6px 0 14px}.cook-tabs button{border:1px solid var(--line,#ddd);background:var(--card,#fff);border-radius:999px;padding:9px 16px;font-weight:700;cursor:pointer;color:inherit;font:inherit;font-weight:700}.cook-tabs button.on{background:var(--green,#2f7c5a);color:#fff;border-color:transparent}
+.cook-cols{display:grid;grid-template-columns:1fr 1fr;gap:16px}@media(max-width:900px){.cook-cols{grid-template-columns:1fr}}
+.cook-col{background:var(--card,#fff);border:1px solid var(--line,#e3e3dc);border-radius:18px;padding:16px;display:grid;gap:12px;align-content:start}.cook-col h3{margin:0;font-size:18px}.cook-who{display:flex;align-items:center;gap:10px}.cook-who .av{width:34px;height:34px;border-radius:50%;display:grid;place-items:center;color:#fff;font-weight:800;background:#3F6FA3}.cook-col.anusha .av{background:#7C5C9E}
+.cook-rec{border:1px solid var(--line,#e3e3dc);border-radius:14px;padding:12px;display:grid;gap:8px}.cook-rec header{display:flex;align-items:center;gap:8px}.cook-rec header b{flex:1;font-size:15px}
+.cook-ing{display:flex;align-items:center;gap:10px;padding:7px 0;border-bottom:1px solid var(--line,#eee);font-size:15px;cursor:pointer}.cook-ing:last-child{border:0}.cook-ing .ck{width:22px;height:22px;border-radius:7px;border:2px solid #aaa;display:grid;place-items:center;flex:none;font-size:13px;color:#fff}.cook-ing.done .ck{background:var(--green,#2f7c5a);border-color:transparent}.cook-ing.done span.n{text-decoration:line-through;opacity:.5}.cook-ing .q{margin-left:auto;font-weight:800;font-variant-numeric:tabular-nums}
+.cook-method{font-size:14px;line-height:1.5;background:rgba(0,0,0,.04);border-radius:10px;padding:10px}.cook-sum{display:flex;gap:14px;font-size:13px;font-weight:700;flex-wrap:wrap}.cook-add{display:flex;gap:8px}.cook-add select{flex:1;min-width:0}
+.cook-both{margin:0 0 14px;font-size:13.5px}.cook-both b{font-weight:800}.cook-empty{text-align:center;padding:18px;color:var(--muted,#777)}
+</style>
 </head>
 <body>
 <script>try{ if(window.self !== window.top) document.body.classList.add('embedded'); }catch(e){ document.body.classList.add('embedded'); }</script>
@@ -136,6 +145,7 @@
       <nav class="nav" id="nav">
         <button class="active" data-page="dashboard">◫ Today</button>
         <button data-page="mealplan">▦ Meals</button>
+        <button data-page="cook">🍳 Cook together</button>
         <button data-page="pantry">▣ Pantry</button>
         <button data-page="progress">↗ Progress</button>
         <button data-page="history">🕘 History</button>
@@ -189,8 +199,15 @@
       <div id="dashWeek" style="display:none"><div class="weekbar"><div><h2 style="margin:0" id="weekTitle">This week</h2><div class="subtle">Select a date to view or log meals</div></div><div class="library-tools"><button class="btn ghost small" onclick="moveWeek(-7)">← Previous</button><button class="btn secondary small" onclick="selectToday()">Today</button><button class="btn ghost small" onclick="moveWeek(7)">Next →</button></div></div><div class="week-grid" id="weekGrid"></div><div class="date-actions"><button class="btn" onclick="openSelectedDay()">Open selected day</button><button class="btn secondary" onclick="copyPreviousDay()">Copy previous day</button><button class="btn ghost" onclick="logPlanForSelectedDay()">Log standard plan</button></div></div>
     </section>
 
+    <section class="page" id="cook">
+      <div class="subtabs"><button data-page="cook" onclick="go('cook')" class="active">Cook together</button><button data-page="mealplan" onclick="go('mealplan')">Daily plan</button><button data-page="recipes" onclick="go('recipes')">Recipes</button></div>
+      <div class="section-head"><div><h2>Cook together</h2><div class="subtle">Pick a meal. Bhargav's and Anusha's recipes and exact amounts to serve sit side by side.</div></div></div>
+      <div class="cook-tabs" id="cookTabs"></div>
+      <div class="cook-both" id="cookBoth"></div>
+      <div class="cook-cols" id="cookCols"></div>
+    </section>
     <section class="page" id="mealplan">
-      <div class="subtabs"><button data-page="mealplan" onclick="go('mealplan')" class="active">Daily plan</button><button data-page="recipes" onclick="go('recipes')">Recipes</button><button data-page="foods" onclick="go('foods')">Ingredients</button></div>
+      <div class="subtabs"><button data-page="cook" onclick="go('cook')">Cook together</button><button data-page="mealplan" onclick="go('mealplan')" class="active">Daily plan</button><button data-page="recipes" onclick="go('recipes')">Recipes</button><button data-page="foods" onclick="go('foods')">Ingredients</button></div>
       <div class="section-head"><div><h2 id="planTitle">Daily meal plan</h2><div class="subtle">Choose Review & log meal to change every recipe, ingredient, amount, and unit before saving</div></div><button class="btn" onclick="openNewMealModal()">+ New meal</button></div>
       <div class="meal-plan-grid" id="mealPlanGrid"></div>
     </section>
@@ -243,7 +260,7 @@
     </section>
 
     <section class="page" id="recipes">
-      <div class="subtabs"><button data-page="mealplan" onclick="go('mealplan')">Daily plan</button><button data-page="recipes" onclick="go('recipes')" class="active">Recipes</button><button data-page="foods" onclick="go('foods')">Ingredients</button></div>
+      <div class="subtabs"><button data-page="cook" onclick="go('cook')">Cook together</button><button data-page="mealplan" onclick="go('mealplan')">Daily plan</button><button data-page="recipes" onclick="go('recipes')" class="active">Recipes</button><button data-page="foods" onclick="go('foods')">Ingredients</button></div>
       <div class="card"><div class="section-head"><div><h2>My recipes</h2><div class="subtle">Tap View/Edit to open a recipe in the form below</div></div><button class="btn" onclick="openRecipeForm()">+ New recipe</button></div><div id="recipeList"></div></div>
       <details id="recipeFormDetails" style="margin-top:20px">
         <summary class="card" id="recipeFormSummary" style="cursor:pointer;list-style:none;font-weight:800;font-size:15px">▤ Create a recipe — tap to expand</summary>
@@ -267,7 +284,7 @@
     </section>
 
     <section class="page" id="foods">
-      <div class="subtabs"><button data-page="mealplan" onclick="go('mealplan')">Daily plan</button><button data-page="recipes" onclick="go('recipes')">Recipes</button><button data-page="foods" onclick="go('foods')" class="active">Ingredients</button></div>
+      <div class="subtabs"><button data-page="cook" onclick="go('cook')">Cook together</button><button data-page="mealplan" onclick="go('mealplan')">Daily plan</button><button data-page="recipes" onclick="go('recipes')">Recipes</button><button data-page="foods" onclick="go('foods')" class="active">Ingredients</button></div>
       <div class="card"><div class="section-head"><div><h2>Ingredient library</h2><div class="subtle">Values are stored per basis amount and scaled automatically</div></div><div class="library-tools"><div class="search"><span>⌕</span><input class="input" id="foodSearch" placeholder="Search ingredients…" oninput="renderFoods()"></div><button class="btn" onclick="openFoodModal()">+ Custom ingredient</button></div></div><div class="table-scroll"><table class="food-table"><thead><tr><th>Ingredient</th><th>Reference</th><th class="num">Calories</th><th class="num">Protein</th><th class="num">Carbs</th><th class="num">Fat</th><th class="num">Fiber</th><th></th></tr></thead><tbody id="foodRows"></tbody></table></div></div>
     </section>
 
@@ -643,7 +660,36 @@ openFoodModal=function(id){editingFood=id||null;let f=id?food(id):{name:'',basis
 saveFood=function(){let name=$('fName').value.trim(),basis=+$('fBasis').value;if(!name||basis<=0)return toast('Name and basis amount are required');let f={id:editingFood||'custom-'+Date.now(),name,basis,unit:$('fUnit').value,groceryProductId:$('fGroceryProduct').value||null};['Calories','Protein','Carbs','Fat','Fiber','SatFat','Sugar','Sodium','Calcium','Iron','Potassium','VitaminD','PieceG','Density'].forEach(k=>f[k[0].toLowerCase()+k.slice(1)]=num('f'+k)||undefined);microKeys.forEach(k=>f[k]=f[k]||0);['calories','protein','carbs','fat','fiber'].forEach(k=>f[k]=f[k]||0);if(editingFood)state.foods=state.foods.map(x=>x.id===editingFood?f:x);else{if(pendingFoodMeta)Object.assign(f,pendingFoodMeta);state.foods.push(f);state.pantry.push({foodId:f.id,qty:0,lowAt:1,expiry:'',store:'Pantry'})}lastSavedFood=f.id;persist();closeFoodModal();fillFoodSelect();renderAll();toast('Ingredient saved')}
 importData=function(e){let file=e.target.files[0];if(!file)return;let reader=new FileReader();reader.onload=()=>{try{let x=JSON.parse(reader.result);if(!x.foods||!x.recipes||!x.profiles)throw 0;state=x;if(state.featureVersion!==1)migrateFeatures();ensurePantry();if(typeof ensurePurchases==='function')ensurePurchases();linkBuiltInGroceryProducts();persist();fillFoodSelect();setProfile(state.activeProfile||'bhargav');toast('Data imported')}catch{toast('That file is not valid Nourish Duo data')}};reader.readAsText(file)}
 const previousSetProfile=setProfile;setProfile=function(id){previousSetProfile(id);populateYieldRecipes();renderCalendar();renderPantry();renderProgress();renderProgression();renderNutrition();renderInsights()}
-go=function(id){document.querySelectorAll('.page').forEach(p=>p.classList.toggle('active',p.id===id));document.querySelectorAll('[data-page]').forEach(b=>b.classList.toggle('active',b.dataset.page===id));let titles={dashboard:['Daily nutrition','Today'],mealplan:['Meal structure','Daily meal plan'],pantry:['Inventory and expiry','Pantry'],progress:['Body, balance, trend & adherence','Progress'],history:['Full diary record','History'],recipes:['Create, edit & browse','Recipes'],foods:['Nutrition database','Ingredients'],settings:['Personalize','Goals & settings']},t=titles[id];$('eyebrow').textContent=t[0];$('pageTitle').textContent=t[1];updateHeaderDate();if(id==='dashboard'){renderDashboard();renderCalendar();renderNutrition();renderDietCommand();renderProteinRescue()}if(id==='mealplan')renderMealPlan();if(id==='pantry')renderPantry();if(id==='progress'){renderProgress();renderInsights();renderProgression()}if(id==='history')renderHistory();if(id==='recipes'){renderRecipes();populateYieldRecipes()}if(id==='foods')renderFoods();if(id==='settings')loadGoalInputs();scrollTo(0,0)}
+
+// ---- Cook together: both people's recipes for one meal, side by side ----
+let cookSlot=null;const cookDone={};
+function cookSlots(){const out=[];state.meals.forEach(m=>{if(!out.includes(m.slot))out.push(m.slot)});const order=['After gym','Breakfast','Lunch','Snack','Dinner'];return out.sort((a,b)=>{const ia=order.indexOf(a),ib=order.indexOf(b);return (ia<0?99:ia)-(ib<0?99:ib)})}
+function cookDefaultSlot(){const sl=cookSlots(),h=new Date().getHours();const want=h<10?'Breakfast':h<15?'Lunch':h<18?'Snack':'Dinner';return sl.includes(want)?want:sl[0]}
+function cookQty(q){q=Math.round(q*10)/10;return String(q)}
+function cookRecipeHtml(r,m,pid){
+  const n=recipeServingN(r),per=(r.servings||1);
+  const ings=r.items.map((it,i)=>{const f=food(it.foodId),k=pid+'|'+r.id+'|'+i,d=cookDone[k];const q=it.qty/per;return`<div class="cook-ing${d?' done':''}" onclick="cookTick('${k}')"><span class="ck">${d?'✓':''}</span><span class="n">${esc(f?f.name:it.foodId)}</span><span class="q">${cookQty(q)} ${esc(it.unit||'')}</span></div>`}).join('');
+  return`<div class="cook-rec"><header><b>${esc(r.name)}</b><button class="icon-btn" title="Take out of this meal" onclick="cookRemove('${m.id}','${r.id}')">×</button></header><div>${ings}</div>${r.method?`<div class="cook-method">${esc(r.method)}</div>`:''}<div class="cook-sum"><span>${round(n.calories,0)} kcal</span><span>P ${round(n.protein)}g</span><span>C ${round(n.carbs)}g</span><span>F ${round(n.fat)}g</span></div></div>`}
+function cookTick(k){cookDone[k]=!cookDone[k];renderCook()}
+function cookRemove(mid,rid){const m=state.meals.find(x=>x.id===mid);if(!m)return;m.recipeIds=m.recipeIds.filter(x=>x!==rid);persist();renderCook()}
+function cookAdd(mid){const m=state.meals.find(x=>x.id===mid),sel=$('cookadd-'+mid);if(!m||!sel||!sel.value)return toast('Pick a recipe first');m.recipeIds.push(sel.value);persist();renderCook();toast('Added to '+m.slot)}
+function cookMake(pid,slot){state.meals.push({id:'m-'+Date.now()+pid,profileId:pid,slot,name:slot,time:'Anytime',icon:'🍽️',recipeIds:[],rule:'',scheduleBlocks:[]});persist();renderCook()}
+function cookPick(s){cookSlot=s;renderCook()}
+function renderCook(){
+  const tabs=$('cookTabs');if(!tabs)return;const sl=cookSlots();if(!cookSlot||!sl.includes(cookSlot))cookSlot=cookDefaultSlot();
+  tabs.innerHTML=sl.map(s=>`<button class="${s===cookSlot?'on':''}" onclick="cookPick(this.dataset.s)" data-s="${esc(s)}">${esc(s)}</button>`).join('');
+  const people=Object.keys(state.profiles);const tot={};const cols=people.map(pid=>{
+    const pr=state.profiles[pid],ms=state.meals.filter(m=>m.profileId===pid&&m.slot===cookSlot);
+    if(!ms.length)return`<div class="cook-col ${pid}"><div class="cook-who"><span class="av">${esc(pr.name[0])}</span><h3>${esc(pr.name)}</h3></div><div class="cook-empty">No ${esc(cookSlot)} planned for ${esc(pr.name)}.<br><button class="btn secondary small" style="margin-top:10px" onclick="cookMake('${pid}',cookSlot)">Create ${esc(cookSlot)} for ${esc(pr.name)}</button></div></div>`;
+    return ms.map(m=>{const recs=m.recipeIds.map(id=>state.recipes.find(r=>r.id===id)).filter(Boolean);
+      recs.forEach(r=>r.items.forEach(it=>{const f=food(it.foodId),key=(f?f.name:it.foodId)+'|'+(it.unit||'');tot[key]=(tot[key]||0)+it.qty/(r.servings||1)}));
+      const kc=recs.reduce((a,r)=>a+recipeServingN(r).calories,0),pt=recs.reduce((a,r)=>a+recipeServingN(r).protein,0);
+      const avail=state.recipes.filter(r=>r.profileId===pid&&!m.recipeIds.includes(r.id));
+      return`<div class="cook-col ${pid}"><div class="cook-who"><span class="av">${esc(pr.name[0])}</span><div><h3>${esc(pr.name)}</h3><div class="subtle">${m.icon} ${esc(m.name)} · ${esc(m.time)}</div></div></div>${m.rule?`<div class="bundle-rule">${esc(m.rule)}</div>`:''}<div class="cook-sum"><b>To serve: ${recs.length} item${recs.length===1?'':'s'}</b><span>${round(kc,0)} kcal</span><span>P ${round(pt)}g</span></div>${recs.map(r=>cookRecipeHtml(r,m,pid)).join('')||'<div class="cook-empty">No recipes in this meal yet.</div>'}<div class="cook-add"><select id="cookadd-${m.id}" class="input">${avail.map(r=>`<option value="${r.id}">${esc(r.name)}</option>`).join('')||'<option value="">No other recipes</option>'}</select><button class="btn secondary small" onclick="cookAdd('${m.id}')">+ Add</button></div></div>`}).join('')}).join('');
+  $('cookCols').innerHTML=cols;
+  const ks=Object.keys(tot);$('cookBoth').innerHTML=ks.length?'<b>Cooking for both, you need in total:</b> '+ks.map(k=>{const [n,u]=k.split('|');return esc(n)+' '+cookQty(tot[k])+' '+esc(u)}).join(' · '):''
+}
+go=function(id){document.querySelectorAll('.page').forEach(p=>p.classList.toggle('active',p.id===id));document.querySelectorAll('[data-page]').forEach(b=>b.classList.toggle('active',b.dataset.page===id));let titles={dashboard:['Daily nutrition','Today'],mealplan:['Meal structure','Daily meal plan'],pantry:['Inventory and expiry','Pantry'],progress:['Body, balance, trend & adherence','Progress'],history:['Full diary record','History'],recipes:['Create, edit & browse','Recipes'],foods:['Nutrition database','Ingredients'],settings:['Personalize','Goals & settings'],cook:['Both plans, side by side','Cook together']},t=titles[id];$('eyebrow').textContent=t[0];$('pageTitle').textContent=t[1];updateHeaderDate();if(id==='dashboard'){renderDashboard();renderCalendar();renderNutrition();renderDietCommand();renderProteinRescue()}if(id==='mealplan')renderMealPlan();if(id==='cook')renderCook();if(id==='pantry')renderPantry();if(id==='progress'){renderProgress();renderInsights();renderProgression()}if(id==='history')renderHistory();if(id==='recipes'){renderRecipes();populateYieldRecipes()}if(id==='foods')renderFoods();if(id==='settings')loadGoalInputs();scrollTo(0,0)}
 renderAll=function(){renderDashboard();renderBuilder();renderRecipes();renderFoods();renderMealPlan();loadGoalInputs();renderCalendar();renderPantry();renderProgress();renderProgression();renderNutrition();renderInsights();renderHistory();renderDietCommand();renderProteinRescue();renderMealListOG()}
 resetData=function(){if(!confirm('Restore both original diet plans? This removes custom data, inventory changes, and history.'))return;state=makeFinalState();migrateFeatures();draft=clone(state.recipes[0]);fillFoodSelect();setProfile('bhargav');toast('Original plans restored')}
 updateHeaderDate();populateYieldRecipes();

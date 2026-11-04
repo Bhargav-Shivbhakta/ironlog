@@ -71,6 +71,8 @@
   .side-nav button svg{width:15px;height:15px;flex:none;}
   .side-nav button:hover{background:var(--surface-alt);color:var(--text);}
   .side-nav button.active{background:var(--text);color:var(--surface);}
+  .qa-row{display:grid;grid-template-columns:auto 1fr 1.3fr 1.1fr auto;gap:8px;align-items:center}.qa-row input,.qa-row select{padding:10px;border:1px solid var(--border);border-radius:var(--radius-sm);font:inherit;min-width:0;background:var(--surface);color:var(--text)}.qa-hint{font-size:12px;color:var(--text-soft);margin-top:8px}.qa-row #qa-who{display:none}.qa.shared .qa-row #qa-who{display:block}@media(max-width:700px){.qa-row{grid-template-columns:1fr 1fr}.qa-row .scope-toggle{grid-column:1/-1}}
+  .txn-more{margin-top:12px}.txn-more summary{cursor:pointer;font-size:12.5px;font-weight:700;color:var(--accent)}
   .tn-sep{width:1px;height:18px;background:var(--border);margin:0 6px;flex:none;}
   body.embedded .tn-row{display:none;}
   body.embedded .side-nav{padding-top:8px;}
@@ -305,19 +307,19 @@
         <a class="side-hub-link" href="../index.html"><i data-lucide="arrow-left"></i><span>Home Hub</span></a>
       </div>
       <nav class="side-nav" id="side-nav">
-        <button type="button" data-tab="today" class="active"><i data-lucide="sun"></i><span>Today</span></button>
-        <button type="button" data-tab="overview"><i data-lucide="layout-dashboard"></i><span>Overview</span></button>
-        <button type="button" data-tab="transactions"><i data-lucide="list"></i><span>Transactions</span></button>
-        <button type="button" data-tab="bills"><i data-lucide="receipt"></i><span>Bills</span></button>
+        <button type="button" title="What needs you now" data-tab="today" class="active"><i data-lucide="sun"></i><span>Today</span></button>
+        <button type="button" title="The full picture of your money" data-tab="overview"><i data-lucide="layout-dashboard"></i><span>Overview</span></button>
+        <button type="button" title="Add and review spending and income" data-tab="transactions"><i data-lucide="list"></i><span>Transactions</span></button>
+        <button type="button" title="Bills that repeat" data-tab="bills"><i data-lucide="receipt"></i><span>Bills</span></button>
         <span class="tn-sep"></span>
-        <button type="button" data-tab="accounts"><i data-lucide="landmark"></i><span>Accounts &amp; CDs</span></button>
-        <button type="button" data-tab="investments"><i data-lucide="trending-up"></i><span>Investments</span></button>
-        <button type="button" data-tab="income"><i data-lucide="calendar-clock"></i><span>Income</span></button>
-        <button type="button" data-tab="debt"><i data-lucide="credit-card"></i><span>Debt</span></button>
+        <button type="button" title="Bank accounts, savings and CDs" data-tab="accounts"><i data-lucide="landmark"></i><span>Accounts &amp; CDs</span></button>
+        <button type="button" title="Your holdings" data-tab="investments"><i data-lucide="trending-up"></i><span>Investments</span></button>
+        <button type="button" title="Paychecks and other income" data-tab="income"><i data-lucide="calendar-clock"></i><span>Income</span></button>
+        <button type="button" title="Balances and payoff plan" data-tab="debt"><i data-lucide="credit-card"></i><span>Debt</span></button>
         <span class="tn-sep"></span>
-        <button type="button" data-tab="shared"><i data-lucide="users"></i><span>Shared money</span></button>
-        <button type="button" data-tab="forecast"><i data-lucide="activity"></i><span>Forecast</span></button>
-        <button type="button" data-tab="tax"><i data-lucide="file-text"></i><span>Tax calculator</span></button>
+        <button type="button" title="Who owes whom, and settle up" data-tab="shared"><i data-lucide="users"></i><span>Shared money</span></button>
+        <button type="button" title="Where your money is heading" data-tab="forecast"><i data-lucide="activity"></i><span>Forecast</span></button>
+        <button type="button" title="Estimate your taxes" data-tab="tax"><i data-lucide="file-text"></i><span>Tax calculator</span></button>
       </nav>
     </div>
   </header>
@@ -332,6 +334,17 @@
   <section class="tab-page active" id="page-today">
     <div class="page-head"><h1>Today</h1><p>Where you stand, what needs you now, and what is coming up.</p></div>
     <div id="today-snapshot"></div>
+    <div class="card-form qa" id="qa">
+      <h3>Quick add</h3>
+      <div class="qa-row">
+        <div class="scope-toggle" id="qa-scope"><button type="button" data-scope="personal" class="active">Mine</button><button type="button" data-scope="shared">Shared</button></div>
+        <input type="number" id="qa-amount" min="0" step="0.01" placeholder="$ amount" inputmode="decimal">
+        <select id="qa-cat" aria-label="Category"></select>
+        <select id="qa-who" aria-label="Who paid"><option value="Bhargav">Bhargav paid</option><option value="Anusha">Anusha paid</option></select>
+        <button type="button" class="button primary" id="qa-add"><i data-lucide="plus"></i>Add</button>
+      </div>
+      <div class="qa-hint">Adds an expense for today. Need a date, note, repeat or uneven split? Use the Transactions tab.</div>
+    </div>
     <div class="section-title"><span>Needs you now</span></div>
     <div id="today-queue"></div>
     <div class="section-title"><span>Next 14 days</span></div>
@@ -384,6 +397,9 @@
         <label>Amount<input type="number" id="txn-amount" min="0" step="0.01" placeholder="0.00"></label>
         <label>Category<select id="txn-category"></select><span class="cat-tools"><button type="button" class="link-btn" id="txn-addcat">+ New category</button><button type="button" class="link-btn" id="txn-managecats">Manage</button></span></label>
         <label id="txn-who-label">Who paid<select id="txn-who"><option value="Bhargav">Bhargav</option><option value="Anusha">Anusha</option></select></label>
+      </div>
+      <details id="txn-more" class="txn-more"><summary>More options: date, note, repeat</summary>
+      <div class="form-grid" style="margin-top:10px">
         <label>Date<input type="date" id="txn-date"></label>
         <label style="grid-column:1/-1">Note<input type="text" id="txn-note" placeholder="Optional"></label>
       </div>
@@ -399,6 +415,7 @@
         <label id="txn-repeat-end-label" style="display:none">Until (optional)<input type="date" id="txn-repeat-end"></label>
         <div id="txn-repeat-hint" style="grid-column:1/-1;font-size:12px;color:var(--text-soft);display:none"></div>
       </div>
+      </details>
       <!-- Only shown for a Shared expense — this is what feeds the Settle-up
            flow on the Shared tab: 50/50 splits the amount automatically,
            Exact lets you enter exactly what the other person owes (e.g. you
@@ -975,7 +992,7 @@ function editRecur(scope,id){
   document.getElementById('txn-repeat').value=r.freq;
   document.getElementById('txn-repeat-end').value=r.endDate||'';
   refreshTxnSplitUI(); refreshRepeatUI();
-  document.getElementById('txn-submit').innerHTML='<i data-lucide="check"></i>Save series';
+  document.getElementById('txn-submit').innerHTML='<i data-lucide="check"></i>Save series'; document.getElementById('txn-more').open=true;
   document.getElementById('txn-cancel-edit').hidden=false;
   if(window.lucide) lucide.createIcons();
   showTab('transactions');
@@ -1194,7 +1211,7 @@ function renderTodaySnapshot(){
   const wIn=wk.filter(function(e){return e.kind==='in';}).reduce(function(a,e){return a+e.amount;},0);
   const wOut=wk.filter(function(e){return e.kind==='out';}).reduce(function(a,e){return a+e.amount;},0);
   el.innerHTML='<div class="snap"><div class="snap-label">Left to spend this month</div><div class="snap-big'+(s.left<0?' over':'')+'">'+(s.left<0?'−':'')+fmtMoney(Math.abs(s.left))+'</div>'+
-    '<div class="snap-sub">'+fmtMoney(s.bank)+' in accounts + '+fmtMoney(s.inSum)+' still coming − '+fmtMoney(s.outSum)+' still to pay. <a href="#" data-gotab="overview">Details</a></div>'+
+    '<div class="snap-sub">'+(s.left>0?'That is about <b>'+fmtMoney(s.left/Math.max(1,(new Date(new Date().getFullYear(),new Date().getMonth()+1,0).getDate()-new Date().getDate()+1)))+'</b> a day for the rest of the month.<br>':'')+fmtMoney(s.bank)+' in accounts + '+fmtMoney(s.inSum)+' still coming − '+fmtMoney(s.outSum)+' still to pay. <a href="#" data-gotab="overview">Details</a></div>'+
     '<div class="snap-mini"><div><b>'+fmtMoney(wOut)+'</b><span>to pay, next 7 days</span></div><div><b>'+fmtMoney(wIn)+'</b><span>coming in, next 7 days</span></div><div><b>'+fmtMoney(s.bank)+'</b><span>in your accounts</span></div></div></div>';
 }
 function renderTodayUpcoming(){
@@ -1324,7 +1341,7 @@ function resetTxnForm(){
   document.getElementById('txn-owed').value='';
   document.querySelectorAll('#txn-split-toggle button').forEach(function(b){ b.classList.toggle('active', b.dataset.split==='half'); });
   refreshTxnSplitUI();
-  document.getElementById('txn-submit').innerHTML='<i data-lucide="plus"></i>Add transaction';
+  document.getElementById('txn-submit').innerHTML='<i data-lucide="plus"></i>Add transaction'; document.getElementById('txn-more').open=false;
   document.getElementById('txn-cancel-edit').hidden=true;
   if(window.lucide) lucide.createIcons();
   refreshTxnForm();
@@ -1406,7 +1423,7 @@ function editTxn(scope,id){
   document.querySelectorAll('#txn-split-toggle button').forEach(function(b){ b.classList.toggle('active', b.dataset.split===(t.splitMethod||'half')); });
   document.getElementById('txn-owed').value=t.owedAmount||'';
   refreshTxnSplitUI();
-  document.getElementById('txn-submit').innerHTML='<i data-lucide="check"></i>Save changes';
+  document.getElementById('txn-submit').innerHTML='<i data-lucide="check"></i>Save changes'; document.getElementById('txn-more').open=true;
   document.getElementById('txn-cancel-edit').hidden=false;
   if(window.lucide) lucide.createIcons();
   showTab('transactions');
@@ -2556,7 +2573,7 @@ function showTab(tab){
   document.querySelectorAll('#side-nav button').forEach(function(b){ b.classList.toggle('active', b.dataset.tab===tab); });
   document.querySelectorAll('.tab-page').forEach(function(p){ p.classList.toggle('active', p.id==='page-'+tab); });
   const crumb=document.getElementById('page-crumb'); if(crumb) crumb.textContent=TAB_LABELS[tab]||tab;
-  if(tab==='today') renderTodayQueue();
+  if(tab==='today'){ renderTodayQueue(); refreshQa(); }
   if(tab==='overview') renderOverview();
   if(tab==='transactions') renderTransactions();
   if(tab==='bills') renderBills();
@@ -2578,6 +2595,34 @@ document.querySelectorAll('#txn-type-toggle button').forEach(function(b){
 });
 document.querySelectorAll('#txn-split-toggle button').forEach(function(b){
   b.addEventListener('click', function(){ document.querySelectorAll('#txn-split-toggle button').forEach(function(x){x.classList.remove('active');}); b.classList.add('active'); refreshTxnSplitUI(); });
+});
+
+// Quick add (Today): fills the real transaction form and uses its own save path, so rules stay identical.
+function qaScope(){ return document.querySelector('#qa-scope button.active').dataset.scope; }
+function refreshQa(){
+  const sel=document.getElementById('qa-cat'); if(!sel) return;
+  const keep=sel.value; populateCategorySelect(sel, qaScope(), false, 'expense');
+  if(keep && Array.from(sel.options).some(function(o){return o.value===keep;})) sel.value=keep;
+  document.getElementById('qa').classList.toggle('shared', qaScope()==='shared');
+}
+document.querySelectorAll('#qa-scope button').forEach(function(b){
+  b.addEventListener('click', function(){ document.querySelectorAll('#qa-scope button').forEach(function(x){x.classList.remove('active');}); b.classList.add('active'); refreshQa(); });
+});
+document.getElementById('qa-add').addEventListener('click', async function(){
+  const amt=parseFloat(document.getElementById('qa-amount').value);
+  if(!amt || amt<=0){ toast('Enter an amount'); return; }
+  const cat=document.getElementById('qa-cat').value; if(!cat){ toast('Pick a category'); return; }
+  const scope=qaScope();
+  resetTxnForm();
+  document.querySelectorAll('#txn-scope-toggle button').forEach(function(b){ b.classList.toggle('active', b.dataset.scope===scope); });
+  document.querySelectorAll('#txn-type-toggle button').forEach(function(b){ b.classList.toggle('active', b.dataset.type==='expense'); });
+  refreshTxnForm();
+  document.getElementById('txn-category').value=cat;
+  document.getElementById('txn-amount').value=String(amt);
+  if(scope==='shared') document.getElementById('txn-who').value=document.getElementById('qa-who').value;
+  await submitTxnForm();
+  document.getElementById('qa-amount').value='';
+  refreshQa(); renderTodayQueue();
 });
 document.getElementById('txn-submit').addEventListener('click', submitTxnForm);
 document.getElementById('txn-cancel-edit').addEventListener('click', resetTxnForm);

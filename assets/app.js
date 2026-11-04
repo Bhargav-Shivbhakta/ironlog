@@ -1832,8 +1832,32 @@ const WIDGET_TYPES={
         el.innerHTML='<strong style="display:block;font-size:26px;font-weight:700;letter-spacing:-.02em">'+fmt(spent)+'</strong>'+
           '<p style="margin:4px 0 10px;color:var(--muted)">spent this month'+(budget>0?(remaining<0?' · '+fmt(-remaining)+' over budget':' · '+fmt(remaining)+' left'):'')+'</p>'+
           (topCats.length?'<div style="display:flex;flex-direction:column;gap:4px;margin-bottom:10px">'+topCats.map(([name,amt])=>'<div style="display:flex;justify-content:space-between;font-size:12px;color:var(--muted)"><span>'+esc(name)+'</span><strong style="color:var(--text)">'+fmt(amt)+'</strong></div>').join('')+'</div>':'')+
+          (()=>{
+            // who owes whom: unsettled shared expenses. The other person owes the owed amount (half when none is stored).
+            const me=state.profile,other=me==='Bhargav'?'Anusha':'Bhargav',owedOf=t=>t.owedAmount!=null?Number(t.owedAmount):(Number(t.amount)||0)/2;
+            const net=sharedTxns.filter(t=>t.type==='expense'&&!t.settled&&t.who).reduce((a,t)=>a+(t.who===me?owedOf(t):-owedOf(t)),0);
+            const line=Math.abs(net)<0.005?'All settled':(net>0?esc(other)+' owes you '+fmt(net):'You owe '+esc(other)+' '+fmt(-net));
+            return '<p class="bq-owe">'+line+'</p>';
+          })()+
+          '<div class="bq" data-bq><button type="button" class="bq-sc" data-bqsc>Mine</button><input class="bq-amt" inputmode="decimal" placeholder="$ amount" aria-label="Amount"><select class="bq-cat" aria-label="Category"></select><button type="button" class="bq-add" data-bqadd>Add</button></div>'+
           '<a class="widget-card-link" href="apps/budget.html" data-profile-link>Open Budget <i data-lucide="arrow-up-right"></i></a>';
         updateProfileLinks();if(window.lucide)lucide.createIcons();
+        // quick add: writes the same transaction the Budget app writes (shared splits 50/50)
+        let scope='personal';const amt=el.querySelector('.bq-amt'),sel=el.querySelector('.bq-cat'),scb=el.querySelector('[data-bqsc]');
+        const fill=()=>{const l=scope==='shared'?sharedCats:personalCats;sel.innerHTML=l.map(c=>'<option value="'+esc(c.id)+'">'+esc(c.name)+'</option>').join('')||'<option value="">Open Budget first</option>';scb.textContent=scope==='shared'?'Shared':'Mine';scb.classList.toggle('on',scope==='shared')};
+        fill();
+        scb.onclick=()=>{scope=scope==='shared'?'personal':'shared';fill()};
+        el.querySelector('[data-bqadd]').onclick=async()=>{
+          const a=parseFloat(amt.value);if(!(a>0)){toast('Enter an amount');return}
+          if(!sel.value){toast('Open Budget once to set up categories');return}
+          const sx=scope==='shared',ref=sx?db.collection('users').doc(uid).collection('budget-shared').doc('transactions'):db.collection('users').doc(uid).collection('budget-profiles').doc(state.profile).collection('data').doc('transactions');
+          let cur=[];try{const sn=await ref.get();cur=sn.exists&&sn.data().json?safeJson(sn.data().json,[]):[]}catch(e){toast("Couldn't reach Budget, try again");return}
+          const id='id-'+Date.now()+'-'+Math.random().toString(36).slice(2,8);
+          cur.unshift({id,amount:a,type:'expense',categoryId:sel.value,who:sx?state.profile:null,date:today(),note:'',createdAt:Date.now(),splitMethod:sx?'half':null,owedAmount:sx?Math.round(a/2*100)/100:null,settled:sx?false:undefined});
+          try{await ref.set({json:JSON.stringify(cur)})}catch(e){toast("Couldn't save, try again");return}
+          WIDGET_TYPES.budget.render(el);
+          toast('Added '+fmt(a)+(sx?' (shared)':''),'Undo',async()=>{try{const sn=await ref.get();const c=(sn.exists&&sn.data().json?safeJson(sn.data().json,[]):[]).filter(x=>x.id!==id);await ref.set({json:JSON.stringify(c)});WIDGET_TYPES.budget.render(el)}catch(e){toast("Couldn't undo")}});
+        };
       }catch(e){el.innerHTML='<div class="empty-state"><strong>Unavailable</strong>Could not load your budget.</div>'}
     }},
   pledge:{title:'Pledge',icon:'flag',desc:"Today's pledges, ticked automatically from your apps, and the prizes riding on them.",defaultSize:'md',
@@ -2881,6 +2905,162 @@ function widgetSetEditMode(on){
    content is now kept and shown straight away while fresh data loads, so refreshes are invisible. */
 const widgetHtmlCache=new Map();
 /* ---- Diet widget: a plate ring, one arc per planned meal. Reads and writes the Diet app's own data (src: assets/diet-core.js) ---- */
+/* ---- Cook together widget: both people's recipes for one meal, side by side, with exact amounts to serve ---- */
+const PCK={slot:null,done:{}};
+function pckModel(){
+  const S=dietW.S,C=window.DietCore;if(!S||!C||!Array.isArray(S.meals)||!S.profiles)return null;
+  const order=['After gym','Breakfast','Lunch','Snack','Dinner'];
+  const slots=[...new Set(S.meals.map(m=>m.slot))].sort((a,b)=>{const x=order.indexOf(a),y=order.indexOf(b);return(x<0?99:x)-(y<0?99:y)});
+  if(!slots.length)return{slots:[]};
+  const h=new Date().getHours(),want=h<10?'Breakfast':h<15?'Lunch':h<18?'Snack':'Dinner';
+  const sl=PCK.slot&&slots.includes(PCK.slot)?PCK.slot:(slots.includes(want)?want:slots[0]);
+  const people=Object.keys(S.profiles).map(pid=>{
+    const ms=S.meals.filter(m=>m.profileId===pid&&m.slot===sl),recs=[];
+    ms.forEach(m=>(m.recipeIds||[]).forEach(id=>{const r=(S.recipes||[]).find(x=>x.id===id);if(r)recs.push(r)}));
+    let kc=0,pr=0;recs.forEach(r=>{try{const n=C.recipeServingN(S,r);kc+=n.calories;pr+=n.protein}catch(e){}});
+    return{pid,name:S.profiles[pid].name||pid,time:ms[0]&&ms[0].time,recs,kc,pr,has:ms.length>0};
+  });
+  return{S,C,slots,sl,people};
+}
+function pckPaint(el){
+  const m=pckModel();
+  if(!m){el.innerHTML='<div class="empty-state"><strong>Loading…</strong></div>';return}
+  if(!m.slots.length){el.innerHTML='<div class="empty-state"><strong>No meals yet</strong>Add meals in Diet.</div><a class="widget-card-link" href="apps/diet.html" data-profile-link>Open Diet <i data-lucide="arrow-up-right"></i></a>';updateProfileLinks();if(window.lucide)lucide.createIcons();return}
+  const q=n=>String(Math.round(n*10)/10);
+  const tabs='<div class="pck-tabs">'+m.slots.map(x=>'<button type="button" data-pslot="'+esc(x)+'" class="'+(x===m.sl?'on':'')+'">'+esc(x)+'</button>').join('')+'</div>';
+  const cols=m.people.map(p=>{
+    const recs=p.recs.map(r=>{
+      const per=r.servings||1;
+      const ing=(r.items||[]).map((it,i)=>{const f=m.C.food(m.S,it.foodId),k=p.pid+'|'+r.id+'|'+i;
+        return'<button type="button" class="pck-ing'+(PCK.done[k]?' done':'')+'" data-ptick="'+esc(k)+'"><i></i><span>'+esc(f?f.name:it.foodId)+'</span><b>'+q(it.qty/per)+' '+esc(it.unit||'')+'</b></button>'}).join('');
+      return'<div class="pck-rec"><h5>'+esc(r.name)+'</h5>'+ing+(r.method?'<p class="pck-method">'+esc(r.method)+'</p>':'')+'</div>';
+    }).join('')||'<p class="muted-note">'+(p.has?'No recipes in this meal.':'Nothing planned.')+'</p>';
+    return'<div class="pck-col"><div class="pck-head"><strong>'+esc(p.name)+'</strong><small>'+(p.time?esc(p.time)+' · ':'')+Math.round(p.kc)+' kcal · P '+Math.round(p.pr)+'g</small></div>'+recs+'</div>';
+  }).join('');
+  el.innerHTML=tabs+'<div class="pck-cols">'+cols+'</div><a class="widget-card-link" href="apps/diet.html" data-profile-link>Open Cook together <i data-lucide="arrow-up-right"></i></a>';
+  updateProfileLinks();if(window.lucide)lucide.createIcons();
+  el.onclick=e=>{const t=e.target.closest('[data-pslot],[data-ptick]');if(!t)return;
+    if(t.dataset.pslot!=null){PCK.slot=t.dataset.pslot;pckPaint(el)}
+    else{PCK.done[t.dataset.ptick]=!PCK.done[t.dataset.ptick];pckPaint(el)}};
+}
+WIDGET_TYPES.cook={title:'Cook together',icon:'chef-hat',desc:"Breakfast, lunch, snack or dinner: Bhargav's and Anusha's recipes side by side, with the exact amount to serve and the method. Tick ingredients as you go.",defaultSize:'lg',
+  ready:()=>dietLoad(false),
+  render(el){wLoading(el);dietLoad(false).then(()=>{if(el.isConnected)pckPaint(el)}).catch(()=>{el.innerHTML='<div class="empty-state"><strong>Unavailable</strong>Could not load recipes.</div>'})}};
+/* ---- Training widget (logger): today's workout, log every set without opening the Training app ---- */
+const PT={date:'',pid:'',ready:false,busy:0,plan:null,ex:[],rest:false,last:{},draft:{},open:null,logged:null,wk:{},unit:'',saved:'',rt:null,rtTot:90000,t0:0,timer:null};
+const ptCol=n=>db.collection('users').doc(state.user.uid).collection('profiles').doc(state.profile.toLowerCase()).collection(n);
+const ptNum=v=>v!==''&&v!=null&&isFinite(+v);
+const ptSets=id=>(PT.draft[id]||[]).filter(s=>ptNum(s.w)&&ptNum(s.r)&&+s.r>0);
+const ptDone=e=>ptSets(e.id).length>=e.sets;
+const ptCount=()=>PT.ex.reduce((a,e)=>a+ptSets(e.id).length,0);
+const ptSig=()=>JSON.stringify(PT.ex.map(e=>ptSets(e.id).map(s=>[+s.w,+s.r,+s.e||0])));
+const ptKey=()=>'pc-tr-'+state.profile+'-'+PT.date;
+const ptMS=ms=>{ms=Math.max(0,Math.round(ms/1000));return Math.floor(ms/60)+':'+String(ms%60).padStart(2,'0')};
+const ptStep=()=>PT.unit==='kg'?2.5:5;
+const ptCur=e=>(PT.draft[e.id]||[]).findIndex(s=>!(ptNum(s.w)&&ptNum(s.r)&&+s.r>0));
+const ptLastFor=(e,i)=>{const L=PT.last[e.id]||PT.last['n:'+String(e.name).toLowerCase()];return L&&L.length?L[Math.min(i,L.length-1)]:null};
+const PT_EFF={3:'Low',6:'Med',9:'High'};
+async function ptLoad(force){
+  const T=today(),pid=state.profile.toLowerCase();
+  if(!force&&PT.ready&&PT.date===T&&PT.pid===pid)return;
+  if(PT.busy&&Date.now()-PT.busy<5000)return;PT.busy=Date.now();
+  if(PT.date!==T||PT.pid!==pid){PT.ready=false;PT.draft={};PT.open=null;PT.logged=null;PT.rt=null;PT.t0=0}
+  PT.date=T;PT.pid=pid;
+  try{
+    const TP=window.__TrainPlan;
+    const cut=addDays(T,-70),fp=firebase.firestore.FieldPath.documentId();
+    const [ov,lg]=await Promise.all([
+      db.collection('users').doc(state.user.uid).collection('profiles').doc(pid).collection('meta').doc('workoutOverrides').get().catch(()=>null),
+      ptCol('workoutLogs').where(fp,'>=',cut).where(fp,'<',T+';').get().catch(()=>null)]);
+    const map=(ov&&ov.exists&&ov.data()&&ov.data().map)||{};
+    PT.plan=TP?TP.plan(T,map[T]):null;
+    const docs=[];if(lg)lg.forEach(d=>{const x=d.data();if(x&&x.date&&x.mode==='regular'&&Array.isArray(x.exercises))docs.push(x)});docs.sort((a,b)=>a.date<b.date?1:-1);
+    if(PT.plan){PT.ex=PT.plan.ex;PT.rest=PT.plan.rest;PT.unit=PT.plan.unit}
+    PT.last={};if(PT.plan)docs.filter(x=>x.day===PT.plan.day).forEach(x=>x.exercises.forEach(e=>{if(!PT.last[e.id])PT.last[e.id]=e.sets;const nk='n:'+String(e.name).toLowerCase();if(!PT.last[nk])PT.last[nk]=e.sets}));
+    PT.wk={};const mon=addDays(T,-((new Date(T+'T12:00:00').getDay()+6)%7));docs.forEach(x=>{if(x.date>=mon)PT.wk[x.date]=1});
+    const sn=PT.plan?await ptCol('workoutLogs').doc(T+':regular:'+PT.plan.day).get().catch(()=>null):null;
+    PT.logged=sn&&sn.exists?sn.data():null;
+    PT.ex.forEach(e=>{const lgx=PT.logged&&(PT.logged.exercises||[]).find(x=>x.id===e.id);PT.draft[e.id]=Array.from({length:Math.max(e.sets,lgx?lgx.sets.length:0)},(_,i)=>lgx&&lgx.sets[i]?{w:String(lgx.sets[i].weight),r:String(lgx.sets[i].reps),e:lgx.sets[i].effort?String(lgx.sets[i].effort):''}:{w:'',r:'',e:''})});
+    try{const sv=JSON.parse(localStorage.getItem(ptKey())||'null');if(sv&&typeof sv==='object')Object.keys(sv).forEach(k=>{if(PT.draft[k]&&Array.isArray(sv[k]))sv[k].forEach((v,i)=>{if(v&&(v.w!==''||v.r!=='')){if(!PT.draft[k][i])PT.draft[k][i]={w:'',r:'',e:''};if(PT.draft[k][i].w===''&&PT.draft[k][i].r==='')PT.draft[k][i]=v}})})}catch(e){}
+    PT.saved=ptSig();PT.ready=true;
+  }catch(e){console.warn(e)}
+  PT.busy=0;
+}
+const ptPersist=()=>{try{localStorage.setItem(ptKey(),JSON.stringify(PT.draft))}catch(e){}};
+function ptRow(e){
+  const open=PT.open===e.id,n=ptSets(e.id).length,id=esc(e.id),L=PT.last[e.id]||PT.last['n:'+String(e.name).toLowerCase()],lt=L&&L[0]?'last '+L[0].weight+'×'+L[0].reps+' '+PT.unit:'';
+  let h='<div class="ptx'+(open?' op':'')+'"><button type="button" class="pth" data-ptx="'+id+'"><i class="ptc'+(ptDone(e)?' ok':'')+'"></i><span class="ptn">'+esc(e.name)+'</span><small>'+n+'/'+e.sets+' · '+(e.repMin===e.repMax?e.repMin:e.repMin+'–'+e.repMax)+'</small></button>';
+  if(open){
+    const dr=PT.draft[e.id]||[],cur=ptCur(e);
+    h+=(e.planText?'<div class="pt-plan">'+esc(e.planText)+'</div>':'')+dr.map((s,i)=>{
+      const l=ptLastFor(e,i),done=ptNum(s.w)&&ptNum(s.r)&&+s.r>0;
+      return'<div class="pts'+(i===cur?' cur':'')+(done?' sfin':'')+'"><small>'+(i+1)+'</small>'
+        +'<button type="button" class="ptb" data-ptst="'+id+':'+i+':w:-1" aria-label="Less weight">−</button><input class="ptw" inputmode="decimal" data-ptw="'+id+':'+i+':w" value="'+esc(s.w)+'" placeholder="'+(l?l.weight:PT.unit)+'" aria-label="Weight"><button type="button" class="ptb" data-ptst="'+id+':'+i+':w:1" aria-label="More weight">+</button><span>×</span>'
+        +'<button type="button" class="ptb" data-ptst="'+id+':'+i+':r:-1" aria-label="Fewer reps">−</button><input class="ptw ptr" inputmode="numeric" data-ptw="'+id+':'+i+':r" value="'+esc(s.r)+'" placeholder="'+(l?l.reps:'reps')+'" aria-label="Reps"><button type="button" class="ptb" data-ptst="'+id+':'+i+':r:1" aria-label="More reps">+</button>'
+        +'<button type="button" class="pte'+(s.e?' on':'')+'" data-pte="'+id+':'+i+'" aria-label="Effort">'+(s.e?PT_EFF[s.e]:'Effort')+'</button><button type="button" class="ptd'+(done?' ok':'')+'" data-ptdn="'+id+':'+i+'" aria-label="Done, start rest">✓</button></div>'}).join('')
+      +'<div class="pt-acts"><button type="button" class="ptchip" data-pta="'+id+'">+ Set</button>'+(dr.length>1?'<button type="button" class="ptchip" data-ptmin="'+id+'">− Set</button>':'')+(cur>=0&&ptLastFor(e,cur)?'<button type="button" class="ptchip" data-ptl="'+id+'">Same as last</button>':'')+(lt?'<small>'+esc(lt)+'</small>':'')+'</div>';
+  }
+  return h+'</div>';
+}
+function ptPaint(el){
+  if(!PT.ready){el.innerHTML='<div class="empty-state"><strong>Loading…</strong></div>';return}
+  if(!PT.plan){el.innerHTML='<div class="empty-state"><strong>No plan today</strong>Open Training.</div><a class="widget-card-link" href="gym/index.html" data-profile-link>Open Training <i data-lucide="arrow-up-right"></i></a>';updateProfileLinks();return}
+  if(PT.rest){el.innerHTML='<div class="empty-state"><strong>'+esc(PT.plan.title)+'</strong>Recover well'+(Object.keys(PT.wk).length?' · '+Object.keys(PT.wk).length+' session'+(Object.keys(PT.wk).length===1?'':'s')+' this week':'')+'</div>';return}
+  const dn=PT.ex.filter(ptDone).length,tot=PT.ex.length,sets=ptCount(),saved=PT.saved===ptSig()&&(PT.logged||sets===0);
+  if(PT.open==null){const nx=PT.ex.find(e=>!ptDone(e));if(nx)PT.open=nx.id}
+  const T=today(),mon=addDays(T,-((new Date(T+'T12:00:00').getDay()+6)%7));
+  const week=['M','T','W','T','F','S','S'].map((n,i)=>{const d=addDays(mon,i),on=PT.wk[d]||(d===T&&(PT.logged||sets>0));return'<span class="'+(on?'on':d===T?'now':'')+'"><i></i>'+n+'</span>'}).join('');
+  el.innerHTML='<div class="pt-top"><strong>'+esc(PT.plan.title)+'</strong><span>'+dn+'/'+tot+' · '+sets+' sets'+(PT.t0?' · <b data-ptel>'+ptMS(Date.now()-PT.t0)+'</b>':'')+'</span></div>'
+    +(PT.rt?'<div class="pt-rest"><b data-ptrt>'+ptMS(PT.rt-Date.now())+'</b><span>rest</span><button type="button" data-ptrs="15">+15s</button><button type="button" data-ptrs="skip">Skip</button></div>':'')
+    +'<div class="pt-list">'+PT.ex.map(ptRow).join('')+'</div>'
+    +'<button type="button" class="pt-save'+(saved?'':' ud')+'" data-ptsv>'+(saved?'Saved ✓':'Save workout · '+sets+' set'+(sets===1?'':'s'))+'</button>'
+    +'<div class="pt-week"><small>This week</small>'+week+'</div>';
+  if(window.lucide)lucide.createIcons();
+}
+async function ptSave(el){
+  if(!PT.plan||PT.rest)return;const T=PT.date,exs=[];
+  PT.ex.forEach(e=>{const sets=ptSets(e.id).map(s=>({weight:+s.w,reps:Math.round(+s.r),effort:s.e?+s.e:null}));if(sets.length)exs.push({id:e.id,name:e.name,sets})});
+  if(!exs.length){toast('Log at least one set first (weight and reps)');return}
+  const old=PT.logged,oc=old?old.exercises.reduce((a,e)=>a+e.sets.length,0):0,nc=exs.reduce((a,e)=>a+e.sets.length,0);
+  if(oc>nc){toast('Not saved: this would remove '+(oc-nc)+' logged set'+(oc-nc===1?'':'s'));return}
+  const doc={date:T,day:PT.plan.day,mode:'regular',exercises:exs};
+  if(old){if(Array.isArray(old.sessions))doc.sessions=old.sessions;if(old.sessionDurationSec!=null)doc.sessionDurationSec=old.sessionDurationSec}
+  if(PT.t0)doc.sessionDurationSec=Math.max(doc.sessionDurationSec||0,Math.round((Date.now()-PT.t0)/1000));
+  try{await ptCol('workoutLogs').doc(T+':regular:'+PT.plan.day).set(doc);PT.logged=doc;PT.saved=ptSig();PT.wk[T]=1;try{localStorage.removeItem(ptKey())}catch(e){}ptPaint(el);toast('Workout saved · '+nc+' set'+(nc===1?'':'s'))}catch(e){toast("Couldn't save, try again")}
+}
+function ptWire(el){
+  el.onclick=e=>{
+    const t=e.target.closest('[data-ptx],[data-ptst],[data-pte],[data-ptdn],[data-pta],[data-ptmin],[data-ptl],[data-ptrs],[data-ptsv]');if(!t)return;const d=t.dataset;
+    if(d.ptsv!=null){ptSave(el);return}
+    if(d.ptx!=null){PT.open=PT.open===d.ptx?null:d.ptx;ptPaint(el);return}
+    if(d.pta!=null){(PT.draft[d.pta]=PT.draft[d.pta]||[]).push({w:'',r:'',e:''});ptPaint(el);return}
+    if(d.ptmin!=null){const dr=PT.draft[d.ptmin]||[],l=dr[dr.length-1];if(dr.length>1&&l&&!ptNum(l.w)&&!ptNum(l.r)){dr.pop();ptPersist();ptPaint(el)}else toast('Clear the last set first');return}
+    if(d.ptl!=null){const ex=PT.ex.find(x=>x.id===d.ptl);if(!ex)return;const i=ptCur(ex);if(i<0)return;const l=ptLastFor(ex,i);if(l){const o=PT.draft[ex.id][i]||{};PT.draft[ex.id][i]={w:String(l.weight),r:String(l.reps),e:o.e||''};ptPersist();ptPaint(el)}return}
+    if(d.ptrs!=null){if(d.ptrs==='skip')PT.rt=null;else PT.rt=Math.max(Date.now(),PT.rt||0)+15000;ptPaint(el);return}
+    if(d.ptst!=null){const[id,i,f,sg]=d.ptst.split(':'),ex=PT.ex.find(x=>x.id===id);if(!ex)return;const s=(PT.draft[id]=PT.draft[id]||[])[+i];if(!s)return;const l=ptLastFor(ex,+i);
+      if(f==='w'){const b=ptNum(s.w)?+s.w:(l?+l.weight:0);s.w=String(Math.max(0,Math.round((b+(+sg)*ptStep())*100)/100))}
+      else{const b=ptNum(s.r)?+s.r:(l?+l.reps:ex.repMin);s.r=String(Math.max(0,Math.round(b+(+sg))))}
+      ptPersist();ptPaint(el);return}
+    if(d.pte!=null){const[id,i]=d.pte.split(':'),s=(PT.draft[id]||[])[+i];if(!s)return;const o=['','3','6','9'];s.e=o[(o.indexOf(String(s.e||''))+1)%4];ptPersist();ptPaint(el);return}
+    if(d.ptdn!=null){const[id,i]=d.ptdn.split(':'),ex=PT.ex.find(x=>x.id===id),dr=PT.draft[id]||[],s=dr[+i];if(!ex||!s)return;const l=ptLastFor(ex,+i),pv=dr[+i-1];
+      if(!ptNum(s.w))s.w=pv&&ptNum(pv.w)?pv.w:(l?String(l.weight):'');
+      if(!ptNum(s.r)||+s.r<=0)s.r=l?String(l.reps):String(ex.repMax);
+      if(!ptNum(s.w)){toast('Enter the weight first');return}
+      if(!PT.t0)PT.t0=Date.now();PT.rt=Date.now()+PT.rtTot;
+      if(PT.open===id&&ptDone(ex)){const nx=PT.ex.find(x=>!ptDone(x));if(nx)PT.open=nx.id}
+      ptPersist();ptPaint(el);return}
+  };
+  el.oninput=e=>{const t=e.target;if(!t||t.dataset.ptw==null)return;const[id,i,f]=t.dataset.ptw.split(':');const s=(PT.draft[id]=PT.draft[id]||[])[+i];if(!s)return;s[f]=t.value;ptPersist();
+    const b=el.querySelector('[data-ptsv]');if(b){const n=ptCount(),sv=PT.saved===ptSig()&&(PT.logged||n===0);b.textContent=sv?'Saved ✓':'Save workout · '+n+' set'+(n===1?'':'s');b.classList.toggle('ud',!sv)}
+    const row=t.closest('.ptx'),ex=PT.ex.find(x=>x.id===id);if(row&&ex){const sm=row.querySelector('.pth small');if(sm)sm.textContent=ptSets(id).length+'/'+ex.sets+' · '+(ex.repMin===ex.repMax?ex.repMin:ex.repMin+'–'+ex.repMax);const c=row.querySelector('.ptc');if(c)c.classList.toggle('ok',ptDone(ex))}};
+}
+if(!PT.timer)PT.timer=setInterval(()=>{
+  if(PT.rt){const left=PT.rt-Date.now();if(left<=0){PT.rt=null;toast('Rest over, next set');document.querySelectorAll('[data-widget-type="training"] .widget-card-body').forEach(el=>{if(el.isConnected&&PT.ready)ptPaint(el)})}else document.querySelectorAll('[data-ptrt]').forEach(n=>{n.textContent=ptMS(left)})}
+  if(PT.t0)document.querySelectorAll('[data-ptel]').forEach(n=>{n.textContent=ptMS(Date.now()-PT.t0)});
+},1000);
+Object.assign(WIDGET_TYPES.training,{title:'Training',desc:"Today's workout. Log every set (weight, reps, effort), see the set you are on, rest timer, save to Training.",defaultSize:'lg',
+  ready:()=>ptLoad(false),
+  render(el){ptWire(el);ptPaint(el);ptLoad(false).then(()=>{if(el.isConnected)ptPaint(el)})}});
 const dietW={S:null,key:null,t:0,view:null,ui:{add:false,open:{},choose:null,pick:{}},groc:null,gt:0,en:null,et:0,busy:false,timer:null};
 const DT_FEEL=['😋','😐','😴'];
 const dtPid=()=>String(state.profile||'').toLowerCase();
