@@ -105,6 +105,7 @@
     light:{bg:'#f4f4f0',surface:'#fff',soft:'#f8f8f5',line:'#e3e3dc',text:'#20211e',muted:'#74766f',faint:'#9c9e97',ink:'#171714',shadow:'0 18px 50px rgba(37,38,32,.08)',dark:false},
     dark:{bg:'#121212',surface:'#1b1b1a',soft:'#232322',line:'#323230',text:'#f2f1ed',muted:'#a7a59d',faint:'#79776f',ink:'#0a0a09',shadow:'0 18px 50px rgba(0,0,0,.4)',dark:true},
     midnight:{bg:'#0b0e1a',surface:'#131829',soft:'#1a2036',line:'#262e4a',text:'#eef0f8',muted:'#9298b3',faint:'#636a87',ink:'#070912',shadow:'0 18px 50px rgba(0,0,10,.45)',dark:true},
+    glass:{bg:'radial-gradient(900px 600px at 12% 8%,#7a2b3a 0%,transparent 62%),radial-gradient(1100px 760px at 95% 100%,#2c5d8f 0%,transparent 62%),#1a1320',surface:'#2a1d33',soft:'#35283f',line:'#4d3d58',text:'#f6f1f7',muted:'#b9adc0',faint:'#85788c',ink:'#150e1a',shadow:'0 18px 40px rgba(0,0,0,.35)',dark:true},
     sepia:{bg:'#f6ecd9',surface:'#fbf5e8',soft:'#f1e5cd',line:'#e1cfa8',text:'#3a2f1e',muted:'#7a6a4d',faint:'#a39370',ink:'#2c2413',shadow:'0 18px 50px rgba(90,70,20,.12)',dark:false}
   };
   const HUES={crimson:0,coral:15,amber:30,gold:45,olive:60,lime:75,sage:90,fern:105,emerald:120,jade:135,mint:150,teal:165,cyan:180,sky:195,azure:210,cobalt:225,indigo:240,violet:255,purple:270,orchid:285,magenta:300,rose:315,blush:330,ruby:345,mono:0};
@@ -172,6 +173,7 @@
     if(!fetched){ const c=readCache(canon); if(c){ applyVars(c); return c; } }
     ap=ap||{};
     const v=Object.assign({},(ap.mode&&ap.mode.indexOf('palette-')===0?paletteVars(ap.mode):MODES[ap.mode])||MODES.light);
+    if(ap.mode==='glass'&&ap.glass){const g=Object.assign({c1:'#7a2b3a',c2:'#2c5d8f',base:'#1a1320'},ap.glass);v.bg='radial-gradient(900px 600px at 12% 8%,'+g.c1+' 0%,transparent 62%),radial-gradient(1100px 760px at 95% 100%,'+g.c2+' 0%,transparent 62%),'+g.base}
     const wp=ap.wallpaper&&ap.wallpaper.css;
     if(wp)v.bg=wp;
     applyVars(v);

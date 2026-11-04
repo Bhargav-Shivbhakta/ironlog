@@ -236,3 +236,11 @@
 .banner-rotate-row span{color:var(--muted);font-size:12.5px}
 .banner-shuffle-btn{margin-left:auto}
 @media(max-width:700px){.banner-rotate{flex-direction:column;align-items:flex-start}.banner-shuffle-btn{margin-left:0;width:100%;justify-content:center}.banner-rotate-row{flex-wrap:wrap;width:100%}.banner-rotate-row select{flex:1 1 180px;min-width:0}}
+
+/* Glass theme: frosted frame + stat strip so the banner sits with the glass widgets */
+html[data-theme="glass"] .ih-banner{border:1px solid rgba(255,255,255,.18);border-radius:26px;box-shadow:inset 0 1px 0 rgba(255,255,255,.14),0 18px 40px rgba(0,0,0,.3)}
+html[data-theme="glass"] .ih-copy .eyebrow{color:var(--gl-gold,#e6b866)}
+html[data-theme="glass"] .ih-stat-strip{border-top-color:rgba(255,255,255,.16);background:rgba(255,255,255,.07);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px)}
+html[data-theme="glass"] .ih-stat-strip>div+div{border-left-color:rgba(255,255,255,.16)}
+html[data-theme="glass"] .ih-stat-label{color:rgba(255,255,255,.66)}
+html[data-theme="glass"] .ih-banner::after{content:"";position:absolute;inset:0;pointer-events:none;border-radius:inherit;background:linear-gradient(135deg,rgba(122,43,58,.28),transparent 45%,rgba(44,93,143,.28));z-index:7}

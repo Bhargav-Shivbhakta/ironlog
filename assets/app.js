@@ -34,6 +34,9 @@ async function readJson(ref,fallback=[]){try{const snap=await ref.get();return s
    shared setting, same as categories/order/hidden above.
 ===================================================================== */
 const DEFAULT_THEME={accents:{Bhargav:'#ad7b20',Anusha:'#b25c78'},wallpaper:{id:'none',css:''},mode:'light'};
+const GLASS_DEFAULT={c1:'#7a2b3a',c2:'#2c5d8f',base:'#1a1320',gold:'#e6b866',op:8,blur:28};
+function glassCfg(){const g=(state.theme&&state.theme.glass)||{};return Object.assign({},GLASS_DEFAULT,g)}
+function glassBg(g){return 'radial-gradient(900px 600px at 12% 8%,'+g.c1+' 0%,transparent 62%),radial-gradient(1100px 760px at 95% 100%,'+g.c2+' 0%,transparent 62%),'+g.base}
 // One app-wide look, layered on top of the per-profile accent color above.
 // Adding a new one later is just a new entry here plus a matching
 // :root[data-theme="..."] block in app.css — nothing else has to change.
@@ -41,7 +44,8 @@ const THEME_MODES=[
   {id:'light',name:'Light',desc:'The original look',rail:'#171714',body:'#f4f4f0',chip:'#ad7b20',line:'#e3e3dc'},
   {id:'dark',name:'Dark',desc:'Easy on the eyes',rail:'#0a0a09',body:'#1b1b1a',chip:'#42e6a4',line:'#323230'},
   {id:'midnight',name:'Midnight',desc:'Deep blue-black',rail:'#060811',body:'#131829',chip:'#7fa2ff',line:'#262e4a'},
-  {id:'sepia',name:'Sepia',desc:'Warm paper tone',rail:'#2c2413',body:'#fbf5e8',chip:'#a8672e',line:'#e1cfa8'}
+  {id:'sepia',name:'Sepia',desc:'Warm paper tone',rail:'#2c2413',body:'#fbf5e8',chip:'#a8672e',line:'#e1cfa8'},
+  {id:'glass',name:'Glass',desc:'Frosted glass, like the phone',rail:'#3a2030',body:'#2a1a2c',chip:'#e6b866',line:'#5a4560'}
 ];
 // A big gallery of extra themes, generated from a curated list of hues
 // rather than hand-written one by one — each hue gets a light and a dark
@@ -190,6 +194,12 @@ function applyTheme(){
     document.documentElement.dataset.theme=(t.mode&&THEME_MODES.some(m=>m.id===t.mode))?t.mode:'light';
     SURFACE_PROPS.forEach(p=>document.documentElement.style.removeProperty(p));
   }
+  // Glass look: user-tunable colours (Settings > Theme > Glass colours)
+  const GLP=['--gl-gold','--gl-card','--gl-blur','--gl-card-hi'];
+  if(!pal&&t.mode==='glass'){const g=glassCfg(),rs=document.documentElement.style;
+    rs.setProperty('--bg',glassBg(g));rs.setProperty('--gl-gold',g.gold);rs.setProperty('--gl-card','rgba(255,255,255,'+(g.op/100)+')');rs.setProperty('--gl-card-hi','rgba(255,255,255,'+Math.min(.5,g.op/100+.05)+')');rs.setProperty('--gl-blur',g.blur+'px');
+    rs.setProperty('--accent-soft',g.gold+'2e');rs.setProperty('--accent-ink',g.gold);
+  }else GLP.forEach(p=>document.documentElement.style.removeProperty(p));
   // Wallpaper always wins over whatever --bg the mode/palette set, same
   // priority as before.
   const wpCss=t.wallpaper&&t.wallpaper.css;
@@ -211,7 +221,7 @@ function applyTheme(){
 // photos — is personal, saved per profile so switching to the other
 // person's session shows their own picks, not a shared, overwritten one.
 async function saveHubAccents(){try{await hubRef('theme-accents').set({json:JSON.stringify({accents:state.theme.accents})})}catch(e){}}
-async function saveProfileAppearance(){try{await profileRef('hub-profiles','appearance').set({json:JSON.stringify({mode:state.theme.mode,wallpaper:state.theme.wallpaper})})}catch(e){}}
+async function saveProfileAppearance(){try{await profileRef('hub-profiles','appearance').set({json:JSON.stringify({mode:state.theme.mode,wallpaper:state.theme.wallpaper,glass:state.theme.glass||null})})}catch(e){}}
 
 function setGate(name){['loading','auth','profile'].forEach(x=>$(x+'-gate').hidden=x!==name);$('app-shell').hidden=!!name}
 function setProfile(name){state.profile=name;localStorage.setItem(PROFILE_KEY,name);document.body.dataset.profile=name;$('sidebar-profile').textContent=name;$('sidebar-avatar').textContent=name[0];$('sidebar-avatar').className='avatar '+name.toLowerCase();$('mobile-profile').textContent=name[0];$('mobile-profile').className='avatar '+name.toLowerCase();updateAppFrameProfile();updateProfileLinks();startHubAlarmWatch();startHubNotesWatch();applyTheme()}
@@ -294,7 +304,7 @@ async function loadHubMeta(){
   state.categories = categories; state.order = order; state.hidden = hidden;
   const accents=(accentsDoc&&accentsDoc.accents)?accentsDoc.accents:(legacyTheme&&legacyTheme.accents)?legacyTheme.accents:JSON.parse(JSON.stringify(DEFAULT_THEME.accents));
   const appearance=appearanceDoc||(legacyTheme?{mode:legacyTheme.mode,wallpaper:legacyTheme.wallpaper}:null)||{mode:DEFAULT_THEME.mode,wallpaper:JSON.parse(JSON.stringify(DEFAULT_THEME.wallpaper))};
-  state.theme={accents,mode:appearance.mode||'light',wallpaper:appearance.wallpaper||DEFAULT_THEME.wallpaper};
+  state.theme={accents,mode:appearance.mode||'light',wallpaper:appearance.wallpaper||DEFAULT_THEME.wallpaper,glass:appearance.glass||null};
   state.widgets = (widgets && widgets[state.profile] && widgets[state.profile].length) ? widgets[state.profile].map(w=>w&&w.type==='checklist'?Object.assign({},w,{type:'notes',id:'w-notes'}):w).map(w=>w&&(w.type==='priorities'||w.type==='taskmap')?Object.assign({},w,{type:'todo',id:'w-todo'}):w).filter(w=>w&&WIDGET_TYPES[w.type]).filter((w,i,a)=>(w.type!=='notes'&&w.type!=='todo')||a.findIndex(x=>x.type===w.type)===i) : widgetDefaultLayout();
   wlSnap=null;HubHist.undo=[];HubHist.redo=[];
   // One-time: put the Calendar widget onto layouts saved before it existed.
@@ -4435,8 +4445,13 @@ async function renderInsightsPage(force){
    trick used nowhere else in this file but worth it here specifically
    because a native color input fires 'input' dozens of times a second.
 ===================================================================== */
+function renderGlassSettings(){const box=$('settings-glass');if(!box)return;const on=(state.theme&&state.theme.mode)==='glass';box.hidden=!on;if(!on)return;const g=glassCfg();[['c1'],['c2'],['base'],['gold']].forEach(([k])=>{const e=$('gl-'+k);if(e&&document.activeElement!==e)e.value=g[k]});[['op'],['blur']].forEach(([k])=>{const e=$('gl-'+k);if(e&&document.activeElement!==e)e.value=g[k];const o=$('gl-'+k+'-v');if(o)o.textContent=g[k]})}
+let glSaveT=null;
+function glassSet(k,v){state.theme.glass=Object.assign({},glassCfg(),{[k]:(k==='op'||k==='blur')?Number(v):v});applyTheme();renderGlassSettings();clearTimeout(glSaveT);glSaveT=setTimeout(saveProfileAppearance,500)}
+function glassReset(){state.theme.glass=null;applyTheme();renderGlassSettings();saveProfileAppearance()}
 function renderSettingsPage(){
   const t=state.theme||DEFAULT_THEME;
+  renderGlassSettings();
   const activeMode=t.mode||'light';
   const activePalette=(t.mode&&t.mode.indexOf('palette-')===0)?THEME_PALETTES.find(p=>p.id===t.mode):null;
   $('settings-theme-modes').innerHTML=THEME_MODES.map(m=>{
@@ -4664,7 +4679,7 @@ let settingsWired=false;
 function wireSettingsEvents(){
   if(settingsWired)return;settingsWired=true;
   const page=$('page-settings');
-  page.addEventListener('input',e=>{ if(e.target.dataset.profileColor)applyProfileColorLive(e.target.dataset.profileColor,e.target.value); });
+  page.addEventListener('input',e=>{ if(e.target.dataset.profileColor)applyProfileColorLive(e.target.dataset.profileColor,e.target.value); if(e.target.dataset.gl)glassSet(e.target.dataset.gl,e.target.value); });
   page.addEventListener('change',e=>{
     if(e.target.dataset.profileColor)commitProfileColor(e.target.dataset.profileColor,e.target.value);
     else if(e.target.dataset.profileHex)commitProfileColor(e.target.dataset.profileHex,e.target.value.trim());
@@ -4675,6 +4690,7 @@ function wireSettingsEvents(){
     }
   });
   page.addEventListener('click',e=>{
+    if(e.target.closest('#gl-reset')){glassReset();return}
     const mode=e.target.closest('[data-theme-mode]'); if(mode){setThemeMode(mode.dataset.themeMode);return}
     const preset=e.target.closest('[data-preset]'); if(preset){applyPalettePreset(preset.dataset.preset);return}
     if(e.target.closest('#settings-photo-remove')){setWallpaper('none');return}

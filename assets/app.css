@@ -1749,3 +1749,35 @@ button.dt-wd{border:0;background:transparent;font:inherit;color:inherit;padding:
 /* the "Now" row has a light background in every theme, so the tasks inside it must use dark text */
 .sc-row.sc-cur .sc-u,.sc-row.sc-cur .sc-under{color:var(--accent-ink)}
 .sc-row.sc-cur .sc-ts,.sc-row.sc-cur .sc-tag,.sc-row.sc-cur .sc-tm,.sc-row.sc-cur .sc-bd small{color:color-mix(in srgb,var(--accent-ink) 62%,transparent)}
+
+/* ===== Glass theme (desktop): same frosted look as the phone Home. Only active when data-theme="glass". ===== */
+:root[data-theme="glass"]{--bg:radial-gradient(900px 600px at 12% 8%,#7a2b3a 0%,transparent 62%),radial-gradient(1100px 760px at 95% 100%,#2c5d8f 0%,transparent 62%),#1a1320;--surface:rgba(255,255,255,.08);--surface-soft:rgba(255,255,255,.07);--line:rgba(255,255,255,.14);--text:#f6f1f7;--muted:rgba(255,255,255,.66);--faint:rgba(255,255,255,.45);--ink:rgba(255,255,255,.06);--accent:var(--gl-gold,#e6b866);--accent-soft:rgba(230,184,102,.18);--accent-ink:var(--gl-gold,#e6b866);--shadow:0 18px 40px rgba(0,0,0,.28);--radius:24px;color-scheme:dark}
+:root[data-theme="glass"] body[data-profile="Anusha"]{--accent:#e6a1c4;--accent-soft:rgba(230,161,196,.18);--accent-ink:#f0b8d4}
+html[data-theme="glass"]{background-attachment:fixed;background-repeat:no-repeat}
+html[data-theme="glass"] body{background:transparent}
+html[data-theme="glass"] .sidebar{background:var(--gl-card,rgba(255,255,255,.07));border-right:1px solid rgba(255,255,255,.12);backdrop-filter:blur(var(--gl-blur,28px));-webkit-backdrop-filter:blur(var(--gl-blur,28px));box-shadow:inset -1px 0 0 rgba(255,255,255,.06)}
+html[data-theme="glass"] .main-nav button,html[data-theme="glass"] .signout{color:rgba(255,255,255,.72);border-radius:14px;font-weight:600}
+html[data-theme="glass"] .main-nav button:hover{background:rgba(255,255,255,.1);color:#fff}
+html[data-theme="glass"] .main-nav button.active{background:rgba(255,255,255,.16);color:#fff}
+html[data-theme="glass"] .profile-control{background:rgba(255,255,255,.08);border-color:rgba(255,255,255,.14);border-radius:16px}
+html[data-theme="glass"] .brand-mark{background:var(--gl-gold,#e6b866);color:#1b1407}
+html[data-theme="glass"] .widget-card,html[data-theme="glass"] .gate-card,html[data-theme="glass"] .modal{background:var(--gl-card,rgba(255,255,255,.08));border:1px solid rgba(255,255,255,.14);border-radius:26px;backdrop-filter:blur(var(--gl-blur,28px));-webkit-backdrop-filter:blur(var(--gl-blur,28px));box-shadow:inset 0 1px 0 rgba(255,255,255,.12),0 18px 40px rgba(0,0,0,.28);padding:18px}
+html[data-theme="glass"] .modal{background:rgba(38,26,48,.82)}
+html[data-theme="glass"] .widget-card-title strong{font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:rgba(255,255,255,.66)}
+html[data-theme="glass"] .widget-card-quick-add{background:rgba(255,255,255,.12);border:0;border-radius:99px;width:28px;height:28px;color:#fff}
+html[data-theme="glass"] .widget-card-quick-add:hover{background:var(--gl-gold,#e6b866);color:#1b1407}
+html[data-theme="glass"] .widget-card.drag-over{border-color:var(--gl-gold,#e6b866);box-shadow:0 0 0 2px rgba(230,184,102,.35)}
+html[data-theme="glass"] .widget-card-link{color:rgba(255,255,255,.62)}
+html[data-theme="glass"] .task-row{border-bottom-color:rgba(255,255,255,.1)}
+html[data-theme="glass"] .task-check{border-color:rgba(255,255,255,.5);border-radius:50%}
+html[data-theme="glass"] .task-check:hover,html[data-theme="glass"] .task-check.done,html[data-theme="glass"] .task-check.on{background:var(--gl-gold,#e6b866);border-color:var(--gl-gold,#e6b866);color:#1b1407}
+html[data-theme="glass"] .timeline-row.current{background:rgba(230,184,102,.14);border-radius:16px}
+html[data-theme="glass"] .timeline-row.current .timeline-content strong{color:#f3d08e}
+html[data-theme="glass"] .timeline-toggle-link{background:rgba(255,255,255,.12);color:#fff}
+html[data-theme="glass"] .widget-card button.primary,html[data-theme="glass"] .widget-card .btn-primary{background:var(--gl-gold,#e6b866);color:#1b1407;border:0;border-radius:16px;font-weight:700}
+html[data-theme="glass"] .widget-card input,html[data-theme="glass"] .widget-card select,html[data-theme="glass"] .widget-card textarea{background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.18);color:#fff;border-radius:14px}
+html[data-theme="glass"] .widget-card input::placeholder{color:rgba(255,255,255,.45)}
+html[data-theme="glass"] .status-strip{border-color:rgba(255,255,255,.12)}
+html[data-theme="glass"] .widget-remove-badge{border-color:#2a1d33}
+html[data-theme="glass"] .hub-weather{background:var(--gl-card,rgba(255,255,255,.08));border:1px solid rgba(255,255,255,.14);border-radius:20px;backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px)}
+html[data-theme="glass"] .widget-card-head .widget-card-quick-add svg{stroke:currentColor}

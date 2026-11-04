@@ -165,10 +165,11 @@ const WG={water:{n:'Water',d:'Log drinks, see pace through the day',ic:'water',c
  grocery:{n:'Grocery',d:'What is left for this week, by store, and the budget',ic:'grocery',c:'Home',open:'grocery',html:z=>groceryHtml(z)},
  clock:{n:'Clock',d:'Time, next alarm, focus minutes. Switch alarms on or off',ic:'clock',c:'Tools',open:'clock',html:z=>clockHtml(z)},
  insights:{n:'Insights',d:'Your week score and how each app is doing',ic:'insights',c:'Insights',open:'insights',html:z=>insightsHtml(z)},
+ banner:{n:'Banner',d:'Your Today banner: greeting, next event and tasks',ic:'insights',c:'Insights',html:(z,it)=>bannerHtml(z,it)},
  ticks:{n:'Recent ticks',d:'What you and Anusha ticked across the apps',ic:'todo',c:'Insights',html:(z,it)=>ticksHtml(z,it)},
  qlinks:{n:'Quick links',d:'Shortcuts to the apps you pick',ic:'_',c:'Tools',html:(z,it)=>qlinksHtml(z,it)},
  notes:{n:'Notes & lists',d:'Tick checklist items, jot notes',ic:'_',c:'Planner',html:(z,it)=>notesHtml(z,it)}};
-const WKEYS=['water','tasks','schedule','skin','pledge','gym','diet','chores','grocery','clock','insights','ticks','qlinks','notes'];const STK=['water','tasks','schedule'];
+const WKEYS=['water','tasks','schedule','skin','pledge','gym','diet','chores','grocery','clock','insights','ticks','qlinks','notes','banner'];const STK=['water','tasks','schedule'];
 const curW=it=>it.ws[Math.min(it.si,it.ws.length-1)]||'water';
 const esc=s=>String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 const t12=t=>{const m=/^(\d{1,2}):(\d{2})/.exec(t||'');if(!m)return'';let h=+m[1];const ap=h>=12?'PM':'AM';h=h%12||12;return h+':'+m[2]+' '+ap};
@@ -440,6 +441,23 @@ async function dtQuick(){const n=(DT.n||'').trim(),kc=Number(DT.k);if(!n||!(kc>0
  const res=await dietCommit(D=>{const r=DietCore.quickAdd(D,pid,date,{name:n,kcal:kc,protein:Number(DT.p)||0,sugar:0,satFat:0});nid=r.id;return r},null);DT.add=false;DT.n=DT.k=DT.p='';refresh();
  if(res&&res.changed)toast('Logged '+n+' · '+Math.round(kc)+' kcal',()=>dietCommit(D=>({changed:DietCore.removeEntry(D,nid),jobs:[]}),null).then(refresh))}
 
+// ---- Banner: the Today banner (greeting, next event, tasks) in the preset's colours ----
+function bannerHtml(z,it){try{
+ const tl=typeof todaysTimeline==='function'?todaysTimeline():[],tasks=typeof dueTasks==='function'?dueTasks():[];
+ const nx=typeof nextUpcoming==='function'?nextUpcoming(tl):null;
+ const P=(typeof bannerFind==='function'&&state.bannerTheme&&bannerFind(state.bannerTheme.current))||(typeof bannerPresetsFor==='function'?bannerPresetsFor(state.profile)[0]:null)||{};
+ const a=P.accent2||'#e6b866',b1=P.bg||'#2a1a2c',b2=P.bg2||'#150e1a';
+ const img=P.carImg||P.image||(P.scene==='porsche'?'assets/banners/porsche-gold.webp':'');
+ const nm=nx?(nx.title||'Scheduled')+(nx._tomorrow?' · Tmrw':''):'Clear';
+ const hrs=typeof plannedHours==='function'?plannedHours(tl):'0m';
+ const sum=tasks.length?tasks.length+' task'+(tasks.length===1?'':'s')+' need you today':'Your priority list is clear';
+ const bg=`<div class="bnb" style="background:linear-gradient(135deg,${esc(b1)},${esc(b2)})">${img&&z!=='xs'?`<img src="${esc(img)}" alt="" draggable="false">`:''}</div>`;
+ const hi=esc(greeting())+', '+esc(state.profile);
+ if(z==='xs')return bg+`<div class="bnx"><div class="bne" style="color:${a}">${tasks.length} task${tasks.length===1?'':'s'}</div><div class="bnh" style="font-size:15px">${esc(state.profile)}</div></div>`;
+ if(z==='s')return bg+`<div class="bnx"><div class="bne" style="color:${a}">${esc(formatDate())}</div><div class="bnh">${hi}</div><div class="bns">${esc(sum)}</div></div>`;
+ const stats=`<div class="bnst"><div><b>${esc(nm)}</b><i>Next event</i></div><div><b>${tasks.length}</b><i>Tasks</i></div><div><b>${esc(String(hrs))}</b><i>Planned</i></div></div>`;
+ return bg+`<div class="bnx"><div class="bne" style="color:${a}">${esc(formatDate())}</div><div class="bnh">${hi}</div><div class="bns">${esc(sum)}</div>${z==='l'?'<div style="flex:1"></div>':''}${stats}</div>`;
+}catch(e){return`<div class="t"><span>Banner</span></div><div class="emp"><b>Banner not ready</b></div>`}}
 // ---- Recent ticks: the central tick log across your apps ----
 const TKL={list:null,ld:0,key:'',busy:0};const TKS={schedule:'Schedule',skin:'Skin',todo:'To-do',chores:'Chores',checklist:'Checklist',pledge:'Pledge',diet:'Diet',water:'Water'};
 function tkKick(it){try{if(!window.TickLog||typeof state==='undefined'||!state.user)return;const who=(it&&it.o&&it.o.who)==='mine'?'mine':'both',key=state.profile+'|'+who;if(TKL.key===key&&TKL.list&&Date.now()-TKL.ld<20000)return;if(TKL.busy&&Date.now()-TKL.busy<4000)return;TKL.busy=Date.now();
@@ -825,7 +843,7 @@ $('#shi').addEventListener('click',e=>{if(e.target.id==='dn'){$('#sheet').classL
 function refreshOne(it){const el=EL.get(it.id);if(el)fillEl(it,el)}
 $('#sheet').addEventListener('click',e=>{if(e.target.id==='sheet')$('#sheet').classList.remove('on')});
 let gz=0,gk='water';const GS=[['xs','Extra small',160,80],['s','Small',160,170],['m','Medium',336,170],['l','Large',336,366]];
-const GTYPES=[['water','Water'],['tasks','To-Do'],['schedule','Schedule'],['skin','Skin'],['pledge','Pledge'],['gym','Training'],['diet','Diet'],['chores','Chores'],['grocery','Grocery'],['clock','Clock'],['insights','Insights'],['ticks','Recent ticks'],['qlinks','Quick links'],['notes','Notes'],['stack','Stack']];
+const GTYPES=[['water','Water'],['tasks','To-Do'],['schedule','Schedule'],['skin','Skin'],['pledge','Pledge'],['gym','Training'],['diet','Diet'],['chores','Chores'],['grocery','Grocery'],['clock','Clock'],['insights','Insights'],['ticks','Recent ticks'],['qlinks','Quick links'],['notes','Notes'],['banner','Banner'],['stack','Stack']];
 function galleryDraw(keep){const old=gz;const info=gk==='stack'?{n:'Widget stack',d:'Water, To-Do and Schedule in one widget. Swipe up or down on it to flip.',ic:'_',c:'Tools'}:WG[gk];const wk=gk==='stack'?'water':gk;
  const prev=z=>{const fake={ws:gk==='stack'?STK:[gk],si:0,z,o:{}};return `<div class="w${gk==='stack'?' stk':''}">${WG[wk].html(z,fake)}</div>${gk==='stack'?'<div class="sdt"><i class="on"></i><i></i><i></i></div>':''}`};
  $('#shi').innerHTML=`<div class="grab"></div><h3>Add a widget</h3><div class="chips" style="margin-top:8px">${GTYPES.map(([k,n])=>`<button data-gk="${k}" class="${gk===k?'on':''}">${n}</button>`).join('')}</div><div class="gin"><span class="gic"><div class="tile c-${info.c}"><svg viewBox="0 0 24 24">${P[info.ic]||P._}</svg></div></span><div class="n"><b>${info.n}</b><span>${info.d}</span></div></div><div class="gcar" id="gcar">${GS.map(([z,n,w,h])=>`<div class="gsl"><div class="gp it ${z}" style="width:${w}px;height:${h}px;${z==='l'?'transform:scale(.8)!important;transform-origin:top center;margin-bottom:-70px':''}"><div class="in">${prev(z)}</div></div></div>`).join('')}</div><div class="gdots" id="gdots">${GS.map((_,i)=>`<i class="${i===(keep?old:0)?'on':''}"></i>`).join('')}</div><div class="gnm" id="gnm">${GS[keep?old:0][1]}</div><button class="gadd" id="gadd" data-gadd="${GS[keep?old:0][0]}">Add Widget</button><div class="mu" style="text-align:center;margin-top:8px;font-size:11px">Swipe to change size. After adding, drag it to the screen edge to move it to another page.</div><button class="dn" id="dn">Close</button>`;
