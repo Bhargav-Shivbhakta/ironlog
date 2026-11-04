@@ -1803,3 +1803,9 @@ html[data-theme="glass"] .widget-card-head .widget-card-quick-add svg{stroke:cur
 html[data-theme="glass"] .sk-tab{background:rgba(255,255,255,.1);color:rgba(255,255,255,.75)}
 html[data-theme="glass"] .sk-tab.on{background:var(--gl-gold,#e6b866);color:#1b1407}
 .sk-sm .sk-tabs{display:none}
+
+/* Glass: widget settings flip-panel must be opaque enough to read over the widget */
+html[data-theme="glass"] .widget-settings{background:#1b1424}
+/* Glass: --ink is a faint translucent fill there, so text that used it as a colour needs real colours */
+html[data-theme="glass"] .ws-fit,html[data-theme="glass"] .ws-step button{color:var(--text)}
+html[data-theme="glass"] .hub-alarm-dismiss{color:#1b1424}

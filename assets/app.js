@@ -2678,6 +2678,8 @@ async function nwNoteFlush(t){
 function nwWire(el){
   if(el.__nwWired)return;el.__nwWired=true;
   let rz=null;
+  // Colour dots only show while the card has focus; pressing one must not steal focus or they vanish before the click lands
+  el.addEventListener('mousedown',e=>{if(e.target.closest&&e.target.closest('.nw-dot'))e.preventDefault()});
   el.addEventListener('pointerdown',e=>{nw.down=true;rz=null;const c=e.target.closest&&e.target.closest('.nw-card');
     if(c&&e.target===c){const r=c.getBoundingClientRect();if(e.clientX>r.right-22&&e.clientY>r.bottom-22)rz={c,w:c.offsetWidth,h:c.offsetHeight}}});
   el.addEventListener('dblclick',async e=>{const c=e.target.closest&&e.target.closest('.nw-card');if(!c||e.target!==c)return;const r=c.getBoundingClientRect();
