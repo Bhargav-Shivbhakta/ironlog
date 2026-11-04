@@ -1928,8 +1928,7 @@ function waterPaint(el,wdg,anim){
   const k=waterView||td,isT=k===td,past=!isT,G=waterGoalFor(k),t=waterTotal(k),pct=Math.min(100,t/G*100);
   const size=wtSize(el);el._wtSz=size;
   ['wt-sm','wt-md','wt-lg','wt-wide'].forEach(c=>el.classList.remove(c));el.classList.add('wt','wt-'+size);
-  const fig=/anusha/i.test(state.profile||'')?'f':'m',shapes=WT_BODY[fig];
-  const s0=minutes(w.start),e0=minutes(w.end),frac=Math.max(0,Math.min(1,(nowM-s0)/(e0-s0))),exp=G*frac,diff=t-exp;
+    const s0=minutes(w.start),e0=minutes(w.end),frac=Math.max(0,Math.min(1,(nowM-s0)/(e0-s0))),exp=G*frac,diff=t-exp;
   const keys=wtKeys(),ix=keys.indexOf(k);
   // pace pill
   let pace='',pcls='';
@@ -1971,16 +1970,16 @@ function waterPaint(el,wdg,anim){
   const mx=Math.max(1,...hr),top=hr.map((v,i)=>[v,i]).sort((a,b)=>b[0]-a[0]).slice(0,2).map(x=>x[1]),any=hr.some(v=>v>0);
   const patHtml='<div class="wt-sh"><span>When you drink</span><span>last 7 days</span></div>'+(any?'<div class="wt-pbars">'+hr.map((v,i)=>'<i class="'+(top.includes(i)&&v>0?'pk':'')+'" style="height:'+Math.max(3,v/mx*100)+'%" title="'+esc(wT((i+6)*60)+': '+waterFmt(v))+'"></i>').join('')+'</div><div class="wt-ax"><span>6 AM</span><span>12 PM</span><span>10 PM</span></div><small>Busiest around '+esc(wT((top[0]+6)*60).replace(':00',''))+'. Gym insights reads this.</small>':'<div class="wt-empty">Log a few drinks and your pattern shows here.</div>');
   const prevLvl=el._wtLv!=null?el._wtLv:152,prevW=el._wtW!=null?el._wtW:0;
+  const prevRp=el._wtRp!=null?el._wtRp:263.9,rpTo=Math.max(0,263.9*(1-Math.min(1,t/G)));
   const lvl=152-Math.min(1,t/G)*0.70*148-8;
   const BK=(id,h)=>h?'<div data-blk="'+id+'">'+h+'</div>':'';
   const html=
    '<div class="wt-main"><div class="wt-colA">'+
    BK('alerts',(past?'<div class="wt-dayhead"><button type="button" data-wt-nav="-1" '+(ix<=0?'disabled':'')+' aria-label="Previous day">‹</button><b>'+esc(wtLabel(k))+'</b><button type="button" data-wt-nav="1" '+(ix>=29?'disabled':'')+' aria-label="Next day">›</button><button type="button" data-wt-today>Today</button></div>':'')+banner)+
-   '<div class="wt-hero">'+BK('fig','<div class="wt-fig" title="Your body is about 70% water. Your goal fills it to the line."><div class="wt-say"></div><div class="wt-stream"></div>'+
-   '<svg viewBox="0 0 110 160"><defs><clipPath id="wtgc">'+shapes+'</clipPath><linearGradient id="wtwg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="var(--w1)"/><stop offset="1" stop-color="var(--w2)"/></linearGradient></defs>'+
-   '<g class="wt-bodyw"><g fill="none" stroke="var(--faint)" stroke-width="5" stroke-linejoin="round">'+shapes+'</g><g fill="var(--wsoft)">'+shapes+'</g>'+
-   '<g clip-path="url(#wtgc)"><g class="wt-lvl" style="transform:translateY('+prevLvl+'px)" data-to="'+lvl+'"><g class="wt-wave2"><path d="M-60 6q15-9 30 0t30 0 30 0 30 0 30 0 30 0 30 0V200H-60z" fill="var(--w1)"/></g><g class="wt-wave1"><path d="M-60 8q15-9 30 0t30 0 30 0 30 0 30 0 30 0 30 0V200H-60z" fill="url(#wtwg)"/></g></g></g></g>'+
-   '<line x1="6" x2="94" y1="48.4" y2="48.4" stroke="var(--muted)" stroke-width="1" stroke-dasharray="3 3" opacity=".7"/><text class="wt-lim" x="96" y="51">70%</text></svg></div>')+'<div class="wt-nums">'+BK('amt','<div class="wt-big">'+esc(waterFmt(t))+'</div><div class="wt-of">of '+esc(waterFmt(G))+(t>=G?' · goal hit':'')+'</div>'+(pace?'<span class="wt-pace'+pcls+'">'+esc(pace)+'</span>':''))+BK('btns','<div class="wt-btns">'+btnHtml+'</div>'+
+   '<div class="wt-hero">'+BK('fig','<div class="wt-fig wt-ring" title="Your goal fills the ring"><div class="wt-say"></div>'+
+   '<svg viewBox="0 0 100 100"><circle class="wt-rt" cx="50" cy="50" r="42" fill="none" stroke-width="9"/><circle class="wt-rp" cx="50" cy="50" r="42" fill="none" stroke-width="9" stroke-linecap="round" transform="rotate(-90 50 50)" stroke-dasharray="263.9" style="stroke-dashoffset:'+prevRp+'" data-to="'+rpTo+'"/>'+
+   (isT&&S.pace&&exp>0&&exp<G?'<g transform="rotate('+(exp/G*360)+' 50 50)"><rect class="wt-rm" x="48.6" y="2.5" width="2.8" height="11" rx="1.4"/></g>':'')+
+   '<text class="wt-rn" x="50" y="55" text-anchor="middle">'+Math.round(pct)+'%</text></svg></div>')+'<div class="wt-nums">'+BK('amt','<div class="wt-big">'+esc(waterFmt(t))+'</div><div class="wt-of">of '+esc(waterFmt(G))+(t>=G?' · goal hit':'')+'</div>'+(pace?'<span class="wt-pace'+pcls+'">'+esc(pace)+'</span>':''))+BK('btns','<div class="wt-btns">'+btnHtml+'</div>'+
    '<div class="wt-custom'+(wtUi.custom?' on':'')+'"><input type="number" inputmode="decimal" step="any" data-wt-cin placeholder="Amount in '+w.unit+'"><input type="time" data-wt-ctime value="'+wHm(isT?nowM:720)+'" title="When did you drink it?"><button type="button" data-wt-cgo>Add</button></div>')+'</div></div>'+
    BK('pace',(isT?'<div class="wt-trackw"><div class="wt-track"><i style="width:'+prevW+'%" data-to="'+pct+'"></i>'+(S.pace?'<s style="left:calc('+(exp/G*100)+'% - 1px)"></s>':'')+'</div>'+(S.pace?'<div class="wt-tl"><span>'+esc(time12(w.start))+'</span><span>'+esc(time12(w.end))+'</span></div>':'')+'</div>':'')+(nextLine&&!S.plan?'<div class="wt-next">'+nextLine+'</div>':''))+
    BK('undo',(last?'<button type="button" class="wt-undo" data-wt-undo>Undo last drink ('+esc(waterFmt(last.ml)+(past||last.at==null?'':' · '+wT(last.at)))+')</button>':''))+
@@ -1991,8 +1990,8 @@ function waterPaint(el,wdg,anim){
    BK('pattern',(S.pat?'<div class="wt-pat">'+patHtml+'</div>':''))+
    '</div></div>';
   const keepScroll=el.querySelector('[data-wt-week]');const ws=keepScroll?keepScroll.scrollLeft:null,wasEnd=keepScroll?(keepScroll.scrollWidth-keepScroll.clientWidth-keepScroll.scrollLeft<4):true;
-  el.innerHTML=html;el._wtLv=lvl;el._wtW=pct;
-  requestAnimationFrame(()=>{const l=el.querySelector('.wt-lvl');if(l)l.style.transform='translateY('+lvl+'px)';const b=el.querySelector('.wt-track i');if(b)b.style.width=pct+'%';
+  el.innerHTML=html;el._wtLv=lvl;el._wtW=pct;el._wtRp=rpTo;
+  requestAnimationFrame(()=>{const rp=el.querySelector('.wt-rp');if(rp)rp.style.strokeDashoffset=rpTo;const b=el.querySelector('.wt-track i');if(b)b.style.width=pct+'%';
     const wk=el.querySelector('[data-wt-week]');if(wk){if(ws==null||wasEnd)wk.scrollLeft=wk.scrollWidth;else wk.scrollLeft=ws}});
   if(!el._wtRO&&window.ResizeObserver){el._wtRO=new ResizeObserver(()=>{if(el.isConnected&&wtSize(el)!==el._wtSz)waterPaint(el,wdg)});el._wtRO.observe(el)}
   wtWire(el,wdg,S);
@@ -3246,8 +3245,11 @@ function skinPaint(el,wdg){
     return '<div class="sk-step'+(dn?' done':'')+'"><button type="button" class="sk-ck" data-sk-step="'+esc(s.key)+':'+i+'" aria-label="Toggle step">'+(dn?'✓':'')+'</button><div><div class="sk-tx">'+esc(step.text)+(step.optional?'<span class="sk-opt">OPTIONAL</span>':'')+'</div>'+(pn?'<div class="sk-prod">🧴 '+esc(pn)+'</div>':'')+(S.qty&&step.qty?'<div class="sk-qty">'+esc(step.qty)+'</div>':'')+
       (S.timers&&step.timerMinutes&&!dn&&isT?'<button type="button" class="sk-tm'+(run?' run':'')+'" data-sk-timer="'+esc(s.key)+':'+i+':'+step.timerMinutes+'">'+(run?'⏱ '+skTimerText()+' left · tap to stop':'Start '+step.timerMinutes+'-min wait timer')+'</button>':'')+'</div></div>';
   };
+  /* one section at a time, picked from a tab strip */
+  const actKey=(secs.find(s=>skinW.ui.open[s.key])||nextSec||secs[0]).key;
+  const tabsHtml='<div class="sk-tabs" role="tablist">'+secs.map((s,i)=>{const x=stats[i];return '<button type="button" role="tab" class="sk-tab'+(s.key===actKey?' on':'')+(x.d===x.n?' ok':'')+'" data-sk-tab="'+esc(s.key)+'" aria-selected="'+(s.key===actKey)+'">'+esc(s.icon)+' '+esc(s.label)+' <em>'+(x.d===x.n?'✓':x.d+'/'+x.n)+'</em></button>'}).join('')+'</div>';
   const secHtml=secs.map((s,i)=>{
-    const x=stats[i],autoOpen=nextSec&&nextSec.key===s.key,op=skinW.ui.open[s.key]!=null?skinW.ui.open[s.key]:(autoOpen&&size!=='sm'&&size!=='md'?true:autoOpen);
+    const x=stats[i],op=s.key===actKey;
     const cnt=x.d===x.n?'✓ done':x.d+'/'+x.n;
     return BKW('sec-'+s.key,'<div class="sk-sect'+(op?' open':'')+(x.d===x.n?' alldone':'')+'"><div class="sk-sh" data-sk-toggle="'+esc(s.key)+'" role="button"><div><b>'+esc(s.icon)+' '+esc(s.label)+'</b>'+(s.treat?'<span class="sk-tag">'+esc(s.treat)+'</span>':'')+(s.time&&isT?'<span class="sk-time">'+esc(s.time)+'</span>':'')+'<br><small>'+esc(s.sub||'')+'</small></div><span class="sk-ct">'+cnt+'</span></div><div class="sk-sbar"><i style="width:'+(x.n?x.d/x.n*100:0)+'%"></i></div><div class="sk-steps">'+s.steps.map((step,j)=>stepRow(s,step,j)).join('')+(s.note?'<div class="sk-qty">'+esc(s.note)+'</div>':'')+'<div class="sk-alldo"><button type="button" class="sk-btn sm" data-sk-all="'+esc(s.key)+'">'+(x.d===x.n?'Untick all':'Tick all steps')+'</button></div></div></div>');
   }).join('');
@@ -3265,7 +3267,7 @@ function skinPaint(el,wdg){
   /* review countdown */
   let revHtml='';
   if(S.review&&!isA){const nx=cal.reviews.find(d=>d>=td);if(nx){const dl=C.daysBetween(td,nx),m=C.monthFor(st.start,nx);revHtml='<div class="sk-rev"><span><b>'+esc(m?m.name.split(' — ')[0]:'Program')+' review</b> '+(dl===0?'is today':'in '+dl+' day'+(dl===1?'':'s'))+' · '+esc(new Date(nx+'T12:00:00').toLocaleDateString([],{month:'short',day:'numeric'}))+'</span><a class="sk-btn sm" href="apps/skin.html" data-profile-link>Open in Skin</a></div>'}}
-  const A=BKW('top','<div class="sk-topgrid">'+prog+hero+'</div>')+secHtml,B=BKW('coming',comingHtml)+BKW('heat',heatHtml)+BKW('cab',cabHtml)+BKW('trk',trkHtml)+BKW('rev',revHtml);
+  const A=BKW('top','<div class="sk-topgrid">'+prog+hero+'</div>')+tabsHtml+secHtml,B=BKW('coming',comingHtml)+BKW('heat',heatHtml)+BKW('cab',cabHtml)+BKW('trk',trkHtml)+BKW('rev',revHtml);
   const keep=el.scrollTop;
   const trackVals={};el.querySelectorAll('[data-sk-obs]').forEach(i=>trackVals.obs=i.value);
   el.innerHTML=head+(size==='wide'?'<div class="sk-body"><div>'+A+'</div><div>'+B+'</div></div>':A+B);
@@ -3348,8 +3350,9 @@ function skWire(el,wdg){
     if(x=q('[data-sk-nav]')){const d=Number(x.dataset.skNav);if(d>0&&!skinW.view)return;const nk=addDays(cur(),d);skinW.view=nk>=today()?null:nk;skinPaint(el,wdg);return}
     if(q('[data-sk-today]')){skinW.view=null;skinPaint(el,wdg);return}
     if(x=q('[data-sk-day]')){const d=x.dataset.skDay;skinW.view=d>=today()?null:d;skinPaint(el,wdg);return}
-    if(x=q('[data-sk-toggle]')){const k=x.dataset.skToggle,cs=el.querySelector('[data-sk-toggle="'+k+'"]').parentElement;skinW.ui.open[k]=!cs.classList.contains('open');skinPaint(el,wdg);return}
-    if(x=q('[data-sk-open]')){skinW.ui.open[x.dataset.skOpen]=true;skinPaint(el,wdg);const sc=el.querySelector('.sk-sect.open');return}
+    if(x=q('[data-sk-tab]')){skinW.ui.open={};skinW.ui.open[x.dataset.skTab]=true;skinPaint(el,wdg);return}
+    if(x=q('[data-sk-toggle]')){return}
+    if(x=q('[data-sk-open]')){skinW.ui.open={};skinW.ui.open[x.dataset.skOpen]=true;skinPaint(el,wdg);const sc=el.querySelector('.sk-sect.open');return}
     if(x=q('[data-sk-step]')){const[k,i]=x.dataset.skStep.split(':'),idx=Number(i),s=secOf(k);if(!s)return;const was=!!skinW.st.stepLog[C.stepKey(cur(),k,idx)];await setSteps(k,[idx],!was,(was?'Unticked: ':'Ticked: ')+s.steps[idx].text.slice(0,40)+(s.steps[idx].product&&!was?' · stock updated':''));return}
     if(x=q('[data-sk-all]')){const k=x.dataset.skAll,s=secOf(k);if(!s)return;const st=skinW.st,idx=s.steps.map((_,i)=>i);const req=idx.filter(i=>!s.steps[i].optional),allDone=req.every(i=>st.stepLog[C.stepKey(cur(),k,i)]);
       await setSteps(k,allDone?idx:req,!allDone,(allDone?'Unticked all: ':'Ticked all: ')+s.label);return}
@@ -3412,7 +3415,7 @@ const WIDGET_NO_CACHE={notes:1,photos:1,schedule:1,water:1,diet:1,skin:1};
 /* ---- Free-hand block layout: every widget's content is made of named blocks ([data-blk="id"]). Arrange mode lets you drag a block anywhere, pull its corner to resize,
    hide it, or press Auto-arrange. Text inside a block scales with the block. A widget you never touched keeps its own native layout. ---- */
 const BKW=(id,h)=>h?'<div data-blk="'+id+'">'+h+'</div>':'';
-WIDGET_TYPES.water.blocks=[{id:'alerts',label:'Reminder'},{id:'fig',label:'Body figure',w:3},{id:'amt',label:'Amount drunk',w:9},{id:'btns',label:'Quick-add buttons',w:9},{id:'pace',label:'Pace bar'},{id:'undo',label:'Undo last drink'},{id:'plan',label:'Plan for the day'},{id:'week',label:'Last 30 days & streak'},{id:'pattern',label:'When you drink'}];
+WIDGET_TYPES.water.blocks=[{id:'alerts',label:'Reminder'},{id:'fig',label:'Progress ring',w:3},{id:'amt',label:'Amount drunk',w:9},{id:'btns',label:'Quick-add buttons',w:9},{id:'pace',label:'Pace bar'},{id:'undo',label:'Undo last drink'},{id:'plan',label:'Plan for the day'},{id:'week',label:'Last 30 days & streak'},{id:'pattern',label:'When you drink'}];
 WIDGET_TYPES.diet.blocks=[{id:'head',label:'Day switcher'},{id:'ring',label:'Calories ring'},{id:'macros',label:'Protein, carbs & fat'},{id:'micro',label:'Micronutrients'},{id:'next',label:'Next meal'},{id:'rescue',label:'Protein rescue'},{id:'meals',label:'Meals list'},{id:'add',label:'Add something else'},{id:'week',label:'Last 7 days'},{id:'flex',label:'Flex bank'},{id:'streak',label:'Streak'},{id:'energy',label:'Eaten vs burned'},{id:'weight',label:'Weight'}];
 WIDGET_TYPES.skin.blocks=[{id:'head',label:'Day switcher'},{id:'top',label:'Progress & today'},{id:'sec-am',label:'Morning routine'},{id:'sec-body',label:'Shower & body'},{id:'sec-face',label:'Face routine'},{id:'sec-nizoral',label:'Nizoral shampoo'},{id:'sec-pm',label:'Night routine'},{id:'coming',label:'Coming up'},{id:'heat',label:'Heat map'},{id:'cab',label:'Product cabinet'},{id:'trk',label:'Check-ins'},{id:'rev',label:'Review'}];
 WIDGET_TYPES.schedule.blocks=[{id:'progress',label:'Progress bar'},{id:'timeline',label:'Timeline'},{id:'anytime',label:'Anytime today'},{id:'next',label:'Up next'}];

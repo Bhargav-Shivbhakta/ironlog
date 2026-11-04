@@ -1781,3 +1781,25 @@ html[data-theme="glass"] .status-strip{border-color:rgba(255,255,255,.12)}
 html[data-theme="glass"] .widget-remove-badge{border-color:#2a1d33}
 html[data-theme="glass"] .hub-weather{background:var(--gl-card,rgba(255,255,255,.08));border:1px solid rgba(255,255,255,.14);border-radius:20px;backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px)}
 html[data-theme="glass"] .widget-card-head .widget-card-quick-add svg{stroke:currentColor}
+
+/* Water progress ring (replaced the body figure) */
+.wt-fig.wt-ring{width:96px;height:96px;cursor:default}
+.wt-sm .wt-fig.wt-ring{width:58px;height:58px}
+.wt-rt{stroke:var(--surface-soft);stroke:color-mix(in srgb,var(--faint) 28%,transparent)}
+.wt-rp{stroke:var(--w1);transition:stroke-dashoffset 1.1s cubic-bezier(.3,.7,.2,1)}
+.wt-rn{font-size:20px;font-weight:700;fill:var(--text);font-variant-numeric:tabular-nums}
+.wt-sm .wt-rn{font-size:22px}
+.wt-rm{fill:var(--text);opacity:.6}
+
+/* Skin widget: one routine at a time via tabs */
+.sk-tabs{display:flex;gap:6px;overflow-x:auto;margin:10px 0 8px;padding-bottom:2px;scrollbar-width:none}
+.sk-tabs::-webkit-scrollbar{display:none}
+.sk-tab{flex:none;border:0;border-radius:99px;padding:7px 13px;font-size:12.5px;font-weight:700;background:var(--surface-soft);color:var(--muted);cursor:pointer;white-space:nowrap}
+.sk-tab em{font-style:normal;opacity:.75;font-weight:600;margin-left:3px}
+.sk-tab.on{background:var(--accent);color:#fff}
+.sk-tab.ok:not(.on){color:var(--success)}
+.sk-sect:not(.open){display:none}
+.sk-sect .sk-sh{cursor:default}
+html[data-theme="glass"] .sk-tab{background:rgba(255,255,255,.1);color:rgba(255,255,255,.75)}
+html[data-theme="glass"] .sk-tab.on{background:var(--gl-gold,#e6b866);color:#1b1407}
+.sk-sm .sk-tabs{display:none}
