@@ -12,7 +12,7 @@ const lsGet=(k,d)=>{try{const v=localStorage.getItem(k);return v==null?d:v}catch
 const lsSet=(k,v)=>{try{localStorage.setItem(k,v)}catch(e){}};
 let enabled=lsGet(LS_ON,'1')!=='0';
 let booted=false,profileNow=null,saveT=null;
-let prefs={icons:'dark',wp:'dusk',dbl:true,rec:[],tint:'none',dim:0,blur:0,lbl:true,par:true};const LS_PHOTO='hub-phone-home-photo';
+let prefs={icons:'dark',wp:'dusk',wpi:0,dbl:true,rec:[],tint:'none',dim:0,blur:0,lbl:true,par:true};const LS_PHOTO='hub-phone-home-photo';
 try{Object.assign(prefs,JSON.parse(lsGet(LS_PREF,'{}'))||{})}catch(e){}
 if(!Array.isArray(prefs.rec))prefs.rec=[];
 // real spring curve (response 0.42s, damping 0.8) as a CSS linear() easing
@@ -33,13 +33,14 @@ function badgeOf(k){try{if(k==='todo'&&hasTasks())return dueTasks().length;if(k=
 const bdg=n=>n>0?`<b class="bdg">${n>99?'99+':n}</b>`:'';
 const tile=(k,b)=>`<div class="tile c-${AP[k][1]}"><svg viewBox="0 0 24 24">${glyph(k)}</svg>${b?bdg(badgeOf(k)):''}</div>`;
 const icon=(k,x)=>`<div class="app" data-k="${k}">${tile(k,1)}<span>${AP[k][0]}</span>${x||''}</div>`;
+let tdItems=[],tdEdit=false,galTd=false,tdDrag=null;
 let uid=1;const A=k=>({id:uid++,t:'a',k}),W=(z,w)=>({id:uid++,t:'w',z,ws:Array.isArray(w)?w.slice():[w||'water'],si:0,o:{}}),F=(name,apps)=>({id:uid++,t:'f',name,apps});
 let pages=[[]];
 let rec=prefs.rec.filter(k=>AP[k]);
 let editing=false,cur=0,view='home';
 // ---- DOM root (hidden unless phone mode is on) ----
 (function(){if(document.getElementById('ph'))return;const d=document.createElement('div');d.id='ph';
- d.innerHTML=`<div class="st"><button class="plus" id="plus" aria-label="Add widget">＋</button><button class="ed" id="edb">Done</button></div>
+ d.innerHTML=`<div class="st"><button class="plus" id="plus" aria-label="Add widget">＋</button><button class="wpb" id="wpb" aria-label="Wallpaper">Wallpaper</button><button class="ed" id="edb">Done</button></div>
 <div class="vp" id="vp"><div class="pgs" id="pgs"></div></div><div class="dots" id="dots"></div><div class="dock" id="dock"></div>
 <div id="td"></div><div id="fo"></div><div id="sp" class="sp"></div><div id="sw"></div>
 <div class="sheet" id="sheet"><div class="shi" id="shi"></div></div><div id="cm"></div><div class="ptoast" id="to"></div>`;
@@ -48,11 +49,16 @@ let editing=false,cur=0,view='home';
  document.body.appendChild(n);
  d.addEventListener('contextmenu',e=>e.preventDefault())})();
 const LQ=window.matchMedia?window.matchMedia('(prefers-color-scheme: light)'):null;
+const LS_WALLS='hub-phone-home-walls',MAXW=6;
+const WPRE={dusk:['Dusk',''],valley:['Valley','radial-gradient(90% 30% at 30% 12%,#c9d6d2cc 0%,transparent 70%),radial-gradient(120% 40% at 70% 55%,#3f5a47 0%,transparent 70%),linear-gradient(180deg,#8ea3a2 0%,#5d7667 30%,#35503f 62%,#1f3326 100%)'],graphite:['Graphite','radial-gradient(80% 40% at 20% 0%,#3b4048 0%,transparent 70%),linear-gradient(180deg,#1b1d22,#0c0d10)'],ocean:['Ocean','radial-gradient(80% 40% at 80% 8%,#7fd0e8aa 0%,transparent 65%),linear-gradient(180deg,#0e4a6b 0%,#0a2f4d 55%,#06141f 100%)'],ember:['Ember','radial-gradient(80% 40% at 20% 100%,#ff8a3dcc 0%,transparent 65%),linear-gradient(170deg,#2a0f1f 0%,#6b1f2a 50%,#c2492a 100%)'],aurora:['Aurora','radial-gradient(70% 35% at 25% 20%,#5ef2b0aa 0%,transparent 65%),radial-gradient(70% 35% at 80% 45%,#8a6bffaa 0%,transparent 65%),linear-gradient(180deg,#0a1b2e,#07101c)'],sand:['Sand','radial-gradient(90% 40% at 70% 0%,#fff3d6aa 0%,transparent 65%),linear-gradient(180deg,#d9c3a0 0%,#b79a74 60%,#7d6445 100%)']};
+const walls=()=>{let a=null;try{a=JSON.parse(lsGet(LS_WALLS,'null'))}catch(e){}if(!Array.isArray(a)){a=[];const o=lsGet(LS_PHOTO,'');if(o)a.push(o);if(a.length)lsSet(LS_WALLS,JSON.stringify(a))}return a.filter(x=>typeof x==='string'&&x)};
+const saveWalls=a=>{try{localStorage.setItem(LS_WALLS,JSON.stringify(a));return true}catch(e){return false}};
 function applyLook(){const ph=$('#ph');const light=prefs.icons==='light'||(prefs.icons==='auto'&&LQ&&LQ.matches);ph.classList.toggle('ic-light',light);
  ph.classList.remove('wp-valley','wp-graphite','wp-photo');['blue','green','pink','orange','purple'].forEach(t=>ph.classList.remove('tn-'+t));
- if(prefs.wp==='valley'||prefs.wp==='graphite')ph.classList.add('wp-'+prefs.wp);
- let photo='';if(prefs.wp==='photo'){photo=lsGet(LS_PHOTO,'');if(photo)ph.classList.add('wp-photo');else prefs.wp='dusk'}
+ let photo='';if(prefs.wp==='photo'){const w=walls();photo=w[Math.min(Math.max(0,prefs.wpi|0),w.length-1)]||'';if(photo)ph.classList.add('wp-photo');else prefs.wp='dusk'}
  if(photo)ph.style.setProperty('--wpimg','url("'+photo+'")');else ph.style.removeProperty('--wpimg');
+ if(prefs.wp==='valley'||prefs.wp==='graphite')ph.classList.add('wp-'+prefs.wp);
+ if(WPRE[prefs.wp]&&WPRE[prefs.wp][1])ph.style.setProperty('--wp',WPRE[prefs.wp][1]);else ph.style.removeProperty('--wp');
  if(prefs.tint&&prefs.tint!=='none')ph.classList.add('tn-'+prefs.tint);
  ph.style.setProperty('--wpb',(+prefs.blur||0)+'px');ph.style.setProperty('--wpbr',String(1-(+prefs.dim||0)/100));
  ph.classList.toggle('nolbl',prefs.lbl===false);ph.classList.toggle('nopar',prefs.par===false)}
@@ -564,7 +570,7 @@ function placeIn(items,mover,c,r){const[w,h]=dims(mover);c=Math.max(0,Math.min(C
 function applyPos(items,pos){items.forEach(i=>{const p=pos.get(i.id);if(p){i.c=p.c;i.r=p.r}});placeAll(items)}
 function flow(items){const fixed=[];for(const it of items){const[w,h]=dims(it);const sp=freeSpot(fixed,w,h,0)||{c:0,r:0};it.c=sp.c;it.r=sp.r;fixed.push({c:sp.c,r:sp.r,w,h})}}
 function addItem(it,pref){const order=[pref!=null&&pref<pages.length?pref:0,...pages.map((_,i)=>i)];const[w,h]=dims(it);for(const pi of order){const fixed=pages[pi].map(rc);const sp=freeSpot(fixed,w,h,0);if(sp){it.c=sp.c;it.r=sp.r;pages[pi].push(it);return pi}}it.c=0;it.r=0;pages.push([it]);return pages.length-1}
-const findItem=id=>{for(const p of pages){const i=p.find(x=>x.id===id);if(i)return i}};const pageOf=id=>pages.findIndex(p=>p.some(x=>x.id===id));
+const findItem=id=>{for(const p of pages){const i=p.find(x=>x.id===id);if(i)return i}return tdItems.find(x=>x.id===id)};const pageOf=id=>pages.findIndex(p=>p.some(x=>x.id===id));
 function removeItem(id){pages.forEach(p=>{const i=p.findIndex(x=>x.id===id);if(i>=0)p.splice(i,1)})}
 const onHome=k=>pages.some(p=>p.some(i=>(i.t==='a'&&i.k===k)||(i.t==='f'&&i.apps.includes(k))))||dock.includes(k);
 const mini=k=>`<div class="mt c-${AP[k][1]}"><svg viewBox="0 0 24 24">${P[k]}</svg></div>`;const fTile=f=>`<div class="ft">${f.apps.slice(0,9).map(mini).join('')}${bdg(f.apps.reduce((a,k)=>a+badgeOf(k),0))}</div>`;
@@ -580,7 +586,7 @@ function placeAll(items){items.forEach(placeEl)}
 function render(){const pgs=$('#pgs');if(pgs.children.length!==pages.length+1){pgs.innerHTML=pages.map((_,i)=>`<div class="pg" data-p="${i}"><div class="g"></div></div>`).join('')+`<div class="pg lib" data-p="${pages.length}"><div class="srch"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="6.5"/><path d="M16 16l4 4"/></svg><input id="srch" placeholder="App Library"><span class="cx2" id="cx2">Cancel</span></div><div id="libbody"></div></div>`;drawLib()}
  const ids=new Set();pages.forEach((p,i)=>{const g=pgs.children[i].querySelector('.g');p.forEach(it=>{ids.add(it.id);let el=EL.get(it.id);if(!el){el=mkEl(it);fillEl(it,el)}if(el.parentNode!==g)g.appendChild(el);placeEl(it)})});
  for(const[id,el]of[...EL]){if(!ids.has(id)){el.remove();EL.delete(id)}}
- document.querySelectorAll('#ph .g').forEach(g=>g.style.height=(ROWS*PY)+'px');pgs.style.transform=`translateX(${-cur*100}%)`;drawDock();if(!$('#dots').classList.contains('pg'))setDots(false)}
+ document.querySelectorAll('#ph .g').forEach(g=>g.style.height=(ROWS*PY-10)+'px');pgs.style.transform=`translateX(${-cur*100}%)`;drawDock();if(!$('#dots').classList.contains('pg'))setDots(false)}
 function drawDock(){$('#dock').innerHTML=dock.map(k=>`<div class="dk">${icon(k,'<i class="x" data-drm="'+k+'">−</i>')}</div>`).join('')+(editing&&dock.length<4?'<div class="dk"><button class="dadd" id="dadd" aria-label="Add to Dock">+</button></div>':'')}
 function refresh(){pages.forEach(p=>p.forEach(it=>{let el=EL.get(it.id);if(!el)el=mkEl(it);fillEl(it,el)}));drawDock();if(todayOn)drawToday();afterRender()}
 function drawPages(){render();refresh();drawLib($('#srch')&&$('#srch').value)}
@@ -663,18 +669,34 @@ $('#fo').addEventListener('click',e=>{if(e.target.id==='fo'){closeFolder();retur
 function dissolveIfSmall(f){if(f.apps.length>1)return;for(const p of pages){const i=p.findIndex(x=>x.id===f.id);if(i>=0){const na=f.apps.length===1?A(f.apps[0]):null;if(na){na.c=f.c;na.r=f.r;p.splice(i,1,na)}else p.splice(i,1);break}}}
 // ---- Today panel (swipe right from the first page) ----
 let todayOn=false;
-function tdCard(k,z,o){const it={ws:[k],si:0,z,o:o||{}};return `<div class="tdw"><div class="w" data-wk="${k}"${WG[k].open?` data-wo="${WG[k].open}"`:''}>${WG[k].html(z,it)}</div></div>`}
+const TDSZ=['xs','s','m','l'],TDN={xs:'XS',s:'S',m:'M',l:'L'};
+function tdCard(it){const k=curW(it),[w,h]=SZ[it.z];const ctl=tdEdit?`<button class="tdrm" data-tdrm="${it.id}" aria-label="Remove widget">−</button><button class="tdgr" data-tdset="${it.id}" aria-label="Widget settings"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M5 5l2 2M17 17l2 2M19 5l-2 2M7 17l-2 2"/></svg></button><button class="tdsz" data-tdsz="${it.id}" aria-label="Change size">${TDN[it.z]}</button><div class="tdgp" data-tdgp="${it.id}" aria-label="Drag to reorder"></div>`:'';
+ return `<div class="tdw${tdEdit?' edt':''}" data-tid="${it.id}" style="grid-column:span ${w};grid-row:span ${h}"><div class="w" data-wk="${k}"${WG[k].open&&!tdEdit?` data-wo="${WG[k].open}"`:''}>${WG[k].html(it.z,it)}</div>${ctl}</div>`}
 function drawToday(){const t=$('#td');if(!t)return;let g='',d='';try{g=greeting();d=formatDate()}catch(e){}
  const sp=t.querySelector('.tdb');const keep=sp?sp.scrollTop:0;
- t.innerHTML=`<div class="tdh"><div><small>${esc(d)}</small><b>${esc(g)}</b></div><button class="tdx" id="tdx">Close</button></div><div class="tdb" id="tdb"><div class="srch tds" id="tds"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="6.5"/><path d="M16 16l4 4"/></svg><span>Search</span></div>${tdCard('next','m')}${tdCard('tasks','l')}${tdCard('water','m')}</div>`;
+ const cards=tdItems.map(tdCard).join('');
+ const empty=!tdItems.length?`<div class="tde"><b>Nothing here yet</b><span>Tap Edit, then add the widgets you want on this page.</span></div>`:'';
+ const add=tdEdit?`<button class="tdad" id="tdad" style="grid-column:span 4;grid-row:span 1">+ Add widget</button>`:'';
+ t.innerHTML=`<div class="tdh"><div><small>${esc(d)}</small><b>${esc(g)}</b></div><span class="tdbt"><button class="tdx${tdEdit?' on':''}" id="tded">${tdEdit?'Done':'Edit'}</button><button class="tdx" id="tdx">Close</button></span></div><div class="tdb${tdEdit?' edt':''}" id="tdb"><div class="tdg">${cards}${empty}${add}</div></div>`;
  const nb=t.querySelector('.tdb');if(nb)nb.scrollTop=keep}
 function openToday(){if(todayOn||editing||view!=='home')return;closeMenu();todayOn=true;drawToday();const t=$('#td');t.style.transition='';t.style.transform='';t.classList.add('on');$('#ph').classList.add('tdopen');view='home'}
 function closeToday(){if(!todayOn)return;todayOn=false;const t=$('#td');t.style.transition='';t.style.transform='';t.classList.remove('on','pk');$('#ph').classList.remove('tdopen')}
-$('#td').addEventListener('click',e=>{if(suppress)return;if(e.target.closest('#tdx')){closeToday();return}if(e.target.closest('#tds')){openSearch();return}
+$('#td').addEventListener('click',e=>{if(suppress)return;if(e.target.closest('#tdx')){tdEdit=false;closeToday();return}
+ if(e.target.closest('#tded')){tdEdit=!tdEdit;if(!tdEdit)persist();drawToday();return}
+ const rm=e.target.closest('[data-tdrm]');if(rm){const sn=snap();const id=+rm.dataset.tdrm;const it=tdItems.find(x=>x.id===id);tdItems=tdItems.filter(x=>x.id!==id);drawToday();persist();toast((it?WG[curW(it)].n:'Widget')+' removed',()=>{restore(sn);if(todayOn){tdEdit=true;drawToday()}});return}
+ const sz=e.target.closest('[data-tdsz]');if(sz){const it=tdItems.find(x=>x.id===+sz.dataset.tdsz);if(it){it.z=TDSZ[(TDSZ.indexOf(it.z)+1)%TDSZ.length];drawToday();persist()}return}
+ const st=e.target.closest('[data-tdset]');if(st){openSet(st.dataset.tdset);return}
+ if(e.target.closest('#tdad')){galTd=true;gk='water';galleryDraw(false);return}
+ if(tdEdit)return;
  const b=e.target.closest('button');if(b){wClick(b);return}
  const wo=e.target.closest('.w[data-wo]');if(wo&&!e.target.closest('[data-d]')){closeToday();openApp(wo.dataset.wo,wo.getBoundingClientRect())}});
+// drag a widget by its grip to reorder the Today page
+$('#td').addEventListener('pointerdown',e=>{const gp=e.target.closest('[data-tdgp]');if(!gp||!tdEdit)return;e.preventDefault();e.stopPropagation();const card=gp.closest('.tdw');const r=card.getBoundingClientRect();tdDrag={id:+gp.dataset.tdgp,card,x:e.clientX,y:e.clientY,on:false,pid:e.pointerId};try{gp.setPointerCapture(e.pointerId)}catch(x){}},true);
+document.addEventListener('pointermove',e=>{if(!tdDrag)return;const dx=e.clientX-tdDrag.x,dy=e.clientY-tdDrag.y;if(!tdDrag.on&&Math.hypot(dx,dy)>6){tdDrag.on=true;tdDrag.card.classList.add('drag')}if(tdDrag.on){tdDrag.card.style.transform=`translate(${dx}px,${dy}px) scale(1.03)`;const body=$('#tdb');if(body){const br=body.getBoundingClientRect();if(e.clientY<br.top+50)body.scrollTop-=10;else if(e.clientY>br.bottom-50)body.scrollTop+=10}}});
+function tdDrop(e,cancel){if(!tdDrag)return;const d=tdDrag;tdDrag=null;if(!d.on){return}suppress=true;setTimeout(()=>suppress=false,0);d.card.style.pointerEvents='none';const el=document.elementFromPoint(e.clientX,e.clientY);const tgt=el&&el.closest('.tdw');d.card.style.pointerEvents='';if(!cancel&&tgt&&tgt!==d.card){const ti=tdItems.findIndex(x=>x.id===+tgt.dataset.tid),fi=tdItems.findIndex(x=>x.id===d.id);if(ti>=0&&fi>=0){const [m]=tdItems.splice(fi,1);tdItems.splice(ti,0,m);persist()}}drawToday()}
+document.addEventListener('pointerup',e=>tdDrop(e,false));document.addEventListener('pointercancel',e=>tdDrop(e,true));
 let tdg=null;
-$('#td').addEventListener('pointerdown',e=>{tdg={x:e.clientX,y:e.clientY,on:false,v:false}});
+$('#td').addEventListener('pointerdown',e=>{if(tdEdit||tdDrag)return;tdg={x:e.clientX,y:e.clientY,on:false,v:false}});
 document.addEventListener('pointermove',e=>{if(!tdg||!todayOn)return;const dx=e.clientX-tdg.x,dy=e.clientY-tdg.y;if(!tdg.on&&!tdg.v&&Math.hypot(dx,dy)>12){if(Math.abs(dx)>Math.abs(dy)&&dx<0)tdg.on=true;else tdg.v=true}
  if(tdg.on){const t=$('#td');t.style.transition='none';t.style.transform=`translateX(${Math.min(0,dx)}px)`}});
 document.addEventListener('pointerup',e=>{if(!tdg)return;const g=tdg;tdg=null;if(!todayOn)return;if(g.on){suppress=true;const dx=e.clientX-g.x;const t=$('#td');t.style.transition='';if(dx<-innerWidth*.3)closeToday();else t.style.transform=''}});
@@ -707,6 +729,18 @@ $('#cm').addEventListener('click',e=>{const b=e.target.closest('[data-ma]');if(!
 // ---- dock picker + page manager ----
 function openDockPicker(){const ks=Object.keys(AP).filter(k=>!dock.includes(k));$('#shi').innerHTML=`<div class="grab"></div><h3>Add to Dock</h3><div class="mu">The Dock holds up to 4 apps.</div><div class="sr" style="margin-top:14px">${ks.map(k=>`<div class="it" style="position:relative"><div class="app" data-dk="${k}">${tile(k)}<span>${AP[k][0]}</span></div></div>`).join('')}</div><button class="dn" id="dn">Close</button>`;$('#sheet').classList.add('on')}
 const thumb=p=>`<div class="thm">${p.map(it=>{const[w,h]=dims(it);return `<i class="th ${it.t}" style="left:${it.c*25}%;top:${it.r/ROWS*100}%;width:${w*25}%;height:${h/ROWS*100}%"></i>`}).join('')}</div>`;
+
+// ---- wallpaper sheet ----
+function wallCompress(f,cb){const r=new FileReader();r.onload=()=>{const im=new Image();im.onload=()=>{const m=1000,sc=Math.min(1,m/Math.max(im.width,im.height));const cv=document.createElement('canvas');cv.width=Math.round(im.width*sc);cv.height=Math.round(im.height*sc);cv.getContext('2d').drawImage(im,0,0,cv.width,cv.height);let u='';try{u=cv.toDataURL('image/jpeg',.8)}catch(e){}cb(u)};im.onerror=()=>cb('');im.src=r.result};r.onerror=()=>cb('');r.readAsDataURL(f)}
+function addWall(f,after){wallCompress(f,u=>{if(!u){toast('Could not read that photo');return}const a=walls();if(a.length>=MAXW){toast('Wallpaper limit reached. Remove one first');return}a.push(u);if(!saveWalls(a)){toast('That photo is too large to save on this device');return}prefs.wp='photo';prefs.wpi=a.length-1;if(!prefs.dim)prefs.dim=20;savePrefs();applyLook();if(after)after()})}
+function openWall(){const a=walls();const cur=prefs.wp==='photo'?Math.min(Math.max(0,prefs.wpi|0),a.length-1):-1;
+ $('#shi').innerHTML=`<div class="grab"></div><h3>Wallpaper</h3><div class="mu">Pick a look, or add your own photos. Photos are saved on this device.</div><div class="wpg">${Object.keys(WPRE).map(k=>`<button class="wpt ${prefs.wp===k?'on':''}" data-wk="${k}" style="background:${WPRE[k][1]?WPRE[k][1]:'var(--wp0)'}"><span>${WPRE[k][0]}</span></button>`).join('')}${a.map((u,i)=>`<div class="wpt ph ${cur===i?'on':''}" data-wi="${i}" style="background-image:url('${u}')"><span>Photo ${i+1}</span><button class="wpx" data-wd="${i}" aria-label="Remove photo">×</button></div>`).join('')}${a.length<MAXW?`<button class="wpt add" data-wadd="1"><b>＋</b><span>Add photo</span></button>`:''}</div><div class="wpr"><label>Dim<input type="range" id="wdim" min="0" max="70" step="5" value="${prefs.dim||0}"></label><label>Blur<input type="range" id="wblur" min="0" max="24" step="2" value="${prefs.blur||0}"></label></div><input type="file" id="wfile" accept="image/*" hidden><button class="dn" id="dn">Done</button>`;$('#sheet').classList.add('on')}
+$('#shi').addEventListener('click',e=>{const b=e.target.closest('[data-wk],[data-wi],[data-wd],[data-wadd]');if(!b||!$('#shi .wpg'))return;e.stopPropagation();
+ if(b.dataset.wd!=null){const i=+b.dataset.wd,a=walls();a.splice(i,1);saveWalls(a);if(prefs.wp==='photo'){if(!a.length)prefs.wp='dusk';else prefs.wpi=Math.min(prefs.wpi|0,a.length-1)}savePrefs();applyLook();openWall();return}
+ if(b.dataset.wadd){$('#wfile').click();return}
+ if(b.dataset.wk){prefs.wp=b.dataset.wk}else{prefs.wp='photo';prefs.wpi=+b.dataset.wi}savePrefs();applyLook();openWall()},true);
+$('#shi').addEventListener('change',e=>{if(e.target.id!=='wfile')return;const f=e.target.files&&e.target.files[0];e.target.value='';if(f)addWall(f,openWall)});
+$('#shi').addEventListener('input',e=>{if(e.target.id==='wdim'){prefs.dim=+e.target.value;savePrefs();applyLook()}else if(e.target.id==='wblur'){prefs.blur=+e.target.value;savePrefs();applyLook()}});
 function openPages(){$('#shi').innerHTML=`<div class="grab"></div><h3>Pages</h3><div class="mu">Hide pages you do not use. They stay saved and you can show them again here.</div><div class="pmg">${pages.map((p,i)=>`<div class="pmc ${p.hid?'h':''}"><div class="pth">${thumb(p)}${p.hid?'<span class="hdn">Hidden</span>':''}</div><div class="pmr"><button data-pm="mv:${i}:-1" ${i===0?'disabled':''} aria-label="Move left">‹</button><b>${i+1}</b><button data-pm="mv:${i}:1" ${i===pages.length-1?'disabled':''} aria-label="Move right">›</button></div><div class="pmr"><button data-pm="hid:${i}">${p.hid?'Show':'Hide'}</button><button data-pm="del:${i}" class="rd">Delete</button></div></div>`).join('')}<div class="pmc add"><button data-pm="add">+ New page</button></div></div><button class="dn" id="dn">Done</button>`;$('#sheet').classList.add('on')}
 function pagesChanged(){$('#pgs').innerHTML='';render();refresh();drawLib();cur=Math.max(0,Math.min(cur,pages.length));go(cur);persist();openPages()}
 function pageOp(op){const[a,i0,d0]=op.split(':');const i=+i0;
@@ -756,7 +790,7 @@ document.addEventListener('pointermove',e=>{if(pos0&&Math.hypot(e.clientX-pos0.x
  if(drag){lastE=e;if(!raf)raf=requestAnimationFrame(dragStep);return}
  if(sw&&!editing&&view==='home'){const dx=e.clientX-sw.x,dy=e.clientY-sw.y;if(!sw.on&&!sw.dn&&Math.hypot(dx,dy)>12){if(Math.abs(dx)>Math.abs(dy))sw.on=true;else if(sw.stk!=null)sw.sv=true;else if(dy>0)sw.dn=true}if(sw.on&&dx>0&&cur===home0()&&!sw.pg){if(!sw.td){sw.td=true;drawToday();const t=$('#td');t.classList.add('on','pk');t.style.transition='none'}const t=$('#td');t.style.transform=`translateX(${-innerWidth+Math.min(innerWidth,dx)}px)`;sw.hist=sw.hist||[];sw.hist.push([performance.now(),e.clientX]);if(sw.hist.length>6)sw.hist.shift();return}
  if(sw.on){sw.pg=true;$('#pgs').classList.add('nt');let x=dx;const last=pages.length;if((cur===0&&dx>0)||(cur===last&&dx<0))x=dx*.32;sw.hist=sw.hist||[];sw.hist.push([performance.now(),e.clientX]);if(sw.hist.length>6)sw.hist.shift();$('#pgs').style.transform=`translateX(calc(${-cur*100}% + ${x}px))`}}});
-document.addEventListener('pointerup',e=>{clr();
+document.addEventListener('pointerup',e=>{clr();{const h=$('#ph');if(h&&(h.scrollLeft||h.scrollTop)){h.scrollLeft=0;h.scrollTop=0}}
  if(drag){const d=drag;drag=null;if(raf){cancelAnimationFrame(raf);raf=0}clearTimeout(d.et);clearTimeout(d.ft);$('#fo').style.opacity=1;
   if(d.mode==='size'){suppress=true;render();return}
   if(d.mode==='dock'){suppress=true;d.cl&&d.cl.remove();document.querySelectorAll('#dock .dgh').forEach(x=>x.classList.remove('dgh'));if(d.started)dockDrop(d,e);return}
@@ -825,6 +859,7 @@ $('#shi').addEventListener('click',e=>{if(e.target.id==='dn'){$('#sheet').classL
  const b=e.target.closest('button');if(!b)return;
  if(b.dataset.pm){pageOp(b.dataset.pm);return}
  if(b.dataset.gk){gk=b.dataset.gk;galleryDraw(true);return}
+ if(b.dataset.gadd&&galTd){const z=b.dataset.gadd;const it=W(z==='xs'?'s':z,gk==='stack'?STK:[gk]);tdItems.push(it);galTd=false;$('#sheet').classList.remove('on');drawToday();persist();toast((gk==='stack'?'Widget stack':WG[gk].n+' widget')+' added');return}
  if(b.dataset.gadd){const z=b.dataset.gadd;const it=W(z,gk==='stack'?STK:[gk]);const pi=addItem(it,cur);$('#sheet').classList.remove('on');render();refresh();go(pi);persist();toast((gk==='stack'?'Widget stack':WG[gk].n+' widget')+' added · drag to move it');return}
  const it=findItem(setId);
  if(b.dataset.sk&&it){const k=b.dataset.sk,i=it.ws.indexOf(k);if(i>=0){if(it.ws.length<2){toast('A widget needs at least one');return}const was=curW(it);it.ws.splice(i,1);it.si=Math.max(0,it.ws.indexOf(was));if(it.si<0)it.si=0}else{it.ws.push(k);it.si=it.ws.length-1}refreshOne(it);persist();openSet(it.id);return}
@@ -848,8 +883,8 @@ function galleryDraw(keep){const old=gz;const info=gk==='stack'?{n:'Widget stack
  const prev=z=>{const fake={ws:gk==='stack'?STK:[gk],si:0,z,o:{}};return `<div class="w${gk==='stack'?' stk':''}">${WG[wk].html(z,fake)}</div>${gk==='stack'?'<div class="sdt"><i class="on"></i><i></i><i></i></div>':''}`};
  $('#shi').innerHTML=`<div class="grab"></div><h3>Add a widget</h3><div class="chips" style="margin-top:8px">${GTYPES.map(([k,n])=>`<button data-gk="${k}" class="${gk===k?'on':''}">${n}</button>`).join('')}</div><div class="gin"><span class="gic"><div class="tile c-${info.c}"><svg viewBox="0 0 24 24">${P[info.ic]||P._}</svg></div></span><div class="n"><b>${info.n}</b><span>${info.d}</span></div></div><div class="gcar" id="gcar">${GS.map(([z,n,w,h])=>`<div class="gsl"><div class="gp it ${z}" style="width:${w}px;height:${h}px;${z==='l'?'transform:scale(.8)!important;transform-origin:top center;margin-bottom:-70px':''}"><div class="in">${prev(z)}</div></div></div>`).join('')}</div><div class="gdots" id="gdots">${GS.map((_,i)=>`<i class="${i===(keep?old:0)?'on':''}"></i>`).join('')}</div><div class="gnm" id="gnm">${GS[keep?old:0][1]}</div><button class="gadd" id="gadd" data-gadd="${GS[keep?old:0][0]}">Add Widget</button><div class="mu" style="text-align:center;margin-top:8px;font-size:11px">Swipe to change size. After adding, drag it to the screen edge to move it to another page.</div><button class="dn" id="dn">Close</button>`;
  $('#sheet').classList.add('on');gz=keep?old:0;const c=$('#gcar');if(keep)c.scrollLeft=old*c.clientWidth;c.onscroll=()=>{const i=Math.round(c.scrollLeft/c.clientWidth);if(i!==gz){gz=i;[...$('#gdots').children].forEach((d,j)=>d.classList.toggle('on',j===i));$('#gnm').textContent=GS[i][1];$('#gadd').dataset.gadd=GS[i][0]}}}
-function openGallery(){if(!editing)setEdit(true);gk='water';galleryDraw(false)}
-$('#plus').onclick=openGallery;
+function openGallery(){galTd=false;if(!editing)setEdit(true);gk='water';galleryDraw(false)}
+$('#plus').onclick=openGallery;$('#wpb').onclick=openWall;
 // ---- saving, loading, geometry, activation ----
 const fileOf=k=>k==='gym'?'gym.html':(AP[k]&&AP[k][2]?AP[k][2].split('/').pop():null);
 const GROUP={planner:'Planner',health:'Health',home:'Home'};
@@ -859,28 +894,30 @@ function syncApps(){let changed=false;try{
  Object.keys(AP).forEach(k=>{const f=fileOf(k);if(!f||typeof categoryFor!=='function')return;const g=GROUP[categoryFor(f)];if(g&&AP[k][1]!==g){AP[k][1]=g;changed=true}})}catch(e){}
  if(changed&&booted)drawLib($('#srch')&&$('#srch').value)}
 function putIn(pi,it){while(pages.length<=pi)pages.push([]);const[w,h]=dims(it);const sp=freeSpot(pages[pi].map(rc),w,h,0);if(sp&&sp.r+h<=ROWS){it.c=sp.c;it.r=sp.r;pages[pi].push(it);return pi}return putIn(pi+1,it)}
+const tdDefault=()=>[W('m',['schedule']),W('m',['tasks']),W('m',['water'])];
+function hw(o){if(!o||!SZ[o.z]||o.z==='a'||o.z==='f')return null;const ws=(Array.isArray(o.ws)?o.ws:[o.w||'water']).map(k=>k==='next'?'schedule':k).filter(k=>WG[k]).filter((k,i,a)=>a.indexOf(k)===i);if(!ws.length)return null;const it=W(o.z,ws);it.si=Math.max(0,Math.min(ws.length-1,+o.si||0));it.o=(o.o&&typeof o.o==='object')?o.o:{};return it}
 function defaultPages(){uid=1;dock=DOCK0.slice();const grp=c=>Object.keys(AP).filter(k=>AP[k][1]===c&&!AP[k][3]&&k!=='clock');pages=[[]];
  const seed=[W('m',['water','tasks','schedule'])];['Planner','Health','Home'].forEach(c=>{const ks=grp(c);if(ks.length>1)seed.push(F(c,ks));else if(ks.length)seed.push(A(ks[0]))});seed.push(A('insights'),A('clock'));
- seed.forEach(it=>putIn(0,it));const p1=pages.length;putIn(p1,W('l'));putIn(p1,W('xs',['water','tasks']));putIn(pages.length-1,W('s',['water','schedule']))}
-function serialize(){return{v:2,ts:Date.now(),dock:dock.slice(),hid:pages.map((p,i)=>p.hid?i:-1).filter(x=>x>=0),pages:pages.map(p=>p.map(i=>i.t==='a'?{t:'a',k:i.k,c:i.c,r:i.r}:i.t==='f'?{t:'f',name:i.name,apps:i.apps.slice(),c:i.c,r:i.r}:{t:'w',ws:i.ws.slice(),si:i.si,o:i.o||{},z:i.z,c:i.c,r:i.r}))}}
+ seed.forEach(it=>putIn(0,it));const p1=pages.length;putIn(p1,W('l'));putIn(p1,W('xs',['water','tasks']));putIn(pages.length-1,W('s',['water','schedule']));tdItems=tdDefault()}
+function serialize(){return{v:2,ts:Date.now(),td:tdItems.map(i=>({ws:i.ws.slice(),si:i.si,o:i.o||{},z:i.z})),dock:dock.slice(),hid:pages.map((p,i)=>p.hid?i:-1).filter(x=>x>=0),pages:pages.map(p=>p.map(i=>i.t==='a'?{t:'a',k:i.k,c:i.c,r:i.r}:i.t==='f'?{t:'f',name:i.name,apps:i.apps.slice(),c:i.c,r:i.r}:{t:'w',ws:i.ws.slice(),si:i.si,o:i.o||{},z:i.z,c:i.c,r:i.r}))}}
 function persist(){if(!profileNow)return;const data=serialize();lsSet('hub-phone-home-'+profileNow,JSON.stringify(data));clearTimeout(saveT);const prof=profileNow;
  saveT=setTimeout(()=>{try{if(typeof state!=='undefined'&&state.user&&state.profile===prof)profileRef('hub-profiles','phonehome').set({json:JSON.stringify(data)}).catch(()=>{})}catch(e){}},500)}
-function hydrate(d){uid=1;const seen=new Set();const out=[];
+function hydrate(d){uid=1;const seen=new Set();const out=[];tdEdit=false;
  (d.pages||[]).forEach(p=>{const items=[];(p||[]).forEach(o=>{let it=null;
   if(o.t==='a'&&AP[o.k]&&!seen.has(o.k)){it=A(o.k);seen.add(o.k)}
   else if(o.t==='f'){const ks=(o.apps||[]).filter(k=>AP[k]&&!seen.has(k));ks.forEach(k=>seen.add(k));if(ks.length>1)it=F(String(o.name||'Folder').slice(0,22),ks);else if(ks.length===1)it=A(ks[0])}
   else if(o.t==='w'&&SZ[o.z]){const ws=(Array.isArray(o.ws)?o.ws:[o.w||'water']).map(k=>k==='next'?'schedule':k).filter(k=>WG[k]).filter((k,i,a)=>a.indexOf(k)===i);if(ws.length){it=W(o.z,ws);it.si=Math.max(0,Math.min(ws.length-1,+o.si||0));it.o=(o.o&&typeof o.o==='object')?o.o:{}}}
   if(it){it.c=+o.c||0;it.r=+o.r||0;items.push(it)}});
   out.push(items)});
- pages=out.length?out:[[]];if(!pages.some(p=>p.length))defaultPages();else{dock=Array.isArray(d.dock)?[...new Set(d.dock.filter(k=>AP[k]))].slice(0,4):DOCK0.slice();(Array.isArray(d.hid)?d.hid:[]).forEach(i=>{if(pages[i])pages[i].hid=true});if(!pages.some(p=>!p.hid))pages[0].hid=false}fitPages()}
+ pages=out.length?out:[[]];tdItems=Array.isArray(d.td)?d.td.map(hw).filter(Boolean):null;if(!pages.some(p=>p.length))defaultPages();else{if(!tdItems)tdItems=tdDefault();dock=Array.isArray(d.dock)?[...new Set(d.dock.filter(k=>AP[k]))].slice(0,4):DOCK0.slice();(Array.isArray(d.hid)?d.hid:[]).forEach(i=>{if(pages[i])pages[i].hid=true});if(!pages.some(p=>!p.hid))pages[0].hid=false}fitPages()}
 function bad(items){const rs=items.map(rc);return rs.some((a,i)=>a.c<0||a.r<0||a.c+a.w>COLS||a.r+a.h>ROWS||rs.some((b,j)=>j>i&&ov(a,b)))}
 // after a size change (rotation, different phone): anything that no longer fits moves to the next free spot
 function fitPages(){for(let pi=0;pi<pages.length;pi++){const items=pages[pi];if(!bad(items))continue;const keep=[],move=[];const fixed=[];
   items.slice().sort((a,b)=>a.r-b.r||a.c-b.c).forEach(it=>{const[w,h]=dims(it);const q={c:it.c,r:it.r,w,h};if(q.c>=0&&q.r>=0&&q.c+w<=COLS&&q.r+h<=ROWS&&!fixed.some(f=>ov(q,f))){fixed.push(q);keep.push(it)}else move.push(it)});
   keep.hid=pages[pi].hid;pages[pi]=keep;move.forEach(it=>{const sp=freeSpot(pages[pi].map(rc),...dims(it),0);if(sp){it.c=sp.c;it.r=sp.r;pages[pi].push(it)}else addItem(it,pi+1===pages.length?pi:pi+1)})}
  pages=pages.filter((p,i)=>p.length||i===0||false);if(!pages.length)pages=[[]];cur=Math.min(cur,pages.length)}
-function geom(){const ph=$('#ph');const wpx=innerWidth-28;PX=(wpx+10)/4;COLW=PX-10;const vp=$('#vp');const h=vp.clientHeight||440;ROWS=Math.max(4,Math.min(7,Math.floor((h+10)/108)));PY=ROWS===4?Math.max(86,Math.min(108,Math.floor((h+10)/4))):108;ROWH=PY-10;ph.classList.toggle('tight',PY<100);
- ph.style.setProperty('--px',PX+'px');ph.style.setProperty('--py',PY+'px');ph.style.setProperty('--pcx',(COLW/2+1)+'px');document.querySelectorAll('#ph .g').forEach(g=>g.style.height=(ROWS*PY)+'px')}
+function geom(){const ph=$('#ph');const wpx=innerWidth-28;PX=(wpx+10)/4;COLW=PX-10;const vp=$('#vp');const h=vp.clientHeight||440;ROWS=Math.max(4,Math.min(6,Math.floor((h+10)/88)));PY=Math.max(86,Math.min(108,Math.floor((h+10)/ROWS)));ROWH=PY-10;ph.classList.toggle('tight',PY<100);
+ ph.style.setProperty('--px',PX+'px');ph.style.setProperty('--py',PY+'px');ph.style.setProperty('--tdh',ROWH+'px');ph.style.setProperty('--pcx',(COLW/2+1)+'px');document.querySelectorAll('#ph .g').forEach(g=>g.style.height=(ROWS*PY)+'px')}
 const active=()=>enabled&&MQ.matches;
 let started=false;
 function start(){profileNow=state.profile;started=true;syncApps();applyLook();
@@ -938,11 +975,10 @@ window.addEventListener('pagehide',()=>{if(started)persist()});
  c.addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;
   if(b.id==='phs-reset'){if(!started){toast('Open this on a phone-size screen to reset it');return}if(confirm('Put the home screen back to the default layout?')){defaultPages();cur=0;$('#pgs').innerHTML='';render();refresh();drawLib();persist();window.toast&&window.toast('Home screen reset')}return}
   if(b.id==='phs-pick'){c.querySelector('#phs-file').click();return}
-  if(b.id==='phs-clear'){lsSet(LS_PHOTO,'');if(prefs.wp==='photo')prefs.wp='dusk';savePrefs();if(started)applyLook();paint();return}
+  if(b.id==='phs-clear'){lsSet(LS_PHOTO,'');saveWalls([]);if(prefs.wp==='photo')prefs.wp='dusk';savePrefs();if(started)applyLook();paint();return}
   const g=b.closest('.phs-seg');if(!g||!g.dataset.g)return;const k=g.dataset.g,v=b.dataset.v;
-  if(k==='on'){enabled=v==='1';lsSet(LS_ON,enabled?'1':'0');apply()}else{if(k==='wp'&&v==='photo'&&!lsGet(LS_PHOTO,'')){c.querySelector('#phs-file').click();return}prefs[k]=(k==='lbl'||k==='par')?v==='true':v;savePrefs();if(started)applyLook()}paint()});
- function photoFrom(f){const r=new FileReader();r.onload=()=>{const im=new Image();im.onload=()=>{const m=1170,sc=Math.min(1,m/Math.max(im.width,im.height));const cv=document.createElement('canvas');cv.width=Math.round(im.width*sc);cv.height=Math.round(im.height*sc);cv.getContext('2d').drawImage(im,0,0,cv.width,cv.height);let u='';try{u=cv.toDataURL('image/jpeg',.82)}catch(e){}
-   try{localStorage.setItem(LS_PHOTO,u)}catch(e){u=''}if(!u){window.toast&&window.toast('That photo is too large to save on this device');return}prefs.wp='photo';if(!prefs.dim)prefs.dim=20;savePrefs();if(started)applyLook();paint()};im.onerror=()=>{window.toast&&window.toast('Could not read that photo')};im.src=r.result};r.readAsDataURL(f)}})();
+  if(k==='on'){enabled=v==='1';lsSet(LS_ON,enabled?'1':'0');apply()}else{if(k==='wp'&&v==='photo'&&!walls().length){c.querySelector('#phs-file').click();return}prefs[k]=(k==='lbl'||k==='par')?v==='true':v;savePrefs();if(started)applyLook()}paint()});
+ function photoFrom(f){addWall(f,paint)}})();
 if(window.visualViewport){const kb=()=>{const v=window.visualViewport;const h=Math.max(0,Math.round(innerHeight-v.height-v.offsetTop));$('#ph').style.setProperty('--kb',h+'px')};visualViewport.addEventListener('resize',kb);visualViewport.addEventListener('scroll',kb)}
 // ---- sheet: drag the handle down to close ----
 (function(){let g=null;const sh=()=>$('#shi');document.addEventListener('pointerdown',e=>{const h=e.target.closest('#shi .grab');if(!h)return;g={y:e.clientY,dy:0};sh().style.transition='none'});document.addEventListener('pointermove',e=>{if(!g)return;g.dy=Math.max(0,e.clientY-g.y);sh().style.transform='translateY('+g.dy+'px)'});const end=()=>{if(!g)return;const d=g.dy;g=null;const s=sh();s.style.transition='';s.style.transform='';if(d>90){suppress=true;$('#sheet').classList.remove('on')}};document.addEventListener('pointerup',end);document.addEventListener('pointercancel',end)})();
