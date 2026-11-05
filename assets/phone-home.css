@@ -833,3 +833,27 @@ body.ph-on .app-frame-overlay.phzo{animation:phzout .21s ease-in forwards;transf
 #ph #td .tdh small{font-size:12.5px;letter-spacing:.03em}
 #ph #td .tdh b{font-size:21px;font-weight:600;letter-spacing:-.015em}
 #ph #td .tdx{background:#7676803d;font-weight:600;padding:7px 15px}
+
+/* ===== per-widget colours ===== */
+#ph.ic-vivid .w[data-wk="schedule"],#ph #td .w[data-wk="schedule"]{--ac:#8B7BFF}
+#ph.ic-vivid .w[data-wk="next"],#ph #td .w[data-wk="next"]{--ac:#8B7BFF}
+#ph.ic-vivid .w[data-wk="upnext"],#ph #td .w[data-wk="upnext"]{--ac:#8B7BFF}
+#ph.ic-vivid .w[data-wk="tasks"],#ph #td .w[data-wk="tasks"]{--ac:#4C9BFF}
+#ph.ic-vivid .w[data-wk="water"],#ph #td .w[data-wk="water"]{--ac:#38BDF8}
+#ph.ic-vivid .w[data-wk="gym"],#ph #td .w[data-wk="gym"]{--ac:#E8503F}
+#ph.ic-vivid .w[data-wk="budget"],#ph #td .w[data-wk="budget"]{--ac:#34C98F}
+#ph.ic-vivid .w[data-wk="chores"],#ph #td .w[data-wk="chores"]{--ac:#B26BFF}
+#ph.ic-vivid .w[data-wk="grocery"],#ph #td .w[data-wk="grocery"]{--ac:#F5B83D}
+#ph.ic-vivid .w[data-wk="skin"],#ph #td .w[data-wk="skin"]{--ac:#FF7AB6}
+#ph.ic-vivid .w[data-wk="diet"],#ph #td .w[data-wk="diet"]{--ac:#A3D63F}
+#ph.ic-vivid .w[data-wk="pledge"],#ph #td .w[data-wk="pledge"]{--ac:#E85BD6}
+#ph.ic-vivid .w[data-wk="agenda"],#ph #td .w[data-wk="agenda"]{--ac:#FF8A4C}
+#ph.ic-vivid .w[data-wk="recipes"],#ph #td .w[data-wk="recipes"]{--ac:#FF9F43}
+#ph.ic-vivid .w[data-wk="ticks"],#ph #td .w[data-wk="ticks"]{--ac:#7C8AA5}
+#ph.ic-vivid .w[data-wk="notes"],#ph #td .w[data-wk="notes"]{--ac:#F2CC4A}
+#ph.ic-vivid .w[data-wk="qlinks"],#ph #td .w[data-wk="qlinks"]{--ac:#6F7FA3}
+#ph.ic-vivid .w[data-wk="insights"],#ph #td .w[data-wk="insights"]{--ac:#8B7BFF}
+#ph.ic-vivid .w[data-wk="clock"],#ph #td .w[data-wk="clock"]{--ac:#6F7FA3}
+#ph.ic-vivid .w[data-wk="insights"],#ph #td .w[data-wk="insights"]{--ac:#5B8DEF}
+#ph.ic-vivid .w[data-wk="schedule"],#ph #td .w[data-wk="schedule"],#ph.ic-vivid .w[data-wk="next"],#ph #td .w[data-wk="next"],#ph.ic-vivid .w[data-wk="upnext"],#ph #td .w[data-wk="upnext"],#ph.ic-vivid .w[data-wk="tasks"],#ph #td .w[data-wk="tasks"],#ph.ic-vivid .w[data-wk="water"],#ph #td .w[data-wk="water"],#ph.ic-vivid .w[data-wk="gym"],#ph #td .w[data-wk="gym"],#ph.ic-vivid .w[data-wk="budget"],#ph #td .w[data-wk="budget"],#ph.ic-vivid .w[data-wk="chores"],#ph #td .w[data-wk="chores"],#ph.ic-vivid .w[data-wk="grocery"],#ph #td .w[data-wk="grocery"],#ph.ic-vivid .w[data-wk="skin"],#ph #td .w[data-wk="skin"],#ph.ic-vivid .w[data-wk="diet"],#ph #td .w[data-wk="diet"],#ph.ic-vivid .w[data-wk="pledge"],#ph #td .w[data-wk="pledge"],#ph.ic-vivid .w[data-wk="agenda"],#ph #td .w[data-wk="agenda"],#ph.ic-vivid .w[data-wk="recipes"],#ph #td .w[data-wk="recipes"],#ph.ic-vivid .w[data-wk="ticks"],#ph #td .w[data-wk="ticks"],#ph.ic-vivid .w[data-wk="notes"],#ph #td .w[data-wk="notes"],#ph.ic-vivid .w[data-wk="qlinks"],#ph #td .w[data-wk="qlinks"],#ph.ic-vivid .w[data-wk="insights"],#ph #td .w[data-wk="insights"],#ph.ic-vivid .w[data-wk="clock"],#ph #td .w[data-wk="clock"],#ph.ic-vivid .w[data-wk="insights"],#ph #td .w[data-wk="insights"]{background:linear-gradient(180deg,color-mix(in srgb,var(--ac) 40%,#3c3c3ebd),color-mix(in srgb,var(--ac) 14%,#2c2c2ebd));border-color:color-mix(in srgb,var(--ac) 55%,#ffffff24)}
+#ph.mv.ic-vivid .w[data-wk="schedule"],#ph.mv.ic-vivid .w[data-wk="next"],#ph.mv.ic-vivid .w[data-wk="upnext"],#ph.mv.ic-vivid .w[data-wk="tasks"],#ph.mv.ic-vivid .w[data-wk="water"],#ph.mv.ic-vivid .w[data-wk="gym"],#ph.mv.ic-vivid .w[data-wk="budget"],#ph.mv.ic-vivid .w[data-wk="chores"],#ph.mv.ic-vivid .w[data-wk="grocery"],#ph.mv.ic-vivid .w[data-wk="skin"],#ph.mv.ic-vivid .w[data-wk="diet"],#ph.mv.ic-vivid .w[data-wk="pledge"],#ph.mv.ic-vivid .w[data-wk="agenda"],#ph.mv.ic-vivid .w[data-wk="recipes"],#ph.mv.ic-vivid .w[data-wk="ticks"],#ph.mv.ic-vivid .w[data-wk="notes"],#ph.mv.ic-vivid .w[data-wk="qlinks"],#ph.mv.ic-vivid .w[data-wk="insights"],#ph.mv.ic-vivid .w[data-wk="clock"],#ph.mv.ic-vivid .w[data-wk="insights"]{background:linear-gradient(180deg,color-mix(in srgb,var(--ac) 40%,#3a3a3ce6),color-mix(in srgb,var(--ac) 14%,#2d2d2fe6))}

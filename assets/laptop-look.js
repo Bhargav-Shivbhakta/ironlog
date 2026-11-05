@@ -69,5 +69,34 @@
   function go(x){if(!x)return;closeP();x.el.click()}
   document.addEventListener('click',function(e){if(e.target.closest&&e.target.closest('#lap-search'))openP()});
   document.addEventListener('keydown',function(e){if(d.classList.contains('lap-look')&&(e.ctrlKey||e.metaKey)&&!e.shiftKey&&(e.key==='k'||e.key==='K')){e.preventDefault();openP()}});
+
+  /* ---- Schedule: fold what sits under blocks that are not running (opens on tap, remembered while the page is open) ---- */
+  var opened={};
+  function foldSched(){
+    if(!d.classList.contains('lap-look'))return;
+    document.querySelectorAll('.widget-card[data-widget-type="schedule"] .sc-row').forEach(function(r){
+      var u=r.querySelector('.sc-under');if(!u||r.dataset.lapF)return;r.dataset.lapF='1';
+      var bk=r.querySelector('[data-sc-block]');var key=bk?bk.dataset.scBlock:'';
+      if(r.classList.contains('sc-cur')){return}
+      var n=u.querySelectorAll('.sc-u').length;if(!n)return;
+      r.classList.add('lap-fold');if(opened['b'+key])r.classList.add('lap-open');
+      var b=document.createElement('button');b.type='button';b.className='lap-kids';b.dataset.lapKey='b'+key;
+      b.textContent=(r.classList.contains('lap-open')?'Hide ':'')+n+(n===1?' item':' items');
+      u.parentNode.insertBefore(b,u);
+    });
+    document.querySelectorAll('.widget-card[data-widget-type="schedule"] .sc-any').forEach(function(a){
+      if(a.dataset.lapF)return;a.dataset.lapF='1';var h=a.querySelector('h5');if(!h)return;
+      var n=a.querySelectorAll('.sc-u').length;a.classList.add('lap-fold');if(opened.any)a.classList.add('lap-open');
+      h.dataset.lapKey='any';h.innerHTML=h.textContent+'<b>'+n+'</b>';
+    });
+  }
+  document.addEventListener('click',function(e){
+    var k=e.target.closest&&e.target.closest('.lap-kids,.sc-any.lap-fold h5');if(!k)return;
+    var key=k.dataset.lapKey,host=k.closest('.sc-row,.sc-any');if(!host)return;
+    var on=host.classList.toggle('lap-open');opened[key]=on;
+    if(k.classList.contains('lap-kids')){var n=host.querySelectorAll('.sc-under .sc-u').length;k.textContent=(on?'Hide ':'')+n+(n===1?' item':' items')}
+  });
+  new MutationObserver(function(){foldSched()}).observe(document.documentElement,{childList:true,subtree:true});
+  window.__lapFold=foldSched;
   apply();if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',paint);
 })();

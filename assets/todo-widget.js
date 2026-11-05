@@ -142,7 +142,7 @@ function groups(){
     inbox=ready.filter(i=>!i.t.due&&!tod.includes(i)),later=ready.filter(i=>i.t.due&&i.t.due>today0);
   if(over.length)g.push({k:'over',h:'Overdue',items:sort(over),act:'<button type="button" class="td-link" data-a="moveall">Move all to today</button>'});
   g.push({k:'today',h:'Today',items:sort(tod),empty:over.length?'':'Nothing due today.'});
-  if(st.inbox&&inbox.length)g.push({k:'inbox',h:'No date',items:sort(inbox)});
+  if(st.inbox&&inbox.length)g.push({k:'inbox',h:'No date',items:sort(inbox),fold:document.documentElement.classList.contains('lap-look')});
   if(st.later&&later.length)g.push({k:'later',h:'Coming up',items:TC.sortItems(later,'time',all2,today0),fold:true});
   if(st.wait&&blocked.length)g.push({k:'wait',h:'Waiting on something',items:blocked,fold:true});
   if(st.given&&theirs.length)g.push({k:'given',h:'Given to '+other(),items:sort(theirs),fold:true});

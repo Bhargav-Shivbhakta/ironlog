@@ -49,9 +49,9 @@ html.lap-look[data-theme=glass] .timeline-row.current .timeline-content strong{c
 html.lap-look[data-theme=glass] .timeline-row.current{background:rgba(79,123,255,.16)}
 
 /* ===== Phase 2: floating window, sidebar order, search palette, app cards ===== */
-:root.lap-look{--lw:16px;--tb:40px}
-html.lap-look body::before{content:"";position:fixed;z-index:-1;inset:var(--lw);border-radius:14px;background:rgba(14,18,34,.52);border:.5px solid rgba(255,255,255,.16);box-shadow:0 30px 80px rgba(0,0,0,.45);pointer-events:none}
-.lap-look .lap-titlebar{top:var(--lw);left:var(--lw);right:var(--lw);border-radius:14px 14px 0 0;background:transparent;backdrop-filter:none;-webkit-backdrop-filter:none;border-bottom:.5px solid rgba(255,255,255,.08);padding-left:14px}
+:root.lap-look{--lw:0px;--tb:40px}
+html.lap-look body::before{content:"";position:fixed;z-index:-1;inset:0;background:rgba(14,18,34,.52);pointer-events:none}
+.lap-look .lap-titlebar{top:var(--lw);left:var(--lw);right:var(--lw);border-radius:0;background:transparent;backdrop-filter:none;-webkit-backdrop-filter:none;border-bottom:.5px solid rgba(255,255,255,.08);padding-left:14px}
 .lap-titlebar .lt-l{background:none;border:0;color:inherit;font:600 13px Inter,system-ui,sans-serif;cursor:pointer;-webkit-app-region:no-drag;padding:0;height:100%}
 .lap-titlebar .lt-search{-webkit-app-region:no-drag;width:420px;max-width:38vw;height:28px;border-radius:8px;border:0;background:rgba(255,255,255,.1);padding:0 12px;color:#b6bac8;font:400 13px Inter,system-ui,sans-serif;display:flex;align-items:center;justify-content:space-between;cursor:text}
 .lap-titlebar .lt-search:hover{background:rgba(255,255,255,.15)}
@@ -60,18 +60,18 @@ html.lap-look body::before{content:"";position:fixed;z-index:-1;inset:var(--lw);
 .lap-titlebar .lt-add{min-width:0;width:34px;padding:0;height:28px;margin-right:6px;justify-content:center}
 .lap-titlebar .lt-add b{display:none}
 .lap-titlebar .lt-wc.fs{display:grid}
-.lap-look .sidebar{top:calc(var(--lw) + var(--tb));left:var(--lw);bottom:var(--lw);inset-inline-end:auto;border-radius:0 0 0 14px;background:rgba(255,255,255,.04);backdrop-filter:none;-webkit-backdrop-filter:none;padding:18px 14px;border-right:.5px solid rgba(255,255,255,.08)}
+.lap-look .sidebar{top:calc(var(--lw) + var(--tb));left:var(--lw);bottom:var(--lw);inset-inline-end:auto;border-radius:0;background:rgba(255,255,255,.04);backdrop-filter:none;-webkit-backdrop-filter:none;padding:18px 14px;border-right:.5px solid rgba(255,255,255,.08)}
 .lap-look .sidebar>.brand{display:none}
 .lap-look .sidebar-foot{display:contents}
-.lap-look .profile-control{order:0;margin:0 0 14px}
-.lap-look .main-nav{order:1;margin-top:0}
-.lap-look .hub-clock{order:2;margin:14px 0 8px;padding:0 6px}
-.lap-look .hub-weather{order:3;margin:0}
-.lap-look .signout{order:9;margin-top:auto}
+.lap-look .hub-clock{order:0;margin:0 0 8px;padding:0 6px}
+.lap-look .hub-weather{order:1;margin:0 0 18px}
+.lap-look .main-nav{order:2;margin-top:0}
+.lap-look .profile-control{order:8;margin:auto 0 6px}
+.lap-look .signout{order:9;margin-top:0}
 .lap-look .main-nav button svg,.lap-look .signout svg{width:19px;height:19px;stroke-width:1.9;flex:none}
-.lap-look .main{position:fixed;margin:0;top:calc(var(--lw) + var(--tb));left:calc(var(--lw) + var(--sidebar));right:var(--lw);bottom:var(--lw);overflow:auto;min-height:0;padding:28px 32px 40px;border-radius:0 0 14px 0;scrollbar-width:thin;scrollbar-color:rgba(255,255,255,.2) transparent}
+.lap-look .main{position:fixed;margin:0;top:calc(var(--lw) + var(--tb));left:calc(var(--lw) + var(--sidebar));right:var(--lw);bottom:var(--lw);overflow:auto;min-height:0;padding:28px 32px 40px;border-radius:0;scrollbar-width:thin;scrollbar-color:rgba(255,255,255,.2) transparent}
 .lap-look .app-shell.sidebar-collapsed .main{left:calc(var(--lw) + var(--sidebar-collapsed))}
-.lap-look .app-frame-overlay{top:calc(var(--lw) + var(--tb));left:calc(var(--lw) + var(--sidebar));right:var(--lw);bottom:var(--lw);border-radius:0 0 14px 0;overflow:hidden}
+.lap-look .app-frame-overlay{top:calc(var(--lw) + var(--tb));left:calc(var(--lw) + var(--sidebar));right:var(--lw);bottom:var(--lw);border-radius:0;overflow:hidden}
 .lap-look .app-shell.sidebar-collapsed .app-frame-overlay{left:calc(var(--lw) + var(--sidebar-collapsed))}
 /* planner / category app cards */
 .lap-look .app-grid{grid-template-columns:repeat(4,minmax(0,1fr));gap:18px}
@@ -100,3 +100,56 @@ html.lap-look body::before{content:"";position:fixed;z-index:-1;inset:var(--lw);
 .lap-look-card .llk-row button.on{background:var(--accent);border-color:var(--accent);color:#fff}
 }
 @media(max-width:700px){.lap-look-card{display:none!important}}
+
+/* ===== per-widget colours (new look only) ===== */
+@media(min-width:701px){
+.lap-look .widget-card[data-widget-type="schedule"]{--ac:#8B7BFF}
+.lap-look .widget-card[data-widget-type="todo"]{--ac:#4C9BFF}
+.lap-look .widget-card[data-widget-type="water"]{--ac:#38BDF8}
+.lap-look .widget-card[data-widget-type="training"]{--ac:#E8503F}
+.lap-look .widget-card[data-widget-type="budget"]{--ac:#34C98F}
+.lap-look .widget-card[data-widget-type="chores"]{--ac:#B26BFF}
+.lap-look .widget-card[data-widget-type="grocery"]{--ac:#F5B83D}
+.lap-look .widget-card[data-widget-type="skin"]{--ac:#FF7AB6}
+.lap-look .widget-card[data-widget-type="diet"]{--ac:#A3D63F}
+.lap-look .widget-card[data-widget-type="pledge"]{--ac:#E85BD6}
+.lap-look .widget-card[data-widget-type="agenda"]{--ac:#FF8A4C}
+.lap-look .widget-card[data-widget-type="cook"]{--ac:#FF9F43}
+.lap-look .widget-card[data-widget-type="activity"]{--ac:#7C8AA5}
+.lap-look .widget-card[data-widget-type="notes"]{--ac:#F2CC4A}
+.lap-look .widget-card[data-widget-type="photos"]{--ac:#4FD1C5}
+.lap-look .widget-card[data-widget-type="quicklinks"]{--ac:#6F7FA3}
+.lap-look .widget-card[data-widget-type]{--accent:var(--ac,#4f7bff);--gl-gold:var(--ac,#4f7bff)}
+.lap-look .widget-card[style*="--ac"],.lap-look .widget-card[data-widget-type="schedule"],.lap-look .widget-card[data-widget-type="todo"],.lap-look .widget-card[data-widget-type="water"],.lap-look .widget-card[data-widget-type="training"],.lap-look .widget-card[data-widget-type="budget"],.lap-look .widget-card[data-widget-type="chores"],.lap-look .widget-card[data-widget-type="grocery"],.lap-look .widget-card[data-widget-type="skin"],.lap-look .widget-card[data-widget-type="diet"],.lap-look .widget-card[data-widget-type="pledge"],.lap-look .widget-card[data-widget-type="agenda"],.lap-look .widget-card[data-widget-type="cook"],.lap-look .widget-card[data-widget-type="activity"],.lap-look .widget-card[data-widget-type="notes"],.lap-look .widget-card[data-widget-type="photos"],.lap-look .widget-card[data-widget-type="quicklinks"]{background:linear-gradient(180deg,color-mix(in srgb,var(--ac) 26%,rgba(60,60,64,.66)),color-mix(in srgb,var(--ac) 8%,rgba(40,40,44,.66)));border-color:color-mix(in srgb,var(--ac) 45%,rgba(255,255,255,.14))}
+.lap-look .widget-card[data-widget-type] .widget-card-title strong{color:color-mix(in srgb,var(--ac,#a9adba) 45%,#fff)}
+.lap-look .widget-card[data-widget-type] .widget-card-quick-add{background:color-mix(in srgb,var(--ac,#fff) 22%,rgba(255,255,255,.08))}
+.lap-look .widget-card[data-widget-type] .widget-card-quick-add:hover{background:var(--ac,var(--accent))}
+.lap-look .widget-card[data-widget-type] .task-check.done,.lap-look .widget-card[data-widget-type] .task-check:hover{background:var(--ac,var(--accent));border-color:var(--ac,var(--accent))}
+.lap-look .widget-card[data-widget-type] .timeline-row.current{background:color-mix(in srgb,var(--ac,#4f7bff) 22%,transparent)}
+.lap-look .widget-card[data-widget-type] button.primary,.lap-look .widget-card[data-widget-type] .btn-primary{background:var(--ac,var(--accent));border-color:var(--ac,var(--accent))}
+}
+
+/* ===== calmer To-Do and Schedule (new look only). Nothing is removed: folded parts open with one tap. ===== */
+@media(min-width:701px){
+/* To-Do: day / person / priority choices and usual-task buttons appear once you click into the add bar or start typing */
+.lap-look .td-comp:not(:focus-within):not(:has(.td-pv:not(:empty))) :is(.td-ch,.td-often){display:none}
+.lap-look .td-first{background:color-mix(in srgb,var(--ac,#4c9bff) 20%,transparent);padding:7px 12px;grid-template-columns:auto 1fr auto auto;align-items:center}
+.lap-look .td-first span,.lap-look .td-first b,.lap-look .td-first small{grid-column:auto}
+.lap-look .td-first .td-ck{grid-column:auto;grid-row:auto;width:26px;height:26px}
+.lap-look .td-week{height:34px}
+.lap-look .td-g .td-gh[role=button]{background:rgba(255,255,255,.06);border-radius:10px;padding:8px 12px;margin-top:4px;color:#d5d8e2;letter-spacing:.04em}
+.lap-look .td-g .td-gh[role=button]:hover{background:rgba(255,255,255,.1)}
+.lap-look .td-g .td-gh[role=button] span{flex:1}
+.lap-look .td-g .td-gh[role=button] em{background:rgba(255,255,255,.14);color:#fff}
+.lap-look .td-row .td-more{opacity:0;transition:opacity .15s}
+.lap-look .td-row:hover .td-more,.lap-look .td-row:focus-within .td-more{opacity:1}
+/* Schedule: only the block that is running shows what sits under it; the rest show a count you can open */
+.lap-look .sc-row.sc-cur{background:color-mix(in srgb,var(--ac,#8b7bff) 24%,transparent);border:.5px solid color-mix(in srgb,var(--ac,#8b7bff) 50%,transparent)}
+.lap-look .sc-row.lap-fold:not(.lap-open) .sc-under{display:none}
+.lap-look .lap-kids{display:inline-flex;align-items:center;gap:6px;margin:4px 0 2px;height:24px;padding:0 10px;border-radius:99px;border:0;background:rgba(255,255,255,.12);color:#d5d8e2;font:600 11.5px Inter,system-ui,sans-serif;cursor:pointer}
+.lap-look .lap-kids:hover{background:rgba(255,255,255,.2)}
+.lap-look .sc-any.lap-fold:not(.lap-open)>:not(h5){display:none}
+.lap-look .sc-any.lap-fold h5{display:flex;align-items:center;gap:8px;cursor:pointer;background:rgba(255,255,255,.06);border-radius:10px;padding:8px 12px;margin:0;color:#d5d8e2}
+.lap-look .sc-any.lap-fold h5 b{margin-left:auto;font-weight:600;background:rgba(255,255,255,.14);border-radius:99px;padding:0 8px;color:#fff;letter-spacing:0}
+.lap-look .sc-any.lap-fold{border-top:0;padding-top:0}
+}
