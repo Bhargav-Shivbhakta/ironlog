@@ -417,7 +417,7 @@ body.ph-on .toast{bottom:calc(var(--nb) + 16px)!important}
 
 /* ---- stage 3: wallpaper layer, tints, Today panel, search groups ---- */
 #ph{background:#000}
-#ph::before{content:"";position:absolute;inset:-30px;background:var(--wpimg,var(--wp)) center/cover;filter:blur(var(--wpb,0px)) brightness(var(--wpbr,1));transform:translateX(var(--par,0px));transition:transform var(--sdur) var(--spring);z-index:0;pointer-events:none}
+#ph::before{content:"";position:absolute;inset:-30px;background:var(--wpimg,var(--wp)) center/cover;filter:var(--wpf,none);will-change:transform;transform:translateX(var(--par,0px));transition:transform var(--sdur) var(--spring);z-index:0;pointer-events:none}
 #ph.nopar::before{transform:none}
 #ph.tn-blue{--t1:#2f5190;--t2:#172a52}
 #ph.tn-green{--t1:#2c6a4a;--t2:#143324}
@@ -658,7 +658,7 @@ body.ph-on .app-frame-overlay.phzo{animation:phzout .21s ease-in forwards;transf
 /* ===== Home screen v2: vivid icons, glass dock and widgets, Up next widget ===== */
 #ph .tile.vv{position:relative;display:block;border-radius:22.4%;background:linear-gradient(180deg,var(--t1),var(--t2));box-shadow:0 8px 16px #00000052,0 1px 2px #0000004d,inset 0 1px 0 #ffffff80,inset 0 -1px 0 #00000024}
 #ph .tile.vv::after{content:"";position:absolute;inset:0;border-radius:inherit;background:linear-gradient(180deg,#ffffff47,#ffffff00 52%);pointer-events:none}
-#ph .tile.vv>svg{position:absolute;inset:0;width:100%;height:100%;fill:none;stroke:none;filter:drop-shadow(0 1px 1px #00000033)}
+#ph .tile.vv>svg{position:absolute;inset:0;width:100%;height:100%;fill:none;stroke:none}
 #ph .tile.vv>svg.fb{inset:auto;left:15px;top:15px;width:30px;height:30px;stroke:#fff;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round}
 #ph .tile.vcal .cald{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;line-height:1}
 #ph .tile.vcal .cald b{font:700 10px system-ui,-apple-system,sans-serif;letter-spacing:.08em;color:#e5362b}
@@ -669,8 +669,8 @@ body.ph-on .app-frame-overlay.phzo{animation:phzout .21s ease-in forwards;transf
 #ph .mt .mcal{font:600 8px system-ui,-apple-system,sans-serif;color:#111}
 #ph.ic-vivid .app span{font-size:11.5px}
 #ph.ic-vivid .bdg{box-shadow:0 0 0 1.5px #ffffffe6,0 2px 6px #0006}
-#ph.ic-vivid .dock{background:#ffffff24;backdrop-filter:blur(30px) saturate(1.7);-webkit-backdrop-filter:blur(30px) saturate(1.7);border:.5px solid #ffffff47;border-radius:34px;box-shadow:0 12px 32px #00000042,inset 0 1px 0 #ffffff47}
-#ph.ic-vivid .w{background:linear-gradient(180deg,#ffffff29,#ffffff17);backdrop-filter:blur(30px) saturate(1.7);-webkit-backdrop-filter:blur(30px) saturate(1.7);border:.5px solid #ffffff47;border-radius:26px;box-shadow:0 12px 32px #00000042,inset 0 1px 0 #ffffff47}
+#ph.ic-vivid .dock{background:#ffffff24;backdrop-filter:blur(22px) saturate(1.5);-webkit-backdrop-filter:blur(22px) saturate(1.5);border:.5px solid #ffffff47;border-radius:34px;box-shadow:0 12px 32px #00000042,inset 0 1px 0 #ffffff47}
+#ph.ic-vivid .w{background:linear-gradient(180deg,#ffffff29,#ffffff17);backdrop-filter:blur(20px) saturate(1.5);-webkit-backdrop-filter:blur(20px) saturate(1.5);border:.5px solid #ffffff47;border-radius:26px;box-shadow:0 12px 32px #00000042,inset 0 1px 0 #ffffff47}
 #ph .un{display:flex;flex-direction:column;height:100%;justify-content:space-between}
 #ph .unc{display:flex;align-items:center;gap:7px;font:650 11px system-ui,-apple-system,sans-serif;letter-spacing:.07em;text-transform:uppercase;color:#ffffffd1}
 #ph .und{width:8px;height:8px;border-radius:50%;background:#4be08a;box-shadow:0 0 8px #4be08a;display:block;flex:none}
@@ -681,3 +681,21 @@ body.ph-on .app-frame-overlay.phzo{animation:phzout .21s ease-in forwards;transf
 #ph .unb{border:0;background:#fff;color:#0a0f22;font:700 15px system-ui,-apple-system,sans-serif;border-radius:99px;padding:9px 22px;cursor:pointer;box-shadow:0 6px 14px #00000040}
 #ph .unb:active{transform:scale(.95)}
 #ph .unm{font-size:13.5px;color:#ffffffdb;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+
+/* ===== smoothness: no glass blur while a finger is moving things; app-open splash ===== */
+#ph.mv .w,#ph.mv .dock,#ph.mv .ft,#ph.mv .dots,#ph.mv .st button,#ph.mv .sp,#ph.mv .nb{-webkit-backdrop-filter:none!important;backdrop-filter:none!important}
+#ph.mv.ic-vivid .w{background:linear-gradient(180deg,#3a4468a8,#2b3354a0)}
+#ph.mv.ic-vivid .dock{background:#3a4468a0}
+#ph .pgs.nt{will-change:transform}
+#ph-sp{position:absolute;inset:0;z-index:6;display:flex;align-items:center;justify-content:center;background:#0b1020;background:radial-gradient(70% 42% at 50% 40%,color-mix(in srgb,var(--sp1,#37373d) 42%,#0b1020),#0b1020);opacity:1;transition:opacity .26s ease}
+#ph-sp.out{opacity:0;pointer-events:none}
+#ph-sp .spi{display:flex;flex-direction:column;align-items:center;gap:14px;color:#fff;font:600 17px system-ui,-apple-system,sans-serif;letter-spacing:-.01em;margin-top:-40px}
+#ph-sp .tile{width:88px;height:88px;transform:none}
+#ph-sp .tile.vcal .cald b{font-size:14px}#ph-sp .tile.vcal .cald i{font-size:44px}
+#ph-sp .tile:not(.vv){display:grid;place-items:center}
+#ph-sp .tile:not(.vv) svg{width:42px;height:42px}
+#ph-sp .spd{display:flex;gap:7px;margin-top:6px}
+#ph-sp .spd u{width:7px;height:7px;border-radius:50%;background:#fff;opacity:.35;animation:phspd 1s ease-in-out infinite}
+#ph-sp .spd u:nth-child(2){animation-delay:.16s}#ph-sp .spd u:nth-child(3){animation-delay:.32s}
+@keyframes phspd{50%{opacity:1}}
+@media (prefers-reduced-motion:reduce){#ph-sp .spd u{animation:none;opacity:.7}}

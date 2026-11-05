@@ -75,7 +75,7 @@ let editing=false,cur=0,view='home';
  d.addEventListener('contextmenu',e=>e.preventDefault())})();
 const LQ=window.matchMedia?window.matchMedia('(prefers-color-scheme: light)'):null;
 const LS_WALLS='hub-phone-home-walls',MAXW=6;
-const WPRE={hub:['Hub','linear-gradient(180deg,#06091600 55%,#0609168c 100%),radial-gradient(70% 40% at 15% 6%,#4B6BF0 0%,#4B6BF000 70%),radial-gradient(60% 38% at 95% 30%,#0E8E99 0%,#0E8E9900 70%),radial-gradient(80% 45% at 8% 78%,#8A4BF0 0%,#8A4BF000 70%),radial-gradient(50% 30% at 90% 95%,#E0568C 0%,#E0568C00 70%),#0A0F22'],dusk:['Dusk',''],valley:['Valley','radial-gradient(90% 30% at 30% 12%,#c9d6d2cc 0%,transparent 70%),radial-gradient(120% 40% at 70% 55%,#3f5a47 0%,transparent 70%),linear-gradient(180deg,#8ea3a2 0%,#5d7667 30%,#35503f 62%,#1f3326 100%)'],graphite:['Graphite','radial-gradient(80% 40% at 20% 0%,#3b4048 0%,transparent 70%),linear-gradient(180deg,#1b1d22,#0c0d10)'],ocean:['Ocean','radial-gradient(80% 40% at 80% 8%,#7fd0e8aa 0%,transparent 65%),linear-gradient(180deg,#0e4a6b 0%,#0a2f4d 55%,#06141f 100%)'],ember:['Ember','radial-gradient(80% 40% at 20% 100%,#ff8a3dcc 0%,transparent 65%),linear-gradient(170deg,#2a0f1f 0%,#6b1f2a 50%,#c2492a 100%)'],aurora:['Aurora','radial-gradient(70% 35% at 25% 20%,#5ef2b0aa 0%,transparent 65%),radial-gradient(70% 35% at 80% 45%,#8a6bffaa 0%,transparent 65%),linear-gradient(180deg,#0a1b2e,#07101c)'],sand:['Sand','radial-gradient(90% 40% at 70% 0%,#fff3d6aa 0%,transparent 65%),linear-gradient(180deg,#d9c3a0 0%,#b79a74 60%,#7d6445 100%)']};
+const WPRE={hub:['Hub','url(data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%22160%22 height=%22160%22%3E%3Cfilter id=%22n%22%3E%3CfeTurbulence type=%22fractalNoise%22 baseFrequency=%22.9%22 numOctaves=%222%22 stitchTiles=%22stitch%22/%3E%3C/filter%3E%3Crect width=%22160%22 height=%22160%22 filter=%22url%28%23n%29%22 opacity=%22.07%22/%3E%3C/svg%3E) 0 0/160px 160px,linear-gradient(180deg,#06091600 55%,#0609168c 100%),radial-gradient(70% 40% at 15% 6%,#4B6BF0 0%,#4B6BF000 70%),radial-gradient(60% 38% at 95% 30%,#0E8E99 0%,#0E8E9900 70%),radial-gradient(80% 45% at 8% 78%,#8A4BF0 0%,#8A4BF000 70%),radial-gradient(50% 30% at 90% 95%,#E0568C 0%,#E0568C00 70%),#0A0F22'],dusk:['Dusk',''],valley:['Valley','radial-gradient(90% 30% at 30% 12%,#c9d6d2cc 0%,transparent 70%),radial-gradient(120% 40% at 70% 55%,#3f5a47 0%,transparent 70%),linear-gradient(180deg,#8ea3a2 0%,#5d7667 30%,#35503f 62%,#1f3326 100%)'],graphite:['Graphite','radial-gradient(80% 40% at 20% 0%,#3b4048 0%,transparent 70%),linear-gradient(180deg,#1b1d22,#0c0d10)'],ocean:['Ocean','radial-gradient(80% 40% at 80% 8%,#7fd0e8aa 0%,transparent 65%),linear-gradient(180deg,#0e4a6b 0%,#0a2f4d 55%,#06141f 100%)'],ember:['Ember','radial-gradient(80% 40% at 20% 100%,#ff8a3dcc 0%,transparent 65%),linear-gradient(170deg,#2a0f1f 0%,#6b1f2a 50%,#c2492a 100%)'],aurora:['Aurora','radial-gradient(70% 35% at 25% 20%,#5ef2b0aa 0%,transparent 65%),radial-gradient(70% 35% at 80% 45%,#8a6bffaa 0%,transparent 65%),linear-gradient(180deg,#0a1b2e,#07101c)'],sand:['Sand','radial-gradient(90% 40% at 70% 0%,#fff3d6aa 0%,transparent 65%),linear-gradient(180deg,#d9c3a0 0%,#b79a74 60%,#7d6445 100%)']};
 const walls=()=>{let a=null;try{a=JSON.parse(lsGet(LS_WALLS,'null'))}catch(e){}if(!Array.isArray(a)){a=[];const o=lsGet(LS_PHOTO,'');if(o)a.push(o);if(a.length)lsSet(LS_WALLS,JSON.stringify(a))}return a.filter(x=>typeof x==='string'&&x)};
 const saveWalls=a=>{try{localStorage.setItem(LS_WALLS,JSON.stringify(a));return true}catch(e){return false}};
 function applyLook(){const ph=$('#ph');const light=prefs.icons==='light'||(prefs.icons==='auto'&&LQ&&LQ.matches);ph.classList.toggle('ic-light',light);ph.classList.toggle('ic-vivid',prefs.icons==='vivid');
@@ -85,7 +85,7 @@ function applyLook(){const ph=$('#ph');const light=prefs.icons==='light'||(prefs
  if(prefs.wp==='valley'||prefs.wp==='graphite')ph.classList.add('wp-'+prefs.wp);
  if(WPRE[prefs.wp]&&WPRE[prefs.wp][1])ph.style.setProperty('--wp',WPRE[prefs.wp][1]);else ph.style.removeProperty('--wp');
  if(prefs.tint&&prefs.tint!=='none')ph.classList.add('tn-'+prefs.tint);
- ph.style.setProperty('--wpb',(+prefs.blur||0)+'px');ph.style.setProperty('--wpbr',String(1-(+prefs.dim||0)/100));
+ ph.style.setProperty('--wpb',(+prefs.blur||0)+'px');ph.style.setProperty('--wpbr',String(1-(+prefs.dim||0)/100));ph.style.setProperty('--wpf',((+prefs.blur||0)>0||(+prefs.dim||0)>0)?'blur('+(+prefs.blur||0)+'px) brightness('+(1-(+prefs.dim||0)/100)+')':'none');
  ph.classList.toggle('nolbl',prefs.lbl===false);ph.classList.toggle('nopar',prefs.par===false)}
 if(LQ){const f=()=>{if(prefs.icons==='auto'&&$('#ph'))applyLook()};LQ.addEventListener?LQ.addEventListener('change',f):LQ.addListener&&LQ.addListener(f)}
 function savePrefs(){lsSet(LS_PREF,JSON.stringify(prefs))}
@@ -776,11 +776,19 @@ const ovl=()=>document.getElementById('app-frame-overlay');
 const frameOpen=()=>{const o=ovl();return !!o&&!o.hidden};
 function openApp(k,rect){const a=AP[k];if(!a)return;rec=[k,...rec.filter(x=>x!==k)].slice(0,6);prefs.rec=rec;savePrefs();
  if(a[3]){showRouteView(a[3]);return}
+ splashShow(k);
  const ph=$('#ph');closeTok++;const ox=(rect?rect.left+rect.width/2:innerWidth/2)+'px',oy=(rect?rect.top+rect.height/2:innerHeight/2)+'px';ph.style.setProperty('--ox',ox);ph.style.setProperty('--oy',oy);document.documentElement.style.setProperty('--zox',ox);document.documentElement.style.setProperty('--zoy',oy);
  ph.classList.add('appopen');view='app';openAppFrame(a[2],a[0])}
+// ---- app-open splash: the app's icon and name fill the screen at once while its page loads, then fade away ----
+let spT=null;
+function splashShow(k){try{const o=ovl();if(!o)return;let sp=document.getElementById('ph-sp');if(!sp){sp=document.createElement('div');sp.id='ph-sp';o.appendChild(sp)}
+ clearTimeout(spT);sp.className='';sp.innerHTML=`<div class="spi">${tile(k)}<b>${esc(AP[k][0])}</b><i class="spd"><u></u><u></u><u></u></i></div>`;const t=sp.querySelector('.tile');if(t){const cs=getComputedStyle(t);sp.style.setProperty('--sp1',(t.style.getPropertyValue('--t1')||'#37373d'));sp.style.setProperty('--sp2',(t.style.getPropertyValue('--t2')||'#18181b'))}
+ spT=setTimeout(splashHide,7000)}catch(e){}}
+function splashHide(){clearTimeout(spT);const sp=document.getElementById('ph-sp');if(!sp)return;sp.classList.add('out');setTimeout(()=>{const s=document.getElementById('ph-sp');if(s&&s.classList.contains('out'))s.remove()},320)}
+(function(){const f=document.getElementById('app-frame-iframe');if(!f)return;f.addEventListener('load',()=>{const s=f.getAttribute('src')||'';if(!s||s==='about:blank')return;setTimeout(splashHide,260)})})();
 function showRouteView(route){$('#ph').classList.add('away');view='route';routeNow=route;showRoute(route)}
 let routeNow=null,closeTok=0;
-function closeApp(){const ph=$('#ph');ph.classList.remove('appopen');if(view==='route'){ph.classList.remove('away');routeNow=null;try{showRoute('today')}catch(e){}view='home';return}
+function closeApp(){const ph=$('#ph');ph.classList.remove('appopen');sig='';splashHide();if(view==='route'){ph.classList.remove('away');routeNow=null;try{showRoute('today')}catch(e){}view='home';return}
  if(frameOpen()){const o=ovl(),tok=++closeTok;if(RM.matches)closeAppFrame();else{o.classList.add('phzo');setTimeout(()=>{o.classList.remove('phzo');if(tok===closeTok&&frameOpen())closeAppFrame()},210)}}view='home'}
 // ask the open app to handle Back itself (close a sheet, go up a screen); if it doesn't answer, close it
 let backWait=null;
@@ -1104,17 +1112,18 @@ function apply(){const on=active();document.body.classList.toggle('ph-on',on);if
 function ready(){return typeof state!=='undefined'&&state.user&&state.profile&&document.getElementById('app-shell')&&!document.getElementById('app-shell').hidden&&typeof ensureWater==='function'}
 let sig='';const taskSig=()=>{try{if(!hasTasks())return 0;return dueTasks().map(t=>t.id).join(',')+'|'+state.personalTasks.length+'|'+(state.events||[]).length}catch(e){return 1}};
 // shared "data changed" signal (see HubSync in app.js): drop the small caches and repaint so a tick anywhere shows here at once
+let hdT=null;
 window.addEventListener('hub-data-changed',e=>{try{const k=(e.detail&&e.detail.kinds)||[];
  if(k.includes('budget'))BD.ld=0;if(k.includes('grocery'))GR.ld=0;if(k.includes('pledge'))PL.ld=0;
  if(k.some(x=>['activity','tasks','chores','schedule','pledge','skin','diet','training'].includes(x)))TKL.ld=0;
  if(k.includes('diet')||k.includes('grocery')){try{dietW.t=0}catch(x){}}
- if(!started||!active())return;const ae=document.activeElement;if(ae&&ae.classList&&(ae.classList.contains('tdi')||/^cu-/.test(ae.id||'')))return;if(drag||document.hidden)return;
- if(!$('#sheet').classList.contains('on'))refresh()}catch(x){}});
+ if(!started||!active())return;const ae=document.activeElement;if(ae&&ae.classList&&(ae.classList.contains('tdi')||/^cu-/.test(ae.id||'')))return;if(drag||document.hidden||view==='app'||(sw&&sw.on)){sig='';return}
+ clearTimeout(hdT);hdT=setTimeout(()=>{if(!$('#sheet').classList.contains('on')&&!drag&&!(sw&&sw.on))refresh()},120)}catch(x){}});
 function trTick(){if(TR.rt){const left=TR.rt-Date.now();if(left<=0){TR.rt=null;toast('Rest over, next set');try{navigator.vibrate&&navigator.vibrate([100,60,100])}catch(e){}refresh()}else{const el=document.querySelector('[data-trrt]');if(el)el.textContent=trMS(left)}}if(TR.t0){const el=document.querySelector('[data-trel]');if(el)el.textContent=trMS(Date.now()-TR.t0)}}
 function tick(){trTick();if(!ready()){return}
  if(active()&&(!started||profileNow!==state.profile)){document.body.classList.add('ph-on');start();apply();return}
  if(!active()||!started)return;syncApps();
- if(drag||document.hidden||view==='switch')return;const ae=document.activeElement;if(ae&&(/^cu-/.test(ae.id||'')||(ae.classList&&ae.classList.contains('tdi'))))return;
+ if(drag||document.hidden||view==='switch'||view==='app'||(sw&&sw.on))return;const ae=document.activeElement;if(ae&&(/^cu-/.test(ae.id||'')||(ae.classList&&ae.classList.contains('tdi'))))return;
  const w=WS();const s=JSON.stringify([w?[wTotal(),wGoalMl(),w.cup,w.bottle,w.unit,sipsToday().map(x=>x.id+x.ml).join()]:0,Math.floor(wNow()/5),sel,taskSig()]);
  if(s!==sig){sig=s;if(!$('#sheet').classList.contains('on'))refresh()}}
 setInterval(tick,800);
@@ -1156,6 +1165,12 @@ window.addEventListener('pagehide',()=>{if(started)persist()});
 if(window.visualViewport){const kb=()=>{const v=window.visualViewport;const h=Math.max(0,Math.round(innerHeight-v.height-v.offsetTop));$('#ph').style.setProperty('--kb',h+'px')};visualViewport.addEventListener('resize',kb);visualViewport.addEventListener('scroll',kb)}
 // ---- sheet: drag the handle down to close ----
 (function(){let g=null;const sh=()=>$('#shi');document.addEventListener('pointerdown',e=>{const h=e.target.closest('#shi .grab');if(!h)return;g={y:e.clientY,dy:0};sh().style.transition='none'});document.addEventListener('pointermove',e=>{if(!g)return;g.dy=Math.max(0,e.clientY-g.y);sh().style.transform='translateY('+g.dy+'px)'});const end=()=>{if(!g)return;const d=g.dy;g=null;const s=sh();s.style.transition='';s.style.transform='';if(d>90){suppress=true;$('#sheet').classList.remove('on')}};document.addEventListener('pointerup',end);document.addEventListener('pointercancel',end)})();
+// while a finger is moving things, drop the costly glass blur so swipes and drags stay at full frame rate
+(function(){let t=null;const ph=()=>$('#ph');
+ const on=()=>{clearTimeout(t);const p=ph();if(p&&!p.classList.contains('mv'))p.classList.add('mv')};
+ const off=()=>{clearTimeout(t);t=setTimeout(()=>{if(!(sw&&sw.on)&&!(drag&&drag.started)){const p=ph();p&&p.classList.remove('mv')}},320)};
+ document.addEventListener('pointermove',()=>{if((sw&&sw.on)||(drag&&drag.started))on()},true);
+ document.addEventListener('pointerup',off,true);document.addEventListener('pointercancel',off,true)})();
 window.__ph={ap:()=>Object.keys(AP),dock:()=>dock,pages:()=>pages,cur:()=>cur,editing:()=>editing,view:()=>view,go:i=>go(i),draw:()=>drawPages(),setEdit:o=>setEdit(o),serialize:()=>serialize(),rows:()=>ROWS};
 
 })();
