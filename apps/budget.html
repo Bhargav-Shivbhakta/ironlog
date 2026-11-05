@@ -283,6 +283,9 @@
   .ov-customize label{display:flex;gap:8px;align-items:center;padding:6px 0;font-size:13px}.ov-customize input{width:auto}
   .cat-tools{display:flex;gap:12px;margin-top:5px}.link-btn{white-space:nowrap;background:none;border:0;padding:0;color:var(--accent);font-size:12px;font-weight:700;cursor:pointer}
 </style>
+<style id="no-zoom">/* iOS zooms the page when a field under 16px gets focus and never zooms back out. Phones only; PC sizes untouched. */
+@media (max-width:700px){input:not([type=checkbox]):not([type=radio]):not([type=range]):not([type=color]):not([type=file]):not([type=hidden]):not(#_z),select:not(#_z),textarea:not(#_z){font-size:16px!important}
+html,body,button,a,input,select,textarea,label{touch-action:manipulation}}</style>
 </head>
 <body>
 <script>try{ if(window.self !== window.top) document.body.classList.add('embedded'); }catch(e){ document.body.classList.add('embedded'); }</script>

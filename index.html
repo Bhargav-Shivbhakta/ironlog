@@ -16,14 +16,30 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+  <!-- Phone first paint: on a phone-sized screen the desktop Hub must never show, not even for a moment.
+       This runs before anything is drawn. The phone module takes over (body.ph-on) and the cover lifts. -->
+  <script>(function(){try{var d=document.documentElement,w=function(){return Math.min(window.innerWidth||9999,screen.width||9999)<=700};
+    if(!w())return;d.classList.add('ph-early');
+    var off=function(){d.classList.remove('ph-early')};
+    var chk=setInterval(function(){if(document.body&&document.body.classList.contains('ph-on')){clearInterval(chk);off()}},120);
+    setTimeout(function(){clearInterval(chk);off()},15000);
+    window.addEventListener('resize',function(){if(!w())off()});}catch(e){}})();</script>
+  <style>
+    html.ph-early body:not(.ph-on) #app-shell{visibility:hidden}
+    html.ph-early body:not(.ph-on)::before{content:"";position:fixed;inset:0;z-index:90;background:var(--bg,#171714)}
+    html.ph-early body:not(.ph-on)::after{content:"H";position:fixed;left:50%;top:50%;z-index:91;width:64px;height:64px;margin:-32px 0 0 -32px;border-radius:18px;display:grid;place-items:center;font:600 28px/64px -apple-system,Inter,sans-serif;text-align:center;color:#fff;background:#ad7b20}
+  </style>
   <link rel="stylesheet" href="assets/motion.css">
-  <link rel="stylesheet" href="assets/app.css?v=20261104g">
+  <link rel="stylesheet" href="assets/app.css?v=20261104i">
   <link rel="stylesheet" href="assets/banners.css?v=20261104c">
-  <link rel="stylesheet" href="assets/phone-home.css?v=20261104g">
+  <link rel="stylesheet" href="assets/phone-home.css?v=20261104i">
   <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
   <script src="https://unpkg.com/lucide@0.468.0/dist/umd/lucide.min.js"></script>
+<style id="no-zoom">/* iOS zooms the page when a field under 16px gets focus and never zooms back out. Phones only; PC sizes untouched. */
+@media (max-width:700px){input:not([type=checkbox]):not([type=radio]):not([type=range]):not([type=color]):not([type=file]):not([type=hidden]):not(#_z),select:not(#_z),textarea:not(#_z){font-size:16px!important}
+html,body,button,a,input,select,textarea,label{touch-action:manipulation}}</style>
 </head>
 <body>
   <div class="gate" id="loading-gate"><div class="gate-card gate-loading"><div class="brand-mark">H</div><p>Opening Home Hub…</p></div></div>
@@ -481,10 +497,10 @@
   <script src="assets/notes-core.js"></script>
   <script src="assets/todo-core.js"></script>
   <script src="assets/calendar-core.js"></script>
-  <script src="assets/app.js?v=20261104g"></script>
+  <script src="assets/app.js?v=20261104i"></script>
   <script src="assets/todo-widget.js"></script>
   <script src="assets/calendar-widget.js"></script>
   <script src="assets/voice.js"></script>
-  <script src="assets/phone-home.js?v=20261104g"></script>
+  <script src="assets/phone-home.js?v=20261104i"></script>
 </body>
 </html>

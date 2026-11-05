@@ -235,6 +235,9 @@
   .world-split-list{max-height:none}
   @media(max-width:880px){ .world-split{grid-template-columns:1fr} }
 </style>
+<style id="no-zoom">/* iOS zooms the page when a field under 16px gets focus and never zooms back out. Phones only; PC sizes untouched. */
+@media (max-width:700px){input:not([type=checkbox]):not([type=radio]):not([type=range]):not([type=color]):not([type=file]):not([type=hidden]):not(#_z),select:not(#_z),textarea:not(#_z){font-size:16px!important}
+html,body,button,a,input,select,textarea,label{touch-action:manipulation}}</style>
 </head>
 <body>
 

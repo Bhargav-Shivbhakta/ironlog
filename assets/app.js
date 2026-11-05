@@ -1551,6 +1551,7 @@ async function completeChoreFromWidget(choreId,el,after){
     chore.assignedTo=[chore.rotationMembers[chore.rotationIndex]];
   }
   state.choreHistory.unshift({id:chore.undo.logId,choreId:chore.id,date,task:chore.name,by:state.profile,rating:null,notes:null,recordedBy:state.profile});
+  HubSync.emit(['chores'],0);
   try{
     // Re-read both docs right before writing, so an edit made in the Chores app since the Hub last loaded
     // isn't overwritten; only this chore's completion fields and one history entry are applied on top.
@@ -1761,6 +1762,47 @@ const SKIN_SETTINGS=[
   {h:'Look'},
   {key:'fmt',label:'Time format',type:'seg',opts:[['12','12 h'],['24','24 h']],def:'12'}
 ];
+/* ---- HubSync: one shared "data changed" signal. Any write to a Firestore document tells every widget (PC and phone)
+   that shows that data to repaint, so ticking a task in Calendar updates To-Do, Schedule, the hero and the phone widgets
+   without a reload. Writers do not need to know about each other. ---- */
+const HubSync=(()=>{
+  const PATHS=[[/stickyNotes/,['notes']],[/tickLog/,['activity']],[/todo/,['tasks']],[/\/chores\//,['chores']],[/schedule-profiles\/[^/]+\/data\/events|apps\/calendar/,['events']],[/schedule-profiles/,['schedule']],[/pledge/,['pledge','schedule']],[/skin/,['skin','schedule']],[/nourish-diet|apps\/diet/,['diet']],[/budget-/,['budget']],[/grocery/,['grocery','diet']],[/workoutLogs|workoutOverrides/,['training','schedule']],[/\/water$/,['water']]];
+  const TARGETS={tasks:['todo','agenda','schedule'],chores:['chores','agenda','schedule'],events:['agenda','schedule'],schedule:['schedule'],pledge:['pledge','schedule'],skin:['skin','schedule'],diet:['diet','cook','schedule'],budget:['budget'],grocery:['grocery'],training:['training','schedule'],water:['water'],notes:['notes'],activity:['activity']};
+  const DASH={tasks:1,chores:1,events:1,schedule:1};
+  let pend=new Set(),timer=null;
+  function kindsOf(path){const p=String(path||'');for(const[re,k]of PATHS)if(re.test(p))return k;return[]}
+  function repaint(kinds){
+    const types=new Set();kinds.forEach(k=>(TARGETS[k]||[]).forEach(t=>types.add(t)));
+    try{if(kinds.some(k=>DASH[k])&&typeof renderDashboard==='function'&&document.getElementById('today-date'))renderDashboard()}catch(e){}
+    if(typeof WIDGET_TYPES==='undefined'||!state||!state.widgets)return;
+    document.querySelectorAll('.widget-card').forEach(card=>{
+      const t=card.dataset.widgetType;if(!types.has(t))return;
+      const def=WIDGET_TYPES[t],body=card.querySelector('.widget-card-body'),w=state.widgets.find(x=>x.id===card.dataset.widgetId);
+      if(!def||!body||!w||!body.isConnected)return;
+      const a=document.activeElement;if(a&&body.contains(a)&&/^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName))return;
+      try{def.render(body,w)}catch(e){console.warn(e)}
+    });
+  }
+  function flush(){timer=null;const kinds=[...pend];pend=new Set();if(!kinds.length)return;repaint(kinds);try{window.dispatchEvent(new CustomEvent('hub-data-changed',{detail:{kinds}}))}catch(e){}}
+  function emit(kinds,delay){(Array.isArray(kinds)?kinds:[kinds]).forEach(k=>pend.add(k));if(timer)clearTimeout(timer);timer=setTimeout(flush,delay==null?80:delay)}
+  function noteWrite(path,delay){const k=kindsOf(path);if(k.length)emit(k,delay)}
+  function patch(proto,names,pathOf,late){
+    if(!proto)return;
+    names.forEach(n=>{const o=proto[n];if(typeof o!=='function'||o.__hs)return;
+      const f=function(...a){let p=null;try{p=pathOf.call(this,a)}catch(e){}const r=o.apply(this,a);
+        if(p){if(late)noteWrite(p,450);else if(r&&typeof r.then==='function')r.then(()=>noteWrite(p),()=>{});else noteWrite(p)}return r};
+      f.__hs=1;proto[n]=f});
+  }
+  try{
+    const FS=window.firebase&&firebase.firestore;
+    if(FS){
+      patch(FS.DocumentReference&&FS.DocumentReference.prototype,['set','update','delete'],function(){return this.path});
+      ['Transaction','WriteBatch'].forEach(k=>patch(FS[k]&&FS[k].prototype,['set','update','delete'],function(a){return a[0]&&a[0].path},true));
+    }
+  }catch(e){console.warn('HubSync patch skipped',e)}
+  return{emit,noteWrite,kindsOf,repaint};
+})();
+window.HubSync=HubSync;
 const WIDGET_TYPES={
   schedule:{title:"Today's schedule",icon:'calendar-clock',desc:"Your day as a line you fill in: tick blocks, see events and tasks under the block they fall in. Gear for settings.",defaultSize:'lg',
     settings:SCHEDULE_SETTINGS,
@@ -4091,7 +4133,7 @@ async function completeTask(id){
     if(task.repeat==='monthly'){const d=new Date(task.due+'T00:00:00');const last=new Date(d.getFullYear(),d.getMonth()+2,0).getDate();const n=new Date(d.getFullYear(),d.getMonth()+1,Math.min(d.getDate(),last));nextDue=n.getFullYear()+'-'+String(n.getMonth()+1).padStart(2,'0')+'-'+String(n.getDate()).padStart(2,'0')}
     if(nextDue){const nid='task-'+Date.now()+'-'+Math.floor(Math.random()*1000);list.push({...task,id:nid,spawnedId:null,done:false,due:nextDue,completedOn:null,subtasks:(task.subtasks||[]).map(s=>({...s,done:false})),order:Date.now(),createdAt:new Date().toISOString()});task.spawnedId=nid}
   }
-  renderDashboard();toast('Task completed');
+  renderDashboard();HubSync.emit(['tasks'],0);toast('Task completed');
   try{await mergeBeforeWrite(ref,list,[task.id,task.spawnedId].filter(Boolean));await ref.set({json:JSON.stringify(list),updatedAt:firebase.firestore.FieldValue.serverTimestamp()},{merge:true})}catch(e){list.splice(originalLength);task.done=false;task.completedOn=null;renderDashboard();toast('Could not save. Try again.')}
 }
 

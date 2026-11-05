@@ -12,8 +12,10 @@ const lsGet=(k,d)=>{try{const v=localStorage.getItem(k);return v==null?d:v}catch
 const lsSet=(k,v)=>{try{localStorage.setItem(k,v)}catch(e){}};
 let enabled=lsGet(LS_ON,'1')!=='0';
 let booted=false,profileNow=null,saveT=null;
-let prefs={icons:'dark',wp:'dusk',wpi:0,dbl:true,rec:[],tint:'none',dim:0,blur:0,lbl:true,par:true};const LS_PHOTO='hub-phone-home-photo';
-try{Object.assign(prefs,JSON.parse(lsGet(LS_PREF,'{}'))||{})}catch(e){}
+let prefs={icons:'vivid',wp:'hub',wpi:0,dbl:true,rec:[],tint:'none',dim:0,blur:0,lbl:true,par:true};const LS_PHOTO='hub-phone-home-photo';
+let hadPrefs=false;try{const sv=JSON.parse(lsGet(LS_PREF,'{}'))||{};hadPrefs=Object.keys(sv).length>0;Object.assign(prefs,sv)}catch(e){}
+// one-time: move existing devices to the new Vivid icons and Hub wallpaper (still switchable in Settings > Home screen)
+if((prefs.v|0)<2){prefs.v=2;if(hadPrefs){prefs.icons='vivid';if(!prefs.wp||prefs.wp==='dusk')prefs.wp='hub'}lsSet(LS_PREF,JSON.stringify(prefs))}
 if(!Array.isArray(prefs.rec))prefs.rec=[];
 // real spring curve (response 0.42s, damping 0.8) as a CSS linear() easing
 (function(){try{if(!CSS.supports('transition-timing-function','linear(0,1)'))return;const resp=.42,z=.8,w=2*Math.PI/resp,wd=w*Math.sqrt(1-z*z),dur=5.2/(z*w),n=48,pts=[];
@@ -31,7 +33,30 @@ const CATS=['Planner','Health','Home','Insights','Tools'];const DOCK0=['schedule
 const glyph=k=>P[k]||P._;
 function badgeOf(k){try{if(k==='todo'&&hasTasks())return dueTasks().length;if(k==='chores'&&typeof choresDueToday==='function')return choresDueToday().length}catch(e){}return 0}
 const bdg=n=>n>0?`<b class="bdg">${n>99?'99+':n}</b>`:'';
-const tile=(k,b)=>`<div class="tile c-${AP[k][1]}"><svg viewBox="0 0 24 24">${glyph(k)}</svg>${b?bdg(badgeOf(k)):''}</div>`;
+// ---- Vivid icon set: one bold white glyph on a rich gradient, drawn on a 60x60 grid ----
+const ICN={
+ todo:['#5AA2FF','#1C6CF0','<circle cx="30" cy="30" r="17" fill="#fff"/><path d="M21.5 30.5l6 6 11-12" fill="none" stroke="#1C6CF0" stroke-width="4.6" stroke-linecap="round" stroke-linejoin="round"/>'],
+ schedule:['#8EA2FF','#4457E6','<circle cx="30" cy="30" r="19" fill="#fff"/><path d="M30 18.5V30.5l8 5" fill="none" stroke="#4457E6" stroke-width="4.2" stroke-linecap="round" stroke-linejoin="round"/>'],
+ pledge:['#FF7AA8','#DB2A66','<path d="M30 9l17 6.5V29c0 10.5-7 17.5-17 22-10-4.5-17-11.5-17-22V15.5z" fill="#fff" stroke="#fff" stroke-width="2" stroke-linejoin="round"/><path d="M22.5 30l5.5 5.5L38.5 24" fill="none" stroke="#DB2A66" stroke-width="4.6" stroke-linecap="round" stroke-linejoin="round"/>'],
+ gym:['#4BE08A','#12A150','<g fill="#fff" transform="translate(30 30) scale(.9) translate(-30 -30)"><rect x="19" y="27" width="22" height="6" rx="3"/><rect x="12" y="18" width="8" height="24" rx="4"/><rect x="40" y="18" width="8" height="24" rx="4"/><rect x="6.5" y="23" width="6" height="14" rx="3"/><rect x="47.5" y="23" width="6" height="14" rx="3"/></g>'],
+ diet:['#A3E36B','#43A824','<path d="M30 22c-4.5-3.5-14-2-14 10 0 10 6.5 17 10.5 17 1.8 0 2.5-1 3.5-1s1.7 1 3.5 1c4 0 10.5-7 10.5-17 0-12-9.5-13.5-14-10z" fill="#fff"/><path d="M31 22c-.5-5.5 2-9.5 8-10.5.5 5.5-2.5 9.5-8 10.5z" fill="#fff"/><path d="M30 22c0-2 .5-4 1.6-6" stroke="#43A824" stroke-width="2" stroke-linecap="round" fill="none"/>'],
+ skin:['#FFA37A','#F0562F','<path d="M27 10c1.6 11 5 15.5 16 17-11 1.5-14.4 6-16 17-1.6-11-5-15.5-16-17 11-1.5 14.4-6 16-17z" fill="#fff"/><path d="M45 38c.8 5 2.500 6.800 7 7.500-4.500.7-6.200 2.500-7 7.500-.8-5-2.500-6.800-7-7.500 4.500-.7 6.200-2.500 7-7.500z" fill="#fff"/>'],
+ chores:['#B58CFF','#6A3BD6','<path d="M30 10L52 29H46V49H14V29H8Z" fill="#fff" stroke="#fff" stroke-width="2" stroke-linejoin="round"/><rect x="25" y="33" width="10" height="16" rx="2" fill="#6A3BD6"/>'],
+ grocery:['#4FD6D2','#0E94A3','<g transform="translate(30 30) scale(.92) translate(-30 -30)"><path d="M9 14h7l5 25h22l5-19H18" fill="none" stroke="#fff" stroke-width="4.6" stroke-linecap="round" stroke-linejoin="round"/><path d="M19 21h28l-3.6 16H22.6z" fill="#fff"/><circle cx="25" cy="47.5" r="4" fill="#fff"/><circle cx="41" cy="47.5" r="4" fill="#fff"/></g>'],
+ budget:['#FFD25A','#F2960B','<circle cx="30" cy="30" r="19" fill="#fff"/><circle cx="30" cy="30" r="15" fill="none" stroke="#F2960B" stroke-opacity=".35" stroke-width="1.6"/><text x="30" y="38.5" text-anchor="middle" font-family="system-ui,-apple-system,sans-serif" font-size="25" font-weight="800" fill="#D97A00">$</text>'],
+ insights:['#7A8BA8','#3E4C69','<rect x="12" y="31" width="10" height="18" rx="3" fill="#fff"/><rect x="25" y="20" width="10" height="29" rx="3" fill="#fff"/><rect x="38" y="10" width="10" height="39" rx="3" fill="#fff"/>'],
+ clock:['#3A3A40','#141417','<circle cx="30" cy="30" r="20" fill="#fff"/><path d="M30 18v13l7 4" fill="none" stroke="#141417" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/><circle cx="30" cy="30" r="2.6" fill="#FF9F0A"/>'],
+ settings:['#B4BCC9','#6A7385','<g fill="#fff"><circle cx="30" cy="30" r="15"/><rect x="26" y="8" width="8" height="12" rx="2.5"/><rect x="26" y="40" width="8" height="12" rx="2.5"/><rect x="26" y="8" width="8" height="12" rx="2.5" transform="rotate(60 30 30)"/><rect x="26" y="40" width="8" height="12" rx="2.5" transform="rotate(60 30 30)"/><rect x="26" y="8" width="8" height="12" rx="2.5" transform="rotate(120 30 30)"/><rect x="26" y="40" width="8" height="12" rx="2.5" transform="rotate(120 30 30)"/></g><circle cx="30" cy="30" r="7" fill="#6A7385"/>']
+};
+const CATG={Planner:['#5AA2FF','#1C6CF0'],Health:['#4BE08A','#12A150'],Home:['#FFB166','#F06A0A'],Insights:['#A78BFA','#6D4AE0'],Tools:['#B4BCC9','#6A7385']};
+const vivid=()=>prefs.icons==='vivid';
+const calDate=()=>{try{return new Date((typeof today==='function'?today():new Date().toISOString().slice(0,10))+'T12:00:00')}catch(e){return new Date()}};
+const calWd=()=>calDate().toLocaleDateString([],{weekday:'short'}).slice(0,3).toUpperCase();
+function vtile(k,b){const bd=b?bdg(badgeOf(k)):'';
+ if(k==='calendar')return`<div class="tile vv vcal" style="--t1:#ffffff;--t2:#ececf0"><div class="cald"><b>${calWd()}</b><i>${calDate().getDate()}</i></div>${bd}</div>`;
+ const g=ICN[k];if(g)return`<div class="tile vv" style="--t1:${g[0]};--t2:${g[1]}"><svg viewBox="0 0 60 60">${g[2]}</svg>${bd}</div>`;
+ const cg=CATG[AP[k][1]]||CATG.Tools;return`<div class="tile vv" style="--t1:${cg[0]};--t2:${cg[1]}"><svg viewBox="0 0 24 24" class="fb">${glyph(k)}</svg>${bd}</div>`}
+const tile=(k,b)=>vivid()?vtile(k,b):`<div class="tile c-${AP[k][1]}"><svg viewBox="0 0 24 24">${glyph(k)}</svg>${b?bdg(badgeOf(k)):''}</div>`;
 const icon=(k,x)=>`<div class="app" data-k="${k}">${tile(k,1)}<span>${AP[k][0]}</span>${x||''}</div>`;
 let tdItems=[],tdEdit=false,galTd=false,tdDrag=null;
 let uid=1;const A=k=>({id:uid++,t:'a',k}),W=(z,w)=>({id:uid++,t:'w',z,ws:Array.isArray(w)?w.slice():[w||'water'],si:0,o:{}}),F=(name,apps)=>({id:uid++,t:'f',name,apps});
@@ -50,10 +75,10 @@ let editing=false,cur=0,view='home';
  d.addEventListener('contextmenu',e=>e.preventDefault())})();
 const LQ=window.matchMedia?window.matchMedia('(prefers-color-scheme: light)'):null;
 const LS_WALLS='hub-phone-home-walls',MAXW=6;
-const WPRE={dusk:['Dusk',''],valley:['Valley','radial-gradient(90% 30% at 30% 12%,#c9d6d2cc 0%,transparent 70%),radial-gradient(120% 40% at 70% 55%,#3f5a47 0%,transparent 70%),linear-gradient(180deg,#8ea3a2 0%,#5d7667 30%,#35503f 62%,#1f3326 100%)'],graphite:['Graphite','radial-gradient(80% 40% at 20% 0%,#3b4048 0%,transparent 70%),linear-gradient(180deg,#1b1d22,#0c0d10)'],ocean:['Ocean','radial-gradient(80% 40% at 80% 8%,#7fd0e8aa 0%,transparent 65%),linear-gradient(180deg,#0e4a6b 0%,#0a2f4d 55%,#06141f 100%)'],ember:['Ember','radial-gradient(80% 40% at 20% 100%,#ff8a3dcc 0%,transparent 65%),linear-gradient(170deg,#2a0f1f 0%,#6b1f2a 50%,#c2492a 100%)'],aurora:['Aurora','radial-gradient(70% 35% at 25% 20%,#5ef2b0aa 0%,transparent 65%),radial-gradient(70% 35% at 80% 45%,#8a6bffaa 0%,transparent 65%),linear-gradient(180deg,#0a1b2e,#07101c)'],sand:['Sand','radial-gradient(90% 40% at 70% 0%,#fff3d6aa 0%,transparent 65%),linear-gradient(180deg,#d9c3a0 0%,#b79a74 60%,#7d6445 100%)']};
+const WPRE={hub:['Hub','linear-gradient(180deg,#06091600 55%,#0609168c 100%),radial-gradient(70% 40% at 15% 6%,#4B6BF0 0%,#4B6BF000 70%),radial-gradient(60% 38% at 95% 30%,#0E8E99 0%,#0E8E9900 70%),radial-gradient(80% 45% at 8% 78%,#8A4BF0 0%,#8A4BF000 70%),radial-gradient(50% 30% at 90% 95%,#E0568C 0%,#E0568C00 70%),#0A0F22'],dusk:['Dusk',''],valley:['Valley','radial-gradient(90% 30% at 30% 12%,#c9d6d2cc 0%,transparent 70%),radial-gradient(120% 40% at 70% 55%,#3f5a47 0%,transparent 70%),linear-gradient(180deg,#8ea3a2 0%,#5d7667 30%,#35503f 62%,#1f3326 100%)'],graphite:['Graphite','radial-gradient(80% 40% at 20% 0%,#3b4048 0%,transparent 70%),linear-gradient(180deg,#1b1d22,#0c0d10)'],ocean:['Ocean','radial-gradient(80% 40% at 80% 8%,#7fd0e8aa 0%,transparent 65%),linear-gradient(180deg,#0e4a6b 0%,#0a2f4d 55%,#06141f 100%)'],ember:['Ember','radial-gradient(80% 40% at 20% 100%,#ff8a3dcc 0%,transparent 65%),linear-gradient(170deg,#2a0f1f 0%,#6b1f2a 50%,#c2492a 100%)'],aurora:['Aurora','radial-gradient(70% 35% at 25% 20%,#5ef2b0aa 0%,transparent 65%),radial-gradient(70% 35% at 80% 45%,#8a6bffaa 0%,transparent 65%),linear-gradient(180deg,#0a1b2e,#07101c)'],sand:['Sand','radial-gradient(90% 40% at 70% 0%,#fff3d6aa 0%,transparent 65%),linear-gradient(180deg,#d9c3a0 0%,#b79a74 60%,#7d6445 100%)']};
 const walls=()=>{let a=null;try{a=JSON.parse(lsGet(LS_WALLS,'null'))}catch(e){}if(!Array.isArray(a)){a=[];const o=lsGet(LS_PHOTO,'');if(o)a.push(o);if(a.length)lsSet(LS_WALLS,JSON.stringify(a))}return a.filter(x=>typeof x==='string'&&x)};
 const saveWalls=a=>{try{localStorage.setItem(LS_WALLS,JSON.stringify(a));return true}catch(e){return false}};
-function applyLook(){const ph=$('#ph');const light=prefs.icons==='light'||(prefs.icons==='auto'&&LQ&&LQ.matches);ph.classList.toggle('ic-light',light);
+function applyLook(){const ph=$('#ph');const light=prefs.icons==='light'||(prefs.icons==='auto'&&LQ&&LQ.matches);ph.classList.toggle('ic-light',light);ph.classList.toggle('ic-vivid',prefs.icons==='vivid');
  ph.classList.remove('wp-valley','wp-graphite','wp-photo');['blue','green','pink','orange','purple'].forEach(t=>ph.classList.remove('tn-'+t));
  let photo='';if(prefs.wp==='photo'){const w=walls();photo=w[Math.min(Math.max(0,prefs.wpi|0),w.length-1)]||'';if(photo)ph.classList.add('wp-photo');else prefs.wp='dusk'}
  if(photo)ph.style.setProperty('--wpimg','url("'+photo+'")');else ph.style.removeProperty('--wpimg');
@@ -169,6 +194,21 @@ function wClick(b){const wd=b.closest('.w');const d=b.dataset;
   const r=waterAddSip(wDay(),v,wNow(),undefined,'btn');sel=null;tap=prefs.dbl?{v,sz:z,id:r.s.id}:null;toast('+'+unitAmt(v)+' '+unitName()+' · '+wT(wNow())+(prefs.dbl?' · tap again to undo':''));if(prefs.dbl)tapT=setTimeout(()=>{tap=null;drawPages()},2200);drawPages()}}
 document.addEventListener('click',e=>{const d=e.target.closest('#ph .w [data-d]');if(d&&!editing){sel=sel===d.dataset.d?null:d.dataset.d;drawPages()}});
 // ---- widget registry: Water, To-Do, Next up. Each draws itself by size; several can share one stack ----
+// ---- Up next widget: the next thing today (event, workout or task), one tap to open it ----
+function unModel(){try{
+ if(typeof state==='undefined'||!state.events||typeof eventOccursOnHub!=='function'||typeof reminderHitsDateHub!=='function')return null;
+ const T=today(),now=new Date(),nm=now.getHours()*60+now.getMinutes();
+ const timed=clItems(T).filter(i=>i.k==='ev'&&i.time).filter(i=>{const s=clMin(i.time),e=i.end?clMin(i.end):s+30;return e>nm});
+ const due=taskList(false)||[];let it=null;
+ if(timed.length){const e=timed[0],s=clMin(e.time),d=s-nm;it={cap:d>0?(d<60?'in '+d+' min':'at '+clT12(e.time)):'happening now',title:e.title,sub:e.sub,app:'calendar',btn:'Open'}}
+ if(!it){trKick();if(TR.ready&&!TR.logged&&window.__TrainPlan){const p=window.__TrainPlan.plan(T,null);if(p&&!p.rest&&p.ex.length)it={cap:'today',title:p.title,sub:p.ex.length+' exercise'+(p.ex.length===1?'':'s'),app:'gym',btn:'Start'}}}
+ if(!it&&due.length){const t=due[0];it={cap:due.length+' to do',title:t.title||'Task',sub:t.dueTime?t.due&&t.due<T?'Overdue':t12(t.dueTime):(t.due&&t.due<T?'Overdue':'Due today'),app:'todo',btn:'Open'}}
+ return{it,due:due.length,more:Math.max(0,timed.length-1)}}catch(e){return null}}
+function upnextHtml(z){const m=unModel();
+ if(!m)return`<div class="t"><span>Up next</span></div><div class="shim"></div><div class="shim s2"></div>`;
+ if(!m.it)return`<div class="un"><div class="unc"><i class="und"></i>Up next</div><div class="unt">Nothing planned</div><div class="uns">Your day is clear</div></div>`;
+ const it=m.it,chips=z==='xs'?'':`<span class="unm">${m.due} to do${m.more?' · '+m.more+' more today':''}</span>`;
+ return`<div class="un"><div class="unc"><i class="und"></i>Up next · ${esc(it.cap)}</div><div><div class="unt">${esc(it.title)}</div>${z==='xs'?'':`<div class="uns">${esc(it.sub)}</div>`}</div><div class="unf"><button class="unb" data-qk="${it.app}">${it.btn}</button>${chips}</div></div>`}
 const WG={water:{n:'Water',d:'Log drinks, see pace through the day',ic:'water',c:'Health',html:z=>wHtml(z)},
  tasks:{n:'To-Do',d:'Tasks due today, tick them off',ic:'todo',c:'Planner',open:'todo',html:(z,it)=>tasksHtml(z,it)},
  next:{n:'Schedule',d:'Your day, what is next, tick blocks done',ic:'schedule',c:'Planner',open:'schedule',html:(z,it)=>schedHtml(z,it)},
@@ -178,6 +218,7 @@ const WG={water:{n:'Water',d:'Log drinks, see pace through the day',ic:'water',c
  gym:{n:'Training',d:'Today\'s workout. Log the whole thing from the Large size',ic:'gym',c:'Health',open:'gym',html:(z,it)=>trainHtml(z,it)},
  diet:{n:'Diet',d:'Calories and protein left, log or skip meals, quick add',ic:'diet',c:'Health',open:'diet',html:z=>dietHtml(z)},
  agenda:{n:'Calendar',d:'Events, birthdays and reminders for the week. Add an event',ic:'calendar',c:'Planner',open:'calendar',html:z=>calendarHtml(z)},
+ upnext:{n:'Up next',d:'The next thing on your day. An event, your workout or a task, one tap to open it',ic:'schedule',c:'Planner',html:z=>upnextHtml(z)},
  recipes:{n:'Cook together',d:'Both recipes for breakfast, lunch, snack or dinner, side by side with amounts',ic:'diet',c:'Health',open:'diet',html:(z,it)=>recipesHtml(z,it)},
  budget:{n:'Budget',d:'Spent this month, who owes whom, add spending in two taps',ic:'budget',c:'Home',open:'budget',html:z=>budgetHtml(z)},
  chores:{n:'Chores',d:'Chores due today, tick them off, undo',ic:'chores',c:'Home',open:'chores',html:(z,it)=>choresHtml(z,it)},
@@ -188,7 +229,7 @@ const WG={water:{n:'Water',d:'Log drinks, see pace through the day',ic:'water',c
  ticks:{n:'Recent ticks',d:'What you and Anusha ticked across the apps',ic:'todo',c:'Insights',html:(z,it)=>ticksHtml(z,it)},
  qlinks:{n:'Quick links',d:'Shortcuts to the apps you pick',ic:'_',c:'Tools',html:(z,it)=>qlinksHtml(z,it)},
  notes:{n:'Notes & lists',d:'Tick checklist items, jot notes',ic:'_',c:'Planner',html:(z,it)=>notesHtml(z,it)}};
-const WKEYS=['water','tasks','schedule','skin','pledge','gym','diet','chores','grocery','budget','recipes','agenda','clock','insights','ticks','qlinks','notes','banner'];const STK=['water','tasks','schedule'];
+const WKEYS=['water','tasks','schedule','skin','pledge','gym','diet','chores','grocery','budget','recipes','agenda','upnext','clock','insights','ticks','qlinks','notes','banner'];const STK=['water','tasks','schedule'];
 const curW=it=>it.ws[Math.min(it.si,it.ws.length-1)]||'water';
 const esc=s=>String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 const t12=t=>{const m=/^(\d{1,2}):(\d{2})/.exec(t||'');if(!m)return'';let h=+m[1];const ap=h>=12?'PM':'AM';h=h%12||12;return h+':'+m[2]+' '+ap};
@@ -698,7 +739,7 @@ function addItem(it,pref){const order=[pref!=null&&pref<pages.length?pref:0,...p
 const findItem=id=>{for(const p of pages){const i=p.find(x=>x.id===id);if(i)return i}return tdItems.find(x=>x.id===id)};const pageOf=id=>pages.findIndex(p=>p.some(x=>x.id===id));
 function removeItem(id){pages.forEach(p=>{const i=p.findIndex(x=>x.id===id);if(i>=0)p.splice(i,1)})}
 const onHome=k=>pages.some(p=>p.some(i=>(i.t==='a'&&i.k===k)||(i.t==='f'&&i.apps.includes(k))))||dock.includes(k);
-const mini=k=>`<div class="mt c-${AP[k][1]}"><svg viewBox="0 0 24 24">${P[k]}</svg></div>`;const fTile=f=>`<div class="ft">${f.apps.slice(0,9).map(mini).join('')}${bdg(f.apps.reduce((a,k)=>a+badgeOf(k),0))}</div>`;
+const mini=k=>{if(vivid()){if(k==='calendar')return`<div class="mt vv" style="background:linear-gradient(180deg,#fff,#ececf0)"><span class="mcal">${calDate().getDate()}</span></div>`;const g=ICN[k],cg=CATG[AP[k][1]]||CATG.Tools,c=g||cg;return`<div class="mt vv" style="background:linear-gradient(180deg,${c[0]},${c[1]})">${g?`<svg viewBox="0 0 60 60">${g[2]}</svg>`:`<svg viewBox="0 0 24 24" class="fb">${P[k]||P._}</svg>`}</div>`}return`<div class="mt c-${AP[k][1]}"><svg viewBox="0 0 24 24">${P[k]}</svg></div>`};const fTile=f=>`<div class="ft">${f.apps.slice(0,9).map(mini).join('')}${bdg(f.apps.reduce((a,k)=>a+badgeOf(k),0))}</div>`;
 // keyed DOM: one element per item, only transforms change when things move
 const EL=new Map();
 function mkEl(it){const el=document.createElement('div');el.dataset.id=it.id;el.className='it';el.style.setProperty('--jd',(-Math.random()*.27).toFixed(3)+'s');el.style.setProperty('--ja',(.8+Math.random()*.7).toFixed(2)+'deg');el.innerHTML='<div class="in"></div>';EL.set(it.id,el);return el}
@@ -1003,7 +1044,7 @@ $('#shi').addEventListener('click',e=>{if(e.target.id==='dn'){$('#sheet').classL
 function refreshOne(it){const el=EL.get(it.id);if(el)fillEl(it,el)}
 $('#sheet').addEventListener('click',e=>{if(e.target.id==='sheet')$('#sheet').classList.remove('on')});
 let gz=0,gk='water';const GS=[['xs','Extra small',160,80],['s','Small',160,170],['m','Medium',336,170],['l','Large',336,366]];
-const GTYPES=[['water','Water'],['tasks','To-Do'],['schedule','Schedule'],['skin','Skin'],['pledge','Pledge'],['gym','Training'],['diet','Diet'],['chores','Chores'],['grocery','Grocery'],['budget','Budget'],['recipes','Cook together'],['agenda','Calendar'],['clock','Clock'],['insights','Insights'],['ticks','Recent ticks'],['qlinks','Quick links'],['notes','Notes'],['banner','Banner'],['stack','Stack']];
+const GTYPES=[['water','Water'],['tasks','To-Do'],['schedule','Schedule'],['skin','Skin'],['pledge','Pledge'],['gym','Training'],['diet','Diet'],['chores','Chores'],['grocery','Grocery'],['budget','Budget'],['recipes','Cook together'],['upnext','Up next'],['agenda','Calendar'],['clock','Clock'],['insights','Insights'],['ticks','Recent ticks'],['qlinks','Quick links'],['notes','Notes'],['banner','Banner'],['stack','Stack']];
 function galleryDraw(keep){const old=gz;const info=gk==='stack'?{n:'Widget stack',d:'Water, To-Do and Schedule in one widget. Swipe up or down on it to flip.',ic:'_',c:'Tools'}:WG[gk];const wk=gk==='stack'?'water':gk;
  const prev=z=>{const fake={ws:gk==='stack'?STK:[gk],si:0,z,o:{}};return `<div class="w${gk==='stack'?' stk':''}">${WG[wk].html(z,fake)}</div>${gk==='stack'?'<div class="sdt"><i class="on"></i><i></i><i></i></div>':''}`};
  $('#shi').innerHTML=`<div class="grab"></div><h3>Add a widget</h3><div class="chips" style="margin-top:8px">${GTYPES.map(([k,n])=>`<button data-gk="${k}" class="${gk===k?'on':''}">${n}</button>`).join('')}</div><div class="gin"><span class="gic"><div class="tile c-${info.c}"><svg viewBox="0 0 24 24">${P[info.ic]||P._}</svg></div></span><div class="n"><b>${info.n}</b><span>${info.d}</span></div></div><div class="gcar" id="gcar">${GS.map(([z,n,w,h])=>`<div class="gsl"><div class="gp it ${z}" style="width:${w}px;height:${h}px;${z==='l'?'transform:scale(.8)!important;transform-origin:top center;margin-bottom:-70px':''}"><div class="in">${prev(z)}</div></div></div>`).join('')}</div><div class="gdots" id="gdots">${GS.map((_,i)=>`<i class="${i===(keep?old:0)?'on':''}"></i>`).join('')}</div><div class="gnm" id="gnm">${GS[keep?old:0][1]}</div><button class="gadd" id="gadd" data-gadd="${GS[keep?old:0][0]}">Add Widget</button><div class="mu" style="text-align:center;margin-top:8px;font-size:11px">Swipe to change size. After adding, drag it to the screen edge to move it to another page.</div><button class="dn" id="dn">Close</button>`;
@@ -1062,6 +1103,13 @@ function apply(){const on=active();document.body.classList.toggle('ph-on',on);if
  if(started&&view==='home'&&pgAct&&pgAct.dataset.page!=='today'&&!frameOpen()){$('#ph').classList.add('away');view='route';routeNow=pgAct.dataset.page}}
 function ready(){return typeof state!=='undefined'&&state.user&&state.profile&&document.getElementById('app-shell')&&!document.getElementById('app-shell').hidden&&typeof ensureWater==='function'}
 let sig='';const taskSig=()=>{try{if(!hasTasks())return 0;return dueTasks().map(t=>t.id).join(',')+'|'+state.personalTasks.length+'|'+(state.events||[]).length}catch(e){return 1}};
+// shared "data changed" signal (see HubSync in app.js): drop the small caches and repaint so a tick anywhere shows here at once
+window.addEventListener('hub-data-changed',e=>{try{const k=(e.detail&&e.detail.kinds)||[];
+ if(k.includes('budget'))BD.ld=0;if(k.includes('grocery'))GR.ld=0;if(k.includes('pledge'))PL.ld=0;
+ if(k.some(x=>['activity','tasks','chores','schedule','pledge','skin','diet','training'].includes(x)))TKL.ld=0;
+ if(k.includes('diet')||k.includes('grocery')){try{dietW.t=0}catch(x){}}
+ if(!started||!active())return;const ae=document.activeElement;if(ae&&ae.classList&&(ae.classList.contains('tdi')||/^cu-/.test(ae.id||'')))return;if(drag||document.hidden)return;
+ if(!$('#sheet').classList.contains('on'))refresh()}catch(x){}});
 function trTick(){if(TR.rt){const left=TR.rt-Date.now();if(left<=0){TR.rt=null;toast('Rest over, next set');try{navigator.vibrate&&navigator.vibrate([100,60,100])}catch(e){}refresh()}else{const el=document.querySelector('[data-trrt]');if(el)el.textContent=trMS(left)}}if(TR.t0){const el=document.querySelector('[data-trel]');if(el)el.textContent=trMS(Date.now()-TR.t0)}}
 function tick(){trTick();if(!ready()){return}
  if(active()&&(!started||profileNow!==state.profile)){document.body.classList.add('ph-on');start();apply();return}
@@ -1084,9 +1132,9 @@ window.addEventListener('pagehide',()=>{if(started)persist()});
  c.innerHTML=`<div class="section-head with-icon"><span class="section-head-icon"><i data-lucide="smartphone"></i></span><div><p class="section-kicker">Phone</p><h2>Home screen</h2></div></div>
  <p class="settings-hint">On a phone the Today page becomes an iPhone-style home screen: pages, folders, widgets, an App Library, and a Back / Home / Apps bar. It only appears on screens up to 700px wide. Hold an icon, widget or folder for its menu, or hold empty space to rearrange the screen.</p>
  <div class="phs-row"><span>Phone home screen</span>${seg('on',[['1','On'],['0','Off']])}</div>
- <div class="phs-row"><span>Icon style</span>${seg('icons',[['dark','Dark'],['light','Light'],['auto','Auto']])}</div>
+ <div class="phs-row"><span>Icon style</span>${seg('icons',[['vivid','Vivid'],['dark','Dark'],['light','Light'],['auto','Auto']])}</div>
  <div class="phs-row"><span>Icon tint</span>${seg('tint',[['none','None'],['blue','Blue'],['green','Green'],['pink','Pink'],['orange','Orange'],['purple','Purple']])}</div>
- <div class="phs-row"><span>Wallpaper</span>${seg('wp',[['dusk','Dusk'],['valley','Valley'],['graphite','Graphite'],['photo','Photo']])}</div>
+ <div class="phs-row"><span>Wallpaper</span>${seg('wp',[['hub','Hub'],['dusk','Dusk'],['valley','Valley'],['graphite','Graphite'],['photo','Photo']])}</div>
  <div class="phs-row"><span>Your photo</span><span class="phs-seg"><button type="button" id="phs-pick">Choose photo</button><button type="button" id="phs-clear">Remove</button></span><input type="file" id="phs-file" accept="image/*" hidden></div>
  <div class="phs-row"><span>Dim wallpaper</span><input type="range" class="phs-rng" id="phs-dim" min="0" max="70" step="5"></div>
  <div class="phs-row"><span>Blur wallpaper</span><input type="range" class="phs-rng" id="phs-blur" min="0" max="24" step="2"></div>
@@ -1103,7 +1151,7 @@ window.addEventListener('pagehide',()=>{if(started)persist()});
   if(b.id==='phs-pick'){c.querySelector('#phs-file').click();return}
   if(b.id==='phs-clear'){lsSet(LS_PHOTO,'');saveWalls([]);if(prefs.wp==='photo')prefs.wp='dusk';savePrefs();if(started)applyLook();paint();return}
   const g=b.closest('.phs-seg');if(!g||!g.dataset.g)return;const k=g.dataset.g,v=b.dataset.v;
-  if(k==='on'){enabled=v==='1';lsSet(LS_ON,enabled?'1':'0');apply()}else{if(k==='wp'&&v==='photo'&&!walls().length){c.querySelector('#phs-file').click();return}prefs[k]=(k==='lbl'||k==='par')?v==='true':v;savePrefs();if(started)applyLook()}paint()});
+  if(k==='on'){enabled=v==='1';lsSet(LS_ON,enabled?'1':'0');apply()}else{if(k==='wp'&&v==='photo'&&!walls().length){c.querySelector('#phs-file').click();return}prefs[k]=(k==='lbl'||k==='par')?v==='true':v;savePrefs();if(started){applyLook();if(k==='icons'){render();drawDock();refresh();drawLib()}}}paint()});
  function photoFrom(f){addWall(f,paint)}})();
 if(window.visualViewport){const kb=()=>{const v=window.visualViewport;const h=Math.max(0,Math.round(innerHeight-v.height-v.offsetTop));$('#ph').style.setProperty('--kb',h+'px')};visualViewport.addEventListener('resize',kb);visualViewport.addEventListener('scroll',kb)}
 // ---- sheet: drag the handle down to close ----

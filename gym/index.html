@@ -595,6 +595,9 @@ if(typeof Chart==='undefined'){ window.Chart=function(){ this.destroy=function()
 
   footer.foot{max-width:1280px;margin:30px auto 0;padding:16px;text-align:center;color:var(--text-faint);font-size:11.5px;}
 </style>
+<style id="no-zoom">/* iOS zooms the page when a field under 16px gets focus and never zooms back out. Phones only; PC sizes untouched. */
+@media (max-width:700px){input:not([type=checkbox]):not([type=radio]):not([type=range]):not([type=color]):not([type=file]):not([type=hidden]):not(#_z),select:not(#_z),textarea:not(#_z){font-size:16px!important}
+html,body,button,a,input,select,textarea,label{touch-action:manipulation}}</style>
 </head>
 <body>
 <script>try{ if(window.self !== window.top) document.body.classList.add('embedded'); }catch(e){ document.body.classList.add('embedded'); }</script>
