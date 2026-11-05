@@ -1005,7 +1005,7 @@ $('#vp').addEventListener('click',e=>{
  const ap=e.target.closest('.app[data-k]');if(ap)openApp(ap.dataset.k,ap.querySelector('.tile').getBoundingClientRect())});
 $('#dock').addEventListener('click',e=>{const dr=e.target.closest('[data-drm]');if(dr){const k=dr.dataset.drm;const sn=snap();dock=dock.filter(x=>x!==k);drawDock();persist();toast(AP[k][0]+' removed from the Dock',()=>restore(sn));return}if(e.target.closest('#dadd')){openDockPicker();return}if(editing||suppress)return;const ap=e.target.closest('.app[data-k]');if(ap)openApp(ap.dataset.k,ap.querySelector('.tile').getBoundingClientRect())});
 $('#dots').addEventListener('click',e=>{const g=e.target.closest('[data-g]');if(g){go(+g.dataset.g);return}if(editing)openPages();else openSearch()});
-document.addEventListener('input',e=>{if(e.target.id==='srch')drawLib(e.target.value)});
+document.addEventListener('input',e=>{if(e.target.id==='srch')drawLib(e.target.value)});document.addEventListener('click',e=>{const b=e.target.closest('#pgs .pg.lib .srch');if(b&&e.target.id!=='srch'&&e.target.id!=='cx2'){const i=$('#srch');if(i)i.focus()}});
 document.addEventListener('input',e=>{const el=e.target;if(!el.classList||!el.classList.contains('tdi'))return;
  if(el.dataset.tdi!=null){TD.txt=el.value;document.querySelectorAll('#ph .tdpv, #ph-today .tdpv').forEach(p=>p.textContent=tdPreview());document.querySelectorAll('#ph input.tdi[data-tdi]').forEach(o=>{if(o!==el)o.value=el.value})}
  else if(el.dataset.tdsi!=null)TD.stxt=el.value;else if(el.dataset.tdtm!=null)TD.time=el.value});
