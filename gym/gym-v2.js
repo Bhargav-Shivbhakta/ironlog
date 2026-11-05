@@ -211,6 +211,7 @@ setInterval(renderWater,60000);renderWater();
     if(busy)return;busy=true;
     try{
       var cards=$$('.ex-card',list),first=true;
+      if(cards.length&&!window.__gvReady)window.__gvReady=Math.round(performance.now());
       cards.forEach(function(c){
         $$('tbody tr',c).forEach(effort);dots(c);
         $$('.last-time-cell',c).forEach(function(t){t.classList.toggle('gv-empty',/^\s*[—-]?\s*$/.test(t.textContent))});
@@ -363,6 +364,9 @@ setInterval(renderWater,60000);renderWater();
 })();
 
 /* ---------- the ⋯ menu ---------- */
+mi('Open Diet app (meals, food search)',function(){location.href='../apps/diet.html'+(window.activeProfile&&activeProfile.id==='anusha'?'?profile=Anusha':'?profile=Bhargav')});
+mi('Open Skin app',function(){location.href='../apps/skin.html'});
+if(!document.body.classList.contains('embedded'))mi('All apps (Hub)',function(){location.href='../index.html'});
 mi('Backup and restore',function(){var b=$('backup-open');if(b)b.click()});
 mi('Export history (CSV)',function(){window.openView('history');['daily','lift','cardio'].forEach(function(t){try{window.histExportCsv(t)}catch(e){}})});
 mi('Trash',function(){window.openView('history');var t=$('hist-trash-panel');setTimeout(function(){if(t&&t.style.display!=='none')t.scrollIntoView({behavior:'smooth'});else toast('Trash is empty')},300)});

@@ -4563,6 +4563,12 @@ function showHistToast(msg, ops){
 async function histUndo(){
   if(!histUndoOps) return;
   const ops = histUndoOps; histUndoOps = null;
+  if(ops.length===1 && ops[0] && ops[0].__live){
+    clearTimeout(histUndoTimer);
+    document.getElementById('hist-undo-toast').classList.remove('show');
+    writeLive(ops[0].__live); renderLiveSessionBar(); showHistToast('Session back ✓');
+    return;
+  }
   clearTimeout(histUndoTimer);
   document.getElementById('hist-undo-toast').classList.remove('show');
   try{ await histCommit(ops, 'revert'); showHistToast('Restored ✓'); }
@@ -4571,7 +4577,7 @@ async function histUndo(){
 }
 async function histApply(ops, confirmMsg, toastMsg){
   if(!ops.length) return false;
-  if(confirmMsg && !confirm(confirmMsg)) return false;
+  // No confirm pop-up: these are soft deletes with an Undo toast and a Recently deleted bin.
   try{ await histCommit(ops, 'apply'); }
   catch(e){ console.error(e); showHistToast('Could not save that change — check your connection and try again.'); return false; }
   showHistToast(toastMsg, ops);
@@ -4923,7 +4929,7 @@ function histWire(){
   histWired = true;
   const view = document.getElementById('view-history');
   const undoBtn = document.getElementById('hist-undo-btn');
-  if(undoBtn) undoBtn.addEventListener('click', histUndo);
+  if(undoBtn && !undoBtn.dataset.wired){ undoBtn.dataset.wired='1'; undoBtn.addEventListener('click', histUndo); }
   view.addEventListener('click', e=>{
     const t = e.target.closest('button');
     if(!t || !view.contains(t)) return;
@@ -5256,7 +5262,9 @@ async function startLiveSession(opts){
   const existing = readLive();
   const same = existing && existing.profileId===activeProfile.id && existing.date===date && existing.day===day && (existing.mode||'regular')===mode;
   if(existing && !same && existing.profileId===activeProfile.id){
-    if(!confirm('A guided session for '+existing.day+' ('+existing.date+') is still open. Replace it with this one? Its timing won\'t be recorded.')) return;
+    const prevLive = existing;
+    showHistToast('Replaced your open '+existing.day+' session', [{__live:prevLive}]);
+    window.__liveUndo = prevLive;
   }
   const state = same ? existing : {profileId:activeProfile.id, date, day, mode, index:0, startedAt:Date.now(), floor:false};
   writeLive(state);
@@ -5331,7 +5339,11 @@ async function finishLiveSession(){
   endLiveSession(true, durationSec);
 }
 function endLiveSession(skipConfirm, durationSec){
-  if(!skipConfirm && !confirm('End the guided session? Sets you already logged stay saved; the session time won\'t be recorded.')) return;
+  const prevLiveState = readLive();
+  if(!skipConfirm && prevLiveState){
+    window.__liveUndo = prevLiveState;
+    showHistToast('Session ended (sets stay saved)', [{__live:prevLiveState}]);
+  }
   writeLive(null);
   if(floorOpen) closeFloorMode(true);
   renderLiveSessionBar();
@@ -5949,6 +5961,7 @@ async function renderProgressExtras(){
 ===================================================================== */
 async function init(){
   warmupCache = null;
+  (function(){ var b=document.getElementById('hist-undo-btn'); if(b && !b.dataset.wired){ b.dataset.wired='1'; b.addEventListener('click', function(){ histUndo(); }); } })();
   const savedStart = await getStartOverride(activeProfile.id);
   if(savedStart && savedStart !== activeProfile.program.startDate && !activeProfile.fixedPlan) applyStartDateOverride(activeProfile.id, savedStart);
   wireStartDateControls();
@@ -5957,12 +5970,9 @@ async function init(){
   document.getElementById('log-date').value = today;
   document.getElementById('lift-date').value = today;
   renderHabitList();
-  await loadDayIntoForm(today);
-  await loadCustomExercises();
-  await loadExerciseUnits();
-  await loadExerciseOrder();
-  await loadWorkoutOverrides();
-  await loadExerciseRemovals();
+  // These reads don't depend on each other, so they run together instead of one after another.
+  const dietP = loadLiveDietData().catch(function(){});
+  await Promise.all([loadDayIntoForm(today), loadCustomExercises(), loadExerciseUnits(), loadExerciseOrder(), loadWorkoutOverrides(), loadExerciseRemovals()]);
   currentLiftDay = activeProfile.workouts[effectiveDayFor(today)] ? effectiveDayFor(today) : Object.keys(activeProfile.workouts)[0];
   applyLiftMode('regular');
   // A guided session left open (e.g. the page reloaded mid-workout) picks
@@ -5977,7 +5987,7 @@ async function init(){
   }
   renderDayPicker();
   await renderExerciseList(document.getElementById('lift-date').value, currentLiftDay);
-  await loadLiveDietData();
+  await dietP;
   await renderDiet();
   await renderDashboard();
   if(resume && live.floor) openFloorMode();
@@ -5989,7 +5999,7 @@ if('serviceWorker' in navigator){
   // default scope covers this page too, so no separate registration needed here.
 }
 </script>
-<script src="gym-v2.js?v=6"></script>
+<script src="gym-v2.js?v=10"></script>
 <div id="preview-modal-mount"></div>
 <div id="modal-mount"></div>
 <div id="live-session-mount"></div>
