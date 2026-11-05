@@ -864,3 +864,14 @@ body.ph-on .app-frame-overlay.phzo{animation:phzout .21s ease-in forwards;transf
 #ph.onlib .dots{bottom:calc(var(--nb) + 22px)}
 #ph .vp{transition:bottom .22s ease}
 #ph.onlib .vp{bottom:calc(var(--nb) + 58px)}
+/* iPhone-style app icons: one clean white glyph sitting at about two thirds of the tile, soft top light, soft floating shadow */
+#ph .tile.vv{box-shadow:0 4px 9px #00000052,0 1px 1.5px #0000003d,inset 0 0 0 .6px #ffffff59}
+#ph .tile.vv::after{background:linear-gradient(180deg,#ffffff38,#ffffff00 52%)}
+#ph .tile.vv>svg:not(.fb){transform:scale(.7);transform-origin:50% 50%}
+#ph .mt.vv svg:not(.fb){transform:scale(.74);transform-origin:50% 50%}
+
+/* ---- Phone fixes: small dark toast, Large widgets fill their height ---- */
+#ph .ptoast,#ph .ptoast.un{width:max-content;max-width:calc(100% - 40px);white-space:normal;background:rgba(24,24,28,.9);color:#fff;-webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px);border:.5px solid #ffffff26;box-shadow:0 6px 20px #0006;border-radius:99px;padding:7px 14px;font-size:12.5px;font-weight:600;line-height:1.25;text-align:center}
+#ph .ptoast.un{display:flex;flex-direction:row;height:auto;justify-content:flex-start;align-items:center;gap:10px;padding:4px 5px 4px 14px}
+#ph .ptoast button{background:var(--accent,#f0b95b);color:#1b1407;padding:5px 12px}
+#ph .it.l .tks.tdl{flex:1;max-height:none;min-height:0}
