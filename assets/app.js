@@ -1578,22 +1578,79 @@ async function completeChoreFromWidget(choreId,el,after){
     }
     state.chores=list; state.choreHistory=hist;
   }catch(e){console.warn(e)}
-  toast('Marked "'+chore.name+'" done');
+  toast('Marked "'+chore.name+'" done','Undo',()=>undoChoreFromWidget(chore.id,el));
   if(after)after();else renderChoresListInto(el,choresDueToday());
 }
 function renderChoresListInto(el,chores){
   if(!el)return;
   const openLink='<a class="widget-card-link" href="apps/chores.html" data-profile-link>Open Chores <i data-lucide="arrow-up-right"></i></a>';
-  if(!chores.length){ el.innerHTML='<div class="empty-state"><strong>Nothing due</strong>No chores need attention today.</div>'+openLink; updateProfileLinks(); if(window.lucide)lucide.createIcons(); return; }
-  el.innerHTML = '<div class="chores-mini-list">'+chores.map(c =>
-    '<div class="chores-mini-row'+(c.overdue?' overdue':'')+'" data-chore-id="'+esc(c.id)+'">'+
+  const t0=today(),wkAgo=addDays(t0,-6);
+  const doneWk=(state.choreHistory||[]).filter(h=>h&&h.date>=wkAgo&&h.date<=t0&&(!h.by||h.by===state.profile)).length;
+  const wkChip=doneWk?'<span class="lw-chip ok">'+doneWk+' done this week</span>':'';
+  if(!chores.length){
+    let nx=null;try{(state.chores||[]).forEach(c=>{if(c.active===false)return;if(Array.isArray(c.assignedTo)&&!c.assignedTo.includes(state.profile))return;const d=(c.snoozedUntil&&c.snoozedUntil>t0)?c.snoozedUntil:nextChoreDue(c);if(d&&d>t0&&(!nx||d<nx.d))nx={d,name:c.name}})}catch(e){}
+    const nxTxt=nx?'Next: '+esc(nx.name)+' · '+new Date(nx.d+'T12:00:00').toLocaleDateString([],{weekday:'short',month:'short',day:'numeric'}):'No chores coming up.';
+    el.innerHTML='<div class="empty-state"><strong>All clear</strong>Nothing needs doing today. '+nxTxt+'</div>'+(wkChip?'<div class="cm-sum">'+wkChip+'</div>':'')+openLink;
+    updateProfileLinks();if(window.lucide)lucide.createIcons();return;
+  }
+  const list=chores.slice().sort((a,b)=>(b.overdue?1:0)-(a.overdue?1:0));
+  const mins=c=>Number(c.estimatedMinutes)||0,tot=list.reduce((n,c)=>n+mins(c),0),od=list.filter(c=>c.overdue).length;
+  const fit=el._cmFit||0;let fitIds=null,fitTot=0;
+  if(fit){fitIds=new Set();list.forEach(c=>{const m=mins(c)||10;if(fitTot+m<=fit){fitTot+=m;fitIds.add(c.id)}})}
+  let cmMax=0;try{const m=wsAll(state.widgets.find(w=>w.type==='chores'),WIDGET_TYPES.chores).max;cmMax=m==='all'?0:parseInt(m,10)||0}catch(e){}
+  const who=c=>{const a=Array.isArray(c.assignedTo)?c.assignedTo[0]:null;return(a&&(c.rotationEnabled||a!==state.profile))?'<span class="cm-who" title="'+esc(a)+'\'s turn">'+esc(a[0])+'</span>':''};
+  const meta=c=>[c.overdue?'Overdue':'Due today',c.room||'',mins(c)?mins(c)+' min':''].filter(Boolean).join(' · ');
+  let out='<div class="cm-sum"><span class="lw-chip">'+list.length+' to do</span>'+(od?'<span class="lw-chip bad">'+od+' overdue</span>':'')+(tot?'<span class="lw-chip">about '+(tot>=60?Math.floor(tot/60)+' h '+(tot%60?tot%60+' min':''):tot+' min')+'</span>':'')+wkChip+'</div>';
+  if(tot||list.length>1)out+='<div class="cm-fit" role="group" aria-label="Fit my time"><span>I have</span>'+[[15,'15 min'],[30,'30 min'],[60,'1 h'],[120,'2 h']].map(([m,l])=>'<button type="button" data-cm-fit="'+m+'" class="'+(fit===m?'on':'')+'">'+l+'</button>').join('')+'</div>'+(fit?'<div class="cm-fitcap">'+fitIds.size+' chore'+(fitIds.size===1?'':'s')+' fit in '+(fit>=60?fit/60+' h':fit+' min')+' · about '+fitTot+' min</div>':'');
+  let lastGrp='';
+  out+='<div class="chores-mini-list">'+list.map((c,i)=>{
+    const g=c.overdue?'Overdue':'Due today',lbl=(od&&g!==lastGrp)?'<div class="cm-gl">'+g+'</div>':'';lastGrp=g;
+    const ov=cmMax&&i>=cmMax;
+    return (ov?lbl.replace('class="cm-gl"','class="cm-gl cm-over"'):lbl)+'<div class="chores-mini-row'+(ov?' cm-over':'')+(c.overdue?' overdue':'')+(i===0?' cm-first':'')+(fitIds&&!fitIds.has(c.id)?' cm-out':'')+'" data-chore-id="'+esc(c.id)+'">'+
       '<button type="button" class="task-check chores-mini-check" aria-label="Mark '+esc(c.name)+' done" title="Mark done"><i data-lucide="check"></i></button>'+
-      '<span class="chores-mini-copy"><strong>'+esc(c.name)+'</strong><small>'+(c.overdue?'Overdue':'Due today')+'</small></span>'+
-    '</div>'
-  ).join('')+'</div>'+openLink;
+      '<span class="chores-mini-copy"><strong>'+esc(c.name)+'</strong><small>'+esc(meta(c))+'</small></span>'+who(c)+
+      '<button type="button" class="cm-snz" data-cm-snz aria-label="Move '+esc(c.name)+' to later" title="Move to later"><i data-lucide="clock"></i></button>'+
+    '</div>'}).join('')+'</div>'+(cmMax&&list.length>cmMax?'<div class="cm-more">+'+(list.length-cmMax)+' more in Open Chores</div>':'')+openLink;
+  el.innerHTML=out;
   updateProfileLinks();
   if(window.lucide)lucide.createIcons();
   el.querySelectorAll('.chores-mini-check').forEach(btn=>btn.addEventListener('click',()=>completeChoreFromWidget(btn.closest('[data-chore-id]').dataset.choreId,el)));
+  el.querySelectorAll('[data-cm-fit]').forEach(b=>b.addEventListener('click',()=>{const m=+b.dataset.cmFit;el._cmFit=el._cmFit===m?0:m;renderChoresListInto(el,chores)}));
+  el.querySelectorAll('[data-cm-snz]').forEach(b=>b.addEventListener('click',e=>{
+    e.stopPropagation();const row=b.closest('[data-chore-id]'),open=row.querySelector('.cm-menu');
+    el.querySelectorAll('.cm-menu').forEach(x=>x.remove());if(open)return;
+    row.insertAdjacentHTML('beforeend','<div class="cm-menu" role="menu">'+[[1,'Tomorrow'],[3,'In 3 days'],[7,'In a week']].map(([d,l])=>'<button type="button" role="menuitem" data-cm-d="'+d+'">'+l+'</button>').join('')+'</div>');
+    row.querySelectorAll('[data-cm-d]').forEach(x=>x.addEventListener('click',ev=>{ev.stopPropagation();snoozeChoreFromWidget(row.dataset.choreId,+x.dataset.cmD,el)}));
+  }));
+}
+async function snoozeChoreFromWidget(id,days,el){
+  const chore=(state.chores||[]).find(c=>c.id===id);if(!chore)return;
+  const prev=chore.snoozedUntil||null,until=addDays(today(),days);
+  const save=async v=>{
+    chore.snoozedUntil=v;HubSync.emit(['chores'],0);
+    const latest=await readJson(appRef('chores','chores'),null),list=Array.isArray(latest)?latest:state.chores,i=list.findIndex(c=>c.id===id);
+    if(i>=0)list[i].snoozedUntil=v;else list.push(chore);
+    await appRef('chores','chores').set({json:JSON.stringify(list)});state.chores=list;
+  };
+  try{await save(until)}catch(e){chore.snoozedUntil=prev;toast("Couldn't save, try again");renderChoresListInto(el,choresDueToday());return}
+  renderChoresListInto(el,choresDueToday());
+  toast('Moved "'+chore.name+'" to '+new Date(until+'T12:00:00').toLocaleDateString([],{weekday:'short',month:'short',day:'numeric'}),'Undo',async()=>{try{await save(prev)}catch(e){toast("Couldn't undo, try again");return}renderChoresListInto(el,choresDueToday())});
+}
+async function undoChoreFromWidget(id,el){
+  const chore=(state.chores||[]).find(c=>c.id===id),u=chore&&chore.undo;if(!u){toast('Nothing to undo');return}
+  const date=u.date||today();
+  chore.lastCompleted=u.lastCompleted||null;chore.snoozedUntil=u.snoozedUntil||null;chore.assignedTo=(u.assignedTo||[]).slice();chore.rotationIndex=u.rotationIndex||0;chore.passedBy=u.passedBy||null;
+  state.choreHistory=(state.choreHistory||[]).filter(h=>h.id!==u.logId);
+  HubSync.emit(['chores'],0);
+  try{
+    const [latestC,latestH]=await Promise.all([readJson(appRef('chores','chores'),null),readJson(appRef('chores','history'),null)]);
+    const list=Array.isArray(latestC)?latestC:state.chores,hist=(Array.isArray(latestH)?latestH:state.choreHistory).filter(h=>h.id!==u.logId),i=list.findIndex(c=>c.id===id);
+    if(i>=0)['lastCompleted','snoozedUntil','passedBy','rotationIndex','assignedTo'].forEach(k=>{list[i][k]=chore[k]});
+    await appRef('chores','chores').set({json:JSON.stringify(list)});await appRef('chores','history').set({json:JSON.stringify(hist)});
+    for(const link of (chore.links||[])){try{const ref=db.collection('users').doc(state.user.uid).collection('schedule-profiles').doc(link.profile).collection('data').doc('choreLog');const d=await ref.get(),log=(d.exists&&d.data().json)?safeJson(d.data().json,{}):{};delete log[link.scheduleChoreId+':'+date];await ref.set({json:JSON.stringify(log)})}catch(e){console.warn('schedule undo failed',e)}}
+    state.chores=list;state.choreHistory=hist;
+  }catch(e){console.warn(e);toast("Couldn't undo, try again");return}
+  renderChoresListInto(el,choresDueToday());toast('Brought "'+chore.name+'" back');
 }
 
 /* =====================================================================
@@ -1835,7 +1892,8 @@ const WIDGET_TYPES={
         const gState=snap.exists&&snap.data().json?safeJson(snap.data().json,null):null;
         const wk=gState&&gState.weeks&&gState.weeks[gState.activeWeek];
         const remaining=wk?wk.items.filter(i=>(i.purchasedQty||0)<(i.plannedQty||0)).length:0;
-        el.innerHTML='<strong style="display:block;font-size:26px;font-weight:700;letter-spacing:-.02em">'+remaining+'</strong><p style="margin:4px 0 10px;color:var(--muted)">item'+(remaining===1?'':'s')+' still to buy</p><a class="widget-card-link" href="apps/grocery.html" data-profile-link>Open Grocery <i data-lucide="arrow-up-right"></i></a>';
+        const gTot=wk?wk.items.length:0,gGot=Math.max(0,gTot-remaining);
+        el.innerHTML='<strong style="display:block;font-size:26px;font-weight:700;letter-spacing:-.02em">'+remaining+'</strong><p style="margin:4px 0 10px;color:var(--muted)">item'+(remaining===1?'':'s')+' still to buy</p>'+(gTot?'<div class="gr-prog"><div class="bar"><i style="width:'+Math.round(gGot/gTot*100)+'%"></i></div><small>'+gGot+' of '+gTot+' bought this week</small></div>':'')+'<a class="widget-card-link" href="apps/grocery.html" data-profile-link>Open Grocery <i data-lucide="arrow-up-right"></i></a>';
         updateProfileLinks();if(window.lucide)lucide.createIcons();
       }catch(e){el.innerHTML='<div class="empty-state"><strong>Unavailable</strong>Could not load the grocery list.</div>'}
     }},

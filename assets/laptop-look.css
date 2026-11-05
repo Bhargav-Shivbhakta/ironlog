@@ -203,3 +203,113 @@ html.lap-look body::before{content:"";position:fixed;z-index:-1;inset:0;backgrou
 .lap-look{--accent-ink:#F4F2FF!important}
 .lap-look .lap-titlebar #lap-search{display:none!important}
 }
+
+/* ---- calm rows for Chores, Recent ticks, Pledge, Grocery, Budget, Quick links, Photos, Cook ---- */
+@media(min-width:701px){
+.lap-look .widget-card :is(.chores-mini-row,.act-row){background:rgba(255,255,255,.06);border:.5px solid rgba(255,255,255,.1)!important;border-radius:14px;padding:9px 12px;margin-bottom:6px;transition:background .15s}
+.lap-look .widget-card :is(.chores-mini-row,.act-row):hover{background:rgba(255,255,255,.11)}
+.lap-look .widget-card .chores-mini-list{display:flex;flex-direction:column}
+.lap-look .widget-card .chores-mini-row.overdue{background:rgba(232,80,63,.16);border-color:rgba(232,80,63,.38)!important}
+.lap-look .widget-card .chores-mini-copy strong,.lap-look .widget-card .act-l{font-weight:600}
+.lap-look .widget-card .act-sum{font-size:13px;margin-bottom:10px}.lap-look .widget-card .act-sum b{font-size:22px;letter-spacing:-.02em}
+.lap-look .widget-card .empty-state{display:flex;flex-direction:column;gap:4px;align-items:flex-start;padding:14px 16px;border-radius:14px;background:rgba(255,255,255,.05);border:.5px dashed rgba(255,255,255,.16);color:rgba(255,255,255,.7)}
+.lap-look .widget-card .empty-state strong{color:#fff;font-size:15px}
+.lap-look .widget-card[data-widget-type="photos"] .empty-state{align-items:center;text-align:center;justify-content:center;flex:1}
+.lap-look .widget-card .widget-card-link{align-self:flex-start;margin-top:auto;padding:7px 12px;border-radius:10px;background:rgba(255,255,255,.08);border:.5px solid rgba(255,255,255,.14);color:rgba(255,255,255,.88);text-decoration:none;font-weight:600;font-size:12.5px}
+.lap-look .widget-card .widget-card-link:hover{background:rgba(255,255,255,.16);color:#fff}
+.lap-look .widget-card[data-widget-type="grocery"] .widget-card-body strong{font-size:44px!important;line-height:1;letter-spacing:-.03em}
+.lap-look .widget-card[data-widget-type="budget"] .widget-card-body>strong{font-size:44px!important;line-height:1;letter-spacing:-.03em}
+.lap-look .widget-card[data-widget-type="quicklinks"] a{background:rgba(255,255,255,.07)!important;border:.5px solid rgba(255,255,255,.12)!important;border-radius:14px!important}
+.lap-look .widget-card[data-widget-type="quicklinks"] a:hover{background:rgba(255,255,255,.14)!important}
+}
+
+/* ---- the gear panel: solid frosted sheet so nothing shows through, light text on every control ---- */
+@media(min-width:701px){
+.lap-look .widget-card .widget-settings{background:rgba(22,24,34,.97)!important;-webkit-backdrop-filter:blur(26px);backdrop-filter:blur(26px);color:#fff;overflow-y:auto;border-radius:inherit}
+.lap-look .widget-card.flipped>.widget-card-head,.lap-look .widget-card.flipped>.widget-card-body,.lap-look .widget-card.flipped>.lap-morebtn{visibility:hidden}
+.lap-look .widget-settings :is(.ws-fit,.ws-reset,.ws-done) {color:#fff!important}
+.lap-look .widget-settings .ws-fit{background:rgba(255,255,255,.10)!important;border:.5px dashed rgba(255,255,255,.35)!important}
+.lap-look .widget-settings :is(h4,small,.hint,.ws-hint){color:rgba(255,255,255,.72)!important}
+.lap-look .widget-settings :is(button:not(.on):not(.ws-done)){color:rgba(255,255,255,.88)}
+}
+@media(min-width:701px){.lap-look .widget-card.flipped{min-height:430px;z-index:8}}
+
+/* ---- real upgrade of the simple widgets (laptop-widgets.js adds the strips, meters and labels) ---- */
+@media(min-width:701px){
+.lap-look .lw-strip{display:flex;gap:6px;flex-wrap:wrap;margin:0 0 10px}
+.lap-look .lw-chip{display:inline-flex;align-items:center;padding:4px 10px;border-radius:99px;background:rgba(255,255,255,.1);border:.5px solid rgba(255,255,255,.16);font-size:12px;font-weight:700;color:rgba(255,255,255,.9)}
+.lap-look .lw-chip.bad{background:rgba(232,80,63,.22);border-color:rgba(232,80,63,.5);color:#FFB8AF}
+.lap-look .lw-chip.ok{background:rgba(52,201,143,.2);border-color:rgba(52,201,143,.5);color:#9BF0CB}
+.lap-look .lw-gl{font-size:10.5px;letter-spacing:.12em;text-transform:uppercase;font-weight:700;color:rgba(255,255,255,.6);margin:8px 2px 6px}
+.lap-look .lw-meter{height:9px;border-radius:99px;background:rgba(255,255,255,.12);overflow:hidden;margin:0 0 6px}
+.lap-look .lw-meter i{display:block;height:100%;border-radius:99px;background:var(--ac,#34C98F)}
+.lap-look .lw-meter.bad i{background:#E8503F}.lap-look .lw-meter.ok i{background:#34C98F}
+.lap-look .lw-cap{font-size:12px;color:rgba(255,255,255,.7);margin:0 0 10px}
+.lap-look .lw-prow{background:rgba(255,255,255,.06);border:.5px solid rgba(255,255,255,.1);border-radius:12px;padding:8px 12px;margin-bottom:6px!important;font-size:13.5px!important;font-weight:600}
+.lap-look .lw-prow.done{background:rgba(52,201,143,.14);border-color:rgba(52,201,143,.4);color:#BFF3DB}
+.lap-look .widget-card[data-widget-type="quicklinks"] .qlinks-row>a .area-icon{border-radius:12px;color:#fff}
+.lap-look .widget-card[data-widget-type="quicklinks"] .qlinks-row>a[data-lw-i="0"] .area-icon{background:#E8503F}
+.lap-look .widget-card[data-widget-type="quicklinks"] .qlinks-row>a[data-lw-i="1"] .area-icon{background:#A3D63F;color:#18210a}
+.lap-look .widget-card[data-widget-type="quicklinks"] .qlinks-row>a[data-lw-i="2"] .area-icon{background:#B26BFF}
+.lap-look .widget-card[data-widget-type="quicklinks"] .qlinks-row small{color:rgba(255,255,255,.72)}
+.lap-look .widget-card .lw-cards>*{background:rgba(255,255,255,.06);border:.5px solid rgba(255,255,255,.12);border-radius:16px;padding:12px 14px}
+}
+@media(min-width:701px){
+.lap-look .widget-card[data-widget-type="budget"] .widget-card-body>strong,.lap-look .widget-card[data-widget-type="grocery"] .widget-card-body>strong{font-size:32px!important}
+}
+
+@media(min-width:701px){
+.lap-look .cm-sum .lw-chip{background:rgba(255,255,255,.1);border-color:rgba(255,255,255,.16);color:rgba(255,255,255,.9)}
+.lap-look .cm-sum .lw-chip.bad{background:rgba(232,80,63,.22);border-color:rgba(232,80,63,.5);color:#FFB8AF}
+.lap-look .cm-sum .lw-chip.ok{background:rgba(52,201,143,.2);border-color:rgba(52,201,143,.5);color:#9BF0CB}
+.lap-look .cm-fit,.lap-look .cm-fitcap,.lap-look .cm-gl{color:rgba(255,255,255,.66)}
+.lap-look .cm-fit button{border-color:rgba(255,255,255,.2);color:rgba(255,255,255,.88)}
+.lap-look .cm-fit button.on{background:var(--ac,#B26BFF);border-color:var(--ac,#B26BFF);color:#fff}
+.lap-look .cm-who{background:rgba(255,255,255,.14);color:#fff}
+.lap-look .cm-snz{color:rgba(255,255,255,.7)}.lap-look .cm-snz:hover{background:rgba(255,255,255,.14);color:#fff}
+.lap-look .cm-menu{background:rgba(26,28,40,.98);border-color:rgba(255,255,255,.18);color:#fff}
+.lap-look .cm-menu button:hover{background:rgba(255,255,255,.12)}
+.lap-look .chores-mini-row.cm-first:not(.overdue){border-color:var(--ac,#B26BFF)!important;background:rgba(178,107,255,.14)}
+}
+@media(min-width:701px){.lap-look .chores-mini-row.overdue .chores-mini-copy small{color:#FFB8AF}}
+
+@media(min-width:701px){
+.lap-look .bw-big span,.lap-look .bw-line,.lap-look .bw-what small,.lap-look .bw-cat b,.lap-look .bw-empty{color:rgba(255,255,255,.7)}
+.lap-look .bw-bar{background:rgba(255,255,255,.14)}.lap-look .bw-bar i{background:var(--ac,#34C98F)}.lap-look .bw-bar.bad i{background:#E8503F}.lap-look .bw-bar b{background:#fff}
+.lap-look .bw .ok{color:#9BF0CB}.lap-look .bw .warn{color:#FFD27A}.lap-look .bw .bad{color:#FFB0A6}
+.lap-look .bw-tabs{border-color:rgba(255,255,255,.14)}.lap-look .bw-tabs button{color:rgba(255,255,255,.7)}.lap-look .bw-tabs button.on{background:var(--ac,#34C98F);color:#fff}
+.lap-look .bw-owe button,.lap-look .bw-item button:not(.bw-go){background:rgba(255,255,255,.1);border-color:rgba(255,255,255,.18);color:#fff}
+.lap-look .bw-form input,.lap-look .bw-form select,.lap-look .bw-item input,.lap-look .bw-item select{background:rgba(255,255,255,.08);border-color:rgba(255,255,255,.18);color:#fff}
+.lap-look .bw-form input::placeholder{color:rgba(255,255,255,.55)}
+.lap-look .bw-seg{background:rgba(255,255,255,.08);border-color:rgba(255,255,255,.16)}.lap-look .bw-seg button{color:rgba(255,255,255,.78)}.lap-look .bw-seg button.on,.lap-look .bw-form button.bw-go,.lap-look .bw-item button.bw-go{background:var(--ac,#34C98F);border-color:var(--ac,#34C98F);color:#fff}
+.lap-look .bw-item{background:rgba(255,255,255,.06);border-color:rgba(255,255,255,.12)}
+.lap-look .bw-amount.income{color:#9BF0CB}
+}
+/* Grocery widget on the laptop look */
+@media(min-width:701px){
+.lap-look .gw-sh,.lap-look .gw-what small,.lap-look .gw-edit label,.lap-look .gw-fin small{color:rgba(255,255,255,.7)}
+.lap-look .gw-row{background:rgba(255,255,255,.06);border-color:rgba(255,255,255,.12)}
+.lap-look .gw-check{border-color:rgba(255,255,255,.4)}.lap-look .gw-check.on{background:var(--ac,#F5B83D);border-color:var(--ac,#F5B83D)}
+.lap-look .gw-qty button,.lap-look .gw-price,.lap-look .gw-edit button,.lap-look .gw-fin button{background:rgba(255,255,255,.1);border-color:rgba(255,255,255,.18);color:#fff}
+.lap-look .gw-edit .bw-go,.lap-look .gw-fin .bw-go,.lap-look .gw-add .bw-go{background:var(--ac,#F5B83D);border-color:var(--ac,#F5B83D);color:#1b1b22}
+.lap-look .gw-edit{border-color:rgba(255,255,255,.2)}
+.lap-look .gw-edit input,.lap-look .gw-add input{background:rgba(255,255,255,.08);border-color:rgba(255,255,255,.18);color:#fff}
+.lap-look .gw-add input::placeholder{color:rgba(255,255,255,.55)}
+.lap-look .gw-rm{color:#FFB0A6!important}
+.lap-look .widget-card[data-widget-type="grocery"] .widget-card-body strong{font-size:32px!important}
+.lap-look .gw .bw-bar i{background:var(--ac,#F5B83D)}
+}
+/* Pledge widget on the laptop look */
+@media(min-width:701px){
+.lap-look .pw-chip,.lap-look .pw-line,.lap-look .pw-auto,.lap-look .pw-d,.lap-look .pw-edit label{color:rgba(255,255,255,.72)}
+.lap-look .pw-card{background:rgba(255,255,255,.06);border-color:rgba(255,255,255,.12)}.lap-look .pw-card.earned{border-color:var(--ac,#cdbb77)}
+.lap-look .pw-st{border-color:rgba(255,255,255,.35)}.lap-look .pw-st.done{background:#C23FB0;border-color:#C23FB0;color:#fff}.lap-look .pw-st.now{border-color:#fff}.lap-look .pw-st.miss{border-color:#FFB0A6;color:#FFB0A6}
+.lap-look .pw-btn,.lap-look .pw-menu button,.lap-look .pw-edit button{background:rgba(255,255,255,.1);border-color:rgba(255,255,255,.18);color:#fff}
+.lap-look .pw-btn.go{background:#C23FB0;border-color:#C23FB0;color:#fff}
+.lap-look .pw-edit{border-color:rgba(255,255,255,.2)}
+.lap-look .pw-edit input,.lap-look .pw-edit select,.lap-look .pw-add input,.lap-look .pw-add select{background:rgba(255,255,255,.08);border-color:rgba(255,255,255,.18);color:#fff}
+.lap-look .pw-add input::placeholder{color:rgba(255,255,255,.55)}
+.lap-look .pw .bw-bar i{background:var(--ac,#cdbb77)}
+.lap-look .widget-card[data-widget-type="pledge"] .widget-card-body strong{font-size:32px!important}
+}
+@media(min-width:701px){.lap-look .cw-row.cw-edit:hover{background:rgba(255,255,255,.08)}}

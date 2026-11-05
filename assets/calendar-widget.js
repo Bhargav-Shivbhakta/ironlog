@@ -60,7 +60,7 @@ function itemsFor(date,S0){
     (state.reminders||[]).filter(r=>reminderHitsDateHub(r,date)).forEach(r=>{const c=agCatName(r.categoryId);
       out.push({k:'rem',allday:true,sort:-5,title:r.name+(c==='Birthday'?"'s birthday":c==='Anniversary'?' anniversary':' · '+c),ico:c==='Birthday'?'🎂':c==='Anniversary'?'💍':'🔔'})});
     evsFor(cal.who).filter(e=>eventOccursOnHub(e,date)&&(isT||!(e.recurring&&e.repeat&&e.repeat.type==='daily'))).forEach(e=>{
-      out.push({k:'ev',sort:e.time?minsOf(e.time):-3,time:e.time||'',end:e.endTime||'',title:e.title||'Event',sub:e.location||'',who:e.mirrored?e.ownerProfile:null,shared:!!e.shared,allday:!e.time})});
+      out.push({k:'ev',id:e.id,rec:!!(e.recurring&&e.repeat),sort:e.time?minsOf(e.time):-3,time:e.time||'',end:e.endTime||'',title:e.title||'Event',sub:e.location||'',who:e.mirrored?e.ownerProfile:null,shared:!!e.shared,allday:!e.time})});
   }
   if(S0.tasks){
     const all=(state.personalTasks||[]).map(x=>({t:x,sh:false})).concat((state.sharedTasks||[]).map(x=>({t:x,sh:true})));
@@ -92,7 +92,7 @@ function row(it,S0,dim){
     :'<span class="cw-ico">'+(it.ico||(it.k==='task'?'☐':it.k==='chore'?'✦':'•'))+'</span>';
   const tm=it.allday?(it.k==='rem'?'All day':''):fmtT(it.time,S0)+(it.end?' – '+fmtT(it.end,S0):'');
   const sub=[it.dl&&it.time?'by '+fmtT(it.time,S0):tm,it.sub,it.who?it.who+"'s":'',it.shared&&!it.who?'both':''].filter(Boolean).join(' · ');
-  return '<div class="cw-row cw-'+it.k+(it.od?' od':'')+(dim?' dim':'')+'">'+lead+'<span class="cw-c"><b>'+esc(it.title)+'</b>'+(sub?'<small>'+esc(sub)+'</small>':'')+'</span></div>';
+  return '<div class="cw-row cw-'+it.k+(it.od?' od':'')+(dim?' dim':'')+(it.k==='ev'&&it.id?' cw-edit':'')+'"'+(it.k==='ev'&&it.id?' data-ev="'+esc(it.id)+'" tabindex="0" title="Tap to edit or delete"':'')+'>'+lead+'<span class="cw-c"><b>'+esc(it.title)+'</b>'+(sub?'<small>'+esc(sub)+'</small>':'')+'</span></div>';
 }
 function draw(el){
   const S0=S(),t0=today(),nowD=new Date(),nowM=nowD.getHours()*60+nowD.getMinutes(),sel=cal.sel&&(cal.sel>=t0||cal.view==='grid')?cal.sel:t0;
@@ -149,6 +149,7 @@ function draw(el){
   wire(el);
 }
 function wire(el){
+  el.onkeydown=e=>{const r=e.target.closest&&e.target.closest('.cw-edit');if(r&&(e.key==='Enter'||e.key===' ')){e.preventDefault();editSheet(r.dataset.ev)}};
   el.onclick=e=>{
     const q=s=>e.target.closest(s);let x;
     if(x=q('[data-view]')){cal.view=x.dataset.view;try{localStorage.setItem('hub-cal-view',cal.view)}catch(er){}paint(true);return}
@@ -156,6 +157,7 @@ function wire(el){
     if(x=q('[data-who]')){cal.who=x.dataset.who;try{localStorage.setItem('hub-cal-who',cal.who)}catch(er){}watch();paint(true);return}
     if(x=q('[data-day]')){cal.sel=x.dataset.day;paint(true);return}
     if(q('[data-a="add"]')){addSheet();return}
+    if(x=q('.cw-edit')){if(!e.target.closest('.cw-tick')){editSheet(x.dataset.ev);return}}
     if(x=q('.cw-tick')){x.classList.add('on');const id=x.dataset.id;setTimeout(()=>{if(x.dataset.k==='task')completeTask(id);else completeChoreFromWidget(id,el,()=>paint(true))},160);return}
   };
 }
@@ -226,6 +228,61 @@ function addSheet(){
         await window.tdAddTask(p,{who});close();paint(true);
       }
     }catch(err){console.warn(err);toast('Couldn’t add that — check your connection and try again');if(go)go.disabled=false}
+  });
+}
+
+
+/* ---------- edit or delete an event ---------- */
+function findEv(id){
+  for(const p of [me(),other()]){const a=cal.ev[p]||(p===me()?state.events:null)||[];const e=a.find(x=>x.id===id);if(e)return {e,p}}
+  return null;
+}
+async function patchEvent(id,patch){
+  for(const p of [me(),other()]){
+    const ref=evRef(p);
+    await db.runTransaction(async t=>{const sn=await t.get(ref);const a=sn.exists&&sn.data().json?parse(sn):[];const i=a.findIndex(x=>x.id===id);if(i<0)return;a[i]=Object.assign({},a[i],patch);t.set(ref,{json:JSON.stringify(a)})});
+  }
+}
+function editSheet(id){
+  const hit=findEv(id);if(!hit)return;
+  const ev=hit.e,orig=JSON.parse(JSON.stringify(ev)),owner=ev.mirrored?ev.ownerProfile:hit.p,shared=!!ev.shared,rec=!!(ev.recurring&&ev.repeat);
+  document.querySelectorAll('.cw-sheet').forEach(x=>x.remove());
+  const m=document.createElement('div');m.className='cw-sheet';m.setAttribute('role','dialog');m.setAttribute('aria-label','Edit event');
+  m.innerHTML='<form class="cw-sb"><div class="cw-sh"><b>Edit event</b><button type="button" data-x aria-label="Close">✕</button></div>'+
+    '<input class="cw-ti" type="text" maxlength="160" value="'+esc(ev.title||'')+'" aria-label="Title">'+
+    '<div class="cw-dt"><label>Day<input type="date" data-e="date" value="'+esc(ev.date||ev.startDate||'')+'"'+(rec?' disabled title="This event repeats; change the day in the Calendar app"':'')+'></label><label>Time<input type="time" data-e="time" value="'+esc(ev.time||'')+'"></label><label>Until<input type="time" data-e="end" value="'+esc(ev.endTime||'')+'"></label></div>'+
+    '<input class="cw-ti" data-e="loc" type="text" maxlength="120" placeholder="Place (optional)" value="'+esc(ev.location||'')+'" aria-label="Place">'+
+    (rec?'<div class="cw-read">Repeats. Changes apply to every day it repeats.</div>':'')+(shared?'<div class="cw-read">Shared. Changes apply for both of you.</div>':'')+
+    '<div class="cw-act"><button type="button" data-del class="cw-danger">Delete</button><span style="flex:1"></span><button type="button" data-x>Cancel</button><button type="submit" class="go">Save</button></div></form>';
+  document.body.appendChild(m);
+  const close=()=>{document.removeEventListener('keydown',key,true);m.remove()};
+  const key=e=>{if(e.key==='Escape'){e.preventDefault();e.stopPropagation();close()}};document.addEventListener('keydown',key,true);
+  const ti=m.querySelector('.cw-ti');ti.focus();
+  m.addEventListener('click',async e=>{
+    if(e.target===m){close();return}
+    const b=e.target.closest('button');if(!b)return;
+    if(b.hasAttribute('data-x')){close();return}
+    if(b.hasAttribute('data-del')){
+      b.disabled=true;
+      try{
+        await removeEvent(owner,id,shared);close();paint(true);
+        const back=Object.assign({},orig);delete back.mirrored;delete back.ownerProfile;
+        toast('Deleted “'+(orig.title||'event')+'”','Undo',async()=>{await writeEvent(owner,back,shared);paint(true)});
+      }catch(err){console.warn(err);toast('Couldn’t delete that. Check your connection and try again');b.disabled=false}
+    }
+  });
+  m.addEventListener('submit',async e=>{
+    e.preventDefault();
+    const g=k=>{const x=m.querySelector('[data-e="'+k+'"]');return x?x.value:''};
+    const title=(m.querySelector('.cw-ti').value||'').trim();if(!title){toast('An event needs a title');return}
+    const patch={title,time:g('time')||null,endTime:g('end')||null,location:g('loc').trim()||null};
+    if(!rec&&g('date')){patch.date=g('date')}
+    const go=m.querySelector('.go');go.disabled=true;
+    try{
+      const was={title:orig.title,time:orig.time||null,endTime:orig.endTime||null,location:orig.location||null,date:orig.date};
+      await patchEvent(id,patch);close();paint(true);
+      toast('Saved','Undo',async()=>{const back={title:was.title,time:was.time,endTime:was.endTime,location:was.location};if(!rec&&was.date!==undefined)back.date=was.date;await patchEvent(id,back);paint(true)});
+    }catch(err){console.warn(err);toast('Couldn’t save that. Check your connection and try again');go.disabled=false}
   });
 }
 

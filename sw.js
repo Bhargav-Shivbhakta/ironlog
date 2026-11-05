@@ -1,4 +1,4 @@
-const CACHE_NAME = 'fit-hub-v90';
+const CACHE_NAME = 'fit-hub-v94';
 // Every page + shared asset the Hub actually needs to work offline on a
 // completely fresh install — not just the Hub shell itself. Before this,
 // only 7 files were pre-cached at install; everything else (every app
@@ -11,7 +11,7 @@ const CACHE_NAME = 'fit-hub-v90';
 // here means they're all ready offline from the very first install.
 const ASSETS = [
   './', './index.html', './manifest.json', './icon-192.png', './icon-512.png', './icon-maskable-192.png', './icon-maskable-512.png',
-  './assets/app.css', './assets/laptop-look.css', './assets/laptop-look.js', './assets/app.js', './assets/banners.css', './assets/banners.js', './assets/theme.js', './assets/schedcats.js', './assets/voice.js', './assets/motion.css', './assets/motion.js', './assets/waterpantry.js', './assets/fscache.js', './assets/bhargav-plan.js', './assets/skin-plan.js', './assets/diet-core.js', './assets/skin-core.js', './assets/notes-core.js', './assets/todo-core.js', './assets/todo-widget.js', './assets/calendar-core.js', './assets/calendar-widget.js', './assets/firebase-config.js', './assets/ticklog.js', './assets/phone-home.js', './assets/phone-home.css',
+  './assets/app.css', './assets/laptop-look.css', './assets/laptop-look.js', './assets/budget-widget.js', './assets/grocery-widget.js', './assets/pledge-widget.js', './assets/widget-settings-extra.js', './assets/laptop-widgets.js', './assets/app.js', './assets/banners.css', './assets/banners.js', './assets/theme.js', './assets/schedcats.js', './assets/voice.js', './assets/motion.css', './assets/motion.js', './assets/waterpantry.js', './assets/fscache.js', './assets/bhargav-plan.js', './assets/skin-plan.js', './assets/diet-core.js', './assets/skin-core.js', './assets/notes-core.js', './assets/todo-core.js', './assets/todo-widget.js', './assets/calendar-core.js', './assets/calendar-widget.js', './assets/firebase-config.js', './assets/ticklog.js', './assets/phone-home.js', './assets/phone-home.css',
   './apps/todo.html', './apps/diet.html', './apps/schedule.html', './apps/grocery.html',
   './apps/chores.html', './apps/skin.html', './apps/calendar.html', './apps/clock.html',
   './apps/budget.html', './apps/pledge.html', './apps/checklist.html',
