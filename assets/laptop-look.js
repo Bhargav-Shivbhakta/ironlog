@@ -98,5 +98,38 @@
   });
   new MutationObserver(function(){foldSched()}).observe(document.documentElement,{childList:true,subtree:true});
   window.__lapFold=foldSched;
+
+  /* ---- Every other widget: secondary parts sit behind one "More" bar per card (nothing removed; choice remembered) ---- */
+  var MORE={
+    water:{sel:'[data-blk="plan"],[data-blk="week"],[data-blk="pattern"],.wt-colB',label:'Plan & history'},
+    skin:{sel:'[data-blk="coming"],[data-blk="heat"],[data-blk="cab"],[data-blk="trk"],[data-blk="rev"]',label:'Next nights, stock & review'},
+    diet:{sel:'[data-blk="micro"],[data-blk="week"],[data-blk="flex"],[data-blk="streak"],[data-blk="energy"],[data-blk="weight"],.dt-micro,.dt-week,.dt-flex',label:'Nutrients & week'},
+    training:{sel:'.pt-week',label:'This week'},
+    agenda:{sel:'.cw-fest,[data-blk="upcoming"]',label:'Festivals & next 7 days'},
+    notes:{sel:'.nw-top',label:'Arrange'}
+  };
+  var moreState={};try{moreState=JSON.parse(localStorage.getItem('hub-lap-more')||'{}')||{}}catch(e){}
+  function foldMore(){
+    if(!d.classList.contains('lap-look'))return;
+    document.querySelectorAll('.widget-card').forEach(function(c){
+      var t=c.dataset.widgetType,m=MORE[t];if(!m)return;
+      var n=0;try{n=c.querySelectorAll(m.sel.split(',').filter(function(x){return x.indexOf('.wt-colB')<0}).join(',')).length}catch(e){}
+      var b=c.querySelector(':scope>.lap-morebtn');
+      if(!n){if(b)b.remove();return}
+      if(!b){b=document.createElement('button');b.type='button';b.className='lap-morebtn';c.appendChild(b);
+        if(moreState[t])c.classList.add('lap-more')}
+      var on=c.classList.contains('lap-more');
+      var txt=(on?'Show less':'More · '+m.label);if(b.textContent!==txt)b.textContent=txt;
+    });
+  }
+  document.addEventListener('click',function(e){
+    var b=e.target.closest&&e.target.closest('.lap-morebtn');if(!b)return;
+    var c=b.closest('.widget-card'),t=c.dataset.widgetType;
+    var on=c.classList.toggle('lap-more');moreState[t]=on;
+    try{localStorage.setItem('hub-lap-more',JSON.stringify(moreState))}catch(x){}
+    foldMore();
+  });
+  new MutationObserver(function(){foldMore()}).observe(document.documentElement,{childList:true,subtree:true});
+  window.__lapMore=foldMore;
   apply();if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',paint);
 })();

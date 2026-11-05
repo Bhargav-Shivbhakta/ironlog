@@ -185,3 +185,21 @@ html.lap-look body::before{content:"";position:fixed;z-index:-1;inset:0;backgrou
 .lap-look .widget-card[data-widget-type="skin"]{--ac:#E0508F!important}
 .lap-look .widget-card[data-widget-type="cook"]{--ac:#E5801F!important}
 }
+
+@media(min-width:701px){
+.lap-look .widget-card[data-widget-type="water"]:not(.lap-more) :is([data-blk="plan"],[data-blk="week"],[data-blk="pattern"],.wt-colB){display:none!important}
+.lap-look .widget-card[data-widget-type="skin"]:not(.lap-more) :is([data-blk="coming"],[data-blk="heat"],[data-blk="cab"],[data-blk="trk"],[data-blk="rev"]){display:none!important}
+.lap-look .widget-card[data-widget-type="diet"]:not(.lap-more) :is([data-blk="micro"],[data-blk="week"],[data-blk="flex"],[data-blk="streak"],[data-blk="energy"],[data-blk="weight"],.dt-micro,.dt-week,.dt-flex){display:none!important}
+.lap-look .widget-card[data-widget-type="training"]:not(.lap-more) :is(.pt-week){display:none!important}
+.lap-look .widget-card[data-widget-type="agenda"]:not(.lap-more) :is(.cw-fest,[data-blk="upcoming"]){display:none!important}
+.lap-look .widget-card[data-widget-type="notes"]:not(.lap-more) :is(.nw-top){display:none!important}
+.lap-look .widget-card>.lap-morebtn{flex:none;margin:10px 0 0;align-self:stretch;padding:8px 12px;border-radius:12px;border:.5px solid rgba(255,255,255,.14);background:rgba(255,255,255,.07);color:rgba(255,255,255,.82);font:600 12px/1 inherit;font-family:inherit;cursor:pointer;text-align:center}
+.lap-look .widget-card>.lap-morebtn:hover{background:rgba(255,255,255,.14);color:#fff}
+}
+
+.lap-morebtn{display:none}
+@media(min-width:701px){.lap-look .widget-card>.lap-morebtn{display:block}}
+@media(min-width:701px){
+.lap-look{--accent-ink:#F4F2FF!important}
+.lap-look .lap-titlebar #lap-search{display:none!important}
+}

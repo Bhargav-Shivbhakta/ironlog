@@ -22,7 +22,8 @@ const CAL_SETTINGS=[
   {key:'fmt',label:'Time format',type:'seg',opts:[['12','12 h'],['24','24 h']],def:'12'},
   {key:'add',label:'Add button',hint:'Off makes this a view-only widget',type:'bool',def:true}
 ];
-const cal={ev:{},got:{},un:{},unR:null,sel:null,who:'me',paintT:null,t:0};
+const cal={ev:{},got:{},un:{},unR:null,sel:null,who:'me',paintT:null,t:0,view:'strip',mon:0};
+try{const v2=localStorage.getItem('hub-cal-view');if(v2==='grid')cal.view='grid'}catch(e){}
 try{const v=localStorage.getItem('hub-cal-who');if(v==='me'||v==='other'||v==='both')cal.who=v}catch(e){}
 const me=()=>state.profile,other=()=>state.profile==='Anusha'?'Bhargav':'Anusha';
 const S=()=>wsAll(state.widgets.find(x=>x.type==='agenda'),WIDGET_TYPES.agenda);
@@ -94,13 +95,13 @@ function row(it,S0,dim){
   return '<div class="cw-row cw-'+it.k+(it.od?' od':'')+(dim?' dim':'')+'">'+lead+'<span class="cw-c"><b>'+esc(it.title)+'</b>'+(sub?'<small>'+esc(sub)+'</small>':'')+'</span></div>';
 }
 function draw(el){
-  const S0=S(),t0=today(),nowD=new Date(),nowM=nowD.getHours()*60+nowD.getMinutes(),sel=cal.sel&&cal.sel>=t0?cal.sel:t0;
+  const S0=S(),t0=today(),nowD=new Date(),nowM=nowD.getHours()*60+nowD.getMinutes(),sel=cal.sel&&(cal.sel>=t0||cal.view==='grid')?cal.sel:t0;
   const days=Math.max(1,parseInt(S0.days,10)||7),foc=document.activeElement;
   const fl=festLine(sel);
   let h='<div class="cw-root">';
   const _m1=h.length;
   h=h.slice(0,_m1)+BKW('bar',h.slice(_m1));
-  h+='<div class="cw-bar"><div class="cw-who" role="tablist">'+[['me','Me'],['other',other()],['both','Both']].map(([k,l])=>'<button type="button" role="tab" data-who="'+k+'" class="'+(cal.who===k?'on':'')+'">'+esc(l)+'</button>').join('')+'</div>'+(S0.add?'<button type="button" class="cw-plus" data-a="add" aria-label="Add to calendar">+</button>':'')+'</div>';
+  h+='<div class="cw-bar"><div class="cw-who" role="tablist">'+[['me','Me'],['other',other()],['both','Both']].map(([k,l])=>'<button type="button" role="tab" data-who="'+k+'" class="'+(cal.who===k?'on':'')+'">'+esc(l)+'</button>').join('')+'</div>'+(S0.week?'<div class="cw-vt" role="tablist" aria-label="Calendar view">'+[['strip','Strip'],['grid','Grid']].map(([k,l])=>'<button type="button" role="tab" data-view="'+k+'" class="'+(cal.view===k?'on':'')+'">'+l+'</button>').join('')+'</div>':'')+(S0.add?'<button type="button" class="cw-plus" data-a="add" aria-label="Add to calendar">+</button>':'')+'</div>';
   const _m2=h.length;
   h=h.slice(0,_m2)+BKW('fest',h.slice(_m2));
   if(S0.fest&&(fl.tithi||fl.fests.length))h+='<div class="cw-fest'+(fl.big?' big':'')+'"><span>'+fl.moon+' '+esc(fl.tithi)+'</span>'+fl.fests.map(f=>'<b>'+esc(f)+'</b>').join('')+'</div>';
@@ -112,7 +113,19 @@ function draw(el){
   }
   h=h.slice(0,_m3)+BKW('next',h.slice(_m3));
   const _m4=h.length;
-  if(S0.week){
+  if(S0.week&&cal.view==='grid'){
+    const base=new Date(t0+'T12:00:00');base.setDate(1);base.setMonth(base.getMonth()+cal.mon);
+    const y=base.getFullYear(),mo=base.getMonth(),first=new Date(y,mo,1,12).getDay(),dim=new Date(y,mo+1,0).getDate(),rows=Math.ceil((first+dim)/7);
+    const iso=(yy,mm,dd)=>yy+'-'+String(mm+1).padStart(2,'0')+'-'+String(dd).padStart(2,'0');
+    h+='<div class="cw-mh"><b>'+base.toLocaleDateString([],{month:'long',year:'numeric'})+'</b><span><button type="button" data-mon="-1" aria-label="Previous month">‹</button><button type="button" data-mon="0">Today</button><button type="button" data-mon="1" aria-label="Next month">›</button></span></div>';
+    h+='<div class="cw-grid"><div class="cw-gh">'+['S','M','T','W','T','F','S'].map(x=>'<small>'+x+'</small>').join('')+'</div><div class="cw-gb">';
+    for(let c=0;c<rows*7;c++){
+      const dn=c-first+1,dt=new Date(y,mo,dn,12),d=iso(dt.getFullYear(),dt.getMonth(),dt.getDate()),out=dn<1||dn>dim;
+      const n=itemsFor(d,S0).filter(x=>x.k!=='chore').length,f=festLine(d);
+      h+='<button type="button" data-day="'+d+'" class="cw-gd'+(d===sel?' on':'')+(d===t0?' now':'')+(out?' out':'')+'" aria-label="'+d+(n?', '+n+' items':'')+'"><b>'+dt.getDate()+'</b><i>'+(f.big?f.moon:'')+'</i><u>'+(n?'•'.repeat(Math.min(4,n)):'')+'</u></button>';
+    }
+    h+='</div></div>';
+  }else if(S0.week){
     h+='<div class="cw-week">'+Array.from({length:7},(_,i)=>{const d=addDays(t0,i),n=itemsFor(d,S0).filter(x=>x.k!=='chore').length,f=festLine(d);
       return '<button type="button" data-day="'+d+'" class="'+(d===sel?'on':'')+(i===0?' now':'')+'"><small>'+(i===0?'Today':['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][new Date(d+'T12:00:00').getDay()])+'</small><b>'+new Date(d+'T12:00:00').getDate()+'</b><i>'+(f.big?(f.moon):'')+(n?'<u>'+'•'.repeat(Math.min(3,n))+'</u>':'')+'</i></button>'}).join('')+'</div>';
   }
@@ -138,6 +151,8 @@ function draw(el){
 function wire(el){
   el.onclick=e=>{
     const q=s=>e.target.closest(s);let x;
+    if(x=q('[data-view]')){cal.view=x.dataset.view;try{localStorage.setItem('hub-cal-view',cal.view)}catch(er){}paint(true);return}
+    if(x=q('[data-mon]')){const v=+x.dataset.mon;cal.mon=v===0?0:cal.mon+v;if(v===0)cal.sel=null;paint(true);return}
     if(x=q('[data-who]')){cal.who=x.dataset.who;try{localStorage.setItem('hub-cal-who',cal.who)}catch(er){}watch();paint(true);return}
     if(x=q('[data-day]')){cal.sel=x.dataset.day;paint(true);return}
     if(q('[data-a="add"]')){addSheet();return}
