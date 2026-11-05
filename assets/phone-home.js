@@ -743,17 +743,18 @@ const mini=k=>{if(vivid()){if(k==='calendar')return`<div class="mt vv" style="ba
 // keyed DOM: one element per item, only transforms change when things move
 const EL=new Map();
 function mkEl(it){const el=document.createElement('div');el.dataset.id=it.id;el.className='it';el.style.setProperty('--jd',(-Math.random()*.27).toFixed(3)+'s');el.style.setProperty('--ja',(.8+Math.random()*.7).toFixed(2)+'deg');el.innerHTML='<div class="in"></div>';EL.set(it.id,el);return el}
+const setH=(n,h)=>{if(!n||n._h===h)return;n._h=h;n.innerHTML=h};
 function fillEl(it,el){el.className=('it '+(it.t==='w'?it.z:it.t==='f'?'f':'a')+(el.classList.contains('ghost')?' ghost':'')+(el.classList.contains('fldt')?' fldt':'')+(el.classList.contains('fl')?' fl':''));el.dataset.z=it.t==='w'?it.z:'';const n=el.firstChild;
- if(it.t==='a')n.innerHTML=icon(it.k,'<i class="x" data-rm="'+it.id+'">−</i>');
- else if(it.t==='f')n.innerHTML=`<div class="app" data-f="${it.id}">${fTile(it)}<span>${it.name}</span></div><i class="x" data-rm="${it.id}">−</i>`;
- else{const wk=curW(it),stk=it.ws.length>1,an=el._an||'';el._an='';n.innerHTML=`<div class="w${stk?' stk':''} ${an}" data-wk="${wk}"${WG[wk].open?` data-wo="${WG[wk].open}"`:''}>${WG[wk].html(it.z,it)}</div>${it.z==='xs'?'':`<div class="wl">${esc(WG[wk].n)}</div>`}${stk?`<div class="sdt">${it.ws.map((_,i)=>`<i class="${i===it.si?'on':''}"></i>`).join('')}</div>`:''}<i class="x" data-rm="${it.id}">✕</i><i class="rz" data-rz="${it.id}"></i>`}}
+ if(it.t==='a')setH(n,icon(it.k,'<i class="x" data-rm="'+it.id+'">−</i>'));
+ else if(it.t==='f')setH(n,`<div class="app" data-f="${it.id}">${fTile(it)}<span>${it.name}</span></div><i class="x" data-rm="${it.id}">−</i>`);
+ else{const wk=curW(it),stk=it.ws.length>1,an=el._an||'';el._an='';setH(n,`<div class="w${stk?' stk':''} ${an}" data-wk="${wk}"${WG[wk].open?` data-wo="${WG[wk].open}"`:''}>${WG[wk].html(it.z,it)}</div>${it.z==='xs'?'':`<div class="wl">${esc(WG[wk].n)}</div>`}${stk?`<div class="sdt">${it.ws.map((_,i)=>`<i class="${i===it.si?'on':''}"></i>`).join('')}</div>`:''}<i class="x" data-rm="${it.id}">✕</i><i class="rz" data-rz="${it.id}"></i>`)}}
 function placeEl(it){const el=EL.get(it.id);if(!el)return;const[w,h]=dims(it);el.style.width=(w*COLW+(w-1)*10)+'px';el.style.height=(h*ROWH+(h-1)*10)+'px';el.style.transform=`translate3d(${it.c*PX}px,${it.r*PY}px,0)`}
 function placeAll(items){items.forEach(placeEl)}
 function render(){const pgs=$('#pgs');if(pgs.children.length!==pages.length+1){pgs.innerHTML=pages.map((_,i)=>`<div class="pg" data-p="${i}"><div class="g"></div></div>`).join('')+`<div class="pg lib" data-p="${pages.length}"><div class="srch"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="6.5"/><path d="M16 16l4 4"/></svg><input id="srch" placeholder="App Library"><span class="cx2" id="cx2">Cancel</span></div><div id="libbody"></div></div>`;drawLib()}
  const ids=new Set();pages.forEach((p,i)=>{const g=pgs.children[i].querySelector('.g');p.forEach(it=>{ids.add(it.id);let el=EL.get(it.id);if(!el){el=mkEl(it);fillEl(it,el)}if(el.parentNode!==g)g.appendChild(el);placeEl(it)})});
  for(const[id,el]of[...EL]){if(!ids.has(id)){el.remove();EL.delete(id)}}
  document.querySelectorAll('#ph .g').forEach(g=>g.style.height=(ROWS*PY-10)+'px');pgs.style.transform=`translateX(${-cur*100}%)`;drawDock();if(!$('#dots').classList.contains('pg'))setDots(false)}
-function drawDock(){$('#dock').innerHTML=dock.map(k=>`<div class="dk">${icon(k,'<i class="x" data-drm="'+k+'">−</i>')}</div>`).join('')+(editing&&dock.length<4?'<div class="dk"><button class="dadd" id="dadd" aria-label="Add to Dock">+</button></div>':'')}
+function drawDock(){setH($('#dock'),dock.map(k=>`<div class="dk">${icon(k,'<i class="x" data-drm="'+k+'">−</i>')}</div>`).join('')+(editing&&dock.length<4?'<div class="dk"><button class="dadd" id="dadd" aria-label="Add to Dock">+</button></div>':''))}
 function refresh(){pages.forEach(p=>p.forEach(it=>{let el=EL.get(it.id);if(!el)el=mkEl(it);fillEl(it,el)}));drawDock();if(todayOn)drawToday();afterRender()}
 function drawPages(){render();refresh();drawLib($('#srch')&&$('#srch').value)}
 
@@ -858,7 +859,7 @@ function drawToday(){const t=$('#td');if(!t)return;let g='',d='';try{g=greeting(
  const cards=tdItems.map(tdCard).join('');
  const empty=!tdItems.length?`<div class="tde"><b>Nothing here yet</b><span>Tap Edit, then add the widgets you want on this page.</span></div>`:'';
  const add=tdEdit?`<button class="tdad" id="tdad" style="grid-column:span 4;grid-row:span 1">+ Add widget</button>`:'';
- t.innerHTML=`<div class="tdh"><div><small>${esc(d)}</small><b>${esc(g)}</b></div><span class="tdbt"><button class="tdx${tdEdit?' on':''}" id="tded">${tdEdit?'Done':'Edit'}</button><button class="tdx" id="tdx">Close</button></span></div><div class="tdb${tdEdit?' edt':''}" id="tdb"><div class="tdg">${cards}${empty}${add}</div></div>`;
+ setH(t,`<div class="tdh"><div><small>${esc(d)}</small><b>${esc(g)}</b></div><span class="tdbt"><button class="tdx${tdEdit?' on':''}" id="tded">${tdEdit?'Done':'Edit'}</button><button class="tdx" id="tdx">Close</button></span></div><div class="tdb${tdEdit?' edt':''}" id="tdb"><div class="tdg">${cards}${empty}${add}</div></div>`);
  const nb=t.querySelector('.tdb');if(nb)nb.scrollTop=keep}
 function openToday(){if(todayOn||editing||view!=='home')return;closeMenu();todayOn=true;drawToday();const t=$('#td');t.style.transition='';t.style.transform='';t.classList.add('on');$('#ph').classList.add('tdopen');view='home'}
 function closeToday(){if(!todayOn)return;todayOn=false;const t=$('#td');t.style.transition='';t.style.transform='';t.classList.remove('on','pk');$('#ph').classList.remove('tdopen')}
@@ -1019,13 +1020,14 @@ document.addEventListener('pointerdown',()=>{suppress=false},true);
 document.addEventListener('pointercancel',e=>{clr();if(swd){const c=swd.c;swd=null;if(c){c.classList.remove('drg');c.style.transform='';c.style.opacity=1}}if(drag){const d=drag;drag=null;if(raf){cancelAnimationFrame(raf);raf=0}clearTimeout(d.et);clearTimeout(d.ft);clearTimeout(d.rt);d.cl&&d.cl.remove();document.querySelectorAll('.fldt,.ghost,.dgh').forEach(x=>x.classList.remove('fldt','ghost','dgh'));$('#dock').classList.remove('dtg');render();refresh()}if(sw){$('#pgs').classList.remove('nt');go(cur);sw=null}pos0=null});
 const SZN={xs:'Extra small',s:'Small',m:'Medium',l:'Large'};
 const PRML=[100,150,200,250,300,330,500,750,1000],PROZ=[4,6,8,12,16,20,24,32].map(o=>Math.round(o*OZ_ML));
-let setId=null;
+let setId=null,setSel=null;
 function waterSet(sz,w){const presets=wUnitOz()?PROZ:PRML;const ch=k=>presets.map(v=>`<button data-k="${k}" data-v="${v}" class="${Math.abs((w[k]||0)-v)<2?'on':''}">+${unitAmt(v)}</button>`).join('');
  const two=sz==='m'||sz==='l';const hh=m=>{const h=Math.floor(m/60);return h===0||h===24?'12 AM':h>12?h-12+' PM':h===12?'12 PM':h+' AM'};const[a,b]=wWin();
  return `<div class="mu">Goal and buttons are the same Water settings the Hub uses everywhere.</div><div class="lbl">DAILY GOAL</div><div class="stp"><button data-g="${-250}">−</button><b>${bigAmt(w.goal)}</b><button data-g="250">+</button></div><div class="lbl">${two?'BUTTON 1 · '+(w.ncup||'Cup'):'BUTTON · '+(w.ncup||'Cup')}</div><div class="chips">${ch('cup')}</div>${two?`<div class="lbl">BUTTON 2 · ${w.nbottle||'Bottle'}</div><div class="chips">${ch('bottle')}</div>`:''}<div class="lbl">TAP TWICE TO UNDO</div><div class="chips"><button data-t="1" class="${prefs.dbl?'on':''}">On</button><button data-t="0" class="${prefs.dbl?'':'on'}">Off</button></div>${two?`<div class="lbl">TIMELINE: DAY STARTS</div><div class="stp"><button data-h="start:-1">−</button><b style="font-size:16px">${hh(a)}</b><button data-h="start:1">+</button></div><div class="lbl">TIMELINE: DAY ENDS</div><div class="stp"><button data-h="end:-1">−</button><b style="font-size:16px">${hh(b)}</b><button data-h="end:1">+</button></div>`:''}`}
-function openSet(id){const it=findItem(+id);if(!it||it.t!=='w')return;setId=it.id;const k=curW(it),sz=it.z;it.o=it.o||{};
+function openSet(id){const it=findItem(+id);if(!it||it.t!=='w')return;if(setId!==it.id)setSel=null;setId=it.id;const k=curW(it),sz=it.z;it.o=it.o||{};
  let h=`<div class="grab"></div><h3>${WG[k].n} · ${SZN[sz]} widget</h3>`;
- h+=`<div class="lbl">IN THIS WIDGET${it.ws.length>1?' · SWIPE UP/DOWN ON IT TO FLIP':''}</div><div class="chips">${WKEYS.map(x=>`<button data-sk="${x}" class="${it.ws.includes(x)?'on':''}">${WG[x].n}</button>`).join('')}</div><div class="mu" style="margin-top:6px">Turn on more than one to make a stack. Showing now: ${WG[k].n}.</div>`;
+ const sel=`<div class="lbl">IN THIS WIDGET${it.ws.length>1?' · SWIPE UP/DOWN ON IT TO FLIP':''}</div><div class="chips">${WKEYS.map(x=>`<button data-sk="${x}" class="${it.ws.includes(x)?'on':''}">${WG[x].n}</button>`).join('')}</div><div class="mu" style="margin-top:6px">Turn on more than one to make a stack. Showing now: ${WG[k].n}.</div>`;
+ const tail=(it.ws.length>1||setSel===it.id)?sel:`<button class="pbtn" data-selmore="1" style="width:100%;margin-top:14px;background:transparent;color:inherit;border:1px solid rgba(128,128,128,.4)">Change widget or make a stack</button>`;
  if(k==='water'){const w=WS();h+=w?waterSet(sz,w):'<div class="mu">Water is still loading</div>'}
  else if(k==='tasks')h+=`<div class="lbl">SHOW</div><div class="chips"><button data-tm="due" class="${it.o.tm==='all'?'':'on'}">Due today</button><button data-tm="all" class="${it.o.tm==='all'?'on':''}">All open tasks</button></div><div class="mu" style="margin-top:8px">Tap a circle to complete a task. Tap the widget to open To-Do.</div>`;
  else if(k==='pledge'){plKick(true);const L=plMine(),cu=plPick(it);h+=`<div class="lbl">WHICH PLEDGE</div><div class="chips">${L.length?L.map(p=>`<button data-pid="${esc(p.id)}" class="${cu&&cu.id===p.id?'on':''}">${esc(p.title)}</button>`).join(''):'<span class="mu">No pledges yet. Make one in the Pledge app.</span>'}</div><div class="mu" style="margin-top:8px">Add more Pledge widgets from the gallery to show other pledges side by side. Linked pledges tick themselves.</div>`}
@@ -1034,7 +1036,7 @@ function openSet(id){const it=findItem(+id);if(!it||it.t!=='w')return;setId=it.i
  else if(k==='notes')h+=`<div class="mu">Pick a list with the chips inside the Large widget. Lists and notes are the same ones in the Notes widget and the To-Do app.</div>`
  else if(['diet','chores','grocery','clock','insights','gym','skin'].includes(k))h+=`<div class="mu">${k==='grocery'||k==='insights'?'This widget is read only. ':''}Tap the widget header arrow to open ${WG[k].n}.</div>`
  else h+=`<div class="lbl">INCLUDE</div><div class="chips"><button data-rb="1" class="${it.o.rb===false?'':'on'}">Routine blocks and events</button><button data-rb="0" class="${it.o.rb===false?'on':''}">Events only</button></div><div class="mu" style="margin-top:8px">Tap the widget to open Schedule.</div>`;
- h+=`<button class="dn" id="dn">Done</button>`;$('#shi').innerHTML=h;$('#sheet').classList.add('on')}
+ h+=tail;h+=`<button class="dn" id="dn">Done</button>`;$('#shi').innerHTML=h;$('#sheet').classList.add('on')}
 // ---- sheet clicks: close, open from sheet, add widget, water settings ----
 $('#shi').addEventListener('click',e=>{if(e.target.closest&&e.target.closest('#dn')){$('#sheet').classList.remove('on');return}
  const dkp=e.target.closest('[data-dk]');if(dkp){const k=dkp.dataset.dk;if(dock.length>=4){toast('The Dock is full');return}const sn=snap();dock.push(k);$('#sheet').classList.remove('on');drawDock();persist();toast(AP[k][0]+' added to the Dock',()=>restore(sn));return}
@@ -1047,6 +1049,7 @@ $('#shi').addEventListener('click',e=>{if(e.target.closest&&e.target.closest('#d
  if(b.dataset.gadd&&galTd){const z=b.dataset.gadd;const it=W(z==='xs'?'s':z,gk==='stack'?STK:[gk]);tdItems.push(it);galTd=false;$('#sheet').classList.remove('on');drawToday();persist();toast((gk==='stack'?'Widget stack':WG[gk].n+' widget')+' added');return}
  if(b.dataset.gadd){const z=b.dataset.gadd;const it=W(z,gk==='stack'?STK:[gk]);const pi=addItem(it,cur);$('#sheet').classList.remove('on');render();refresh();go(pi);persist();toast((gk==='stack'?'Widget stack':WG[gk].n+' widget')+' added · drag to move it');return}
  const it=findItem(setId);
+ if(b.dataset.selmore&&it){setSel=it.id;openSet(it.id);return}
  if(b.dataset.sk&&it){const k=b.dataset.sk,i=it.ws.indexOf(k);if(i>=0){if(it.ws.length<2){toast('A widget needs at least one');return}const was=curW(it);it.ws.splice(i,1);it.si=Math.max(0,it.ws.indexOf(was));if(it.si<0)it.si=0}else{it.ws.push(k);it.si=it.ws.length-1}refreshOne(it);persist();openSet(it.id);return}
  if(b.dataset.tm&&it){it.o.tm=b.dataset.tm;refreshOne(it);persist();openSet(it.id);return}
  if(b.dataset.who!=null&&it){it.o.who=b.dataset.who;TKL.ld=0;refreshOne(it);persist();openSet(it.id);return}
@@ -1132,7 +1135,7 @@ function apply(){const on=active();document.body.classList.toggle('ph-on',on);if
  // turned on while looking at another Hub page (Settings): stay there, the bar gets you home
  if(started&&view==='home'&&pgAct&&pgAct.dataset.page!=='today'&&!frameOpen()){$('#ph').classList.add('away');view='route';routeNow=pgAct.dataset.page}}
 function ready(){return typeof state!=='undefined'&&state.user&&state.profile&&document.getElementById('app-shell')&&!document.getElementById('app-shell').hidden&&typeof ensureWater==='function'}
-let sig='';const taskSig=()=>{try{if(!hasTasks())return 0;return dueTasks().map(t=>t.id).join(',')+'|'+state.personalTasks.length+'|'+(state.events||[]).length}catch(e){return 1}};
+let sig='';const taskSig=()=>{try{if(!hasTasks())return 0;return dueTasks().map(t=>t.id).sort().join(',')+'|'+state.personalTasks.length+'|'+(state.events||[]).length}catch(e){return 1}};
 // shared "data changed" signal (see HubSync in app.js): drop the small caches and repaint so a tick anywhere shows here at once
 let hdT=null;
 window.addEventListener('hub-data-changed',e=>{try{const k=(e.detail&&e.detail.kinds)||[];
