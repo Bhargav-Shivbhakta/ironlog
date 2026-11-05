@@ -768,7 +768,7 @@ const card=(title,ks)=>{const big=ks.length>4?ks.slice(0,3):ks;const rest=ks.len
 const all=Object.keys(AP);const byCat=c=>all.filter(k=>AP[k][1]===c);
 body.innerHTML=`<div class="cg">${card('Suggestions',['todo','calendar','schedule','gym'].filter(k=>AP[k]))}${rec.length?card('Recently Used',rec.slice(0,4)):''}${CATS.filter(c=>byCat(c).length).map(c=>card(c,byCat(c))).join('')}</div>`}
 let libScroll=0;
-function go(i){const lb=document.querySelector('#pgs .pg.lib');if(lb&&cur===pages.length)libScroll=lb.scrollTop;cur=Math.max(0,Math.min(pages.length,i));prefs.last={p:cur,t:Date.now()};try{localStorage.setItem(LS_PREF,JSON.stringify(prefs))}catch(e){}if(cur===pages.length){const si=$('#srch');drawLib(si&&si.value);const lb2=document.querySelector('#pgs .pg.lib');if(lb2)requestAnimationFrame(()=>{lb2.scrollTop=libScroll})}$('#pgs').style.transform=`translateX(${-cur*100}%)`;$('#ph').style.setProperty('--par',(-Math.min(cur,2)*14)+'px');setDots(true)}
+function go(i){const lb=document.querySelector('#pgs .pg.lib');if(lb&&cur===pages.length)libScroll=lb.scrollTop;cur=Math.max(0,Math.min(pages.length,i));prefs.last={p:cur,t:Date.now()};try{localStorage.setItem(LS_PREF,JSON.stringify(prefs))}catch(e){}if(cur===pages.length){const si=$('#srch');drawLib(si&&si.value);const lb2=document.querySelector('#pgs .pg.lib');if(lb2)requestAnimationFrame(()=>{lb2.scrollTop=libScroll})}$('#ph').classList.toggle('onlib',cur===pages.length);$('#pgs').style.transform=`translateX(${-cur*100}%)`;$('#ph').style.setProperty('--par',(-Math.min(cur,2)*14)+'px');setDots(true)}
 // apps / switcher
 // apps / switcher (real apps open in the Hub's own app viewer)
 const prx=()=>$('#ph').getBoundingClientRect();

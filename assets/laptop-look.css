@@ -153,3 +153,35 @@ html.lap-look body::before{content:"";position:fixed;z-index:-1;inset:0;backgrou
 .lap-look .sc-any.lap-fold h5 b{margin-left:auto;font-weight:600;background:rgba(255,255,255,.14);border-radius:99px;padding:0 8px;color:#fff;letter-spacing:0}
 .lap-look .sc-any.lap-fold{border-top:0;padding-top:0}
 }
+
+/* ===== no separate title bar: the installed app already has one. Search and + float over the page. ===== */
+@media(min-width:701px){
+:root.lap-look{--tb:0px}
+.lap-look .lap-titlebar{top:40px;left:auto;right:150px;height:auto;width:auto;padding:0;background:none;border:0;gap:8px;justify-content:flex-end;z-index:45;pointer-events:none}
+.lap-look .lap-titlebar>*{pointer-events:auto}
+.lap-look .lap-titlebar .lt-l,.lap-look .lap-titlebar .lt-wc{display:none!important}
+.lap-look .lap-titlebar .lt-r{min-width:0}
+.lap-look .lap-titlebar .lt-search{width:300px;max-width:30vw;background:rgba(20,24,40,.62);backdrop-filter:blur(18px) saturate(1.4);-webkit-backdrop-filter:blur(18px) saturate(1.4);border:.5px solid rgba(255,255,255,.16)}
+.lap-look .lap-titlebar .lt-add{margin:0;background:rgba(20,24,40,.62);backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);border:.5px solid rgba(255,255,255,.16)}
+.lap-look .sidebar>.brand{display:flex;order:-1;margin:0 0 14px;padding:0 6px}
+.lap-look .sidebar>.brand span:not(.brand-mark){display:none}
+.lap-look .main{padding-top:28px}
+}
+
+/* ---- readability on glass: lift any dark-coloured text, dim placeholders, keep text on bright fills legible ---- */
+@media(min-width:701px){
+.lap-look .widget-card ::placeholder{color:rgba(255,255,255,.62)!important;opacity:1}
+.lap-look .widget-card .wt-wc.today b,.lap-look .widget-card .wt-wc.today i{color:#ffe3a8!important}
+.lap-look .widget-card .sk-coming em,.lap-look .widget-card .sk-cd em{color:#f6cf86!important}
+.lap-look .widget-card .sk-cd .t-differin{background:rgba(120,140,255,.22)!important;color:#c6d2ff!important}
+.lap-look .widget-card .nw-ib,.lap-look .widget-card .nw-ib span,.lap-look .widget-card .nw-ib i{color:rgba(255,255,255,.88)!important}
+.lap-look .widget-card .nw-ib svg{stroke:currentColor}
+.lap-look .widget-card :is(.pt-in,.ptin,input,textarea,select){color:#fff}
+.lap-look .widget-card :is(button,.btn)[style*="--ac"],.lap-look .widget-card .on,.lap-look .widget-card [aria-pressed="true"]{text-shadow:0 1px 1px rgba(0,0,0,.28)}
+.lap-look .widget-card[data-widget-type="agenda"],.lap-look .widget-card[data-widget-type="skin"],.lap-look .widget-card[data-widget-type="cook"],.lap-look .widget-card[data-widget-type="diet"],.lap-look .widget-card[data-widget-type="grocery"],.lap-look .widget-card[data-widget-type="notes"]{--ac-ink:#fff}
+}
+@media(min-width:701px){
+.lap-look .widget-card[data-widget-type="agenda"]{--ac:#E5671F!important}
+.lap-look .widget-card[data-widget-type="skin"]{--ac:#E0508F!important}
+.lap-look .widget-card[data-widget-type="cook"]{--ac:#E5801F!important}
+}
