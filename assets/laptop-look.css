@@ -1,0 +1,56 @@
+/* Laptop "new look" — Mac feel, Windows controls. Everything is gated by html.lap-look
+   (desktop widths only), so Classic is exactly what it was. */
+.lap-titlebar,.lap-look-card{display:none}
+@media(min-width:701px){
+:root.lap-look,:root.lap-look[data-theme]{
+  --bg:transparent;--surface:rgba(44,44,48,.58);--surface-soft:rgba(255,255,255,.07);--line:rgba(255,255,255,.12);
+  --text:#fff;--muted:#a9adba;--faint:#80849a;--ink:#0a0f22;--accent:#4f7bff!important;--accent-soft:rgba(79,123,255,.2)!important;--accent-ink:#cfdcff;
+  --radius:20px;--shadow:0 10px 30px rgba(0,0,0,.28);color-scheme:dark;--gl-gold:#4f7bff!important;--gl-card:rgba(255,255,255,.07)}
+html.lap-look{background:radial-gradient(60% 70% at 12% 0%,#3c5bd9 0%,rgba(60,91,217,0) 62%),radial-gradient(55% 60% at 100% 55%,#0e8e99 0%,rgba(14,142,153,0) 62%),radial-gradient(50% 50% at 55% 110%,#6a3bd6 0%,rgba(106,59,214,0) 60%),#0a0f22;background-attachment:fixed;background-repeat:no-repeat}
+html.lap-look body{background:transparent;font-family:Inter,system-ui,-apple-system,"Segoe UI",sans-serif;-webkit-font-smoothing:antialiased;letter-spacing:-.01em}
+.lap-look .lap-titlebar{display:flex;position:fixed;z-index:40;top:0;left:0;right:0;height:40px;align-items:center;justify-content:space-between;padding-left:14px;background:rgba(14,18,34,.55);backdrop-filter:blur(24px) saturate(1.4);-webkit-backdrop-filter:blur(24px) saturate(1.4);border-bottom:.5px solid rgba(255,255,255,.1);color:#e6e8ef;-webkit-app-region:drag}
+.lap-titlebar .lt-l{display:flex;align-items:center;gap:10px;font-size:13px;font-weight:600}
+.lap-titlebar .lt-logo{width:18px;height:18px;border-radius:5px;background:linear-gradient(180deg,#6f93ff,#3558e0)}
+.lap-titlebar .lt-add{-webkit-app-region:no-drag;height:28px;padding:0 14px;border-radius:8px;border:0;background:rgba(255,255,255,.1);color:#d5d8e2;font:500 13px Inter,system-ui,sans-serif;display:flex;align-items:center;gap:8px;cursor:pointer;min-width:260px;justify-content:center}
+.lap-titlebar .lt-add:hover{background:rgba(255,255,255,.18);color:#fff}
+.lap-titlebar .lt-r{display:flex;align-items:center;-webkit-app-region:no-drag;min-width:92px;justify-content:flex-end}
+.lap-titlebar .lt-wc{display:none;width:46px;height:40px;border:0;background:none;place-items:center;color:#e6e8ef;cursor:pointer}
+.lap-titlebar .lt-wc:hover{background:rgba(255,255,255,.12)}.lap-titlebar .lt-wc.x:hover{background:#e81123}
+.lap-titlebar .lt-wc svg{width:12px;height:12px;fill:none;stroke:currentColor;stroke-width:1.2}
+@media(display-mode:standalone),(display-mode:window-controls-overlay),(display-mode:fullscreen){.lap-titlebar .lt-wc{display:grid}}
+/* sidebar: frosted glass under the title bar */
+.lap-look .sidebar{top:40px;background:rgba(255,255,255,.045);backdrop-filter:blur(30px) saturate(1.5);-webkit-backdrop-filter:blur(30px) saturate(1.5);border-right:.5px solid rgba(255,255,255,.1);color:#fff}
+.lap-look .main-nav button,.lap-look .signout{color:#d5d8e2;border-radius:10px;font-weight:500;font-size:14.5px;padding:10px 12px}
+.lap-look .main-nav button:hover,.lap-look .signout:hover{background:rgba(255,255,255,.1);color:#fff}
+.lap-look .main-nav button.active{background:rgba(255,255,255,.15);color:#fff}
+.lap-look .profile-control{background:rgba(255,255,255,.07);border:.5px solid rgba(255,255,255,.12);border-radius:14px}
+.lap-look .brand-mark{background:linear-gradient(180deg,#6f93ff,#3558e0);color:#fff}
+.lap-look .hub-weather{background:linear-gradient(180deg,rgba(60,60,64,.55),rgba(40,40,44,.55));border:.5px solid rgba(255,255,255,.14);border-radius:16px;box-shadow:inset 0 1px 0 rgba(255,255,255,.08)}
+.lap-look .hub-clock{color:#e6e8ef}
+/* content */
+.lap-look .main{padding-top:84px}
+.lap-look .app-frame-overlay{top:40px;background:transparent}
+.lap-look .surface,.lap-look .widget-card,.lap-look .settings-card{background:linear-gradient(180deg,rgba(60,60,64,.62),rgba(40,40,44,.62));border:.5px solid rgba(255,255,255,.14);border-radius:20px;box-shadow:inset 0 1px 0 rgba(255,255,255,.1),0 10px 30px rgba(0,0,0,.28);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px)}
+.lap-look .page-header h1,.lap-look .page-header h2{letter-spacing:-.03em;font-weight:700}
+.lap-look .eyebrow,.lap-look .section-kicker{letter-spacing:.06em;text-transform:uppercase;font-weight:600;color:#a9adba}
+.lap-look .widget-card-title strong{font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:#a9adba}
+.lap-look .button.primary,.lap-look button.primary{background:var(--accent);border-color:var(--accent);color:#fff}
+.lap-look .button:not(.primary){background:rgba(255,255,255,.12);border:0;color:#fff}
+.lap-look .task-check{border-color:rgba(255,255,255,.5);border-radius:50%}
+.lap-look .task-check:hover,.lap-look .task-check.done{background:var(--accent);border-color:var(--accent)}
+.lap-look .timeline-row.current{background:rgba(79,123,255,.16);border-radius:14px}
+.lap-look input,.lap-look select,.lap-look textarea{color:#fff;background:rgba(255,255,255,.09);border-color:rgba(255,255,255,.16)}
+.lap-look .status-strip{border-color:rgba(255,255,255,.12)}
+.lap-look .modal{background:rgba(30,32,44,.9);border:.5px solid rgba(255,255,255,.16)}
+.lap-look .widget-card-quick-add{background:rgba(255,255,255,.12);border:0;color:#fff}
+.lap-look .widget-card-quick-add:hover{background:var(--accent)}
+html.lap-look[data-theme=glass] .widget-card button.primary,html.lap-look[data-theme=glass] .widget-card .btn-primary,html.lap-look[data-theme=glass] .sk-tab.on,html.lap-look[data-theme=glass] .widget-card-quick-add:hover,html.lap-look[data-theme=glass] .brand-mark{color:#fff}
+html.lap-look[data-theme=glass] .timeline-row.current .timeline-content strong{color:#cfdcff}
+html.lap-look[data-theme=glass] .timeline-row.current{background:rgba(79,123,255,.16)}
+/* settings toggle */
+.lap-look-card{display:block}
+.lap-look-card .llk-row{display:flex;gap:8px;margin-top:12px}
+.lap-look-card .llk-row button{height:36px;padding:0 18px;border-radius:10px;border:1px solid var(--line);background:var(--surface-soft);color:var(--text);font:600 13.5px inherit;cursor:pointer}
+.lap-look-card .llk-row button.on{background:var(--accent);border-color:var(--accent);color:#fff}
+}
+@media(max-width:700px){.lap-look-card{display:none!important}}
