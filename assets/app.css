@@ -1985,3 +1985,7 @@ button.pw-st{cursor:pointer}.pw-st.done{background:var(--accent);border-color:va
 .cw-row.cw-edit{cursor:pointer;border-radius:8px}.cw-row.cw-edit:hover{background:var(--surface-soft)}
 .cw-act .cw-danger{color:var(--danger,#d64b3b);border-color:transparent}
 .cw-sb .cw-ti[data-e="loc"]{margin-top:2px}
+
+/* The opened-app bar (Back / title / profile / Refresh / Open in new tab) is gone so the app owns the whole screen.
+   Leaving the app: sidebar on laptop, bottom bar on phone. The elements stay in the page because scripts still read them. */
+.app-frame-bar{display:none!important}

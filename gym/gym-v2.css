@@ -1,0 +1,153 @@
+/* Training app: dark gym look (phones, <=700px). Everything is scoped to body.gv2 so the classic look and the laptop view are untouched. */
+body.gv2{
+  --bg:#0B0C0F;--surface:#16181D;--surface-alt:#23262D;--border:#262A32;--border-soft:#1E2127;
+  --text:#F4F5F7;--text-soft:#9AA0AE;--text-faint:#6F7584;
+  --accent:#C6F24E;--accent-soft:rgba(198,242,78,.14);--accent-deep:#C6F24E;--ink:#F4F5F7;
+  --success:#4CD07E;--success-soft:rgba(76,208,126,.16);--danger:#FF7A6B;--danger-soft:rgba(255,122,107,.15);
+  --info:#7FB2FF;--info-soft:rgba(127,178,255,.15);--shadow:none;--accent-a:var(--danger);--accent-b:var(--accent);
+  color-scheme:dark;background:var(--bg);color:var(--text);padding:0 0 96px;
+}
+body.gv2 .wrap{max-width:560px;padding:0 14px}
+body.gv2 .topbar,body.gv2 header.app-head{display:none}
+body.gv2 h1,body.gv2 h2,body.gv2 h3,body.gv2 h4{font-family:Inter,system-ui,sans-serif}
+body.gv2 .hero-title,body.gv2 .metric-value,body.gv2 .rr-num,body.gv2 .gv-big,body.gv2 .page-lead h2{font-family:"Barlow Condensed",Inter,sans-serif;font-weight:700;letter-spacing:.01em}
+
+/* top bar with the ⋯ menu */
+body.gv2 .gv-top{display:flex;align-items:center;justify-content:space-between;padding:calc(env(safe-area-inset-top,0px) + 14px) 2px 6px}
+body.gv2 .gv-top b{font:700 28px "Barlow Condensed",Inter,sans-serif;letter-spacing:.01em}
+body.gv2 .gv-more{width:40px;height:40px;border-radius:50%;border:0;background:var(--surface);color:var(--text);font-size:22px;line-height:1}
+.gv-top,.gv-menu,.gv-sheet,.gv-fab{display:none}
+body.gv2 .gv-top{display:flex}
+
+/* tabs */
+body.gv2 .nav-wrap{background:linear-gradient(var(--bg) 80%,transparent);padding:4px 0 10px}
+body.gv2 .segmented{background:var(--surface);max-width:none}
+body.gv2 .segmented button{color:var(--text-soft);font-size:13.5px;padding:9px 4px}
+body.gv2 .segmented button.active{background:var(--accent);color:#0B0C0F;box-shadow:none}
+body.gv2 .segmented button[data-view="diet"]{display:none}
+body.gv2 .page-lead{display:none}
+body.gv2 .view{animation:none}
+
+/* shared cards and buttons */
+body.gv2 .panel,body.gv2 .chart-card,body.gv2 .metric{background:var(--surface);border:1px solid var(--border);border-radius:18px;box-shadow:none}
+body.gv2 .panel{padding:14px}
+body.gv2 .panel-title{font-size:15px;font-weight:700}
+body.gv2 .panel-subtitle,body.gv2 .metric-foot,body.gv2 .metric-label,body.gv2 .field-label{color:var(--text-soft)}
+body.gv2 .btn,body.gv2 .btn-mini,body.gv2 .cb-pill,body.gv2 .hero-btn{border-radius:12px}
+body.gv2 .btn.primary,body.gv2 .btn-mini.primary,body.gv2 .hero-btn.primary,body.gv2 .btn.small.primary{background:var(--accent);color:#0B0C0F;border-color:var(--accent);font-weight:800}
+body.gv2 .btn.ghost,body.gv2 .btn-mini.ghost,body.gv2 .btn-mini.soft,body.gv2 .hero-btn.ghost{background:var(--surface-alt);color:var(--text);border-color:transparent}
+body.gv2 input,body.gv2 select,body.gv2 textarea{background:#0B0C0F;color:var(--text);border:1px solid #2B2F38;border-radius:12px}
+body.gv2 input::placeholder,body.gv2 textarea::placeholder{color:var(--text-faint)}
+body.gv2 .meta-chip{background:var(--surface-alt);color:var(--text)}
+body.gv2 .meta-chip.accent{background:var(--accent-soft);color:var(--accent)}
+body.gv2 a{color:var(--accent)}
+body.gv2 table th,body.gv2 table td{border-color:var(--border)}
+body.gv2 .empty-note{color:var(--text-soft)}
+
+/* TODAY */
+body.gv2 .today-hero{display:block;background:var(--surface);border:1px solid var(--border);border-radius:22px;padding:16px;color:var(--text);box-shadow:none}
+body.gv2 .today-hero .hero-eyebrow{color:var(--text-soft);font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase}
+body.gv2 .today-hero .hero-title{font-size:44px;line-height:1.05;margin:4px 0 2px;color:var(--text)}
+body.gv2 .today-hero .hero-time{color:var(--text-soft);font-size:12.5px}
+body.gv2 .today-hero .hero-chips{margin-top:8px}
+body.gv2 .today-hero .readiness-copy{display:none}
+body.gv2 .today-hero .hero-next{display:none}
+body.gv2 .gv-streak{color:var(--accent);font-size:12.5px;font-weight:700;margin-top:6px}
+body.gv2 .hero-actions{display:grid;grid-template-columns:repeat(3,1fr);gap:0;margin-top:14px}
+body.gv2 .hero-actions #command-primary{grid-column:1/-1;padding:15px;font-size:16px;letter-spacing:.02em;margin-bottom:10px;border-radius:14px}
+body.gv2 .hero-actions .hero-btn.ghost{background:none;color:var(--accent);font-weight:700;font-size:13.5px;padding:8px 0;border-radius:0;text-align:center}
+body.gv2 .hero-actions .hero-btn.ghost+.hero-btn.ghost{border-left:1px solid var(--border)}
+body.gv2 .today-metrics.dash{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:10px}
+body.gv2 .today-metrics.dash .metric{padding:10px}
+body.gv2 .today-metrics.dash .metric-value{font-size:24px}
+body.gv2 #tile-couple{display:none}
+body.gv2 .layout-2{display:block}
+body.gv2 .layout-2>.col{display:flex;flex-direction:column;gap:10px;margin-top:10px}
+body.gv2 .control-bar.mini{display:none}
+body.gv2 .gv-sheet .control-bar.mini{display:block}
+body.gv2 .gv-sheet .control-bar .cb-right,body.gv2 .gv-sheet .control-bar .cb-left{display:none}
+
+/* goals rings */
+.gv-goals{display:none}
+body.gv2 .gv-goals{display:block;background:var(--surface);border:1px solid var(--border);border-radius:18px;padding:14px;margin-top:10px}
+body.gv2 .gv-goals .gh{display:flex;justify-content:space-between;font-size:13px;font-weight:700;margin-bottom:10px}
+body.gv2 .gv-goals .gh span{color:var(--text-faint);font-weight:500}
+body.gv2 .gv-rings{display:flex;justify-content:space-between;gap:4px}
+body.gv2 .gv-ring{flex:1;text-align:center;font-size:10px;color:var(--text-soft);font-weight:600;background:none;border:0;padding:0}
+body.gv2 .gv-ring i{display:grid;place-items:center;width:44px;height:44px;border-radius:50%;margin:0 auto 4px;font:700 13px "Barlow Condensed",Inter,sans-serif;font-style:normal;color:var(--text);background:radial-gradient(circle,var(--surface) 57%,transparent 59%),conic-gradient(var(--accent) calc(var(--p)*1%),#2B2F38 0)}
+body.gv2 .gv-ring.full i{background:radial-gradient(circle,var(--surface) 57%,transparent 59%),conic-gradient(var(--accent) 100%,#2B2F38 0)}
+
+/* water card on Today */
+.gv-watercard{display:none}
+body.gv2 .gv-watercard{display:flex;align-items:center;justify-content:space-between;gap:10px;background:var(--surface);border:1px solid var(--border);border-radius:18px;padding:14px;margin-top:10px}
+body.gv2 .gv-watercard .l{font-size:10.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--text-soft)}
+body.gv2 .gv-watercard .v{font:700 32px "Barlow Condensed",Inter,sans-serif;line-height:1.05}
+body.gv2 .gv-watercard .v small{font-size:14px;color:var(--text-soft);margin-left:4px}
+body.gv2 .gv-watercard .p{font-size:12px;font-weight:600;color:#F0A84E}
+body.gv2 .gv-watercard .p.ok{color:var(--success)}
+
+/* targets folded away */
+body.gv2 details.gv-det{background:var(--surface);border:1px solid var(--border);border-radius:18px;padding:0 14px}
+body.gv2 details.gv-det>summary{padding:14px 0;font-size:14px;font-weight:700;cursor:pointer;list-style:none}
+body.gv2 details.gv-det>summary::-webkit-details-marker{display:none}
+body.gv2 details.gv-det>.panel{border:0;padding:0 0 14px;background:none}
+
+/* sheets */
+body.gv2 .gv-sheet{position:fixed;inset:0;z-index:150;display:none;align-items:flex-end;background:rgba(0,0,0,.55)}
+body.gv2 .gv-sheet.on{display:flex}
+body.gv2 .gv-sheet-card{width:100%;max-height:92vh;overflow:auto;background:#12141A;border-top:1px solid var(--border);border-radius:22px 22px 0 0;padding:14px 14px calc(env(safe-area-inset-bottom,0px) + 18px)}
+body.gv2 .gv-sheet-head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:10px}
+body.gv2 .gv-sheet-head b{font-size:17px}
+body.gv2 .gv-x{width:34px;height:34px;border-radius:50%;border:0;background:var(--surface-alt);color:var(--text);font-size:16px}
+body.gv2 .gv-seg{display:flex;background:var(--surface);border-radius:12px;padding:3px;gap:2px;margin-bottom:12px}
+body.gv2 .gv-seg button{flex:1;border:0;background:none;color:var(--text-soft);font-weight:700;font-size:13px;padding:8px 0;border-radius:9px}
+body.gv2 .gv-seg button.on{background:#2B2F38;color:var(--text)}
+body.gv2 .gv-sheet .panel{border:0;padding:0;background:none}
+body.gv2 .gv-sheet #checkin-panel .panel-head{display:none}
+body.gv2 .gv-sheet .checkin-grid{display:block}
+body.gv2 .gv-sheet .num-row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+body.gv2 .gv-sheet .field input{font:700 22px "Barlow Condensed",Inter,sans-serif;padding:12px;text-align:center}
+body.gv2 .gv-sheet textarea{font:500 15px Inter,sans-serif;padding:12px;width:100%}
+body.gv2 .gv-hide{display:none!important}
+body.gv2 #ci-sheet.morning .ci-night,body.gv2 #ci-sheet.night .ci-morning{display:none!important}
+body.gv2 .gv-link{background:none;border:0;color:var(--accent);font-weight:700;font-size:13px;padding:8px 0}
+
+/* water sheet */
+body.gv2 .gv-pace{height:36px;border-radius:12px;background:#0B0C0F;border:1px solid var(--border);position:relative;margin:10px 0 4px;overflow:hidden}
+body.gv2 .gv-pace i{position:absolute;top:0;bottom:0;left:0;background:rgba(198,242,78,.22)}
+body.gv2 .gv-pace u{position:absolute;top:2px;bottom:2px;width:2px;background:#F0A84E}
+body.gv2 .gv-wbig{display:flex;align-items:center;gap:14px;margin-bottom:10px}
+body.gv2 .gv-wbig .r{width:92px;height:92px;border-radius:50%;display:grid;place-items:center;background:radial-gradient(circle,#12141A 62%,transparent 64%),conic-gradient(var(--accent) calc(var(--p)*1%),#2B2F38 0)}
+body.gv2 .gv-wbig .r b{font:700 24px "Barlow Condensed",Inter,sans-serif}
+body.gv2 .gv-sheet .water-btns{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+body.gv2 .gv-sheet .water-btns .btn-mini{padding:16px 0;font-size:15px;font-weight:800}
+body.gv2 .gv-sheet .water-btns .btn-mini[data-add="0.25"]{background:var(--accent);color:#0B0C0F}
+body.gv2 .gv-sheet .water-btns input{grid-column:1/3;max-width:none!important;width:100%}
+
+/* menu */
+body.gv2 .gv-menu{position:fixed;right:14px;top:calc(env(safe-area-inset-top,0px) + 56px);z-index:160;width:230px;background:#16181D;border:1px solid var(--border);border-radius:16px;box-shadow:0 14px 40px rgba(0,0,0,.5);padding:4px 14px}
+body.gv2 .gv-menu.on{display:block}
+body.gv2 .gv-menu button{display:block;width:100%;text-align:left;background:none;border:0;border-top:1px solid var(--border);color:var(--text);font-size:14px;font-weight:600;padding:12px 0}
+body.gv2 .gv-menu button:first-child{border-top:0}
+body.gv2 .gv-menu button.red{color:var(--danger)}
+
+/* merged Progress */
+body.gv2 .gv-pseg{display:flex;background:var(--surface);border-radius:12px;padding:3px;gap:2px;margin:2px 0 12px}
+body.gv2 .gv-pseg button{flex:1;border:0;background:none;color:var(--text-soft);font-weight:700;font-size:13.5px;padding:9px 0;border-radius:9px}
+body.gv2 .gv-pseg button.on{background:#2B2F38;color:var(--text)}
+body.gv2 #pg-body,body.gv2 #pg-training,body.gv2 #pg-food{display:none;flex-direction:column;gap:12px}
+body.gv2.pg-body #pg-body,body.gv2.pg-training #pg-training,body.gv2.pg-food #pg-food{display:flex}
+body.gv2 .energy-wrap{background:var(--surface);border:1px solid var(--border);border-radius:18px;padding:14px}
+body.gv2 .energy-wrap .hero-next{display:block!important;background:none;border:0;padding:0;color:var(--text)}
+body.gv2 .energy-wrap .hero-next-label{color:var(--text-soft)}
+body.gv2 .energy-wrap .readiness-copy{display:block;color:var(--text-soft)}
+
+/* History segments */
+body.gv2.hs-daily .hist-lift,body.gv2.hs-daily .hist-cardio,body.gv2.hs-lift .hist-daily,body.gv2.hs-lift .hist-cardio,body.gv2.hs-cardio .hist-daily,body.gv2.hs-cardio .hist-lift{display:none!important}
+
+/* bottom toast sits above the tab-safe area */
+body.gv2 .undo-toast{background:#16181D;color:var(--text);border:1px solid var(--border)}
+body.gv2 #wt-sheet .water-wrap{display:none}
+body.gv2 #wt-sheet .gv-pace{margin-bottom:6px}
+body.gv2 #ci-sheet input[type=date]{min-width:0;width:100%;font-size:14px}
+body.gv2 #ci-sheet .date-stepper,body.gv2 #ci-sheet .control-bar{flex-wrap:wrap;gap:6px}

@@ -1,4 +1,4 @@
-const CACHE_NAME = 'fit-hub-v97';
+const CACHE_NAME = 'fit-hub-v99';
 // Every page + shared asset the Hub actually needs to work offline on a
 // completely fresh install — not just the Hub shell itself. Before this,
 // only 7 files were pre-cached at install; everything else (every app
@@ -15,7 +15,7 @@ const ASSETS = [
   './apps/todo.html', './apps/diet.html', './apps/schedule.html', './apps/grocery.html',
   './apps/chores.html', './apps/skin.html', './apps/calendar.html', './apps/clock.html',
   './apps/budget.html', './apps/pledge.html', './apps/checklist.html',
-  './gym/index.html',
+  './gym/index.html','./gym/gym-v2.css','./gym/gym-v2.js',
   './tile-icons/gym.png', './tile-icons/diet.png', './tile-icons/todo.png', './tile-icons/schedule.png',
   './tile-icons/grocery.png', './tile-icons/chores.png', './tile-icons/skin.png', './tile-icons/calendar.png'
 ];
