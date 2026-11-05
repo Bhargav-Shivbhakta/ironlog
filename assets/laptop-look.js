@@ -19,5 +19,55 @@
     if(!d.classList.contains('lap-look'))return;
     if((e.ctrlKey||e.metaKey)&&e.shiftKey&&(e.key==='N'||e.key==='n')){var q=document.querySelector('.lap-titlebar .lt-add');if(q){e.preventDefault();q.click()}}
   });
+  /* ---- logo toggles sidebar ---- */
+  document.addEventListener('click',function(e){if(e.target.closest&&e.target.closest('#lap-logo')){var t=document.getElementById('sidebar-toggle');if(t)t.click()}});
+  /* ---- app cards: vivid icon colours + one-line descriptions ---- */
+  var COL={'to-do':['#5aa2ff','#1c6cf0'],schedule:['#8ea2ff','#4457e6'],calendar:['#ff8a7a','#e5483a'],pledge:['#ff7aa8','#db2a66'],chores:['#b58cff','#6a3bd6'],checklists:['#ffd25a','#f2960b'],clock:['#b4bcc9','#6a7385']};
+  var PAL=[['#5ad1a0','#14966a'],['#ffa95a','#e8660b'],['#5ac8ff','#1f8fd1'],['#c58cff','#8a3bd6'],['#ff7aa8','#db2a66'],['#8ea2ff','#4457e6']];
+  var DESC={'to-do':'Tasks, lists, repeats, dependency map and sticky notes',schedule:'Your daily routine, events, chores and free-time finder',calendar:'Month, week, day and agenda, with reminders and birthdays',pledge:'Make a promise, tick it daily, earn the prize',chores:'Whose turn, room health, plan my time',checklists:'Reusable lists, templates and archive',clock:'Alarms, timers, focus, world time and stopwatch',gym:'Log sets, track progress and rest timers',training:'Log sets, track progress and rest timers',grocery:'This week\u2019s list, pantry and restock',budget:'Spending vs your category budgets',diet:'Meals, protein and the week\u2019s plan',skin:'Morning and night routine, products and tracking',water:'Plan drinks and track your day'};
+  function hash(t){var n=0;for(var i=0;i<t.length;i++)n=(n*31+t.charCodeAt(i))>>>0;return n}
+  function decorate(){
+    if(!d.classList.contains('lap-look'))return;
+    document.querySelectorAll('.app-grid .app-card').forEach(function(c){
+      if(c.dataset.lap)return;var st=c.querySelector('strong');if(!st)return;
+      var k=st.textContent.trim().toLowerCase();c.dataset.lap='1';
+      var col=COL[k]||PAL[hash(k)%PAL.length];c.style.setProperty('--c1',col[0]);c.style.setProperty('--c2',col[1]);
+      var t=DESC[k];if(t){var s=document.createElement('span');s.className='lap-d';s.textContent=t;st.insertAdjacentElement('afterend',s)}
+    });
+  }
+  new MutationObserver(function(){decorate()}).observe(document.documentElement,{childList:true,subtree:true,attributes:true,attributeFilter:['class']});
+  /* ---- Ctrl K: search pages and apps ---- */
+  var pal=null,items=[],sel=0;
+  function build(){
+    if(pal)return;pal=document.createElement('div');pal.className='lap-pal';
+    pal.innerHTML='<div class="pw"><input id="lap-pq" placeholder="Search pages and apps" autocomplete="off"><div class="pl" id="lap-pl"></div></div>';
+    document.body.appendChild(pal);
+    pal.addEventListener('mousedown',function(e){if(e.target===pal)closeP()});
+    var q=pal.querySelector('input');q.addEventListener('input',function(){sel=0;list()});
+    q.addEventListener('keydown',function(e){
+      if(e.key==='Escape'){closeP();return}
+      if(e.key==='ArrowDown'||e.key==='ArrowUp'){e.preventDefault();var n=items.length;if(n){sel=(sel+(e.key==='ArrowDown'?1:n-1))%n;mark()}return}
+      if(e.key==='Enter'){e.preventDefault();go(items[sel])}
+    });
+    pal.querySelector('#lap-pl').addEventListener('click',function(e){var r=e.target.closest('.pi');if(r)go(items[+r.dataset.i])});
+  }
+  function all(){
+    var out=[];
+    document.querySelectorAll('.main-nav button').forEach(function(b){out.push({n:b.textContent.trim(),t:'Page',el:b})});
+    document.querySelectorAll('.app-grid .app-card:not(.hidden-card)').forEach(function(c){var s=c.querySelector('strong');if(s)out.push({n:s.textContent.trim(),t:'App',el:c})});
+    return out;
+  }
+  function list(){
+    var q=(document.getElementById('lap-pq').value||'').trim().toLowerCase();
+    items=all().filter(function(x){return !q||x.n.toLowerCase().indexOf(q)>-1});
+    var box=document.getElementById('lap-pl');
+    box.innerHTML=items.length?items.map(function(x,i){return '<div class="pi'+(i===sel?' on':'')+'" data-i="'+i+'"><span>'+x.n.replace(/</g,'&lt;')+'</span><small>'+x.t+'</small></div>'}).join(''):'<div class="pe">Nothing matches.</div>';
+  }
+  function mark(){document.querySelectorAll('#lap-pl .pi').forEach(function(e,i){e.classList.toggle('on',i===sel);if(i===sel)e.scrollIntoView({block:'nearest'})})}
+  function openP(){build();pal.classList.add('on');var q=document.getElementById('lap-pq');q.value='';sel=0;list();q.focus()}
+  function closeP(){if(pal)pal.classList.remove('on')}
+  function go(x){if(!x)return;closeP();x.el.click()}
+  document.addEventListener('click',function(e){if(e.target.closest&&e.target.closest('#lap-search'))openP()});
+  document.addEventListener('keydown',function(e){if(d.classList.contains('lap-look')&&(e.ctrlKey||e.metaKey)&&!e.shiftKey&&(e.key==='k'||e.key==='K')){e.preventDefault();openP()}});
   apply();if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',paint);
 })();
