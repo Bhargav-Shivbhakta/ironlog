@@ -699,3 +699,137 @@ body.ph-on .app-frame-overlay.phzo{animation:phzout .21s ease-in forwards;transf
 #ph-sp .spd u:nth-child(2){animation-delay:.16s}#ph-sp .spd u:nth-child(3){animation-delay:.32s}
 @keyframes phspd{50%{opacity:1}}
 @media (prefers-reduced-motion:reduce){#ph-sp .spd u{animation:none;opacity:.7}}
+
+/* ===== iPhone-style widget picker ===== */
+#ph .shi{background:#14171fee;-webkit-backdrop-filter:blur(30px) saturate(1.4);backdrop-filter:blur(30px) saturate(1.4);max-height:92%;border-radius:28px 28px 0 0;padding-top:10px}
+#ph .shi .dn{background:#ffffff1a;color:#fff;font-weight:600;margin-top:10px}
+#ph .gfp{pointer-events:none}
+#ph .gtt h3{font-size:26px;letter-spacing:-.025em;font-weight:700;margin:2px 4px 10px}
+#ph .gsrch{display:flex;align-items:center;gap:8px;height:40px;border-radius:12px;background:#7676801f;padding:0 11px;margin-bottom:6px}
+#ph .gsrch svg{width:16px;height:16px;fill:none;stroke:#fff;stroke-width:2;opacity:.55;flex:none}
+#ph .gsrch input{flex:1;min-width:0;border:0;background:none;color:#fff;font:inherit;font-size:16px;outline:0}
+#ph .gsrch input::placeholder{color:#ebebf560}
+#ph .gsec{font-size:19px;font-weight:700;letter-spacing:-.02em;margin:18px 4px 10px}
+#ph .gfs{display:flex;gap:12px;overflow-x:auto;scrollbar-width:none;margin:0 -14px;padding:0 14px 4px;scroll-snap-type:x proximity}
+#ph .gfs::-webkit-scrollbar{display:none}
+#ph .gf{flex:none;width:128px;border:0;background:none;color:#fff;font:inherit;text-align:left;padding:0;cursor:pointer;scroll-snap-align:start}
+#ph .gf:active{transform:scale(.97)}
+#ph .gf b{display:block;font-size:13px;font-weight:600;margin:8px 2px 0;text-align:center;opacity:.9}
+#ph .gfp{width:128px;height:136px;border-radius:22px;overflow:hidden;position:relative;background:#ffffff0d}
+#ph .gfp .gp{transform:scale(.8)!important;transform-origin:top left;position:absolute!important;left:0!important;top:0!important}
+#ph .gls{background:#ffffff12;border-radius:18px;overflow:hidden}
+#ph .gr{display:flex;align-items:center;gap:13px;width:100%;border:0;background:none;color:#fff;font:inherit;text-align:left;padding:10px 14px;cursor:pointer;position:relative}
+#ph .gr+.gr::before{content:"";position:absolute;left:67px;right:0;top:0;height:.5px;background:#ffffff1f}
+#ph .gr:active{background:#ffffff1a}
+#ph .gr .gic .tile{width:42px;height:42px;border-radius:10px}
+#ph .gr .n{flex:1;min-width:0}
+#ph .gr .n b{display:block;font-size:16px;font-weight:600;letter-spacing:-.01em}
+#ph .gr .n span{display:block;font-size:12.5px;color:#ebebf599;margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#ph .gchev{width:8px;height:8px;border-right:2px solid #ffffff55;border-top:2px solid #ffffff55;transform:rotate(45deg);flex:none;margin-right:2px}
+#ph .gh{display:flex;align-items:center;margin:0 0 4px}
+#ph .gbk{display:flex;align-items:center;gap:2px;border:0;background:none;color:#4aa3ff;font:inherit;font-size:17px;padding:6px 6px 6px 0;cursor:pointer}
+#ph .gbk svg{width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:2.6;stroke-linecap:round;stroke-linejoin:round}
+#ph .gadd{background:#0a84ff;color:#fff;border-radius:14px;padding:15px;font-size:17px}
+#ph .gp .w{box-shadow:0 12px 28px #0006}
+/* ===== search: grab handle for swipe-back ===== */
+#ph #sp .spg{width:38px;height:5px;border-radius:3px;background:#ffffff40;margin:-40px auto 22px;position:relative}
+#ph #sp{will-change:transform,opacity}
+/* ===== App Library ===== */
+#ph .lib .srch{height:46px;border-radius:15px;background:#7676802e;border:0;padding:0 14px;margin-bottom:16px;backdrop-filter:blur(18px) saturate(1.4);-webkit-backdrop-filter:blur(18px) saturate(1.4);box-shadow:inset 0 .5px 0 #ffffff26}
+#ph .lib .srch input{font-size:17px}
+#ph .lib .srch svg{width:18px;height:18px;opacity:.6}
+#ph .cg{gap:14px}
+#ph .cc{border-radius:30px;padding:14px 10px 10px;border:.5px solid #ffffff2e;background:linear-gradient(180deg,#ffffff26,#ffffff10);box-shadow:inset 0 1px 0 #ffffff40,0 12px 30px #0000003d;backdrop-filter:blur(22px) saturate(1.5);-webkit-backdrop-filter:blur(22px) saturate(1.5)}
+#ph .cc h5{font-size:12.5px;font-weight:650;margin:0 0 11px 6px;letter-spacing:.01em;opacity:.9}
+#ph .cc .ci{gap:12px 4px}
+#ph .ci .tile{width:54px;height:54px;border-radius:22.4%}
+#ph .ci .tile:not(.vv) svg{width:26px;height:26px}
+#ph .ci .app span{font-size:10px;margin-top:3px}
+#ph .cc .cl{width:54px;height:54px;border-radius:22.4%;background:#ffffff2b;padding:5px;gap:4px;box-shadow:inset 0 .5px 0 #ffffff40}
+#ph .cc .cl:active,#ph .ci .app:active{transform:scale(.94)}
+#ph .al{background:#ffffff14;border-radius:20px;overflow:hidden;padding:0 4px}
+#ph .al .rw{padding:9px 12px;gap:14px;border-bottom:0;position:relative}
+#ph .al .rw::after{content:"";position:absolute;left:66px;right:0;bottom:0;height:.5px;background:#ffffff1f}
+#ph .al .rw .tile{width:44px;height:44px}
+#ph .al .rw .tile:not(.vv) svg{width:22px;height:22px}
+#ph .al .rw b{font-size:17px;font-weight:500}
+#ph .al .az{font-size:13px;font-weight:700;color:#ffffffb3;padding:14px 14px 6px;background:#ffffff0a}
+@keyframes phcc{from{opacity:0;transform:translateY(12px) scale(.97)}}
+#ph .lib .cg .cc{animation:phcc .4s var(--spring) both}
+#ph .lib .cg .cc:nth-child(2){animation-delay:.04s}#ph .lib .cg .cc:nth-child(3){animation-delay:.08s}#ph .lib .cg .cc:nth-child(4){animation-delay:.12s}#ph .lib .cg .cc:nth-child(n+5){animation-delay:.16s}
+#ph .gsl{height:250px}
+
+/* ===== iPhone feel: widget picker, round 2 ===== */
+#ph .shi{background:#1c1c1e;border-top:0;border-radius:22px 22px 0 0;max-height:94%;min-height:70%;padding:8px 16px 24px;box-shadow:0 -1px 0 #ffffff12}
+#ph .gtop{display:flex;align-items:center;gap:12px;margin:2px 0 4px}
+#ph .gtop .gsrch{flex:1;margin:0;height:38px;border-radius:10px;background:#7676803d}
+#ph .gxb{flex:none;width:32px;height:32px;border-radius:50%;border:0;background:#7676803d;display:grid;place-items:center;cursor:pointer;padding:0}
+#ph .gxb svg{width:16px;height:16px;fill:none;stroke:#ffffffb3;stroke-width:2.6;stroke-linecap:round}
+#ph .gsec{font-size:22px;font-weight:700;letter-spacing:-.02em;margin:22px 2px 12px}
+#ph .gfs{margin:0 -16px;padding:0 16px 2px;gap:14px}
+#ph .gf{width:140px}
+#ph .gfp{width:140px;height:148px;border-radius:24px;background:#2c2c2e}
+#ph .gfp .gp{transform:scale(.875)!important}
+#ph .gf b{font-size:13px;font-weight:600;margin-top:9px}
+#ph .gls{background:none;border-radius:0}
+#ph .gr{padding:11px 2px;gap:14px}
+#ph .gr+.gr::before{left:62px;background:#ffffff1f}
+#ph .gr .gic .tile{width:48px;height:48px;border-radius:22.4%;border:0;box-shadow:inset 0 1px 0 #ffffff59,0 1px 2px #0005;background:linear-gradient(180deg,var(--g1,#8e8e93),var(--g2,#636366))}
+#ph .gr .gic .tile svg{width:26px;height:26px;stroke:#fff;fill:none;stroke-width:2;color:#fff;filter:none}
+#ph .gr .gic .tile.c-Planner{--g1:#5aa2ff;--g2:#1c6cf0}#ph .gr .gic .tile.c-Health{--g1:#4be08a;--g2:#12a150}#ph .gr .gic .tile.c-Home{--g1:#b58cff;--g2:#6a3bd6}#ph .gr .gic .tile.c-Insights{--g1:#8ea2ff;--g2:#4457e6}#ph .gr .gic .tile.c-Tools{--g1:#b4bcc9;--g2:#6a7385}
+#ph .gr .n b{font-size:17px;font-weight:600}
+#ph .gr .n span{font-size:13.5px;color:#8e8e93}
+#ph .gh{margin:4px 0 0}
+#ph .gin{flex-direction:column;align-items:center;text-align:center;gap:6px;margin:6px 0 4px}
+#ph .gin .gic .tile{width:46px;height:46px;border-radius:22.4%}
+#ph .gin .n b{font-size:20px;font-weight:700;letter-spacing:-.02em}
+#ph .gin .n span{font-size:14px;color:#8e8e93;display:block;max-width:300px;margin:2px auto 0}
+#ph .gsl{height:270px}
+#ph .gdots{margin:6px 0 2px}#ph .gdots i{background:#ffffff4d}
+#ph .gnm{font-size:14px;font-weight:600;color:#8e8e93;margin-bottom:14px}
+#ph .gadd{background:#0a84ff;color:#fff;border-radius:14px;padding:15px;font-size:17px;font-weight:600}
+#ph .gtip{text-align:center;font-size:12px;color:#8e8e93;margin-top:10px}
+#ph .gh{justify-content:space-between}
+#ph .gin .gic .tile{background:linear-gradient(180deg,var(--g1,#8e8e93),var(--g2,#636366));border:0;box-shadow:inset 0 1px 0 #ffffff59,0 4px 12px #0005}#ph .gin .gic .tile svg{stroke:#fff;fill:none;stroke-width:2;width:26px;height:26px}#ph .gin .gic .tile.c-Planner{--g1:#5aa2ff;--g2:#1c6cf0}#ph .gin .gic .tile.c-Health{--g1:#4be08a;--g2:#12a150}#ph .gin .gic .tile.c-Home{--g1:#b58cff;--g2:#6a3bd6}#ph .gin .gic .tile.c-Insights{--g1:#8ea2ff;--g2:#4457e6}#ph .gin .gic .tile.c-Tools{--g1:#b4bcc9;--g2:#6a7385}
+
+/* ===== App Library, iPhone layout: dark glass cards, icons only, title underneath ===== */
+#ph .lib .srch{height:46px;border-radius:99px;justify-content:center;gap:9px;background:#2c2c2e8c;border:.5px solid #ffffff2e;box-shadow:inset 0 1px 0 #ffffff1f;margin-bottom:20px}
+#ph .lib .srch input{flex:0 1 auto;width:104px;text-align:left;font-size:17px;color:#fff}
+#ph .lib .srch input::placeholder{color:#fff;opacity:.92}
+#ph .lib .srch:focus-within input{flex:1;text-align:left}
+#ph .lib .srch:focus-within{justify-content:flex-start}
+#ph .cg{gap:2px 14px;align-items:start}
+#ph .cw{min-width:0}
+#ph .cc{padding:11px;border-radius:28px;background:#2c2c2e8f;border:.5px solid #ffffff26;box-shadow:inset 0 1px 0 #ffffff26;animation:none}
+#ph .cc .ci{display:grid;grid-template-columns:1fr 1fr;gap:11px;justify-items:stretch}
+#ph .cc .ci .it2,#ph .cc .ci .app{width:100%}
+#ph .cc .ci .app{display:block}
+#ph .ci .app span{display:none}
+#ph .ci .tile{width:100%;height:auto;aspect-ratio:1/1;border-radius:22.4%}
+#ph .ci .tile:not(.vv) svg{width:44%;height:44%}
+#ph .cc .cl{width:100%;height:auto;aspect-ratio:1/1;border-radius:22.4%;padding:8% ;gap:8%;background:none;box-shadow:none}
+#ph .cc .cl .mt{width:100%;height:100%;border-radius:22%}
+#ph .ct{text-align:center;font-size:14px;font-weight:500;letter-spacing:-.005em;margin:8px 0 16px;color:#fff;text-shadow:0 1px 3px #0005}
+#ph .lib .cg .cw{animation:phcc .4s var(--spring) both}
+#ph .lib .cg .cw:nth-child(2){animation-delay:.04s}#ph .lib .cg .cw:nth-child(3){animation-delay:.08s}#ph .lib .cg .cw:nth-child(4){animation-delay:.12s}#ph .lib .cg .cw:nth-child(n+5){animation-delay:.16s}
+#ph .lib .srch input{width:128px}
+#ph .cc .cl{padding:3%;gap:6%}
+#ph #libbody{padding-bottom:120px}
+
+/* ===== iPhone home screen: neutral dark-glass widgets with the name underneath ===== */
+#ph.ic-vivid .w{background:linear-gradient(180deg,#3c3c3ebd,#2c2c2ebd);border:.5px solid #ffffff24;border-radius:24px;box-shadow:inset 0 1px 0 #ffffff1f,0 10px 28px #0000003d}
+#ph.mv.ic-vivid .w{background:linear-gradient(180deg,#3a3a3ce6,#2d2d2fe6)}
+#ph .it.s .in>.w,#ph .it.m .in>.w,#ph .it.l .in>.w{height:calc(100% - 22px)}
+#ph .wl{display:none}
+#ph .it.s .wl,#ph .it.m .wl,#ph .it.l .wl{display:block;position:absolute;left:0;right:0;bottom:0;height:18px;line-height:18px;text-align:center;font-size:12.5px;font-weight:500;color:var(--lbl-c,#fff);text-shadow:0 1px 3px #0006;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;pointer-events:none}
+#ph .it.s .sdt,#ph .it.m .sdt,#ph .it.l .sdt{top:calc(50% - 11px);transform:translateY(-50%)}
+#ph .it.l .tk{padding:3px 0}
+#ph .it.l .w{padding-top:5px;padding-bottom:4px}#ph .it.l .tk{padding:2px 0}
+#ph .it.l .tks.tdl{max-height:108px}
+#ph .it.m .w{padding-top:7px;padding-bottom:6px}#ph .it.m .tks.skl{max-height:78px}#ph .it.m .w[data-wk=water] .trk{height:24px}#ph .it.m .w[data-wk=water]>.mu{display:none}
+/* ===== iPhone Today View (left page) ===== */
+#ph #td{background:#09090bd9}
+#ph #td .w{background:linear-gradient(180deg,#3a3a3cc7,#2b2b2dc7);border:.5px solid #ffffff22;border-radius:24px;box-shadow:inset 0 1px 0 #ffffff1c,0 8px 24px #0000003a}
+#ph #td .tdh small{font-size:12.5px;letter-spacing:.03em}
+#ph #td .tdh b{font-size:21px;font-weight:600;letter-spacing:-.015em}
+#ph #td .tdx{background:#7676803d;font-weight:600;padding:7px 15px}
