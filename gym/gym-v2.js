@@ -170,6 +170,184 @@ function openWater(){renderWater();open_(ws)}
 if($('water-value'))new MutationObserver(renderWater).observe($('water-value'),{childList:true,characterData:true,subtree:true});
 setInterval(renderWater,60000);renderWater();
 
+
+/* this week's schedule: folded away, opens on tap */
+(function(){var g=$('week-grid'),pn=g&&g.closest('.panel');if(!pn)return;
+ var d=el('details','gv-det');d.id='gv-week';d.appendChild(el('summary','',"This week's schedule"));pn.parentNode.insertBefore(d,pn);d.appendChild(pn);
+ var h=pn.querySelector('.panel-head');if(h)h.style.display='none';
+ var sub=el('div','panel-subtitle','Tap a day for a full preview of its workout.');pn.insertBefore(sub,g)})();
+
+
+/* ---------- Train tab: compact exercise cards ---------- */
+(function(){
+  var list=$('exercise-list');if(!list)return;
+  var open={},busy=false;
+  var simple=true;try{simple=localStorage.getItem('gym-simple')!=='0'}catch(e){}
+  function setSimple(v){simple=v;document.body.classList.toggle('gv-simple',v);try{localStorage.setItem('gym-simple',v?'1':'0')}catch(e){}
+    var b=$('gv-mode');if(b)b.textContent=v?'View: Simple · switch':'View: Detailed · switch'}
+  document.body.classList.toggle('gv-simple',simple);
+  var lb=$('live-start');if(lb)lb.textContent='Start guided workout';
+  var cb=document.querySelector('#view-train .control-bar');
+  if(cb){var mb=el('button','gv-modebtn','');mb.type='button';mb.id='gv-mode';
+    mb.addEventListener('click',function(){setSimple(!simple)});cb.appendChild(mb);setSimple(simple)}
+  mi(simple?'Detailed view (more numbers)':'Simple view',function(){setSimple(!simple)});
+  var EFF=[['3','Easy'],['6','Good'],['9','Hard']];
+  function done(tr){var w=tr.querySelector('.inp-weight'),r=tr.querySelector('.inp-reps');return !!(w&&r&&w.value!==''&&r.value!=='')}
+  function dots(card){
+    var rows=$$('tbody tr',card),d=card.querySelector('.gv-dots');if(!d){d=el('div','gv-dots');var m=card.querySelector('.ex-meta');if(m)m.parentNode.insertBefore(d,m.nextSibling)}
+    var n=rows.filter(done).length;
+    d.innerHTML=rows.map(function(r){return '<i class="'+(done(r)?'on':'')+'"></i>'}).join('')+'<span>'+n+'/'+rows.length+' sets</span>';
+    card.classList.toggle('gv-done',rows.length>0&&n===rows.length);
+  }
+  function effort(tr){
+    var sel=tr.querySelector('.inp-effort');if(!sel||tr.querySelector('.gv-eff'))return;
+    var g=el('div','gv-eff');
+    g.innerHTML=EFF.map(function(e){return '<button type="button" data-v="'+e[0]+'">'+e[1]+'</button>'}).join('');
+    function sync(){$$('button',g).forEach(function(b){b.classList.toggle('on',sel.value===b.dataset.v)})}
+    g.addEventListener('click',function(ev){var b=ev.target.closest('button');if(!b)return;sel.value=sel.value===b.dataset.v?'':b.dataset.v;sel.dispatchEvent(new Event('change',{bubbles:true}));sync()});
+    sel.addEventListener('change',sync);sel.parentNode.appendChild(g);sync();
+  }
+  function enhance(){
+    if(busy)return;busy=true;
+    try{
+      var cards=$$('.ex-card',list),first=true;
+      cards.forEach(function(c){
+        $$('tbody tr',c).forEach(effort);dots(c);
+        $$('.last-time-cell',c).forEach(function(t){t.classList.toggle('gv-empty',/^\s*[—-]?\s*$/.test(t.textContent))});
+        var tw=c.querySelector('.table-wrap');if(tw&&!tw.querySelector('.gv-colh')){var u=(c.dataset.unit||'lb')==='kg'?'kg':'lb';tw.insertBefore(el('div','gv-colh','<span></span><span>Weight ('+u+')</span><span>Reps</span><span></span>'),tw.firstChild)}
+        var id=c.dataset.exid;
+        if(!(id in open)){open[id]=first&&!c.classList.contains('gv-done');}
+        if(!c.classList.contains('gv-done'))first=false;
+        c.classList.toggle('gv-open',!!open[id]);
+        if(!c.dataset.gv){c.dataset.gv='1';
+          c.querySelector('.ex-head').addEventListener('click',function(e){
+            if(e.target.closest('.drag-handle,.ex-unit-toggle,button,input,select'))return;
+            open[id]=!c.classList.contains('gv-open');c.classList.toggle('gv-open',open[id])});
+        }
+      });
+    }finally{busy=false}
+  }
+  new MutationObserver(function(){enhance()}).observe(list,{childList:true});
+  list.addEventListener('input',function(e){var c=e.target.closest('.ex-card');if(c)dots(c)});
+  list.addEventListener('change',function(e){var c=e.target.closest('.ex-card');if(c)dots(c)});
+  list.addEventListener('click',function(e){
+    var c=e.target.closest('.ex-card');if(!c)return;
+    if(e.target.closest('.btn-add-set,.del-set-btn')){setTimeout(function(){$$('tbody tr',c).forEach(effort);dots(c)},60)}
+    if(e.target.closest('.btn-log-exercise')){setTimeout(function(){
+      if(!/logged|saved|✓/i.test((c.querySelector('.ex-save-msg')||{}).textContent||''))return;
+      open[c.dataset.exid]=false;c.classList.remove('gv-open');
+      var n=c.nextElementSibling;while(n&&!(n.classList.contains('ex-card')&&!n.classList.contains('gv-done')))n=n.nextElementSibling;
+      if(n&&n.dataset.exid){open[n.dataset.exid]=true;n.classList.add('gv-open');n.scrollIntoView({behavior:'smooth',block:'start'})}},900)}
+  });
+  enhance();
+  var wuSeen={};function foldWu(){var w=$('warmup-card');if(w&&!wuSeen[w.dataset.date]){wuSeen[w.dataset.date]=1;w.removeAttribute('open')}}
+  new MutationObserver(foldWu).observe($('view-train'),{childList:true,subtree:true});foldWu();
+})();
+
+
+/* ---------- Train tab: the other cards, folded and tidied ---------- */
+(function(){
+  function fold(node,title,id,openIt){if(!node||!node.parentNode)return;var d=el('details','gv-det');if(id)d.id=id;if(openIt)d.open=true;d.appendChild(el('summary','',title));node.parentNode.insertBefore(d,node);d.appendChild(node);return d}
+  var ac=$('add-exercise-card');if(ac){var h=ac.querySelector('.ex-head');if(h)h.style.display='none';fold(ac,'+ Add an exercise','gv-add')}
+  var cc=$('cardio-card');if(cc)fold(cc,'Cardio','gv-cardio',true);
+  var ss=$('steps-summary-card');if(ss)fold(ss,'Steps breakdown','gv-steps');
+  var tr=$('training-rules');var trp=tr&&tr.closest('.panel');if(trp){var th=trp.querySelector('.panel-head');if(th)th.style.display='none';fold(trp,'Training rules','gv-rules')}
+})();
+
+/* ---------- rest timer: stays on screen while you move around, buzzes and notifies when done ---------- */
+(function(){
+  var pill=el('div','gv-rest');pill.id='gv-rest';
+  pill.innerHTML='<b id="gv-rest-t">0:00</b><span>Rest</span><button type="button" id="gv-rest-plus">+15s</button><button type="button" id="gv-rest-skip">Skip</button>';
+  document.body.appendChild(pill);
+  function active(){
+    var b=null;$$('.rest-btn').forEach(function(x){if(x._endAt&&x.disabled)b=x});return b}
+  var alerted={};
+  function notify(){
+    try{
+      if(!('Notification' in window)||Notification.permission!=='granted')return;
+      var opts={body:'Time for your next set.',tag:'gym-rest',vibrate:[300,120,300],requireInteraction:false};
+      if(navigator.serviceWorker&&navigator.serviceWorker.getRegistration){navigator.serviceWorker.getRegistration().then(function(r){if(r)r.showNotification('Rest is over',opts);else new Notification('Rest is over',opts)})}
+      else new Notification('Rest is over',opts);
+    }catch(e){}
+  }
+  function tick(){
+    var b=active(),map=(window.readRestTimers&&readRestTimers())||{};
+    if(b){
+      var rem=Math.max(0,Math.round((b._endAt-Date.now())/1000));
+      $('gv-rest-t').textContent=Math.floor(rem/60)+':'+String(rem%60).padStart(2,'0');
+      pill.classList.add('on');
+      if(rem<=0&&!alerted[b._endAt]){alerted[b._endAt]=1;if(document.hidden)notify()}
+    }else pill.classList.remove('on');
+  }
+  setInterval(tick,500);document.addEventListener('visibilitychange',tick);
+  $('gv-rest-skip').addEventListener('click',function(){var b=active();if(b)stopRestTimer(b)});
+  $('gv-rest-plus').addEventListener('click',function(){var b=active();if(b)startRestTimer(b,(b._total||60)+15,b._endAt+15000)});
+  // first time a rest starts, ask for notification permission (needs a tap, and works best from the Home Screen app)
+  var asked=false;
+  document.addEventListener('click',function(e){
+    if(asked||!e.target.closest('.rest-btn,#live-start,#command-primary'))return;asked=true;
+    try{if('Notification' in window&&Notification.permission==='default')Notification.requestPermission()}catch(x){}
+  },true);
+  // when the app has been in the background, a timer that ran out shows its alert on return
+  document.addEventListener('visibilitychange',function(){if(!document.hidden)setTimeout(tick,50)});
+})();
+
+/* ---------- saving status: Offline notice (writes queue on the phone and send when you are back online) ---------- */
+(function(){
+  var chip=el('div','gv-net','Offline · your logs are kept on this phone and sync when you are back online');
+  document.body.appendChild(chip);
+  function u(){chip.classList.toggle('on',navigator.onLine===false)}
+  window.addEventListener('online',function(){u();toast('Back online · synced')});window.addEventListener('offline',u);u();
+})();
+
+/* ---------- finish summary with next-time suggestions ---------- */
+(function(){
+  var summ=sheet('fin-sheet','Workout finished');var body=summ.querySelector('.gv-sheet-body');
+  function num(x){var n=parseFloat(x);return isNaN(n)?0:n}
+  function collect(){
+    var out={sets:0,vol:0,prs:0,ex:[]};
+    $$('#exercise-list .ex-card').forEach(function(c){
+      var unit=(c.dataset.unit==='kg'?'kg':'lb'),name=(c.querySelector('.ex-name')||{}).textContent||'';
+      var mm=((c.querySelector('.ex-meta')||{}).textContent||'').match(/(\d+)\s*[–-]\s*(\d+)/);
+      var lo=mm?+mm[1]:8,hi=mm?+mm[2]:12,rows=[];
+      $$('tbody tr',c).forEach(function(r){var w=num((r.querySelector('.inp-weight')||{}).value),n=num((r.querySelector('.inp-reps')||{}).value);if(w>0&&n>0){rows.push([w,n]);out.sets++;out.vol+=w*n}if(r.querySelector('.pr-cell')&&r.querySelector('.pr-cell').textContent.trim())out.prs++});
+      if(!rows.length)return;
+      var top=Math.max.apply(null,rows.map(function(r){return r[0]}));
+      var hitTop=rows.every(function(r){return r[0]>=top*0.999&&r[1]>=hi});
+      var step=unit==='kg'?2.5:5;
+      var tip=hitTop?('Try '+(top+step)+' '+unit+' next time'):('Keep '+top+' '+unit+' and aim for one more rep');
+      out.ex.push({name:name,unit:unit,summary:rows.length+' sets · top '+top+' '+unit,tip:tip,up:hitTop});
+    });
+    return out}
+  function show(durationSec){
+    var d=collect(),mins=Math.max(1,Math.round((durationSec||0)/60));
+    var vol=Math.round(d.vol).toLocaleString();
+    body.innerHTML='<div class="gv-fin-stats"><div><b>'+mins+'</b><span>min</span></div><div><b>'+d.sets+'</b><span>sets</span></div><div><b>'+vol+'</b><span>total lifted</span></div></div>'
+      +(d.prs?'<div class="gv-pr">🏆 '+d.prs+' new personal record'+(d.prs>1?'s':'')+' today</div>':'')
+      +'<div class="panel-subtitle" style="margin:12px 0 6px">Next time (a suggestion, not a rule)</div>'
+      +(d.ex.length?d.ex.map(function(e){return '<div class="gv-sug"><div><b>'+e.name+'</b><small>'+e.summary+'</small></div><span class="'+(e.up?'up':'')+'">'+e.tip+'</span></div>'}).join(''):'<div class="panel-subtitle">Log some sets to get suggestions.</div>')
+      +'<button type="button" class="btn primary" id="gv-fin-ok" style="width:100%;margin-top:14px;min-height:50px">Done</button>';
+    $('gv-fin-ok').addEventListener('click',function(){close(summ)});
+    open_(summ);try{navigator.vibrate&&navigator.vibrate([60,40,120])}catch(e){}
+  }
+  var orig=window.endLiveSession;
+  if(typeof orig==='function'){window.endLiveSession=function(skip,dur){var snap=dur!=null?collect():null;var r=orig.apply(this,arguments);if(dur!=null)show(dur);return r}}
+})();
+
+/* ---------- first-time help ---------- */
+(function(){
+  var hs=sheet('help-sheet','How this works');var hb=hs.querySelector('.gv-sheet-body');
+  hb.innerHTML='<div class="gv-help"><div><b>1 · Start</b><p>Tap <i>Start guided workout</i> on Today. It walks you through each exercise.</p></div>'
+   +'<div><b>2 · Log</b><p>Type weight and reps for each set. Tap <i>Log this exercise</i> and the next one opens by itself.</p></div>'
+   +'<div><b>3 · Rest</b><p>Tap <i>Start rest</i>. A timer stays on screen and buzzes when it is over.</p></div>'
+   +'<div class="g"><b>Words</b><p><i>Easy / Good / Hard</i> = how the set felt. <i>PR</i> = your best ever. <i>Simple view</i> hides the extra numbers; switch to Detailed any time.</p></div>'
+   +'<button type="button" class="btn primary" id="gv-help-ok" style="width:100%;min-height:50px">Got it</button></div>';
+  $('gv-help-ok').addEventListener('click',function(){close(hs);try{localStorage.setItem('gym-help-seen','1')}catch(e){}});
+  mi('How this works',function(){open_(hs)});
+  var seen=false;try{seen=localStorage.getItem('gym-help-seen')==='1'}catch(e){}
+  if(!seen)setTimeout(function(){open_(hs)},1500);
+})();
+
 /* ---------- History: Daily | Workouts | Cardio ---------- */
 (function(){
   var panels=[['hist-daily-sub','hist-daily'],['hist-lift-sub','hist-lift'],['hist-cardio-sub','hist-cardio']];
