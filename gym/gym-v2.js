@@ -116,7 +116,7 @@ ciBody.appendChild(ciSeg);
 var cbar=document.querySelector('.control-bar.mini');if(cbar)ciBody.appendChild(cbar);
 var cp=$('checkin-panel');ciBody.appendChild(cp);
 function fieldOf(id){var i=$(id);return i&&(i.closest('.field')||i.parentNode)}
-['f-knee','f-energy'].forEach(function(id){var f=fieldOf(id);if(f)f.classList.add('gv-hide')});
+['f-knee','f-energy'].forEach(function(id){var f=fieldOf(id);if(f){f.classList.remove('gv-hide');f.classList.add('ci-morning')}});
 var habit=$('habit-list');if(habit&&habit.parentNode)habit.parentNode.classList.add('gv-hide');
 ['f-weight','f-sleep','f-waist'].forEach(function(id){var f=fieldOf(id);if(f)f.classList.add('ci-morning')});
 ['f-steps','f-hunger','f-notes'].forEach(function(id){var f=fieldOf(id);if(f)f.classList.add('ci-night')});
@@ -379,5 +379,43 @@ mi('Sign out',function(){var b=$('signout-btn');if(b)b.click()},'red');
 
 /* charts follow the dark look */
 if(window.Chart&&Chart.defaults){try{Chart.defaults.color='#9AA0AE';Chart.defaults.borderColor='rgba(255,255,255,.08)'}catch(e){}}
+
+/* ---------- laptop only: sections start open, Today lists the session ---------- */
+(function(){
+  var wide=window.matchMedia('(min-width:701px)');
+  function openOnce(){
+    if(!wide.matches)return;
+    $$('details.gv-det').forEach(function(d){if(!d.dataset.gvo){d.dataset.gvo='1';d.open=true}});
+  }
+  new MutationObserver(openOnce).observe($('app-root'),{childList:true,subtree:true});
+  openOnce();
+  var mount=document.createElement('div');mount.id='gv-sess';mount.className='gv-sess';
+  var acts=document.querySelector('#today-hero .hero-actions');
+  if(acts&&acts.parentNode)acts.parentNode.insertBefore(mount,acts);
+  var last='';
+  function esc(t){return String(t==null?'':t).replace(/[&<>"]/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]})}
+  function paint(){
+    if(!wide.matches)return;
+    var html='';
+    try{
+      var dk=effectiveDayFor(todayStr());
+      var base=visibleExercises((planAt(todayStr()).workouts[dk])||[],dk,todayStr());
+      var cust=customExercisesFor(dk).map(function(e){return Object.assign({},e,{custom:true})});
+      var list=scienceOrderedExercises(base.concat(cust));
+      var sc=planAt(todayStr()).weekSchedule[dk]||null;
+      if(list.length){
+        html='<div class="gv-sess-h">Today’s session</div>'+list.map(function(ex){
+          var r=(ex.repMin!=null&&ex.repMax!=null)?(ex.repMin===ex.repMax?ex.repMin:ex.repMin+'–'+ex.repMax):'';
+          var m=(ex.sets?ex.sets+(r?' × '+r:''):'');
+          return '<div class="gv-sess-row"><b>'+esc(ex.name)+'</b><span>'+esc(m)+'</span></div>'}).join('');
+        if(sc&&sc.cardio)html+='<div class="gv-sess-row"><b>Cardio</b><span>'+esc(sc.cardio)+'</span></div>';
+      }
+    }catch(e){html=''}
+    if(html!==last){last=html;mount.innerHTML=html}
+  }
+  new MutationObserver(paint).observe($('today-hero'),{childList:true,subtree:true,characterData:true});
+  wide.addEventListener&&wide.addEventListener('change',function(){openOnce();paint()});
+  setTimeout(paint,600);setInterval(paint,4000);
+})();
 renderGoals();
 })();

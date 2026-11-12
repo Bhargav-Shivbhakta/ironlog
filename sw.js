@@ -1,4 +1,4 @@
-const CACHE_NAME = 'fit-hub-v100';
+const CACHE_NAME = 'fit-hub-v104';
 // Every page + shared asset the Hub actually needs to work offline on a
 // completely fresh install — not just the Hub shell itself. Before this,
 // only 7 files were pre-cached at install; everything else (every app
@@ -15,6 +15,7 @@ const ASSETS = [
   './apps/todo.html', './apps/diet.html', './apps/schedule.html', './apps/grocery.html',
   './apps/chores.html', './apps/skin.html', './apps/calendar.html', './apps/clock.html',
   './apps/budget.html', './apps/pledge.html', './apps/checklist.html',
+  './apps/diet-v2.css','./apps/diet-v2.js','./apps/diet-habits.js','./apps/todo-v2.css','./apps/schedule-v2.css','./apps/calendar-v2.css','./apps/skin-v2.css','./apps/chores-v2.css','./apps/grocery-v2.css','./apps/budget-v2.css','./apps/pledge-v2.css','./apps/clock-v2.css','./apps/checklist-v2.css','./assets/ink.js',
   './gym/index.html','./gym/gym-v2.css','./gym/gym-v2.js',
   './tile-icons/gym.png', './tile-icons/diet.png', './tile-icons/todo.png', './tile-icons/schedule.png',
   './tile-icons/grocery.png', './tile-icons/chores.png', './tile-icons/skin.png', './tile-icons/calendar.png'
