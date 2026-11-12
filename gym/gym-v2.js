@@ -3,13 +3,14 @@
 'use strict';
 var mq=window.matchMedia('(max-width:700px)');
 var classic=false;try{classic=localStorage.getItem('gym-look')==='classic'}catch(e){}
-if(!mq.matches||classic) return;                       // laptop or Classic look: leave the page exactly as it was
+if(classic) return;                                    // Classic look chosen: leave the page exactly as it was
 var $=function(id){return document.getElementById(id)};
 var $$=function(s,r){return Array.prototype.slice.call((r||document).querySelectorAll(s))};
 var toast=function(m){try{window.showHistToast&&window.showHistToast(m)}catch(e){}};
 document.body.classList.add('gv2');
+if(!mq.matches)document.body.classList.add('gv-wide');
 // rotating across the 700px line: reload once so the right look is used
-mq.addEventListener&&mq.addEventListener('change',function(){location.reload()});
+mq.addEventListener&&mq.addEventListener('change',function(){document.body.classList.toggle('gv-wide',!mq.matches)});
 
 function el(tag,cls,html){var e=document.createElement(tag);if(cls)e.className=cls;if(html!=null)e.innerHTML=html;return e}
 

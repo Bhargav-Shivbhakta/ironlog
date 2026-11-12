@@ -5390,6 +5390,8 @@ function openAppFrame(url,title){
   // there's no way out of the app. This hides the Hub's own bar while an
   // app is open; the bottom tab bar stays up so you can always jump away.
   $('app-shell').classList.add('app-open');
+  // The Hub's sidebar wears the colours of the app that is open, and only while it is open.
+  (function(){ var th=/gym\/index\.html/.test(url)?'gym':''; if(th) $('app-shell').setAttribute('data-app-theme',th); else $('app-shell').removeAttribute('data-app-theme'); })();
   syncMobileNavHeight(); setTimeout(syncMobileNavHeight,300);
   // Always force a genuinely fresh load of the app, even if it's the same
   // URL as what's already sitting in the iframe (re-opening Clock right
@@ -5421,6 +5423,7 @@ function openAppFrame(url,title){
 }
 function closeAppFrame(){
   $('app-shell').classList.remove('app-open');
+  $('app-shell').removeAttribute('data-app-theme');
   $('app-frame-overlay').hidden=true;
   // ask the app to push any save it is still holding back, then unload it a beat later
   const fr=$('app-frame-iframe');

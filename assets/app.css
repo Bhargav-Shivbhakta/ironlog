@@ -1989,3 +1989,14 @@ button.pw-st{cursor:pointer}.pw-st.done{background:var(--accent);border-color:va
 /* The opened-app bar (Back / title / profile / Refresh / Open in new tab) is gone so the app owns the whole screen.
    Leaving the app: sidebar on laptop, bottom bar on phone. The elements stay in the page because scripts still read them. */
 .app-frame-bar{display:none!important}
+
+/* While the Training app is open, the Hub's sidebar takes its dark, lime look. It goes back to normal when you leave the app. */
+.app-shell[data-app-theme="gym"] .sidebar{background:#0E1013!important;border-right:1px solid #262A32!important;color:#F4F5F7!important;backdrop-filter:none!important;-webkit-backdrop-filter:none!important;transition:background .25s ease,border-color .25s ease}
+.app-shell[data-app-theme="gym"] .sidebar .main-nav button{color:#B7BCC8}
+.app-shell[data-app-theme="gym"] .sidebar .main-nav button:hover{background:#171A1F;color:#fff}
+.app-shell[data-app-theme="gym"] .sidebar .main-nav button.active{background:#C6F24E!important;color:#0B0C0F!important}
+.app-shell[data-app-theme="gym"] .sidebar .main-nav button.active svg{color:#0B0C0F}
+.app-shell[data-app-theme="gym"] .sidebar .brand-mark{background:#C6F24E!important;color:#0B0C0F!important}
+.app-shell[data-app-theme="gym"] .sidebar .profile-control,.app-shell[data-app-theme="gym"] .sidebar .signout{background:#16181D!important;border:1px solid #262A32!important;color:#F4F5F7!important}
+.app-shell[data-app-theme="gym"] .app-frame-overlay{background:#0B0C0F}
+.app-shell[data-app-theme="gym"] .mobile-header,.app-shell[data-app-theme="gym"] .mobile-nav{background:#0E1013!important;border-color:#262A32!important}
