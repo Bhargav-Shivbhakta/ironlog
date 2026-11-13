@@ -28,42 +28,6 @@ service cloud.firestore {
     function classDoc(classId) { return get(/databases/$(database)/documents/classes/$(classId)).data; }
     function teaches(classId) { return schoolAccount() && myEmail() in classDoc(classId).instructors; }
 
-    // ---- timed exams: starting and saving an attempt
-    function testOf(classId, testId) { return get(/databases/$(database)/documents/classes/$(classId)/tests/$(testId)).data; }
-    function startOk(classId, attemptId, d) {
-      let t = testOf(classId, d.tid);
-      let ex = /databases/$(database)/documents/classes/$(classId)/testExtra/$(d.tid + '_' + myEmail());
-      return attemptId == d.tid + '_' + request.auth.uid
-        && d.keys().hasOnly(['tid', 'uid', 'email', 'name', 'status', 'session', 'startedAt', 'beatAt', 'answers', 'events', 'saves', 'extraMin', 'device', 'reopened', 'submittedAt', 'endedReason'])
-        && d.uid == request.auth.uid
-        && d.email == myEmail()
-        && d.status == 'open'
-        && d.session is string && d.session.size() >= 16
-        && d.startedAt == request.time
-        && d.beatAt == request.time
-        && d.saves == 0
-        && d.reopened == 0
-        && t.status == 'published'
-        && request.time >= t.opensAt
-        && request.time < t.closesAt
-        && ((!exists(ex) && d.extraMin == 0) || (exists(ex) && d.extraMin == get(ex).data.minutes));
-    }
-    // Saves must come from the device that started (or, after the professor lets the student back in,
-    // the device that takes over), at least every 5 minutes, and before the time is up (30 s grace).
-    function saveOk(classId, old, d) {
-      let t = testOf(classId, old.tid);
-      let mins = int(t.durationMin) + int(old.extraMin);
-      return old.status == 'open'
-        && d.diff(old).affectedKeys().hasOnly(['answers', 'events', 'status', 'endedReason', 'submittedAt', 'beatAt', 'saves', 'session', 'device'])
-        && (d.session == old.session || (old.session == '' && d.session is string && d.session.size() >= 16))
-        && d.beatAt == request.time
-        && request.time <= old.beatAt + duration.value(300, 's')
-        && request.time <= old.startedAt + duration.value(mins, 'm') + duration.value(30, 's')
-        && request.time <= t.closesAt + duration.value(int(old.extraMin), 'm') + duration.value(30, 's')
-        && d.status in ['open', 'submitted', 'ended']
-        && (d.status == 'open' || d.submittedAt == request.time);
-    }
-
     // ---- admin check (the site reads this to decide whether to show the Admin page)
     match /admins/{email} {
       allow read: if isAdmin();
@@ -75,7 +39,7 @@ service cloud.firestore {
       allow write: if isAdmin();
       // a class's instructors can add or remove the exams they upload (nothing else)
       allow update: if teaches(classId)
-        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['exams', 'updatedAt', 'timed']);
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['exams', 'updatedAt']);
 
       // Exams and assignments uploaded on the site: everyone in the class reads them,
       // the class's instructors (and admins) upload, replace and delete them.
@@ -131,43 +95,6 @@ service cloud.firestore {
           && request.resource.data.email == myEmail()
           && request.resource.data.at is number;
         allow write: if isAdmin();
-      }
-
-      // ---------------- Timed exams ----------------
-      // The exam itself: questions and choices only (no answers). Students can open it only once it
-      // is published and its start time has passed (by Firebase's clock, not the student's).
-      match /tests/{testId} {
-        allow read: if isAdmin() || teaches(classId)
-          || (enrolledIn(classId) && resource.data.status == 'published' && request.time >= resource.data.opensAt);
-        allow write: if isAdmin() || teaches(classId);
-      }
-      // Answer keys and hidden tests: the class's staff only, never students.
-      match /testKeys/{testId} {
-        allow read, write: if isAdmin() || teaches(classId);
-      }
-      // Extra time for one student (accommodations). Id: "<testId>_<email>". A student can look up their
-      // own (or find that there is none); the start rule checks the minutes they claim.
-      match /testExtra/{extraId} {
-        allow get: if enrolledIn(classId) && (resource == null || resource.data.email == myEmail());
-        allow read, write: if isAdmin() || teaches(classId);
-      }
-      // One attempt per student per exam. Id: "<testId>_<uid>" (checked by id, so a student can also
-      // look for an attempt that doesn't exist yet).
-      match /attempts/{attemptId} {
-        allow read: if isAdmin() || teaches(classId) || (enrolledIn(classId) && attemptId.matches('.+_' + request.auth.uid));
-        // starting: only while the exam is open, only once (the id is fixed), times set by Firebase
-        allow create: if enrolledIn(classId) && startOk(classId, attemptId, request.resource.data);
-        // saving and submitting: only from the same device, only while the attempt is open and in time
-        allow update: if enrolledIn(classId) && resource.data.uid == request.auth.uid && saveOk(classId, resource.data, request.resource.data);
-        // the professor: let a student back in, add time, end an attempt
-        allow update, delete: if isAdmin() || teaches(classId);
-      }
-      // Scores: students see their own only after the professor releases them.
-      match /testGrades/{gradeId} {
-        allow read: if isAdmin() || teaches(classId)
-          || (enrolledIn(classId) && resource != null && resource.data.uid == request.auth.uid
-              && testOf(classId, resource.data.tid).released == true);
-        allow write: if isAdmin() || teaches(classId);
       }
 
       // Real exam scores uploaded for the Analytics page: the class's staff only, never students.

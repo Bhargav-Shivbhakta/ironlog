@@ -22,14 +22,13 @@ const TYPE_ALIASES = {
   tf: 'truefalse', truefalse: 'truefalse', 'true-false': 'truefalse', 'true/false': 'truefalse',
   numeric: 'numeric', number: 'numeric', num: 'numeric',
   text: 'text', fill: 'text', blank: 'text', short: 'text', 'fill-in': 'text',
-  long: 'long', essay: 'long', written: 'long', 'free-response': 'long', fr: 'long', paragraph: 'long',
 };
 const DIFFICULTIES = ['easy', 'medium', 'hard'];
 const EXAM_TAGS = ['on-exam', 'onexam', 'exam', 'real', 'actual'];
 
 export const TYPE_LABELS = {
   single: 'Single answer', multi: 'Select all that apply', truefalse: 'True / False',
-  numeric: 'Numeric answer', text: 'Fill in the blank', long: 'Written answer',
+  numeric: 'Numeric answer', text: 'Fill in the blank',
 };
 
 function parseScalar(raw) {
@@ -122,8 +121,7 @@ export function rewriteImages(text, base) {
  * @returns {{meta, questions, topics, errors, warnings}}
  * errors/warnings are {line, id?, message}
  */
-// allowLong: written-answer questions (graded by hand) are only for timed exams
-export function parseExam(source, { fallbackTitle = 'Untitled exam', allowLong = false } = {}) {
+export function parseExam(source, { fallbackTitle = 'Untitled exam' } = {}) {
   const lines = String(source).replace(/^﻿/, '').replace(/\r\n?/g, '\n').split('\n');
   const errors = [];
   const warnings = [];
@@ -167,7 +165,7 @@ export function parseExam(source, { fallbackTitle = 'Untitled exam', allowLong =
 
   const finish = () => {
     if (!q) return;
-    finalizeQuestion(q, { err, warn, allowLong });
+    finalizeQuestion(q, { err, warn });
     questions.push(q);
     q = null;
   };
@@ -361,7 +359,7 @@ function trimBlock(arr) {
   return arr.join('\n').replace(/^\n+|\n+$/g, '').trim();
 }
 
-function finalizeQuestion(q, { err, warn, allowLong }) {
+function finalizeQuestion(q, { err, warn }) {
   const correct = q.options.filter((o) => o.correct).length;
   q.text = trimBlock(q.body);
   q.explanationText = trimBlock(q.explanation);
@@ -419,13 +417,6 @@ function finalizeQuestion(q, { err, warn, allowLong }) {
       const accepted = q.answers.flatMap((a) => a.raw.split('|').map((s) => s.trim()).filter(Boolean));
       if (!accepted.length) err(q.line, `${q.id} has an empty answer line.`, q.id);
       q.answer = { text: accepted };
-      break;
-    }
-    case 'long': {
-      if (!allowLong) { err(q.line, `${q.id} is a written-answer question. Those are graded by hand, so they can only be used in timed exams.`, q.id); break; }
-      if (q.options.length) err(q.line, `${q.id} is a written answer, so it can't have choices.`, q.id);
-      // an optional "= ..." line is kept as a model answer for the grader
-      q.answer = q.answers.length ? { model: q.answers.map((a) => a.raw).join('\n') } : null;
       break;
     }
     default:

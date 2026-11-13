@@ -27,7 +27,7 @@ const SORTS = {
   asgDone: (s) => s.asgDone || 0,
 };
 const SORT_LABEL = { name: 'Name', section: 'Section', status: 'Status', seen: 'Questions tried', accuracy: 'Accuracy', readiness: 'Readiness', exam: 'Latest exam score', asgDone: 'Assignments' };
-const TABS = [['students', 'Students'], ['progress', 'Class progress'], ['questions', 'Topics & questions'], ['scores', 'Exam scores'], ['timed', 'Timed exams'], ['announce', 'Announcements']];
+const TABS = [['students', 'Students'], ['progress', 'Class progress'], ['questions', 'Topics & questions'], ['scores', 'Exam scores'], ['announce', 'Announcements']];
 
 export async function render(main, params = {}, query = {}) {
   if (!cloud.enabled) {
@@ -399,7 +399,6 @@ export async function render(main, params = {}, query = {}) {
     const tabs = `<div class="dash-tabs" role="tablist" aria-label="Dashboard">${TABS.map(([k, l]) => `<button role="tab" id="dash-tab-${k}" aria-controls="dash-panel" data-dash-tab="${k}" aria-selected="${tab === k}" tabindex="${tab === k ? 0 : -1}">${l}${badge[k] !== '' && badge[k] != null ? ` <span class="dash-badge ${k === 'questions' && openReports ? 'bad' : ''}">${badge[k]}</span>` : ''}</button>`).join('')}</div>`;
     body.innerHTML = sectionPicker + tabs + `<div class="dash-panel" id="dash-panel" role="tabpanel" aria-labelledby="dash-tab-${tab}">${rows.length ? panel() : `<div class="empty-state"><h2>No students yet</h2><p>Upload this class's roster on the Admin page. Students appear here once they're on the roster.</p></div>`}</div>`;
     if (tab === 'scores' && rows.length) mountScores();
-    if (tab === 'timed') mountTimed();
   }
   function panel() {
     const none = '<p class="muted dash-empty">Nobody has started this exam yet. This fills in once students begin practising.</p>';
@@ -407,17 +406,7 @@ export async function render(main, params = {}, query = {}) {
     if (tab === 'questions') return `<p class="dash-intro">What the class finds hard, and questions students reported as wrong or unclear.</p><div data-reports>${reportsSection()}</div>` + (started().length ? missedSection() + topics() : none);
     if (tab === 'scores') return '<div data-scores><p class="muted loading-line">Loading…</p></div>';
     if (tab === 'announce') return `<div data-anns>${annSection()}</div>`;
-    if (tab === 'timed') return '<div data-timed><p class="muted loading-line">Loading…</p></div>';
     return `<div data-table>${table()}</div>`;
-  }
-  // the Timed exams tab: the class's timed exams, each opening its own monitor page
-  async function mountTimed() {
-    const host = body.querySelector('[data-timed]');
-    if (!host) return;
-    try {
-      const [mod, list] = await Promise.all([import('./timed-admin.js'), cloud.listTimed(classId)]);
-      if (body.contains(host)) host.innerHTML = mod.timedList(cls(), list);
-    } catch (e) { host.innerHTML = `<p class="bad">Couldn't load the timed exams: ${esc(e?.message || e)}</p>`; }
   }
   // the Exam scores tab is the analytics page, shown inside the dashboard
   async function mountScores() {

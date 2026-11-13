@@ -25,9 +25,6 @@ const routes = [
   { re: /^\/subjects$/, view: () => import('./views/subjects.js'), nav: 'home' },
   { re: /^\/instructor$/, view: () => import('./views/instructor.js'), nav: 'instructor' },
   { re: /^\/analytics$/, view: () => import('./views/analytics.js'), nav: 'instructor' },
-  { re: /^\/timed\/([^/]+)$/, keys: ['classId'], view: () => import('./views/timed-admin.js'), nav: 'instructor' },
-  { re: /^\/timed\/([^/]+)\/([^/]+)$/, keys: ['classId', 'tid'], view: () => import('./views/timed-admin.js'), nav: 'instructor' },
-  { re: /^\/take\/([^/]+)\/([^/]+)$/, keys: ['classId', 'tid'], view: () => import('./views/take.js'), nav: 'home', focus: true, exam: true },
   { re: /^\/settings$/, view: () => import('./views/settings.js'), nav: 'settings' },
   { re: /^\/author$/, view: () => import('./views/author.js'), nav: 'author' },
 ];
@@ -37,10 +34,6 @@ const SKELETON = `<section class="page skeleton" aria-busy="true" aria-label="Lo
   <span class="sk sk-eyebrow"></span><span class="sk sk-title"></span><span class="sk sk-line"></span>
   <span class="sk sk-block"></span><div class="sk-row"><span class="sk sk-card"></span><span class="sk sk-card"></span><span class="sk sk-card"></span></div></section>`;
 let renderToken = 0;
-
-// A timed exam locks navigation: { hash, blocked() } or null
-let navGuard = null;
-export function setNavGuard(g) { navGuard = g; }
 
 export function go(hash) {
   if (location.hash === hash) route();
@@ -188,11 +181,7 @@ function init() {
   cloud.init();
   applyTheme();
   matchMedia('(prefers-color-scheme: dark)').addEventListener?.('change', applyTheme);
-  window.addEventListener('hashchange', () => {
-    // during a timed exam nothing may navigate away (Back, swipe-back, links): stay on the exam
-    if (navGuard && location.hash !== navGuard.hash) { history.pushState(null, '', navGuard.hash); navGuard.blocked?.(); return; }
-    route();
-  });
+  window.addEventListener('hashchange', route);
   window.addEventListener('qp:storage-full', () => toast("Your browser's storage is full. Export your progress in Settings, then clear old data.", 'bad'));
   // Safety net: an unexpected error never leaves the page silently broken. Log it, tell the
   // student once (not a flood of messages), and keep the page usable.
