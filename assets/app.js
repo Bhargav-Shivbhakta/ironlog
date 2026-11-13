@@ -5394,7 +5394,7 @@ function openAppFrame(url,title){
   (function(){
     var th='';
     if(/gym\/index\.html/.test(url)) th='gym';
-    else { var m=/apps\/(todo|schedule|chores|grocery|budget|skin|diet|calendar|pledge|checklist)\.html/.exec(url); if(m) th=m[1]; }
+    else { var m=/apps\/(todo|schedule|chores|grocery|budget|skin|diet|calendar|pledge|checklist|clock)\.html/.exec(url); if(m) th=m[1]; }
     if(th){ $('app-shell').setAttribute('data-app-theme',th); document.documentElement.setAttribute('data-app-theme',th); }
     else { $('app-shell').removeAttribute('data-app-theme'); document.documentElement.removeAttribute('data-app-theme'); }
   })();
