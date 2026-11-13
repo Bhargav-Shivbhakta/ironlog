@@ -63,7 +63,8 @@ async function classPage(main, cls, byId, several) {
   const featured = current.find((e) => e.active) || current[0];
   const others = current.filter((e) => e !== featured);
   const teacher = cloud.isStaffRole(cls.role);
-  const [ready, panel, ann] = await Promise.all([readinessFor(featured ? [featured.id] : []), featured && !teacher ? studyPanel(featured) : '', announcementBanners(cls.id, { staff: teacher })]);
+  const [ready, panel, ann, doc] = await Promise.all([readinessFor(featured ? [featured.id] : []), featured && !teacher ? studyPanel(featured) : '', announcementBanners(cls.id, { staff: teacher }), cloud.getClass(cls.id).catch(() => null)]);
+  const timed = timedCards(cls, doc?.timed || {}, teacher);
   main.innerHTML = `
     <section class="page home class-home">
       ${several ? '<nav class="crumbs"><a href="#/">My classes</a></nav>' : ''}
@@ -73,9 +74,10 @@ async function classPage(main, cls, byId, several) {
           <h1>${esc(cls.name)}</h1>
           <p class="tagline">${teacher ? (cls.role === 'ta' ? `You are a TA for this class${cls.sections?.length ? ` (${cls.sections.length > 1 ? 'sections' : 'section'} ${esc(cls.sections.join(', '))})` : ''}.` : 'You are an instructor for this class.') : `Welcome, ${esc((cloud.currentUser().displayName || '').split(' ')[0] || 'back')}.`}</p>
         </div>
-        ${teacher ? `<div class="row"><a class="btn" href="#/content/${encodeURIComponent(cls.id)}">${icon('upload')} Exams & assignments</a><a class="btn" href="#/instructor?class=${encodeURIComponent(cls.id)}&tab=scores">${icon('chart')} Exam scores</a><a class="btn primary" href="#/instructor?class=${encodeURIComponent(cls.id)}">${icon('grid')} Class dashboard</a></div>` : ''}
+        ${teacher ? `<div class="row"><a class="btn" href="#/content/${encodeURIComponent(cls.id)}">${icon('upload')} Exams & assignments</a><a class="btn" href="#/timed/${encodeURIComponent(cls.id)}">${icon('clock')} Timed exams</a><a class="btn" href="#/instructor?class=${encodeURIComponent(cls.id)}&tab=scores">${icon('chart')} Exam scores</a><a class="btn primary" href="#/instructor?class=${encodeURIComponent(cls.id)}">${icon('grid')} Class dashboard</a></div>` : ''}
       </header>
       ${ann}
+      ${timed}
       ${panel && store.getSession()?.examId === featured?.id ? '' : resumeBanner()}
       ${panel}
       ${panel ? `<h2 class="section-title">Your exam${others.length ? 's' : ''}</h2>` : ''}
@@ -85,6 +87,26 @@ async function classPage(main, cls, byId, several) {
     </section>`;
   bindDiscard(main, () => classPage(main, cls, byId, several));
   bindAnnouncements(main);
+}
+
+// Timed exams on the class page: what's coming up, what's open now, and past ones (for the score)
+function timedCards(cls, timed, teacher) {
+  const now = Date.now();
+  const list = Object.entries(timed).map(([id, t]) => ({ id, ...t })).filter((t) => t.status === 'published' && (teacher || t.closesAt > now - 60 * 86400000))
+    .sort((a, b) => a.opensAt - b.opensAt);
+  if (!list.length) return '';
+  const fmt = (t) => new Date(t).toLocaleString(undefined, { weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
+  const hm = (t) => new Date(t).toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
+  const card = (t) => {
+    const open = now >= t.opensAt && now < t.closesAt, upcoming = now < t.opensAt;
+    const href = teacher ? `#/timed/${encodeURIComponent(cls.id)}/${encodeURIComponent(t.id)}` : `#/take/${encodeURIComponent(cls.id)}/${encodeURIComponent(t.id)}`;
+    return `<a class="timed-card ${open ? 'open' : upcoming ? 'soon' : 'past'}" href="${href}">
+      <span class="timed-card-icon" aria-hidden="true">${icon(open ? 'clock' : upcoming ? 'clock' : 'check')}</span>
+      <span class="timed-card-text"><span class="mode-name">${esc(t.title)}</span>
+        <span class="mode-sub">${open ? `<strong>Open now</strong> · closes ${hm(t.closesAt)} · ${t.durationMin} minutes once you start` : upcoming ? `Opens ${fmt(t.opensAt)} · ${t.durationMin} minutes` : `Closed ${fmt(t.closesAt)}${t.released ? ' · <strong>score available</strong>' : ''}`}${t.requireSEB ? ' · Safe Exam Browser' : ''}</span></span>
+      <span class="btn ${open && !teacher ? 'primary' : ''}">${teacher ? 'Monitor' : open ? 'Go to exam' : upcoming ? 'Details' : t.released ? 'See score' : 'Details'}</span></a>`;
+  };
+  return `<section class="timed-section" aria-label="Timed exams"><h2 class="section-title">${icon('clock')} Timed exams</h2><div class="timed-cards">${list.map(card).join('')}</div></section>`;
 }
 
 function notEnrolled(main) {

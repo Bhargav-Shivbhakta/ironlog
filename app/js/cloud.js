@@ -920,3 +920,146 @@ async function runOps(ops) {
     await b.commit();
   }
 }
+
+// ---------------------------------------------------------------- timed exams
+// classes/{C}/tests/{T}: the exam (no answers) · testKeys/{T}: answers + hidden tests (staff only)
+// testExtra/{T}_{email}: extra minutes · attempts/{T}_{uid}: one per student · testGrades/{T}_{uid}: scores
+const tdoc = (classId, kind, id) => fb.doc(fb.db, 'classes', classId, kind, id);
+const toTs = (v) => (v == null ? null : fb.Timestamp.fromMillis(typeof v === 'number' ? v : Date.parse(v)));
+const plainMs = (v) => (v == null ? null : typeof v === 'number' ? v : typeof v.toMillis === 'function' ? v.toMillis() : Date.parse(v));
+const timedSummary = (t) => ({ title: t.title, opensAt: plainMs(t.opensAt), closesAt: plainMs(t.closesAt), durationMin: t.durationMin, status: t.status, released: !!t.released, requireSEB: !!t.requireSEB, points: t.totalPoints || 0 });
+
+export async function listTimed(classId) {
+  await load();
+  const snap = await fb.getDocs(fb.collection(fb.db, 'classes', classId, 'tests'));
+  return snap.docs.map((d) => ({ id: d.id, ...d.data() })).sort((a, b) => (plainMs(b.opensAt) || 0) - (plainMs(a.opensAt) || 0));
+}
+export async function getTimed(classId, tid) {
+  await load();
+  const snap = await fb.getDoc(tdoc(classId, 'tests', tid));
+  return snap.exists() ? { id: tid, ...snap.data() } : null;
+}
+export async function getTimedKey(classId, tid) {
+  await load();
+  const snap = await fb.getDoc(tdoc(classId, 'testKeys', tid));
+  return snap.exists() ? snap.data() : null;
+}
+export async function listTimedExtra(classId, tid) {
+  await load();
+  const snap = await fb.getDocs(fb.query(fb.collection(fb.db, 'classes', classId, 'testExtra'), fb.where('tid', '==', tid)));
+  return snap.docs.map((d) => d.data());
+}
+// Create or update an exam. test: the public part; key: answers (null = keep the stored key);
+// extra: [{ email, minutes }] replaces the exam's extra-time list.
+export async function saveTimed(classId, tid, test, key, extra = null) {
+  await load();
+  tid = tid || 't' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+  const clean = JSON.parse(JSON.stringify({ ...test, opensAt: plainMs(test.opensAt), closesAt: plainMs(test.closesAt) })); // Firestore refuses undefined values
+  const data = { ...clean, opensAt: toTs(clean.opensAt), closesAt: toTs(clean.closesAt), updatedAt: Date.now(), updatedBy: user.email.toLowerCase() };
+  if (!data.createdAt) { data.createdAt = Date.now(); data.createdBy = user.email.toLowerCase(); }
+  const b = fb.writeBatch(fb.db);
+  b.set(tdoc(classId, 'tests', tid), data);
+  if (key) b.set(tdoc(classId, 'testKeys', tid), JSON.parse(JSON.stringify({ tid, ...key })));
+  b.set(fb.doc(fb.db, 'classes', classId), { timed: { [tid]: timedSummary(data) }, updatedAt: Date.now() }, { merge: true });
+  if (extra) {
+    const before = await listTimedExtra(classId, tid);
+    const keep = new Set(extra.map((x) => x.email));
+    for (const x of before) if (!keep.has(x.email)) b.delete(tdoc(classId, 'testExtra', `${tid}_${x.email}`));
+    for (const x of extra) b.set(tdoc(classId, 'testExtra', `${tid}_${x.email}`), { tid, email: x.email, minutes: Math.round(x.minutes) });
+  }
+  await b.commit();
+  return tid;
+}
+export async function setTimedReleased(classId, tid, released) {
+  await load();
+  const t = await getTimed(classId, tid);
+  const b = fb.writeBatch(fb.db);
+  b.set(tdoc(classId, 'tests', tid), { released: !!released, releasedAt: released ? Date.now() : null }, { merge: true });
+  b.set(fb.doc(fb.db, 'classes', classId), { timed: { [tid]: timedSummary({ ...t, released }) }, updatedAt: Date.now() }, { merge: true });
+  await b.commit();
+}
+export async function deleteTimed(classId, tid) {
+  await load();
+  const [atts, grades, extra] = await Promise.all([listAttempts(classId, tid), listTestGrades(classId, tid), listTimedExtra(classId, tid)]);
+  const refs = [tdoc(classId, 'tests', tid), tdoc(classId, 'testKeys', tid), ...atts.map((a) => tdoc(classId, 'attempts', a.id)), ...grades.map((g) => tdoc(classId, 'testGrades', g.id)), ...extra.map((x) => tdoc(classId, 'testExtra', `${tid}_${x.email}`))];
+  for (let i = 0; i < refs.length; i += 400) { const b = fb.writeBatch(fb.db); refs.slice(i, i + 400).forEach((r) => b.delete(r)); await b.commit(); }
+  const b = fb.writeBatch(fb.db);
+  b.set(fb.doc(fb.db, 'classes', classId), { timed: { [tid]: fb.deleteField() }, updatedAt: Date.now() }, { merge: true });
+  await b.commit();
+}
+export async function listAttempts(classId, tid) {
+  await load();
+  const snap = await fb.getDocs(fb.query(fb.collection(fb.db, 'classes', classId, 'attempts'), fb.where('tid', '==', tid)));
+  return snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+}
+// Staff changes to one attempt: let back in, add time, end. patch fields are merged.
+export async function staffAttempt(classId, aid, patch, { now = false } = {}) {
+  await load();
+  const data = { ...patch };
+  if (now) data.beatAt = fb.serverTimestamp();
+  if (patch.submittedAt === 'now') data.submittedAt = fb.serverTimestamp();
+  await fb.setDoc(tdoc(classId, 'attempts', aid), data, { merge: true });
+}
+export async function listTestGrades(classId, tid) {
+  await load();
+  const snap = await fb.getDocs(fb.query(fb.collection(fb.db, 'classes', classId, 'testGrades'), fb.where('tid', '==', tid)));
+  return snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+}
+export async function saveTestGrades(classId, list) {
+  await load();
+  for (let i = 0; i < list.length; i += 400) {
+    const b = fb.writeBatch(fb.db);
+    for (const g of list.slice(i, i + 400)) b.set(tdoc(classId, 'testGrades', `${g.tid}_${g.uid}`), g);
+    await b.commit();
+  }
+}
+
+// ---- student side
+// Read the exam (only works once it has opened) and this student's attempt, if any.
+export async function openTimed(classId, tid) {
+  await load();
+  const [t, a] = await Promise.all([
+    fb.getDoc(tdoc(classId, 'tests', tid)).then((s) => (s.exists() ? { id: tid, ...s.data() } : null)),
+    myAttempt(classId, tid),
+  ]);
+  return { test: t, attempt: a };
+}
+export async function myAttempt(classId, tid) {
+  await load();
+  const snap = await fb.getDoc(tdoc(classId, 'attempts', `${tid}_${user.uid}`));
+  return snap.exists() ? { id: snap.id, ...snap.data() } : null;
+}
+// Start: Firebase sets the start time. Returns the stored attempt (with Firebase's times) and the
+// difference between Firebase's clock and this computer's.
+export async function startAttempt(classId, tid, { session, device, extraMin = 0 }) {
+  await load();
+  const t0 = Date.now();
+  await fb.setDoc(tdoc(classId, 'attempts', `${tid}_${user.uid}`), {
+    tid, uid: user.uid, email: user.email.toLowerCase(), name: user.displayName || '', status: 'open', session,
+    startedAt: fb.serverTimestamp(), beatAt: fb.serverTimestamp(), answers: {}, events: [], saves: 0, extraMin, device, reopened: 0, submittedAt: null, endedReason: '',
+  });
+  const t1 = Date.now();
+  const a = await myAttempt(classId, tid);
+  return { attempt: a, offset: plainMs(a.startedAt) - (t0 + t1) / 2 };
+}
+// Save (and optionally finish). base: the attempt as last read; changes: answers/events/status/...
+export async function saveAttempt(classId, base, changes) {
+  await load();
+  const data = { ...base, ...changes, beatAt: fb.serverTimestamp() };
+  delete data.id;
+  if (changes.status && changes.status !== 'open') data.submittedAt = fb.serverTimestamp();
+  await fb.setDoc(tdoc(classId, 'attempts', base.id), data);
+}
+// Extra minutes the professor gave this student for this exam (0 if none)
+export async function myExtraTime(classId, tid) {
+  await load();
+  const snap = await fb.getDoc(tdoc(classId, 'testExtra', `${tid}_${user.email.toLowerCase()}`));
+  return snap.exists() ? Number(snap.data().minutes) || 0 : 0;
+}
+export async function myTestGrade(classId, tid) {
+  await load();
+  try {
+    const snap = await fb.getDoc(tdoc(classId, 'testGrades', `${tid}_${user.uid}`));
+    return snap.exists() ? snap.data() : null;
+  } catch { return null; } // not released yet
+}

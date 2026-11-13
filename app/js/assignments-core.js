@@ -94,6 +94,7 @@ export function readAssignments(files, { label = (f) => f } = {}) {
       order: Number(meta.order) || out.assignments.length + 1,
       difficulty: ['easy', 'medium', 'hard'].includes(meta.difficulty) ? meta.difficulty : 'medium',
       estimate: meta.estimate || '',
+      points: Number(meta.points) > 0 ? Number(meta.points) : null, // used by timed exams
       topics: (meta.topics || '').split(',').map((s) => s.trim()).filter(Boolean),
       instructions, hints, starter, tests, checks,
       solution, // removed before publishing to students

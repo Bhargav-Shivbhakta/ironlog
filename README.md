@@ -256,6 +256,28 @@ Write a program that prices one movie ticket. ...
 
 ---
 
+## 4c. Timed exams (locked down, one attempt)
+
+For real tests taken on the site. Needs student sign-in (section 7). On the class dashboard open the **Timed exams** tab (or **Timed exams** on the class page) and click **New timed exam**.
+
+1. **The exam:** title and the instructions students read before starting.
+2. **When:** opens, closes and the time limit. Students start any time in the window; each student's clock starts when they press Start and never runs past the closing time. Times use Firebase's clock, not the student's computer.
+3. **Questions:** drop a question file (same format as practice exams) and/or a programming-problems zip or folder (same format as assignments). Points: `## Q3 · 2pts` in a question heading, `points: 15` in assignment.md (default 10). Written answers graded by hand: `## Q9 · written · 5pts`, with an optional `= model answer` line for the grader. In programming problems, the tests in `sample_tests` are shown to students; the others stay hidden and are used for grading. Reference solutions are run against the tests before publishing and are never uploaded.
+4. **Rules:** shuffle questions and choices per student; require Safe Exam Browser; allow phones (off by default); show which questions were right when scores are released.
+5. **Extra time:** one student per line, `jdoe@sdsu.edu 30`.
+
+**What the site enforces:** one attempt (the database refuses a second); start, saves and submission checked against Firebase's clock (no saving after the time limit); one device (another device can't open or save the attempt); answers save every 2 minutes and on submit; the exam is submitted automatically when time runs out. Answer keys, hidden tests and solutions are stored where only staff can read them; students' computers never receive them.
+
+**Lockdown:** full screen; switching tab, app or desktop, clicking outside the window, leaving full screen, closing or reloading the page, the screenshot key and developer-tools keys **end the exam immediately** (no warning) and are recorded. Copy, cut, paste, right-click, dragging, printing, Back and swipe-back are blocked. No hints, no answer checking, no code suggestions. The student's name is shown faintly across the screen. Phones and a connected second screen are refused unless allowed.
+
+**What a web page can't block:** screenshots taken with the operating system's own tools, or a second device used beside the computer. For that, tick **Require Safe Exam Browser** (free for Windows, Mac and iPad from safeexambrowser.org): it locks the computer to the exam and blocks screenshots and other apps. Set its start address to the exam's student link (**Copy the student link** on the exam page) in the SEB configuration tool and give students the .seb file. Otherwise, run the exam in a lab or with a proctor.
+
+**During the exam (Live tab):** counts of not started, working, submitted, ended by leaving and no contact; each student's status, start time, time left, last save, answered count, exits and device. **Let back in** (with extra minutes, the answers they saved are kept), **+ Time**, **End**, and a timeline of everything that happened for each student. Refreshes every minute.
+
+**Afterwards (Results tab):** **Grade all attempts** marks choice, number and short answers against the key and runs every programming answer against all tests, hidden ones included (points in proportion to tests passed). Click a cell to see the answer and set points (needed for written answers; your points are kept if you grade again). **Release scores to students** shows each student their own score on their class page. **Download CSV** (for Canvas) and **Add to Exam scores** (for the analysis).
+
+**Free-plan cost:** about one write every 2 minutes per student (a 90-minute exam for 200 students is about 9,500 writes and 20,000 reads, plus 200 reads a minute while the Live tab is open). Turn off Auto-refresh if several staff watch at once.
+
 ## 5. Checking and previewing on your computer (optional)
 
 This needs [Node.js](https://nodejs.org) 18 or newer.
