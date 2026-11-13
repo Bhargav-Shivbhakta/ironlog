@@ -569,7 +569,7 @@
 @media (max-width:700px){input:not([type=checkbox]):not([type=radio]):not([type=range]):not([type=color]):not([type=file]):not([type=hidden]):not(#_z),select:not(#_z),textarea:not(#_z){font-size:16px!important}
 html,body,button,a,input,select,textarea,label{touch-action:manipulation}}</style>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600;700&family=Barlow+Condensed:wght@500;600;700&display=swap">
-<link rel="stylesheet" href="todo-v2.css?v=16">
+<link rel="stylesheet" href="todo-v2.css?v=17">
 </head>
 <body>
 <script>try{ if(window.self !== window.top) document.body.classList.add('embedded'); }catch(e){ document.body.classList.add('embedded'); }</script>
@@ -1624,20 +1624,11 @@ function renderCommandCenter(){
   const overdueList = sortTasks(active.filter(function(t){ return taskDueClass(t)==='overdue'; }));
   const todayList = sortTasks(active.filter(function(t){ return taskDueClass(t)==='today'; }));
   const upcomingList = sortTasks(active.filter(function(t){ return t.due && t.due>todayStr(); }));
-  const notesBody = stickyNotes.length
-    ? stickyNotes.slice(0,3).map(function(n){
-        const plain = noteDisplayText(n.text);
-        const text = plain ? escapeHtml(plain.slice(0,90)) : '<span style="color:var(--text-faint);">Empty note</span>';
-        return '<div class="command-note-preview" data-command-opennotes="1"><span class="command-note-dot" style="background:'+n.color+';"></span><span class="command-note-text">'+text+'</span></div>';
-      }).join('')
-    : '<div class="command-empty">No notes yet — jot anything down.</div>';
   el.innerHTML =
     '<section class="command-lane"><div class="command-lane-head"><span>Today</span><span class="command-count">'+todayList.length+'</span></div>'+(todayList.length?todayList.slice(0,4).map(commandTaskHtml).join(''):'<div class="command-empty">Nothing due today.</div>')+'</section>'+
     '<section class="command-lane"><div class="command-lane-head"><span>Upcoming</span><span class="command-count">'+upcomingList.length+'</span></div>'+(upcomingList.length?upcomingList.slice(0,4).map(commandTaskHtml).join(''):'<div class="command-empty">Nothing scheduled ahead.</div>')+'</section>'+
     '<section class="command-lane"><div class="command-lane-head"><span>Overdue</span><span class="command-count">'+overdueList.length+'</span></div>'+(overdueList.length?overdueList.slice(0,4).map(commandTaskHtml).join(''):'<div class="command-empty">Nothing overdue — you\'re caught up.</div>')+'</section>'+
-    '<section class="command-lane notes"><div class="command-lane-head"><span>Notes</span><span class="command-count">'+stickyNotes.length+'</span></div>'+notesBody+
-      '<div class="command-actions"><button type="button" data-command-newnote="1">+ New</button><button type="button" data-command-opennotes="1" style="background:var(--surface-2);color:var(--text-soft);">View all</button></div>'+
-    '</section>';
+    '<section class="command-lane notes">'+notesLaneHtml(8)+    '</section>';
   el.querySelectorAll('[data-command-open]').forEach(function(btn){
     btn.addEventListener('click', function(){ openTaskFromCommand(btn.dataset.commandOpen); });
   });
@@ -1646,7 +1637,57 @@ function renderCommandCenter(){
   });
   const newNoteBtn = el.querySelector('[data-command-newnote]');
   if(newNoteBtn) newNoteBtn.addEventListener('click', function(){ openNotesModal(); addStickyNote(); });
+  wireNotesLane(el);
+  if(window.tvNotesSheetRefresh) window.tvNotesSheetRefresh();
 }
+/* ---- Notes lane (laptop right column + phone Notes sheet): quick jot, colour row, coloured cards.
+   Uses the same sticky-notes document and noteTx() as the full editor below. ---- */
+let jotColor = null;
+function notesLaneCardHtml(n){
+  const dv = document.createElement('div'); dv.innerHTML = noteDisplayHtml(n.text).replace(/<br\s*\/?>|<\/(div|p|li)>/gi,'\n');
+  const lines = (dv.textContent||'').split(/\n+/).map(function(x){ return x.replace(/\s+/g,' ').trim(); }).filter(Boolean);
+  const title = lines.length>1 ? lines[0] : '';
+  const body = lines.length>1 ? lines.slice(1).join(' · ') : (lines[0]||'');
+  return '<button type="button" class="nl-card" style="background:'+n.color+';" data-nl-open="'+n.id+'">'+
+    (n.pin?'<span class="nl-pin">Pinned</span>':'')+
+    (title?'<b>'+escapeHtml(title.slice(0,80))+'</b>':'')+
+    '<span class="nl-body">'+(body?escapeHtml(body.slice(0,160)):'<i>Empty note</i>')+'</span>'+
+    '<em>'+(n.from?'from '+escapeHtml(n.from)+' · ':'')+notesAgo(n.u||0)+'</em></button>';
+}
+function notesLaneHtml(max){
+  const cols = NOTE_COLORS.map(function(c){ return '<button type="button" class="nl-col'+(jotColor===c?' sel':'')+'" data-nl-color="'+c+'" style="background:'+c+';" aria-label="Colour for the next note"></button>'; }).join('');
+  return '<div class="command-lane-head"><span>Notes</span><span class="command-count">'+stickyNotes.length+'</span></div>'+
+    '<div class="nl-jot"><input type="text" class="nl-input" placeholder="Jot a note…" maxlength="2000" aria-label="Jot a note"><button type="button" class="nl-add" data-nl-add="1">Add</button></div>'+
+    '<div class="nl-cols">'+cols+'</div>'+
+    '<div class="nl-list">'+(stickyNotes.length ? stickyNotes.slice(0,max).map(notesLaneCardHtml).join('') : '<div class="command-empty">No notes yet — jot anything down.</div>')+'</div>'+
+    '<div class="command-actions"><button type="button" data-command-newnote="1">+ New</button><button type="button" data-command-opennotes="1" style="background:var(--surface-2);color:var(--text-soft);">View all</button><button type="button" data-nl-trash="1" style="background:var(--surface-2);color:var(--text-soft);">Recently deleted</button></div>';
+}
+function wireNotesLane(root){
+  const input = root.querySelector('.nl-input');
+  const add = async function(){
+    const v = input ? input.value.trim() : '';
+    if(!v){ if(input) input.focus(); return; }
+    const note = { id:'note-'+Date.now()+Math.random().toString(36).slice(2,5), text:v, color: jotColor || NOTE_COLORS[Math.floor(Math.random()*NOTE_COLORS.length)], u: Date.now() };
+    const ok = await noteTx(function(l){ if(l.filter(function(n){ return !n.del; }).length >= 100) return false; l.unshift(note); });
+    if(ok && input) input.value = '';
+  };
+  const ab = root.querySelector('[data-nl-add]'); if(ab) ab.addEventListener('click', add);
+  if(input) input.addEventListener('keydown', function(e){ if(e.key==='Enter'){ e.preventDefault(); add(); } });
+  root.querySelectorAll('[data-nl-color]').forEach(function(b){
+    b.addEventListener('click', function(){ jotColor = (jotColor===b.dataset.nlColor) ? null : b.dataset.nlColor; root.querySelectorAll('[data-nl-color]').forEach(function(x){ x.classList.toggle('sel', x.dataset.nlColor===jotColor); }); });
+  });
+  root.querySelectorAll('[data-nl-open]').forEach(function(b){
+    b.addEventListener('click', function(){
+      if(window.tvNotesSheetClose) window.tvNotesSheetClose();
+      openNotesModal();
+      setTimeout(function(){ const c = document.querySelector('[data-notecard="'+b.dataset.nlOpen+'"]'); if(c){ c.scrollIntoView({block:'center'}); const t = c.querySelector('[data-notetext]'); if(t) t.focus(); } }, 60);
+    });
+  });
+  const tr = root.querySelector('[data-nl-trash]');
+  if(tr) tr.addEventListener('click', function(){ if(window.tvNotesSheetClose) window.tvNotesSheetClose(); openNotesModal(); setTimeout(function(){ const b = document.getElementById('notes-trash-btn'); if(b && !notesTrashView) b.click(); }, 80); });
+  if(root!==document){ root.querySelectorAll('[data-command-opennotes]').forEach(function(b){ if(!b.dataset.w2){ b.dataset.w2=1; b.addEventListener('click', function(){ if(window.tvNotesSheetClose) window.tvNotesSheetClose(); }); } }); }
+}
+window.tvNotesRender = function(container, max){ container.innerHTML = '<section class="command-lane notes">'+notesLaneHtml(max||30)+'</section>'; wireNotesLane(container); container.querySelectorAll('[data-command-opennotes]').forEach(function(b){ b.addEventListener('click', function(){ openNotesModal(); }); }); const nb = container.querySelector('[data-command-newnote]'); if(nb) nb.addEventListener('click', function(){ openNotesModal(); addStickyNote(); }); };
 function openTaskFromCommand(taskId){
   activeSmartView = 'all'; activeListFilter = 'all';
   document.querySelectorAll('#smart-tabs button').forEach(function(b){ b.classList.toggle('active', b.dataset.view==='all'); });
@@ -3348,6 +3389,6 @@ enterProfile = async function(profileId){
 
 } // end firebase-available guard
 </script>
-<script src="todo-v2.js?v=9"></script>
+<script src="todo-v2.js?v=10"></script>
 </body>
 </html>

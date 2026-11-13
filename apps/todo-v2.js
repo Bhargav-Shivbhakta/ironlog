@@ -71,6 +71,13 @@ ready(function(){
   function trig(fn){return function(){close();setTimeout(fn,60)}}
   function clickId(id,scroll){return trig(function(){var b=$(id);if(b)b.click();if(scroll!==false){var t=$('task-split');if(t&&t.scrollIntoView)t.scrollIntoView({block:'start'})}})}
   function btn(parent,icon,label,fn){var b=el('button','',(icon?'<span class="tile">'+svg(icon)+'</span>':'')+'<span>'+label+'</span>');b.type='button';b.addEventListener('click',fn);parent.appendChild(b);return b}
+  /* ---- Notes sheet (phone): same lane as the laptop column ---- */
+  var ns=el('div','');ns.id='tv-nsheet';var nin=el('div','in');ns.appendChild(nin);nin.appendChild(el('div','gr'));var nbody=el('div','nb');nin.appendChild(nbody);document.body.appendChild(ns);
+  function openNS(){if(window.tvNotesRender)window.tvNotesRender(nbody,40);ns.classList.add('on')}
+  function closeNS(){ns.classList.remove('on')}
+  ns.addEventListener('click',function(e){if(e.target===ns)closeNS()});
+  window.tvNotesSheetClose=closeNS;
+  window.tvNotesSheetRefresh=function(){if(ns.classList.contains('on')&&window.tvNotesRender)window.tvNotesRender(nbody,40)};
   inn.appendChild(el('div','gr'));
   inn.appendChild(el('h3','','Tools'));
   var g=el('div','g');inn.appendChild(g);
@@ -80,7 +87,7 @@ ready(function(){
   btn(g,'checksq','Select',clickId('bulk-toggle-btn'));
   btn(g,'tag','Tags',clickId('manage-tags-btn'));
   btn(g,'map','Order map',clickId('map-toggle-btn',false));
-  btn(g,'note','Notes',trig(function(){try{openNotesModal()}catch(e){}}));
+  btn(g,'note','Notes',trig(function(){openNS()}));
   btn(g,'down2','Backup',clickId('backup-button',false));
   btn(g,'swap','Switch profile',clickId('who-badge',false));
   inn.appendChild(el('h3','','Notes'));
@@ -143,7 +150,7 @@ ready(function(){
     var hd=$('app-head');if(hd)hd.appendChild(dt);LM.push({n:dt,p:null});
     mv($('task-detail-panel'),side);
     var em=el('div','','<b>Select a task</b>Click the &hellip; on any task to see and edit all its details here.');em.id='tv-empty';side.appendChild(em);LM.push({n:em,p:null});
-    mv($('progress-ring-wrap'),side);mv($('command-center'),side);
+    mv($('progress-ring-wrap'),top,tg);mv($('command-center'),side);
     w.classList.add('tv-lap');
     document.documentElement.classList.add('tv-lapmode');
     sweep();group();
@@ -153,7 +160,10 @@ ready(function(){
     for(var i=LM.length-1;i>=0;i--){var m=LM[i];if(!m.p){if(m.n.parentNode)m.n.parentNode.removeChild(m.n)}else m.p.insertBefore(m.n,m.s&&m.s.parentNode===m.p?m.s:null)}
     LM=null;var t=$('tv-top'),s=$('tv-side');if(t)t.remove();if(s)s.remove();
     if(w)w.classList.remove('tv-lap');document.documentElement.classList.remove('tv-lapmode');group()}
-  function lapSync(){mq.matches?lapOff():lapOn()}
+  function ringPhone(){var w=$('progress-ring-wrap'),a=$('tv-search');if(w&&a&&a.parentNode&&w.parentNode!==a.parentNode)a.parentNode.insertBefore(w,a)}
+  function ringN(){var r=document.querySelector('#progress-ring-wrap .ring-streak');if(r){var m=(r.textContent||'').match(/(\d+)/);if(m&&r.getAttribute('data-n')!==m[1])r.setAttribute('data-n',m[1])}}
+  var rw=$('progress-ring-wrap');if(rw){new MutationObserver(ringN).observe(rw,{childList:true,subtree:true,characterData:true});ringN()}
+  function lapSync(){if(mq.matches){lapOff();ringPhone()}else lapOn()}
   lapSync();mq.addEventListener&&mq.addEventListener('change',lapSync);
   /* ---- collapsible bottom bar: scroll down / swipe down hides, scroll up / swipe up / tap handle shows ---- */
   var navEl=document.querySelector('.mobile-task-nav'),hid=false,lastY=0,hnd=el('button','tv-handle','');hnd.type='button';hnd.setAttribute('aria-label','Show bottom bar');document.body.appendChild(hnd);
