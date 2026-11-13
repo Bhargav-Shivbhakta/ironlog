@@ -2000,3 +2000,25 @@ button.pw-st{cursor:pointer}.pw-st.done{background:var(--accent);border-color:va
 .app-shell[data-app-theme="gym"] .sidebar .profile-control,.app-shell[data-app-theme="gym"] .sidebar .signout{background:#16181D!important;border:1px solid #262A32!important;color:#F4F5F7!important}
 .app-shell[data-app-theme="gym"] .app-frame-overlay{background:#0B0C0F}
 .app-shell[data-app-theme="gym"] .mobile-header,.app-shell[data-app-theme="gym"] .mobile-nav{background:#0E1013!important;border-color:#262A32!important}
+
+/* ===== Per-app colour: while an app is open, the Hub's navigation (sidebar / bars / glow) wears that app's colour. Gym keeps its own theme above. ===== */
+.app-shell[data-app-theme="todo"],html[data-app-theme="todo"]{--th:217,120,110}
+.app-shell[data-app-theme="schedule"],html[data-app-theme="schedule"]{--th:139,123,255}
+.app-shell[data-app-theme="chores"],html[data-app-theme="chores"]{--th:178,107,255}
+.app-shell[data-app-theme="grocery"],html[data-app-theme="grocery"]{--th:245,184,61}
+.app-shell[data-app-theme="budget"],html[data-app-theme="budget"]{--th:52,201,143}
+.app-shell[data-app-theme="skin"],html[data-app-theme="skin"]{--th:255,122,182}
+.app-shell[data-app-theme="diet"],html[data-app-theme="diet"]{--th:163,214,63}
+.app-shell[data-app-theme="pledge"],html[data-app-theme="pledge"]{--th:232,91,214}
+.app-shell[data-app-theme="calendar"],html[data-app-theme="calendar"]{--th:255,138,76}
+.app-shell[data-app-theme="checklist"],html[data-app-theme="checklist"]{--th:124,138,165}
+.app-shell[data-app-theme]:not([data-app-theme="gym"]) .sidebar{background:linear-gradient(180deg,rgba(var(--th),.26),rgba(var(--th),.10)),#120c0c!important;border-right:1px solid rgba(var(--th),.28)!important;color:#fff!important;backdrop-filter:none!important;-webkit-backdrop-filter:none!important;transition:background .25s ease,border-color .25s ease}
+.app-shell[data-app-theme]:not([data-app-theme="gym"]) .sidebar .main-nav button{color:rgba(255,255,255,.78)}
+.app-shell[data-app-theme]:not([data-app-theme="gym"]) .sidebar .main-nav button:hover{background:rgba(var(--th),.16)!important;color:#fff!important}
+.app-shell[data-app-theme]:not([data-app-theme="gym"]) .sidebar .main-nav button.active{background:rgba(var(--th),.32)!important;color:#fff!important}
+.app-shell[data-app-theme]:not([data-app-theme="gym"]) .sidebar .brand-mark{background:rgb(var(--th))!important;color:#1c0c09!important}
+.app-shell[data-app-theme]:not([data-app-theme="gym"]) .sidebar .profile-control,.app-shell[data-app-theme]:not([data-app-theme="gym"]) .sidebar .signout{background:rgba(var(--th),.12)!important;border:1px solid rgba(var(--th),.25)!important;color:#fff!important}
+.app-shell[data-app-theme]:not([data-app-theme="gym"]) .mobile-header,.app-shell[data-app-theme]:not([data-app-theme="gym"]) .mobile-nav{background:linear-gradient(180deg,rgba(var(--th),.22),rgba(var(--th),.08)),#120c0c!important;border-color:rgba(var(--th),.28)!important}
+.app-shell[data-app-theme]:not([data-app-theme="gym"]) .mobile-nav button.active{color:rgb(var(--th))!important}
+html.lap-look[data-app-theme]:not([data-app-theme="gym"]){background:radial-gradient(60% 70% at 10% 0%,rgba(var(--th),.62) 0%,rgba(var(--th),0) 62%),radial-gradient(55% 60% at 100% 60%,rgba(var(--th),.30) 0%,rgba(var(--th),0) 60%),radial-gradient(50% 50% at 50% 115%,rgba(var(--th),.32) 0%,rgba(var(--th),0) 60%),#0c0909;background-attachment:fixed;background-repeat:no-repeat}
+html.lap-look[data-app-theme]:not([data-app-theme="gym"]) .lap-titlebar{background:rgba(18,12,12,.6)}

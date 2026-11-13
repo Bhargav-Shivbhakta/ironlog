@@ -884,3 +884,20 @@ body.ph-on .app-frame-overlay.phzo{animation:phzout .21s ease-in forwards;transf
 #ph .lib .srch:not(:focus-within) input{text-align:center}
 #ph .lib .cg .cw,#ph .lib .cg .cc{animation:none!important}
 #ph .pg.lib{overscroll-behavior:contain;-webkit-overflow-scrolling:touch;will-change:scroll-position}
+
+/* final per-app colours: widgets match the app they open */
+#ph.ic-vivid .w[data-wk="schedule"],#ph #td .w[data-wk="schedule"]{--ac:#4D8DFF}
+#ph.ic-vivid .w[data-wk="next"],#ph #td .w[data-wk="next"]{--ac:#4D8DFF}
+#ph.ic-vivid .w[data-wk="upnext"],#ph #td .w[data-wk="upnext"]{--ac:#4D8DFF}
+#ph.ic-vivid .w[data-wk="tasks"],#ph #td .w[data-wk="tasks"]{--ac:#D9786E}
+#ph.ic-vivid .w[data-wk="water"],#ph #td .w[data-wk="water"]{--ac:#3FA9F5}
+#ph.ic-vivid .w[data-wk="gym"],#ph #td .w[data-wk="gym"]{--ac:#C6F24E}
+#ph.ic-vivid .w[data-wk="diet"],#ph #td .w[data-wk="diet"]{--ac:#4ADE80}
+#ph.ic-vivid .w[data-wk="recipes"],#ph #td .w[data-wk="recipes"]{--ac:#4ADE80}
+#ph.ic-vivid .w[data-wk="skin"],#ph #td .w[data-wk="skin"]{--ac:#F472B6}
+#ph.ic-vivid .w[data-wk="pledge"],#ph #td .w[data-wk="pledge"]{--ac:#D946EF}
+#ph.ic-vivid .w[data-wk="budget"],#ph #td .w[data-wk="budget"]{--ac:#F2C94C}
+#ph.ic-vivid .w[data-wk="chores"],#ph #td .w[data-wk="chores"]{--ac:#FF9F43}
+#ph.ic-vivid .w[data-wk="grocery"],#ph #td .w[data-wk="grocery"]{--ac:#2DD4BF}
+#ph.ic-vivid .w[data-wk="agenda"],#ph #td .w[data-wk="agenda"]{--ac:#818CF8}
+#ph.ic-vivid .w[data-wk="clock"],#ph #td .w[data-wk="clock"]{--ac:#38D0F0}
