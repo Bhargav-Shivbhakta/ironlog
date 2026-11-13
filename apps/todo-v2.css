@@ -235,3 +235,53 @@ html.tv-navhide .tv-handle{opacity:1;pointer-events:auto;bottom:calc(env(safe-ar
 #tv-side .ring-label{display:none}
 #tv-side .ring-pct{font-size:11px}
 }
+
+/* ===== Readability + laptop refinements (round 2) ===== */
+@media(max-width:700px){
+.meta-chip{font-size:13.5px!important}
+.tv-h{font-size:13px!important}
+.task-row .task-text{font-size:17px!important}
+#tv-sheet .tv-tile,#tv-sheet button{font-size:14.5px}
+}
+@media(min-width:701px){
+/* bigger type */
+.task-text{font-size:17px!important}
+.meta-chip{font-size:14px!important}
+.tv-h{font-size:12.5px!important}
+#tv-top .smart-tabs button{font-size:15px!important;padding:9px 16px!important}
+.quick-add-row input{font-size:16.5px!important;height:48px!important}
+.quick-add-row .add-submit{height:46px!important;font-size:15.5px!important}
+.control-bar .list-chips>*{font-size:14.5px!important;padding:7px 15px!important}
+.tv-lap>.parse-hint-details{font-size:13.5px!important}
+.task-row .task-main{padding-top:14px!important;padding-bottom:14px!important}
+/* header: title + tabs on row 1, labelled tools on row 2 */
+#tv-top{flex-wrap:wrap;row-gap:14px;border-bottom:0!important;padding-bottom:4px!important;margin-bottom:6px!important}
+#tv-top #app-head h1{font-size:30px!important}
+#tv-top .control-group-tools{order:3;flex:1 0 100%;margin-left:0!important}
+#tv-top .toolbar-row{flex-wrap:wrap;gap:10px}
+#tv-top .tool-btn,#tv-top .backup-button{font-size:14.5px!important;width:auto!important;height:42px!important;padding:0 16px!important;gap:8px!important;color:var(--text)!important;background:var(--surface)!important;border:1px solid var(--border)!important;border-radius:12px!important;font-weight:600}
+#tv-top .tool-btn .ico,#tv-top .backup-button .ico{font-size:18px;color:var(--text-soft)}
+#tv-top .tool-btn .ico svg,#tv-top .backup-button .ico svg{width:18px;height:18px}
+#tv-top .tool-btn:hover,#tv-top .backup-button:hover{background:var(--surface-2)!important;border-color:#43343a!important}
+#tv-top .tool-btn.active{border-color:var(--accent)!important;color:var(--accent)!important}
+/* right column, option A */
+#tv-side{height:calc(100vh - 245px);min-height:420px;max-height:none}
+#tv-side .progress-ring-card{order:1;flex:none}
+#tv-side #task-detail-panel{order:2}
+#tv-side #command-center{order:3;flex:1;min-height:0;display:flex!important;flex-direction:column}
+#tv-side #command-center .command-lane.notes{flex:1;min-height:0;overflow:auto;display:flex;flex-direction:column}
+#tv-side #tv-empty{order:4;flex:none;background:none;padding:2px 6px 6px;font-size:14px}
+#tv-side #tv-empty b{display:none}
+#tv-side .ring-svg-wrap,#tv-side .ring-svg{width:48px;height:48px}
+#tv-side .ring-pct{font-size:12px}
+#tv-side .streak,#tv-side .ring-side,#tv-side .ring-streak{font-size:15px}
+#tv-side .command-lane-head,#tv-side .command-lane.notes h3,#tv-side .command-lane.notes strong{font-size:12.5px}
+#tv-side .command-lane.notes .command-item,#tv-side .command-lane.notes li,#tv-side .command-lane.notes p{font-size:14.5px}
+#task-detail-panel:not([hidden])~#command-center{display:none!important}
+#tv-side #task-detail-panel{flex:1;overflow:auto;max-height:none}
+#task-detail-panel input,#task-detail-panel select,#task-detail-panel textarea{font-size:15px!important}
+#task-detail-panel label,#task-detail-panel .td-label,#task-detail-panel h4,#task-detail-panel h5{font-size:12px!important;letter-spacing:.07em}
+#task-detail-panel button{font-size:14.5px}
+#task-detail-panel .td-actions{position:sticky;bottom:-16px;background:var(--surface);padding:12px 0 6px;margin-top:10px;z-index:3;border-top:1px solid var(--border)}
+#task-detail-panel .td-actions button{min-height:40px}
+}

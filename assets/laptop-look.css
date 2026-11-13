@@ -313,3 +313,6 @@ html.lap-look body::before{content:"";position:fixed;z-index:-1;inset:0;backgrou
 .lap-look .widget-card[data-widget-type="pledge"] .widget-card-body strong{font-size:32px!important}
 }
 @media(min-width:701px){.lap-look .cw-row.cw-edit:hover{background:rgba(255,255,255,.08)}}
+
+/* the floating "+" add button in the title bar is removed on every screen (Ctrl+Shift+N still works) */
+.lap-titlebar .lt-add{display:none!important}
