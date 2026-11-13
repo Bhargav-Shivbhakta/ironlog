@@ -1,0 +1,2000 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Skin Plan</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script src="../assets/firebase-config.js"></script>
+<script src="../assets/theme.js"></script>
+<link rel="stylesheet" href="../assets/motion.css">
+<script src="../assets/motion.js" defer></script>
+<style>
+  :root{
+    --bg:#F5F2EA; --surface:#FFFFFF; --surface-alt:#F4F0E6;
+    --border:#E6E0D2; --border-soft:#EFEAE0;
+    --text:#221F1A; --text-soft:#736C5E; --text-faint:#A29A87;
+    --accent:#B8801F; --accent-soft:#F8EDD4; --accent-deep:#6F4A08;
+    --accent2:#C9922E; --accent-grad:linear-gradient(135deg,#C9922E,#8F5A12);
+    --am:#D98A2B; --am-soft:#FBEBD2; --am-deep:#8A5210;
+    --body-c:#2E8F82; --body-soft:#DFF1EC; --body-deep:#1C5D54;
+    --night:#6C5CA8; --night-soft:#EBE6F7; --night-deep:#443777;
+    --pm:#5B5773; --pm-soft:#E9E8EF;
+    --track:#C15A72; --track-soft:#F9E4E9; --track-deep:#7E3549;
+    --warn:#B8493F; --warn-soft:#FAECEA;
+    --good:#2F7C5A; --good-soft:#E1F1E8;
+    --radius-lg:18px; --radius-md:13px; --radius-sm:9px;
+    --shadow:0 14px 34px rgba(50,40,15,.09);
+    --shadow-sm:0 6px 16px rgba(50,40,15,.07);
+  }
+  /* Same per-profile accent-override pattern schedule.html/todo.html use
+     for Anusha, so both apps feel like one suite instead of two skins. */
+  body[data-profile="anusha"]{--accent:#B04A6C;--accent-soft:#FBE7EE;--accent-deep:#7A2C49;--accent2:#C25E80;--accent-grad:linear-gradient(135deg,#C25E80,#7A2C49);}
+  *{box-sizing:border-box;}
+  body{margin:0;font-family:'Inter',sans-serif;background:
+    radial-gradient(1100px 500px at 15% -8%, var(--accent-soft) 0%, transparent 60%),
+    radial-gradient(900px 460px at 105% 10%, var(--body-soft) 0%, transparent 55%),
+    var(--bg);
+    color:var(--text);min-height:100vh;padding:16px 14px 60px;-webkit-font-smoothing:antialiased;}
+  .wrap{max-width:min(90vw,960px);margin:0 auto;}
+  h1,h2,h3{font-family:'Manrope',sans-serif;}
+  button,input,select,textarea{font-family:inherit;}
+  a{color:var(--accent-deep);}
+  ::selection{background:var(--accent-soft);}
+
+  .loading-gate{position:fixed;inset:0;z-index:200;background:var(--bg);display:flex;align-items:center;justify-content:center;color:var(--text-soft);}
+
+  .profile-inner{text-align:center;}
+  .profile-inner h1{font-size:22px;margin:0 0 30px;font-weight:800;color:var(--text);}
+  .profile-row{display:flex;gap:26px;justify-content:center;flex-wrap:wrap;}
+  .profile-card{background:none;border:none;color:var(--text);display:flex;flex-direction:column;align-items:center;gap:10px;cursor:pointer;}
+  .profile-avatar{width:88px;height:88px;border-radius:16px;display:flex;align-items:center;justify-content:center;font-size:30px;font-weight:800;color:#fff;border:3px solid transparent;font-family:'Manrope',sans-serif;}
+  .profile-card:hover .profile-avatar{border-color:var(--accent);}
+  .av-b{background:linear-gradient(135deg,#AD7B20,#6F4A08);}
+  .av-a{background:linear-gradient(135deg,#B25C78,#813B53);}
+  .profile-name{font-size:13.5px;font-weight:600;color:var(--text-soft);}
+
+  .topbar{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;}
+  .topbar a{font-size:12.5px;color:var(--text-soft);text-decoration:none;}
+  .switch-btn{background:none;border:none;font-size:12.5px;color:var(--text-soft);cursor:pointer;padding:0;}
+
+  .who-badge{display:inline-flex;align-items:center;gap:7px;background:var(--surface);border:1px solid var(--border);border-radius:20px;padding:3px 13px 3px 4px;margin-bottom:8px;}
+  .who-avatar{width:20px;height:20px;border-radius:6px;font-size:10px;font-weight:800;color:#fff;display:flex;align-items:center;justify-content:center;font-family:'Manrope',sans-serif;}
+  .who-avatar.av-b{background:#AD7B20;}
+  .who-avatar.av-a{background:#813B53;}
+  .who-name{font-size:11.5px;font-weight:700;color:var(--text-soft);}
+
+
+  header.app-head{text-align:center;margin-bottom:16px;}
+  header.app-head h1{font-size:25px;font-weight:800;margin:0 0 2px;letter-spacing:-.01em;}
+  header.app-head p{margin:0;color:var(--text-soft);font-size:12.5px;}
+  body.embedded .topbar{display:none;}
+  body.embedded header.app-head{display:none;}
+
+  .week-banner{background:var(--accent-grad);color:#fff;border-radius:var(--radius-lg);padding:18px 20px;margin-bottom:16px;box-shadow:0 16px 34px rgba(111,74,8,.28);position:relative;overflow:hidden;}
+  .week-banner::after{content:'';position:absolute;right:-30px;top:-40px;width:140px;height:140px;border-radius:50%;background:rgba(255,255,255,.08);}
+  .week-banner .wb-top{display:flex;justify-content:space-between;align-items:baseline;position:relative;}
+  .week-banner .wb-week{font-family:'Manrope',sans-serif;font-weight:800;font-size:19px;letter-spacing:-.01em;}
+  .week-banner .wb-dates{font-size:11px;opacity:0.88;font-weight:600;background:rgba(255,255,255,.16);padding:3px 9px;border-radius:20px;white-space:nowrap;}
+  .week-banner .wb-note{font-size:12.5px;margin-top:7px;opacity:0.96;line-height:1.5;position:relative;}
+  .wb-editrow{display:flex;align-items:center;gap:8px;margin-top:10px;font-size:11px;position:relative;}
+  .wb-editrow span{opacity:0.85;}
+  .wb-editrow button{background:rgba(255,255,255,0.22);border:none;color:inherit;border-radius:7px;padding:3px 9px;font-size:11px;font-weight:700;cursor:pointer;}
+  .wb-editrow input[type=date]{font-size:11px;padding:3px 6px;border-radius:6px;border:none;}
+  .week-banner.done{background:linear-gradient(135deg,#8B8577,#5F5A4E);}
+
+  .segmented{max-width:480px;margin:0 auto 16px;background:var(--surface-alt);border-radius:999px;padding:4px;display:flex;gap:2px;box-shadow:inset 0 1px 3px rgba(0,0,0,.05);}
+  .segmented button{flex:1;border:none;background:transparent;border-radius:999px;padding:9px 4px;font-size:12px;font-weight:700;color:var(--text-soft);cursor:pointer;transition:color .15s;}
+  .segmented button.active{background:var(--surface);color:var(--accent-deep);box-shadow:var(--shadow-sm);}
+
+  .control-bar{display:flex;align-items:center;justify-content:center;gap:14px;flex-wrap:wrap;background:var(--surface);border:1px solid var(--border-soft);border-radius:var(--radius-lg);padding:10px 14px;box-shadow:var(--shadow);margin-bottom:14px;}
+  .cb-nav{display:flex;align-items:center;gap:6px;}
+  .cb-nav button{width:30px;height:30px;border:1px solid var(--border);background:var(--surface-alt);border-radius:var(--radius-sm);color:var(--text);font-size:15px;cursor:pointer;flex:none;}
+  .cb-nav input{height:30px;border:1px solid var(--border);background:var(--surface);border-radius:var(--radius-sm);padding:0 8px;color:var(--text);font-weight:700;font-size:12.5px;width:132px;}
+  .cb-pill{border:0;border-radius:var(--radius-sm);padding:7px 12px;font-size:12px;font-weight:800;cursor:pointer;white-space:nowrap;background:var(--accent-soft);color:var(--accent-deep);}
+
+  .month-tabs{max-width:100%;margin:0 0 12px;background:var(--surface-alt);border-radius:999px;padding:3px;display:flex;gap:2px;overflow-x:auto;}
+  .month-tabs button{flex:1;border:none;background:transparent;border-radius:999px;padding:8px 4px;font-size:11.5px;font-weight:700;color:var(--text-soft);cursor:pointer;white-space:nowrap;}
+  .month-tabs button.active{background:var(--surface);color:var(--text);box-shadow:var(--shadow);}
+  .opt-badge{font-size:9.5px;font-weight:700;background:var(--surface-alt);color:var(--text-faint);border-radius:20px;padding:1px 7px;margin-left:4px;}
+  .shop-buy{font-size:11.5px;margin-top:3px;}
+  .shop-buy a{font-weight:700;text-decoration:none;}
+  .shop-buy a:hover{text-decoration:underline;}
+
+  .routine-card{background:var(--surface);border:1px solid var(--border);border-left:4px solid var(--accent);border-radius:var(--radius-lg);padding:15px 17px;margin-bottom:13px;box-shadow:var(--shadow);transition:box-shadow .15s;}
+  .routine-card .rc-head{display:flex;align-items:center;gap:10px;margin-bottom:11px;}
+  .routine-card .rc-icon{width:34px;height:34px;border-radius:11px;display:flex;align-items:center;justify-content:center;font-size:16px;flex:none;background:var(--accent-soft);}
+  .routine-card.am{border-left-color:var(--am);}
+  .routine-card.am .rc-icon{background:var(--am-soft);}
+  .routine-card.body{border-left-color:var(--body-c);}
+  .routine-card.body .rc-icon{background:var(--body-soft);}
+  .routine-card.night{border-left-color:var(--night);}
+  .routine-card.night .rc-icon{background:var(--night-soft);}
+  .routine-card.pm .rc-icon{background:var(--pm-soft);}
+  .routine-card .rc-title{font-size:14.5px;font-weight:800;font-family:'Manrope',sans-serif;}
+  .routine-card .rc-time{font-size:11px;color:var(--text-faint);font-weight:600;}
+
+  .step-row{display:flex;align-items:flex-start;gap:11px;padding:9px 4px;border-bottom:1px solid var(--border-soft);}
+  .step-row:last-child{border-bottom:none;}
+  .step-row:hover{background:var(--surface-alt);margin:0 -6px;padding-left:10px;padding-right:10px;border-radius:8px;}
+  .step-chk{appearance:none;width:23px;height:23px;border-radius:50%;border:2px solid var(--border);flex:none;margin-top:1px;cursor:pointer;position:relative;background:var(--surface);transition:all .12s;}
+  .step-chk:hover{border-color:var(--accent);}
+  .step-chk:checked{background:var(--accent-grad);border-color:var(--accent);}
+  .step-chk:checked::after{content:'';position:absolute;left:7px;top:3px;width:6px;height:11px;border:solid #fff;border-width:0 2px 2px 0;transform:rotate(45deg);}
+  .step-text{font-size:13.5px;font-weight:500;}
+  .step-text.strike{text-decoration:line-through;color:var(--text-faint);}
+  .step-note{font-size:11px;color:var(--warn);margin-top:2px;}
+
+  .empty-note{color:var(--text-faint);font-style:italic;font-size:13px;padding:10px 2px;}
+
+  .section-title{font-family:'Manrope',sans-serif;font-size:13px;font-weight:700;color:var(--text-soft);margin:18px 0 8px;display:flex;align-items:center;gap:8px;}
+  .section-title::after{content:'';flex:1;height:1px;background:var(--border);}
+
+  .shop-row{display:flex;align-items:center;gap:10px;padding:9px 4px;border-bottom:1px solid var(--border-soft);}
+  .shop-text{font-size:13.5px;font-weight:600;flex:1;}
+  .shop-text.strike{text-decoration:line-through;color:var(--text-faint);}
+  .shop-sub{font-size:11px;color:var(--text-faint);}
+  .shop-sent{display:block;font-size:10.5px;color:var(--accent-deep);margin-top:2px;font-weight:600;}
+  .send-grocery-btn{flex:none;font-size:11.5px;font-weight:700;background:var(--accent);color:#fff;border:none;border-radius:8px;padding:7px 12px;cursor:pointer;}
+  .send-grocery-btn:disabled{opacity:0.6;cursor:default;}
+  .send-grocery-btn.wide{width:100%;background:var(--surface-alt);color:var(--accent-deep);border:1px solid var(--accent);}
+
+  .milestone-row{display:flex;align-items:flex-start;gap:10px;padding:10px 4px;border-bottom:1px solid var(--border-soft);}
+  .milestone-date{font-family:'Manrope',sans-serif;font-weight:800;font-size:12px;color:var(--text-soft);min-width:58px;}
+  .milestone-row.overdue .milestone-date{color:var(--warn);}
+  .milestone-row.today .milestone-date{color:var(--accent-deep);}
+  .milestone-text{font-size:13px;flex:1;}
+  .milestone-text.strike{text-decoration:line-through;color:var(--text-faint);}
+  .badge{font-size:9.5px;font-weight:700;border-radius:20px;padding:1px 7px;background:var(--warn-soft);color:var(--warn);}
+  .badge.today{background:var(--accent-soft);color:var(--accent-deep);}
+
+  .checkin-card{background:var(--surface);border:1px solid var(--border);border-left:4px solid var(--track);border-radius:var(--radius-lg);padding:16px 17px;margin-bottom:13px;box-shadow:var(--shadow);}
+  .checkin-card h3{font-size:15px;margin:0 0 3px;display:flex;align-items:center;gap:7px;font-family:'Manrope',sans-serif;}
+  .gym-sync-tag{font-size:9.5px;font-weight:700;background:var(--accent-soft);color:var(--accent-deep);border-radius:20px;padding:2px 8px;}
+  .gym-log-link{display:inline-block;font-size:12.5px;font-weight:700;color:var(--accent-deep);text-decoration:none;background:var(--accent-soft);padding:8px 13px;border-radius:8px;}
+  .checkin-card .ci-sub{font-size:11.5px;color:var(--text-faint);margin-bottom:10px;}
+  .checkin-card .ci-due{font-size:11px;font-weight:700;color:var(--warn);margin-bottom:8px;}
+  .ci-form{display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end;}
+  .ci-form .f{display:flex;flex-direction:column;gap:3px;}
+  .ci-form label{font-size:9.5px;color:var(--text-faint);font-weight:700;text-transform:uppercase;}
+  .ci-form input{font-size:13px;padding:7px 9px;border-radius:8px;border:1px solid var(--border);width:90px;}
+  .ci-form button{background:var(--accent);color:#fff;border:none;border-radius:8px;padding:8px 14px;font-size:12.5px;font-weight:700;cursor:pointer;}
+  .ci-log{margin-top:10px;font-size:11.5px;color:var(--text-soft);}
+  .ci-log-row{display:flex;justify-content:space-between;padding:3px 0;border-top:1px dashed var(--border-soft);}
+
+  details.reference{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-md);padding:10px 14px;margin-top:12px;box-shadow:var(--shadow);}
+  details.reference summary{cursor:pointer;font-family:'Manrope',sans-serif;font-weight:700;font-size:12.5px;list-style:none;}
+  details.reference summary::-webkit-details-marker{display:none;}
+  details.reference summary::before{content:'▸ ';color:var(--text-faint);}
+  details.reference[open] summary::before{content:'▾ ';}
+  details.reference p{font-size:12px;color:var(--text-soft);line-height:1.6;margin:8px 0 0;}
+  details.reference ul{font-size:12px;color:var(--text-soft);line-height:1.7;margin:8px 0 0;padding-left:18px;}
+
+  .emergency-banner{background:var(--warn-soft);border:1px solid var(--warn);color:var(--warn);border-radius:var(--radius-md);padding:10px 14px;margin-bottom:12px;font-size:12px;}
+  .emergency-banner b{display:block;margin-bottom:4px;}
+
+  .rc-link-btn{margin-left:auto;flex:none;background:var(--surface-alt);border:1px solid var(--border);border-radius:20px;padding:4px 10px;font-size:11px;font-weight:700;color:var(--text-soft);cursor:pointer;}
+  .rc-link-btn.linked{background:var(--accent-soft);border-color:var(--accent);color:var(--accent-deep);}
+
+  .modal-overlay{position:fixed;inset:0;background:rgba(28,32,26,0.45);display:none;align-items:center;justify-content:center;z-index:210;padding:16px;}
+  .modal-overlay.open{display:flex;}
+  .modal-box{background:var(--surface);border-radius:var(--radius-lg);padding:18px;max-width:420px;width:100%;max-height:80vh;overflow-y:auto;box-shadow:var(--shadow);position:relative;}
+  .modal-box.wide{max-width:480px;padding:20px 18px 18px;}
+  .modal-box .checkin-card{border:none;box-shadow:none;padding:0;margin-bottom:0;}
+  .modal-x{position:absolute;top:12px;right:12px;width:28px;height:28px;border-radius:50%;border:none;background:var(--surface-alt);color:var(--text-soft);font-size:13px;cursor:pointer;display:flex;align-items:center;justify-content:center;z-index:2;}
+  .modal-x:hover{background:var(--track-soft);color:var(--track-deep);}
+
+  .checkin-fab{position:fixed;top:14px;right:14px;z-index:150;background:var(--accent-grad);color:#fff;border:none;border-radius:999px;padding:10px 16px 10px 14px;font-size:12.5px;font-weight:800;font-family:'Manrope',sans-serif;box-shadow:0 10px 24px rgba(111,74,8,.32);cursor:pointer;display:flex;align-items:center;gap:6px;transition:transform .12s;}
+  .checkin-fab:hover{}
+  .checkin-fab:active{transform:translateY(0);}
+  .fab-dot{width:8px;height:8px;border-radius:50%;background:transparent;flex:none;}
+  .checkin-fab.done .fab-dot{background:#fff;box-shadow:0 0 0 2px rgba(255,255,255,.35);}
+  body[data-profile="anusha"] .checkin-fab{background:var(--accent-grad);}
+  @media (max-width:420px){ .checkin-fab span{display:none;} .checkin-fab{padding:10px;} }
+  .modal-box h3{margin:0 0 4px;font-size:15px;}
+  .modal-sub{font-size:11.5px;color:var(--text-faint);margin:0 0 12px;}
+  .modal-actions{display:flex;justify-content:flex-end;gap:8px;margin-top:14px;}
+  .subtle{color:var(--text-faint);font-size:12px;}
+  .ms-sched-day{margin-bottom:10px;}
+  .ms-sched-daylabel{font-size:10.5px;font-weight:800;color:var(--text-faint);text-transform:uppercase;margin-bottom:4px;}
+  .ms-sched-row{display:block;font-size:12.5px;padding:5px 2px;cursor:pointer;}
+  .ms-sched-row input{margin-right:6px;}
+  .modal-btn{background:var(--accent);color:#fff;border:none;border-radius:8px;padding:8px 14px;font-size:12.5px;font-weight:700;cursor:pointer;}
+  .modal-btn.secondary{background:var(--surface-alt);color:var(--text);}
+
+  /* ---- Progress tab, product cabinet, reactions, timer (ported from
+     the local prototype) ---- */
+  .opt-tag{font-size:8.5px;font-weight:800;color:var(--text-faint);margin-left:5px;letter-spacing:.04em;}
+  .stats-row{display:grid;grid-template-columns:repeat(4,1fr);gap:9px;margin-bottom:16px;}
+  .stat-tile{background:var(--surface);border:1px solid var(--border);border-top:3px solid var(--accent);border-radius:var(--radius-md);padding:12px 11px;box-shadow:var(--shadow-sm);}
+  .stat-tile:nth-child(2){border-top-color:var(--body-c);}
+  .stat-tile:nth-child(3){border-top-color:var(--night);}
+  .stat-tile:nth-child(4){border-top-color:var(--track);}
+  .stat-tile label{display:block;font-size:8.5px;color:var(--text-faint);text-transform:uppercase;letter-spacing:.06em;font-weight:800;}
+  .stat-tile b{display:block;font-size:20px;font-family:'Manrope',sans-serif;margin-top:4px;letter-spacing:-.02em;}
+  .stat-tile b small{font-size:10px;color:var(--text-faint);font-weight:600;margin-left:2px;}
+
+  .overall-grid{display:flex;gap:7px;margin-top:5px;}
+  .overall-grid button{flex:1;border:1.5px solid var(--border);background:var(--surface);border-radius:10px;padding:9px 4px;font-size:12px;font-weight:700;cursor:pointer;color:var(--text-soft);transition:all .12s;}
+  .overall-grid button.better.on{background:var(--good-soft);border-color:var(--good);color:var(--good);}
+  .overall-grid button.same.on{background:var(--surface-alt);border-color:var(--text-soft);color:var(--text);}
+  .overall-grid button.worse.on{background:var(--warn-soft);border-color:var(--warn);color:var(--warn);}
+  .reaction-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:7px;margin-top:4px;}
+  .reaction-grid button{border:1.5px solid var(--border);background:var(--surface);border-radius:10px;padding:8px 6px;font-size:11.5px;font-weight:700;cursor:pointer;color:var(--text-soft);transition:all .12s;}
+  .reaction-grid button:hover{border-color:var(--track);}
+  .reaction-grid button.on{background:var(--track);color:#fff;border-color:var(--track);}
+  .reaction-alert{background:var(--warn-soft);border:1px solid var(--warn);color:#7c302a;border-radius:var(--radius-md);padding:11px 13px;font-size:11.5px;line-height:1.55;margin-top:10px;}
+
+  /* Nightly per-symptom sliders */
+  .track-field{background:var(--surface-alt);border-radius:var(--radius-sm);padding:9px 11px;margin-bottom:7px;}
+  .track-field label{display:flex;justify-content:space-between;align-items:center;font-size:10.5px;color:var(--text-soft);font-weight:700;text-transform:uppercase;letter-spacing:.03em;margin-bottom:5px;}
+  .track-field .tf-val{font-family:'Manrope',sans-serif;font-weight:800;font-size:13px;color:var(--track-deep);background:var(--track-soft);padding:1px 8px;border-radius:20px;text-transform:none;letter-spacing:0;}
+  .track-field input[type=range]{-webkit-appearance:none;width:100%;height:5px;border-radius:99px;background:linear-gradient(90deg,var(--track),var(--track) var(--fillpct,50%),var(--border) var(--fillpct,50%),var(--border));cursor:pointer;}
+  .track-field input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:18px;height:18px;border-radius:50%;background:#fff;border:3px solid var(--track);box-shadow:0 2px 5px rgba(0,0,0,.18);cursor:pointer;}
+  .track-field input[type=range]::-moz-range-thumb{width:18px;height:18px;border-radius:50%;background:#fff;border:3px solid var(--track);box-shadow:0 2px 5px rgba(0,0,0,.18);cursor:pointer;}
+  .track-field input[type=text]{width:100%;font-size:13px;padding:7px 9px;border-radius:8px;border:1px solid var(--border);box-sizing:border-box;}
+  .chart-card,.heat-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:15px 16px;margin-bottom:13px;box-shadow:var(--shadow);}
+  .chart-card .ch-head,.heat-card .ch-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;gap:10px;}
+  .chart-card h3,.heat-card h3{font-size:13.5px;margin:0;font-family:'Manrope',sans-serif;font-weight:800;}
+  .chart-card select{font-size:11.5px;border:1px solid var(--border);border-radius:8px;padding:6px 8px;background:var(--surface-alt);}
+  .chart-empty{height:170px;display:flex;align-items:center;justify-content:center;color:var(--text-faint);font-size:12px;text-align:center;padding:0 20px;}
+  .skin-chart{width:100%;height:180px;display:block;}
+  .heatmap{display:grid;grid-template-columns:repeat(14,1fr);gap:4px;}
+  .heat{aspect-ratio:1;border-radius:5px;background:var(--surface-alt);}
+  .heat.low{background:#f0dcb0;}
+  .heat.mid{background:#e0a94a;}
+  .heat.high{background:var(--good);}
+  .heat.future{opacity:.35;}
+  .heat-legend{display:flex;align-items:center;gap:6px;font-size:10px;color:var(--text-faint);margin-top:9px;font-weight:600;}
+  .heat-legend .heat{width:12px;height:12px;aspect-ratio:auto;flex:none;}
+  .insight-list{display:grid;gap:8px;}
+  .insight{display:flex;gap:10px;align-items:flex-start;background:var(--surface-alt);border-radius:11px;padding:10px 11px;}
+  .insight i{font-style:normal;width:24px;height:24px;flex:none;border-radius:8px;background:var(--accent-soft);color:var(--accent-deep);display:flex;align-items:center;justify-content:center;font-size:12px;}
+  .insight b{font-size:11.5px;display:block;}
+  .insight p{margin:2px 0 0;color:var(--text-soft);font-size:10.5px;}
+  .review-form textarea{width:100%;font-size:12.5px;padding:8px 9px;border-radius:8px;border:1px solid var(--border);box-sizing:border-box;resize:vertical;}
+  .review-form select,.review-form input[type=range]{width:100%;}
+  .month-review-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-md);margin-bottom:8px;overflow:hidden;}
+  .month-review-card summary{cursor:pointer;padding:11px 14px;font-family:'Manrope',sans-serif;font-weight:700;font-size:12.5px;list-style:none;display:flex;justify-content:space-between;align-items:center;gap:10px;}
+  .month-review-card summary::-webkit-details-marker{display:none;}
+  .month-review-card summary::before{content:'▸ ';color:var(--text-faint);}
+  .month-review-card[open] summary::before{content:'▾ ';}
+  .mr-status{font-size:9.5px;font-weight:700;background:var(--surface-alt);color:var(--text-soft);border-radius:20px;padding:3px 9px;white-space:nowrap;}
+  .month-review-body{border-top:1px solid var(--border-soft);padding:13px 14px;}
+  .mr-field-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px;}
+  .mr-field-grid label{font-size:10px;color:var(--text-faint);font-weight:700;display:block;margin-bottom:3px;}
+  .mr-field-grid select{width:100%;font-size:12px;padding:6px 7px;border-radius:7px;border:1px solid var(--border);}
+
+  .subtabs2{display:flex;gap:2px;background:var(--surface-alt);border-radius:999px;padding:4px;margin-bottom:13px;max-width:280px;box-shadow:inset 0 1px 3px rgba(0,0,0,.05);}
+  .subtabs2 button{flex:1;border:none;background:transparent;border-radius:999px;padding:8px 4px;font-size:11.5px;font-weight:700;color:var(--text-soft);cursor:pointer;}
+  .subtabs2 button.active{background:var(--surface);color:var(--accent-deep);box-shadow:var(--shadow-sm);}
+  .step-product{font-size:12px;font-weight:650;color:var(--accent-deep);margin-top:2px;}
+  .product-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:11px;}
+  .product-cabinet-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-md);padding:14px 15px;box-shadow:var(--shadow-sm);display:flex;flex-direction:column;position:relative;overflow:hidden;}
+  .product-cabinet-card::before{content:'';position:absolute;left:0;top:0;bottom:0;width:4px;background:var(--good);}
+  .product-cabinet-card.low::before{background:var(--warn);}
+  .product-cabinet-card.low{background:linear-gradient(180deg,var(--warn-soft) 0%,var(--surface) 55px);}
+  .product-cabinet-card h4{font-size:13px;margin:0 0 9px;line-height:1.32;font-weight:700;}
+  .stock-track{height:8px;background:var(--surface-alt);border-radius:99px;overflow:hidden;margin-top:auto;}
+  .stock-fill{height:100%;border-radius:99px;transition:width .2s;}
+  .stock-row{display:flex;justify-content:space-between;align-items:center;font-size:10.5px;color:var(--text-soft);margin-top:7px;font-weight:600;}
+  .stock-row input{width:56px;border:1px solid var(--border);border-radius:6px;padding:4px 5px;font-size:11px;}
+  .pc-actions{display:flex;gap:6px;margin-top:10px;}
+  .pc-actions button{flex:1;font-size:10px;padding:7px 4px;border-radius:8px;border:1px solid var(--border);background:var(--surface-alt);color:var(--text-soft);font-weight:700;cursor:pointer;}
+  .pc-actions button:hover{border-color:var(--accent);color:var(--accent-deep);}
+
+  .timer{font-size:32px;font-weight:900;text-align:center;letter-spacing:-.03em;padding:16px;background:var(--text);color:#fff;border-radius:12px;margin:12px 0;font-family:'Manrope',sans-serif;}
+  .timer-open{font-size:11px;font-weight:700;background:var(--surface-alt);color:var(--accent-deep);border:1px solid var(--accent);border-radius:8px;padding:6px 10px;cursor:pointer;margin-top:6px;}
+
+  /* Motion & life pass — tasteful, low-risk micro-interactions layered on
+     top of this file's existing styles. Buttons everywhere get a quick
+     tactile press-down; anything card-like gets a soft hover lift and a
+     gentle fade/rise on render, so the page feels responsive rather than
+     static. Broad attribute-selector matches ([class*="-card"] etc.) are
+     deliberate — they cover every current and future card/button without
+     hand-listing each one. */
+  button,.btn,[class*="-btn"],[class*="btn-"]{transition:transform .08s ease-out,box-shadow .15s ease,background-color .15s ease,border-color .15s ease}
+  button:active,.btn:active,[class*="-btn"]:active,[class*="btn-"]:active{transform:scale(.98)}
+  .card,[class*="-card"]{transition:transform .18s cubic-bezier(.16,1,.3,1),box-shadow .18s ease,border-color .18s ease;animation:life-fade-in .38s cubic-bezier(.16,1,.3,1) both}
+  .card:hover,[class*="-card"]:hover{box-shadow:0 10px 28px rgba(20,20,17,.09)}
+  
+  @keyframes life-fade-in{from{opacity:0;transform:translateY(8px)}}
+</style>
+<style id="no-zoom">/* iOS zooms the page when a field under 16px gets focus and never zooms back out. Phones only; PC sizes untouched. */
+@media (max-width:700px){input:not([type=checkbox]):not([type=radio]):not([type=range]):not([type=color]):not([type=file]):not([type=hidden]):not(#_z),select:not(#_z),textarea:not(#_z){font-size:16px!important}
+html,body,button,a,input,select,textarea,label{touch-action:manipulation}}</style>
+</head>
+<body>
+<script>try{ if(window.self !== window.top) document.body.classList.add('embedded'); }catch(e){ document.body.classList.add('embedded'); }</script>
+
+<div id="loading-gate" class="loading-gate">Loading…</div>
+
+<div id="profile-overlay" class="loading-gate" style="display:none;">
+  <div class="profile-inner">
+    <h1>Whose skin plan?</h1>
+    <div class="profile-row" id="profile-row"></div>
+  </div>
+</div>
+
+<div class="wrap" id="app-wrap" style="display:none;">
+  <div class="topbar">
+    <a href="../index.html">← All apps</a>
+    <div style="display:flex;align-items:center;gap:14px;">
+      <a href="#" class="switch-btn" style="text-decoration:none" data-applink="grocery.html">Grocery ↗</a><a href="#" class="switch-btn" style="text-decoration:none" data-applink="diet.html">Diet ↗</a>
+      <button class="switch-btn" id="backup-open-btn">Backup</button>
+      <button class="switch-btn" id="switch-profile-btn">Switch profile</button>
+    </div>
+  </div>
+
+  <button type="button" class="checkin-fab" id="checkin-fab-btn" style="display:none;">🌙 <span>Check-in</span><i class="fab-dot" id="checkin-fab-dot"></i></button>
+
+  <header class="app-head">
+    <div class="who-badge" id="who-badge"></div>
+    <h1>Skin Plan</h1>
+    <p id="app-sub"></p>
+  </header>
+
+  <div id="week-banner-wrap"></div>
+
+  <div class="segmented">
+    <button id="tab-today-btn" class="active">Today</button>
+    <button id="tab-shopping-btn">Shopping</button>
+    <button id="tab-milestones-btn">Milestones</button>
+    <button id="tab-checkins-btn">Check-ins</button>
+    <button id="tab-progress-btn">Progress</button>
+  </div>
+
+  <div id="today-view"></div>
+  <div id="shopping-view" style="display:none;"></div>
+  <div id="milestones-view" style="display:none;"></div>
+  <div id="checkins-view" style="display:none;"></div>
+  <div id="progress-view" style="display:none;"></div>
+</div>
+
+<div class="modal-overlay" id="timerModal">
+  <div class="modal-box">
+    <h3>Application wait timer</h3>
+    <p class="modal-sub" id="timerCopy">Keep this page open while the timer runs.</p>
+    <div class="timer" id="timerDisplay">15:00</div>
+    <div class="modal-actions">
+      <button type="button" class="modal-btn secondary" id="timerResetBtn">Reset</button>
+      <button type="button" class="modal-btn secondary" id="timerCloseBtn">Close</button>
+      <button type="button" class="modal-btn" id="timerStartBtn">Start</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="backupModal">
+  <div class="modal-box">
+    <h3>Local backup</h3>
+    <p class="modal-sub">Everything already syncs to the cloud automatically. This is just an extra downloadable copy of this profile's skin data, in case you ever want one.</p>
+    <div style="display:grid;gap:8px;">
+      <button type="button" class="modal-btn" id="backupExportBtn">Export JSON backup</button>
+      <button type="button" class="modal-btn secondary" id="backupImportBtn">Import JSON backup</button>
+      <input type="file" id="backupImportFile" accept="application/json" hidden>
+    </div>
+    <div class="modal-actions">
+      <button type="button" class="modal-btn secondary" id="backupCloseBtn">Close</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="trackingModal">
+  <div class="modal-box wide">
+    <button type="button" class="modal-x" id="trackingCloseBtn" aria-label="Close">✕</button>
+    <div id="tracking-modal-body"></div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="skinLinkModal">
+  <div class="modal-box">
+    <h3 id="skinLinkModalTitle">Attach to Schedule</h3>
+    <p class="modal-sub">Check every Schedule block this routine should show up under.</p>
+    <div id="skinLinkWrap"><div class="subtle">Loading Schedule…</div></div>
+    <div class="modal-actions">
+      <button type="button" class="modal-btn secondary" id="skinLinkCancelBtn">Cancel</button>
+      <button type="button" class="modal-btn" id="skinLinkSaveBtn">Save</button>
+    </div>
+  </div>
+</div>
+
+<script>
+/* =====================================================================
+   FIREBASE — same account as the rest of the hub; sign-in lives on the
+   hub itself, this page just checks and redirects if not signed in.
+===================================================================== */
+const FIREBASE_CONFIG = window.IRONLOG_FIREBASE;
+firebase.initializeApp(FIREBASE_CONFIG);
+const auth = firebase.auth();
+const db = firebase.firestore();
+// See clock.html for why this is skipped when embedded in the Hub's app
+// viewer — its iframe-reuse reload pattern can leave a stale multi-tab
+// persistence lock that hangs the next load.
+if(window.self === window.top){
+  try{ db.enablePersistence({synchronizeTabs:true}).catch(function(){}); }catch(e){}
+}
+let currentUser = null;
+let activeProfile = null;
+const LAST_PROFILE_KEY = 'skin-last-profile';
+
+function skinDoc(key){
+  return db.collection('users').doc(currentUser.uid).collection('skin-profiles').doc(activeProfile).collection('data').doc(key);
+}
+
+/* =====================================================================
+   SCHEDULE INTEGRATION — a routine card here ("Morning", "Shower &
+   body", "Nizoral", "Night — face", or Anusha's "Morning"/"Night") can
+   be attached to one or more Schedule blocks (skinBlockLinks, keyed by
+   section, each an array of {wd,label} pairs — same shape chores.html/
+   todo.html/diet.html already write from their own "Attach to
+   Schedule" pickers). schedule.html reads this SAME doc and matches it
+   against each block's weekday+activity text to decide what to show in
+   that block's expand panel — the link is set here, not there.
+===================================================================== */
+function scheduleProfileDocForSkin(profileCap, key){
+  return db.collection('users').doc(currentUser.uid).collection('schedule-profiles').doc(profileCap).collection('data').doc(key);
+}
+let skinScheduleTemplatesCache = {};
+async function ensureSkinScheduleTemplatesLoaded(profileCap){
+  if(skinScheduleTemplatesCache[profileCap]) return skinScheduleTemplatesCache[profileCap];
+  try{
+    const doc = await scheduleProfileDocForSkin(profileCap,'dayTemplates').get();
+    skinScheduleTemplatesCache[profileCap] = (doc.exists && doc.data().json) ? JSON.parse(doc.data().json) : {};
+  }catch(e){ skinScheduleTemplatesCache[profileCap] = {}; }
+  return skinScheduleTemplatesCache[profileCap];
+}
+const SKIN_SCHED_WD_ORDER = ['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'];
+function skinScheduleChecklistHtml(templates, selected){
+  const sel = new Set((selected||[]).map(function(s){ return s.wd+'||'+s.label; }));
+  let html = '';
+  SKIN_SCHED_WD_ORDER.forEach(function(wd){
+    const blocks = (templates[wd]||[]).filter(function(b){ return b.activity; });
+    if(!blocks.length) return;
+    html += '<div class="ms-sched-day"><div class="ms-sched-daylabel">'+escapeHtml(wd)+'</div>'+
+      blocks.map(function(b){
+        const checked = sel.has(wd+'||'+b.activity);
+        return '<label class="ms-sched-row"><input type="checkbox" data-skwd="'+escapeHtml(wd)+'" data-sklabel="'+escapeHtml(b.activity)+'" '+(checked?'checked':'')+'> '+escapeHtml(b.activity)+(b.start?' <small class="subtle">('+escapeHtml(b.start)+')</small>':'')+'</label>';
+      }).join('')+
+    '</div>';
+  });
+  return html || '<div class="subtle" style="padding:6px 0;">No Schedule blocks set up yet for this profile.</div>';
+}
+let skinBlockLinks = {}; // { sectionKey: [{wd,label}] }
+async function saveSkinBlockLinks(){ try{ await skinDoc('blockLinks').set({json: JSON.stringify(skinBlockLinks)}); }catch(e){} }
+let skinLinkModalSection = null;
+const SKIN_SECTION_LABELS = {am:'Morning', body:'Shower & body', nizoral:'Nizoral', face:'Night — face', pm:'Night'};
+async function openSkinLinkModal(section){
+  skinLinkModalSection = section;
+  document.getElementById('skinLinkModalTitle').textContent = 'Attach "'+(SKIN_SECTION_LABELS[section]||section)+'" to Schedule';
+  document.getElementById('skinLinkWrap').innerHTML = '<div class="subtle">Loading Schedule…</div>';
+  document.getElementById('skinLinkModal').classList.add('open');
+  const templates = await ensureSkinScheduleTemplatesLoaded(activeProfile);
+  if(skinLinkModalSection !== section) return; // closed/reopened while loading
+  document.getElementById('skinLinkWrap').innerHTML = skinScheduleChecklistHtml(templates, skinBlockLinks[section]||[]);
+}
+function closeSkinLinkModal(){
+  document.getElementById('skinLinkModal').classList.remove('open');
+  skinLinkModalSection = null;
+}
+async function saveSkinLinkSelection(){
+  if(!skinLinkModalSection) return closeSkinLinkModal();
+  const wrap = document.getElementById('skinLinkWrap');
+  const selected = [...wrap.querySelectorAll('input[data-skwd]')].filter(function(cb){ return cb.checked; }).map(function(cb){ return {wd:cb.dataset.skwd, label:cb.dataset.sklabel}; });
+  skinBlockLinks[skinLinkModalSection] = selected;
+  await saveSkinBlockLinks();
+  closeSkinLinkModal();
+  renderToday();
+}
+function skinLinkCount(section){ return (skinBlockLinks[section]||[]).length; }
+function rcLinkBtnHtml(section){
+  const n = skinLinkCount(section);
+  return '<button type="button" class="rc-link-btn'+(n?' linked':'')+'" data-linksection="'+section+'" title="Attach to Schedule">🔗'+(n?' '+n:'')+'</button>';
+}
+function attachRcLinkHandlers(el){
+  el.querySelectorAll('.rc-link-btn').forEach(function(btn){
+    btn.addEventListener('click', function(){ openSkinLinkModal(btn.dataset.linksection); });
+  });
+}
+
+/* =====================================================================
+   GROCERY INTEGRATION — sends a product into Provision's real weekly plan
+   (apps/grocery-v4/data/modernState — the same document Provision itself
+   reads/writes), tagged category:'skin' in its catalog, rather than a
+   disconnected shopping list of our own. Matches an existing catalog
+   product by name when one exists (so price/link/category stay the
+   single source of truth Provision already has); otherwise creates a
+   minimal skin-category catalog entry on the fly. Safe to send again any
+   time you run out and need to restock — it just skips adding a
+   duplicate open (not-yet-purchased) line if one's already there.
+===================================================================== */
+function groceryStateDoc(){
+  return db.collection('users').doc(currentUser.uid).collection('apps').doc('grocery-v4').collection('data').doc('modernState');
+}
+// names differ only by punctuation/case between the two apps (Paula’s vs Paula's) — compare on letters and digits only
+function normName(s){ return String(s||'').toLowerCase().replace(/[^a-z0-9]+/g,''); }
+async function sendItemToGrocery(item){
+  if(typeof item === 'string') item = { name: item };
+  try{
+    const doc = await groceryStateDoc().get();
+    if(!doc.exists || !doc.data().json){
+      // Provision has never been opened on this account yet, so there's no
+      // week/cycle to add a line into — nothing safe to create from here.
+      return { added:false, error:true, reason:'no-provision-state' };
+    }
+    const state = JSON.parse(doc.data().json);
+    state.products = state.products || [];
+    let product = state.products.find(function(p){ return normName(p.name) === normName(item.name); });
+    if(!product){
+      const priceNum = Number(String(item.price||'0').replace(/[^0-9.]/g,'')) || 0;
+      product = {
+        id: 'skin-custom-'+Date.now()+'-'+Math.floor(Math.random()*1000),
+        name: item.name, store: item.retailer || 'Skin plan', note: item.sub || '',
+        price: priceNum, link: item.url || '', category: 'skin',
+        purchaseUnit: 'piece', purchaseQty: 1, servingUnit: 'piece', servingSize: 1,
+        macros: {}
+      };
+      state.products.push(product);
+    }
+    const week = state.weeks && state.activeWeek ? state.weeks[state.activeWeek] : null;
+    if(!week){
+      // Same fallback — Provision always ensures its active week exists on
+      // load, so this only happens if the account truly has none yet.
+      return { added:false, error:true, reason:'no-active-week' };
+    }
+    week.items = week.items || [];
+    const already = week.items.some(function(x){
+      return x.productId === product.id && !(x.plannedQty > 0 && x.purchasedQty >= x.plannedQty);
+    });
+    if(!already){
+      week.items.push({
+        id: 'skin-'+Date.now()+'-'+Math.floor(Math.random()*1000),
+        productId: product.id, plannedQty: 1, purchasedQty: 0,
+        unitPrice: product.price || 0, actualPrice: null,
+        carriedQty: 0, dismissedQty: 0, source: 'skin-plan'
+      });
+    }
+    await groceryStateDoc().set({ json: JSON.stringify(state) });
+    return { added: !already };
+  }catch(e){ console.error('send to grocery failed', e); return { added:false, error:true }; }
+}
+
+/* =====================================================================
+   GYM INTEGRATION — weight and waist are already logged weekly/biweekly
+   in the Gym app's daily check-in. Read that directly instead of asking
+   for the same numbers twice.
+===================================================================== */
+function gymDailyLogsCol(){
+  return db.collection('users').doc(currentUser.uid).collection('profiles').doc(activeProfile.toLowerCase()).collection('dailyLogs');
+}
+let gymWeightEntries = [];
+let gymWaistEntries = [];
+async function loadGymLogs(){
+  try{
+    const snap = await gymDailyLogsCol().get();
+    const all = [];
+    snap.forEach(function(d){ all.push(d.data()); });
+    all.sort(function(a,b){ return a.date < b.date ? -1 : 1; });
+    gymWeightEntries = all.filter(function(d){ return d.weight != null && d.weight !== ''; }).map(function(d){ return {date:d.date, value:d.weight}; });
+    gymWaistEntries = all.filter(function(d){ return d.waist != null && d.waist !== ''; }).map(function(d){ return {date:d.date, value:d.waist}; });
+  }catch(e){ gymWeightEntries = []; gymWaistEntries = []; }
+}
+
+/* =====================================================================
+   AUTH + PROFILE PICKER — sign-in itself lives on the hub; this page
+   checks and redirects if not signed in, then asks whose plan to open.
+===================================================================== */
+function showProfilePicker(){
+  document.getElementById('loading-gate').style.display = 'none';
+  document.getElementById('app-wrap').style.display = 'none';
+  document.getElementById('profile-overlay').style.display = 'flex';
+  const row = document.getElementById('profile-row');
+  row.innerHTML = '';
+  [{id:'Bhargav',cls:'av-b'},{id:'Anusha',cls:'av-a'}].forEach(function(p){
+    const card = document.createElement('button');
+    card.className = 'profile-card';
+    card.innerHTML = '<div class="profile-avatar '+p.cls+'">'+p.id[0]+'</div><div class="profile-name">'+p.id+'</div>';
+    card.addEventListener('click', function(){ enterProfile(p.id); });
+    row.appendChild(card);
+  });
+}
+async function enterProfile(profileId){
+  activeProfile = profileId;
+  try{ localStorage.setItem(LAST_PROFILE_KEY, profileId); localStorage.setItem('hub-active-profile', profileId); }catch(e){}
+  document.body.dataset.profile = profileId.toLowerCase();
+  if(window.HubTheme) HubTheme.applyHubTheme(profileId, {base:'--accent',deep:'--accent-deep',soft:'--accent-soft'}).catch(()=>{});
+  selectedDay = todayStr();
+  shoppingMonthView = null;
+  document.getElementById('loading-gate').style.display = 'none';
+  document.getElementById('profile-overlay').style.display = 'none';
+  document.getElementById('app-wrap').style.display = 'block';
+  document.getElementById('who-badge').innerHTML = '<span class="who-avatar av-'+(profileId==='Bhargav'?'b':'a')+'">'+profileId[0]+'</span><span class="who-name">'+profileId+'</span>';
+  document.getElementById('app-sub').textContent = profileId==='Bhargav' ? '5-month program' : 'Daily routine';
+  document.getElementById('tab-checkins-btn').textContent = profileId==='Anusha' ? 'Check-ins' : 'Month review';
+  document.getElementById('switch-profile-btn').textContent = 'Switch to '+(profileId==='Bhargav'?'Anusha':'Bhargav');
+  document.getElementById('switch-profile-btn').onclick = function(){ enterProfile(profileId==='Bhargav'?'Anusha':'Bhargav'); };
+  await init();
+  if(profileId==='Bhargav'){
+    document.getElementById('app-sub').textContent = '5-month program — '+fmtHeaderDate(SKIN_MONTHS[0].range[0])+' to '+fmtHeaderDate(SKIN_MONTHS[SKIN_MONTHS.length-1].range[1]);
+  }
+}
+
+auth.onAuthStateChanged(function(user){
+  currentUser = user;
+  if(!user){ if(window.self!==window.top) return; window.location.href = '../index.html'; return; }
+  const params = new URLSearchParams(window.location.search);
+  const fromUrl = params.get('profile');
+  if(fromUrl === 'Bhargav' || fromUrl === 'Anusha'){ enterProfile(fromUrl); return; }
+  let last = null;
+  try{ last = localStorage.getItem('hub-active-profile') || localStorage.getItem(LAST_PROFILE_KEY); }catch(e){}
+  if(last === 'Bhargav' || last === 'Anusha') enterProfile(last);
+  else showProfilePicker();
+});
+
+/* =====================================================================
+   PLAN DATA — Bhargav's 5-month program (Oct 1, 2026 – Feb 28, 2027),
+   baked in against the real calendar. No "start date" to configure —
+   unlike the old 12-week plan this replaces, every date is fixed.
+===================================================================== */
+const DAY_NAMES = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+
+function pad2(n){ return String(n).padStart(2,'0'); }
+function todayStr(){ const d = new Date(); return d.getFullYear()+'-'+pad2(d.getMonth()+1)+'-'+pad2(d.getDate()); }
+function addDays(dateStr, n){ const d = new Date(dateStr+'T00:00:00'); d.setDate(d.getDate()+n); return d.getFullYear()+'-'+pad2(d.getMonth()+1)+'-'+pad2(d.getDate()); }
+function weekdayOf(dateStr){ return new Date(dateStr+'T00:00:00').getDay(); }
+function daysBetween(fromStr, toStr){ return Math.round((new Date(toStr+'T00:00:00') - new Date(fromStr+'T00:00:00'))/86400000); }
+function fmtHeaderDate(dateStr){ return new Date(dateStr+'T00:00:00').toLocaleDateString(undefined,{month:'short',day:'numeric'}); }
+
+const SKIN_QTY = {
+  cleanser: '1 pump',
+  faceMoisturizer: '2 pea-sized amounts — face & neck',
+  faceSunscreen: '2 full finger-lengths — face, ears, neck',
+  bodySunscreen: '~1 shot-glass — exposed areas, if leaving home',
+  nizoral: '1–2 teaspoons — scalp',
+  eucerinArms: '2 tsp — both arms',
+  eucerinLegs: '4 tsp — both legs',
+  eucerinChest: '2 tsp — chest & stomach',
+  eucerinBack: '2–3 tsp — back',
+  differin: '1 pea-sized amount — entire face (not per area)',
+  azelaic: '1 pea-sized amount — uneven/pigmented areas',
+  ceraveSAArms: '~2 tsp — both arms',
+  ceraveSALegs: '~4 tsp — both legs',
+  bha: '4–6 drops — nose, forehead, blackhead-prone areas'
+};
+
+// 7:00 AM — identical every day across all 5 months. Body sunscreen is
+// conditional ("if leaving home"), so it's optional — it doesn't count
+// against the day's completion percentage or streak.
+const SKIN_AM_ROUTINE = [
+  {text:'Cleanser', qty:SKIN_QTY.cleanser, product:'cleanser'},
+  {text:'Moisturizer — face & neck', qty:SKIN_QTY.faceMoisturizer, product:'moisturizer'},
+  {text:'Sunscreen — face, ears, neck', qty:SKIN_QTY.faceSunscreen, product:'spf'},
+  {text:'Body sunscreen on exposed areas (if leaving home)', qty:SKIN_QTY.bodySunscreen, product:'spf', optional:true}
+];
+
+// 9:30 PM face treatment, keyed by the code each date carries in
+// SKIN_DATE_PLAN. Body lotion (Eucerin vs CeraVe SA) is tracked
+// separately per date since it combines with any of these. Steps with no
+// product used their full weight; a "buffer"/second moisturizer pass is
+// weighted lighter since it's a thinner layer than the main application.
+const SKIN_TREATMENTS = {
+  regular: {
+    label: 'Regular face routine',
+    steps: [
+      {text:'Cleanser', qty:SKIN_QTY.cleanser, product:'cleanser'},
+      {text:'Moisturizer — face & neck', qty:SKIN_QTY.faceMoisturizer, product:'moisturizer'}
+    ]
+  },
+  differin: {
+    label: 'Differin night',
+    steps: [
+      {text:'Cleanser', qty:SKIN_QTY.cleanser, product:'cleanser'},
+      {text:'Let face dry 15–20 minutes', timerMinutes:15},
+      {text:'Thin layer of moisturizer', product:'moisturizer', weight:0.5},
+      {text:'Differin — entire face', qty:SKIN_QTY.differin, product:'differin'},
+      {text:'Another thin layer of moisturizer', product:'moisturizer', weight:0.5}
+    ]
+  },
+  azelaic: {
+    label: 'Azelaic acid night',
+    steps: [
+      {text:'Cleanser', qty:SKIN_QTY.cleanser, product:'cleanser'},
+      {text:'Let skin dry completely'},
+      {text:'Azelaic acid on uneven/pigmented areas', qty:SKIN_QTY.azelaic, product:'azelaic'},
+      {text:'Moisturizer after it absorbs', qty:SKIN_QTY.faceMoisturizer, product:'moisturizer'}
+    ]
+  },
+  bha: {
+    label: 'BHA night',
+    steps: [
+      {text:'Cleanser', qty:SKIN_QTY.cleanser, product:'cleanser'},
+      {text:'Paula’s Choice 2% BHA — nose, forehead, blackhead-prone areas', qty:SKIN_QTY.bha, product:'bha'},
+      {text:'Wait 5–10 minutes', timerMinutes:5},
+      {text:'Moisturizer', qty:SKIN_QTY.faceMoisturizer, product:'moisturizer'}
+    ]
+  }
+};
+
+// 7:30 PM shower/body step — CeraVe SA on rough/bumpy areas on the
+// dates that call for it, Eucerin everywhere else (or the rest of the
+// body on a CeraVe SA night). Each sub-step is weighted so a full night
+// of body care works out to roughly one "application" of that product.
+function skinBodyStepsFor(entry){
+  if(entry.ceraveSA){
+    return [
+      {text:'Shower, lukewarm, 5–10 min; pat partially dry'},
+      {text:'CeraVe SA on rough/bumpy arms', qty:SKIN_QTY.ceraveSAArms, product:'sa', weight:0.5},
+      {text:'CeraVe SA on rough/bumpy legs', qty:SKIN_QTY.ceraveSALegs, product:'sa', weight:0.5},
+      {text:'Eucerin on the rest of the body — within 3 minutes of showering', product:'eucerin', weight:0.5}
+    ];
+  }
+  return [
+    {text:'Shower, lukewarm, 5–10 min; pat partially dry'},
+    {text:'Eucerin — both arms', qty:SKIN_QTY.eucerinArms, product:'eucerin', weight:0.25},
+    {text:'Eucerin — both legs', qty:SKIN_QTY.eucerinLegs, product:'eucerin', weight:0.25},
+    {text:'Eucerin — chest & stomach', qty:SKIN_QTY.eucerinChest, product:'eucerin', weight:0.25},
+    {text:'Eucerin — back', qty:SKIN_QTY.eucerinBack, product:'eucerin', weight:0.25},
+    {text:'Apply within 3 minutes of showering'}
+  ];
+}
+
+// "Template" — the 5-month plan as originally authored, assuming a
+// program start of SKIN_TEMPLATE_START (Oct 1, 2026). If the person
+// changes their actual start date, every date-keyed structure below
+// (months, the day-by-day treatment plan, review dates) is re-derived
+// from these templates by shifting every date key by the same number
+// of days — so the routine's internal day-to-day cadence (which day
+// gets Differin, Nizoral, etc.) is preserved exactly, just moved to
+// start on a different calendar date. See rebuildProgramCalendar().
+const SKIN_TEMPLATE_START = '2026-10-01';
+const SKIN_MONTHS_TEMPLATE = [
+  {key:'m1', name:'Month 1 — Hydration & Repair', range:['2026-10-01','2026-10-31'],
+   objective:'Hydrate the face and body, reduce dandruff and scaling, improve roughness, protect against further tanning, and prepare skin for blackhead and pigmentation treatments in Month 2.'},
+  {key:'m2', name:'Month 2 — Blackheads, Pigmentation & Body Bumps', range:['2026-11-01','2026-11-30'],
+   objective:'Reduce blackheads and clogged pores, improve uneven facial texture, begin fading pigmentation, smooth body bumps, maintain dandruff control.'},
+  {key:'m3', name:'Month 3 — Stronger Blackhead, Pigmentation & Texture Treatment', range:['2026-12-01','2026-12-31'],
+   objective:'Reduce visible blackheads, improve uneven pigmentation, smooth facial texture, improve body bumps, maintain dandruff control, build a healthier natural glow.'},
+  {key:'m4', name:'Month 4 — Maintenance, Glow & Modeling Prep', range:['2027-01-01','2027-01-31'],
+   objective:'Maintain fewer blackheads, continue improving uneven pigmentation, improve facial smoothness, maintain smoother body texture, keep dandruff controlled, build a hydrated, camera-ready appearance.'},
+  {key:'m5', name:'Month 5 — Maintenance & Pore-Focused Refinement', range:['2027-02-01','2027-02-28'],
+   objective:'Maintain progress while adding a controlled pore-clearing step for remaining blackheads.'}
+];
+let programStartDate = SKIN_TEMPLATE_START;
+let SKIN_MONTHS = SKIN_MONTHS_TEMPLATE.map(function(m){ return {key:m.key, name:m.name, objective:m.objective, range:[m.range[0], m.range[1]]}; });
+function skinMonthFor(dateStr){ return SKIN_MONTHS.find(function(m){ return dateStr>=m.range[0] && dateStr<=m.range[1]; }) || null; }
+
+// ---- Per-date plan: which face treatment, whether Nizoral, whether
+// CeraVe SA on the body tonight. Month 1 is a flat "regular" routine
+// with Nizoral on 14 listed dates. Months 3 & 4 follow a clean, single
+// weekly pattern all month (verified against the actual calendar — Dec
+// 1, 2026 is a real Tuesday and Jan 1, 2027 a real Friday, matching the
+// plan's own day labels), so those are built from a weekday lookup.
+// Months 2 & 5 are phased/one-off, so those are transcribed exactly.
+function buildSkinDatePlan(){
+  const plan = {};
+  const nizoralOct = ['2026-10-01','2026-10-03','2026-10-06','2026-10-08','2026-10-10','2026-10-13','2026-10-15','2026-10-17','2026-10-20','2026-10-22','2026-10-24','2026-10-27','2026-10-29','2026-10-31'];
+  for(let d=1; d<=31; d++){
+    const ds = '2026-10-'+pad2(d);
+    plan[ds] = {face:'regular', nizoral: nizoralOct.indexOf(ds)!==-1, ceraveSA:false};
+  }
+  const nov = {
+    1:{face:'regular'}, 2:{face:'regular'}, 3:{face:'regular',nizoral:true,ceraveSA:true}, 4:{face:'differin'},
+    5:{face:'regular'}, 6:{face:'regular'}, 7:{face:'regular',nizoral:true,ceraveSA:true},
+    8:{face:'differin'}, 9:{face:'regular'}, 10:{face:'regular',nizoral:true,ceraveSA:true}, 11:{face:'regular'},
+    12:{face:'regular'}, 13:{face:'differin'}, 14:{face:'regular',nizoral:true,ceraveSA:true},
+    15:{face:'regular'}, 16:{face:'differin'}, 17:{face:'regular',nizoral:true,ceraveSA:true}, 18:{face:'azelaic'},
+    19:{face:'regular'}, 20:{face:'differin'}, 21:{face:'regular',nizoral:true,ceraveSA:true},
+    22:{face:'regular'}, 23:{face:'differin'}, 24:{face:'regular',nizoral:true,ceraveSA:true}, 25:{face:'azelaic'},
+    26:{face:'regular'}, 27:{face:'differin'}, 28:{face:'azelaic',nizoral:true,ceraveSA:true},
+    29:{face:'regular'}, 30:{face:'differin'}
+  };
+  Object.keys(nov).forEach(function(d){ plan['2026-11-'+pad2(d)] = Object.assign({face:'regular',nizoral:false,ceraveSA:false}, nov[d]); });
+
+  // getDay(): Sun=0 Mon=1 Tue=2 Wed=3 Thu=4 Fri=5 Sat=6
+  const decByWeekday = {2:{face:'azelaic',ceraveSA:true}, 3:{face:'differin'}, 4:{face:'regular',ceraveSA:true}, 5:{face:'azelaic'}, 6:{face:'differin',nizoral:true,ceraveSA:true}, 0:{face:'regular'}, 1:{face:'differin'}};
+  for(let d=1; d<=31; d++){
+    const ds = '2026-12-'+pad2(d);
+    plan[ds] = Object.assign({face:'regular',nizoral:false,ceraveSA:false}, decByWeekday[weekdayOf(ds)]);
+  }
+  const janByWeekday = {1:{face:'differin',ceraveSA:true}, 2:{face:'azelaic'}, 3:{face:'differin',ceraveSA:true}, 4:{face:'regular'}, 5:{face:'azelaic',ceraveSA:true}, 6:{face:'differin',nizoral:true}, 0:{face:'regular',note:'Optional: 5-minute gentle facial massage using moisturizer.'}};
+  for(let d=1; d<=31; d++){
+    const ds = '2027-01-'+pad2(d);
+    plan[ds] = Object.assign({face:'regular',nizoral:false,ceraveSA:false}, janByWeekday[weekdayOf(ds)]);
+  }
+  const feb = {
+    1:{face:'differin',ceraveSA:true}, 2:{face:'azelaic'}, 3:{face:'regular'}, 4:{face:'bha',ceraveSA:true}, 5:{face:'differin'},
+    6:{face:'differin',nizoral:true,ceraveSA:true}, 7:{face:'azelaic'},
+    8:{face:'differin',ceraveSA:true}, 9:{face:'azelaic'}, 10:{face:'regular'}, 11:{face:'bha',ceraveSA:true}, 12:{face:'differin'},
+    13:{face:'differin',nizoral:true,ceraveSA:true}, 14:{face:'azelaic'},
+    15:{face:'differin',ceraveSA:true}, 16:{face:'azelaic'}, 17:{face:'regular'}, 18:{face:'bha',ceraveSA:true}, 19:{face:'differin'},
+    20:{face:'differin',nizoral:true,ceraveSA:true}, 21:{face:'azelaic'},
+    22:{face:'differin',ceraveSA:true}, 23:{face:'azelaic'}, 24:{face:'regular'}, 25:{face:'bha',ceraveSA:true}, 26:{face:'differin'},
+    27:{face:'differin',nizoral:true,ceraveSA:true}, 28:{face:'azelaic'}
+  };
+  Object.keys(feb).forEach(function(d){ plan['2027-02-'+pad2(d)] = Object.assign({face:'regular',nizoral:false,ceraveSA:false}, feb[d]); });
+  return plan;
+}
+const SKIN_DATE_PLAN_TEMPLATE = buildSkinDatePlan();
+let SKIN_DATE_PLAN = Object.assign({}, SKIN_DATE_PLAN_TEMPLATE);
+
+// Ratings tracked nightly, per month (matches what each month's own
+// "Daily tracking" template asks for).
+const SKIN_TRACKING_FIELDS = {
+  m1: [ {key:'dryness',label:'Facial dryness',type:'scale'}, {key:'comfort',label:'Facial comfort',type:'scale'}, {key:'dandruff',label:'Scalp dandruff',type:'scale'}, {key:'itchiness',label:'Scalp itchiness',type:'scale'}, {key:'roughness',label:'Body roughness',type:'scale'}, {key:'bumps',label:'New facial bumps',type:'text'} ],
+  m2: [ {key:'dryness',label:'Facial dryness',type:'scale'}, {key:'comfort',label:'Facial comfort',type:'scale'}, {key:'blackheads',label:'Blackhead congestion',type:'scale'}, {key:'pigmentation',label:'Pigmentation visibility',type:'scale'}, {key:'roughness',label:'Body roughness',type:'scale'}, {key:'dandruff',label:'Scalp dandruff',type:'scale'}, {key:'bumps',label:'New facial bumps',type:'text'} ],
+  m3: [ {key:'blackheads',label:'Blackhead congestion',type:'scale'}, {key:'pigmentation',label:'Pigmentation visibility',type:'scale'}, {key:'texture',label:'Facial texture',type:'scale'}, {key:'comfort',label:'Facial comfort',type:'scale'}, {key:'roughness',label:'Body roughness',type:'scale'}, {key:'dandruff',label:'Scalp dandruff',type:'scale'}, {key:'bumps',label:'New facial bumps',type:'text'} ],
+  m4: [ {key:'blackheads',label:'Blackhead visibility',type:'scale'}, {key:'pigmentation',label:'Pigmentation visibility',type:'scale'}, {key:'smoothness',label:'Facial smoothness',type:'scale'}, {key:'glow',label:'Glow/hydration',type:'scale'}, {key:'roughness',label:'Body roughness',type:'scale'}, {key:'dandruff',label:'Scalp dandruff',type:'scale'} ],
+  m5: [ {key:'blackheads',label:'Blackhead visibility',type:'scale'}, {key:'pores',label:'Pore visibility',type:'scale'}, {key:'pigmentation',label:'Pigmentation visibility',type:'scale'}, {key:'smoothness',label:'Facial smoothness',type:'scale'}, {key:'roughness',label:'Body roughness',type:'scale'}, {key:'glow',label:'Overall glow',type:'scale'} ]
+};
+
+const SKIN_REVIEW_DATES_TEMPLATE = ['2026-10-31','2026-11-30','2026-12-31','2027-01-31','2027-02-28'];
+let SKIN_REVIEW_DATES = SKIN_REVIEW_DATES_TEMPLATE.slice();
+
+// Bought month by month, right before each product is first needed —
+// not all at once. Only 2 of these are actually carried by Sephora (The
+// Ordinary and Paula's Choice); the rest are drugstore items Sephora
+// doesn't stock, so those point to Target instead. Every link/price
+// below was checked live — nothing here is guessed.
+const SKIN_SHOPPING_BY_MONTH = {
+  m1: [
+    {name:'Vanicream Gentle Facial Cleanser', sub:'1 pump per wash, AM & PM', price:'$9.99', size:'8 fl oz', retailer:'Target', url:'https://www.target.com/p/vanicream-unscented-gentle-facial-cleanser-8-fl-oz/-/A-17425434'},
+    {name:'Vanicream Daily Facial Moisturizer', sub:'2 pea-sized amounts, face & neck', price:'$13.99', size:'3 fl oz', retailer:'Target', url:'https://www.target.com/p/vanicream-daily-facial-moisturizer-for-sensitive-skin-3-fl-oz/-/A-80038093'},
+    {name:'La Roche-Posay Anthelios Melt-In Milk SPF 60', sub:'2 finger-lengths face + ~1 shot-glass body', price:'$25.99', size:'3 fl oz', retailer:'Target', url:'https://www.target.com/p/la-roche-posay-anthelios-sunscreen-melt-in-milk-lotion-face-and-body-sunscreen-spf-60-3oz/-/A-75573636'},
+    {name:'Nizoral A-D Anti-Dandruff Shampoo 1%', sub:'1–2 tsp on scalp, scheduled nights', price:'$16.89', size:'7 fl oz', retailer:'Target', url:'https://www.target.com/p/nizoral-anti-dandruff-shampoo-with-1-ketoconazole-clean-fresh-scent-7-fl-oz/-/A-15603485'},
+    {name:'Eucerin Advanced Repair Lotion', sub:'Body, nightly unless a CeraVe SA night', price:'$12.79', size:'16.9 fl oz', retailer:'Target', url:'https://www.target.com/p/eucerin-advanced-repair-unscented-body-lotion-for-dry-skin-16-9-fl-oz/-/A-11005178'}
+  ],
+  m2: [
+    {name:'Differin Gel 0.1% (adapalene)', sub:'1 pea-sized amount, entire face', price:'$13.49', size:'15g', retailer:'Target', url:'https://www.target.com/p/differin-acne-retinoid-treatment-gel-adapalene-0-1-15g/-/A-51346324'},
+    {name:'The Ordinary Azelaic Acid Suspension 10%', sub:'1 pea-sized amount, uneven/pigmented areas', price:'$12.20', size:'30 mL', retailer:'Sephora', url:'https://www.sephora.com/product/the-ordinary-deciem-azelaic-acid-suspension-10-P427411'},
+    {name:'CeraVe SA Lotion', sub:'Body bumps — 2 tsp both arms / 4 tsp both legs', price:'$16.19', size:'8 fl oz', retailer:'Target', url:'https://www.target.com/p/cerave-sa-body-lotion-for-rough-and-bumpy-skin-fragrance-free-8-fl-oz/-/A-15025381'}
+  ],
+  m3: [],
+  m4: [
+    {name:'Supergoop Glowscreen SPF 40', sub:'Optional — tinted, iron oxides, a little extra glow on days that matter', price:'$38.00', size:'1.7 fl oz', retailer:'Sephora', url:'https://www.sephora.com/product/supergoop-glowscreen-sunscreen-spf-40-P456218', optional:true},
+    {name:'Sephora Collection Smooth + Blur Primer', sub:'Optional — non-comedogenic, pore-blurring', price:'$18.00', retailer:'Sephora', url:'https://www.sephora.com/product/sephora-collection-smooth-blur-primer-P474102', optional:true}
+  ],
+  m5: [
+    {name:'Paula’s Choice Skin Perfecting 2% BHA Liquid Exfoliant', sub:'4–6 drops, nose/forehead/blackhead-prone', price:'$37.00', size:'4 fl oz', retailer:'Sephora', url:'https://www.sephora.com/product/paula-s-choice-skin-perfecting-2-bha-liquid-exfoliant-P469502'}
+  ]
+};
+
+function buildMilestonesBhargav(){
+  return SKIN_REVIEW_DATES.map(function(d){
+    const m = skinMonthFor(d);
+    return {date:d, text:(m?m.name:'Program')+' review — compare progress & completion counts'};
+  });
+}
+let MILESTONES_BHARGAV = buildMilestonesBhargav();
+
+// Recomputes every date-keyed program structure (months, the day-by-day
+// treatment plan, review/milestone dates) from the Oct-1-2026 templates
+// above, shifted by however many days `programStartDate` differs from
+// SKIN_TEMPLATE_START. Call this once programStartDate is known (after
+// loadAll()) and again any time the person edits it.
+function rebuildProgramCalendar(){
+  const offset = daysBetween(SKIN_TEMPLATE_START, programStartDate);
+  SKIN_MONTHS = SKIN_MONTHS_TEMPLATE.map(function(m){
+    return {key:m.key, name:m.name, objective:m.objective, range:[addDays(m.range[0], offset), addDays(m.range[1], offset)]};
+  });
+  SKIN_DATE_PLAN = {};
+  Object.keys(SKIN_DATE_PLAN_TEMPLATE).forEach(function(k){ SKIN_DATE_PLAN[addDays(k, offset)] = SKIN_DATE_PLAN_TEMPLATE[k]; });
+  SKIN_REVIEW_DATES = SKIN_REVIEW_DATES_TEMPLATE.map(function(d){ return addDays(d, offset); });
+  MILESTONES_BHARGAV = buildMilestonesBhargav();
+}
+
+// ---- Anusha: fixed daily routine (same every day, no phases) ----
+const ANUSHA_MORNING = [
+  {text:'Rinse with water — INKEY List Salicylic Acid Cleanser only if face is oily', product:'cleanser'},
+  {text:'Tone: Anua Heartleaf 77 + Hyaluron Soothing Toner', product:'toner'},
+  {text:'Brighten: INKEY List 15% Vitamin C + EGF Serum — 1–2 pumps', product:'vitc'},
+  {text:'Hydrate: Atomy Hydra Brightening Capsule Essence — 1–2 pumps', product:'essence'},
+  {text:'Moisturize: Atomy Hydra Brightening Cream', product:'amCream'},
+  {text:'Broad-spectrum sunscreen SPF 30–50', product:'spf'}
+];
+const ANUSHA_NIGHT = [
+  {text:'Cleanse: INKEY List Salicylic Acid Cleanser', product:'cleanser'},
+  {text:'Tone: Anua Heartleaf 77 + Hyaluron Soothing Toner', product:'toner'},
+  {text:'Treat: Anua Azelaic Acid 10% Serum — 2–3 drops', product:'azelaicSerum'},
+  {text:'Hydrate: Atomy Hydra Brightening Capsule Essence — 1–2 pumps', product:'essence'},
+  {text:'Moisturize: Anua Ceramide 3 + Panthenol Barrier Cream', product:'pmCream'}
+];
+const SHOPPING_LIST_ANUSHA = [
+  {name:'INKEY List Salicylic Acid Cleanser', sub:'Morning (oily skin only) + every night'},
+  {name:'Anua Heartleaf 77 + Hyaluron Soothing Toner', sub:'Morning and night'},
+  {name:'INKEY List 15% Vitamin C + EGF Serum', sub:'Morning — 1–2 pumps'},
+  {name:'Atomy Hydra Brightening Capsule Essence', sub:'Morning and night — 1–2 pumps'},
+  {name:'Atomy Hydra Brightening Cream', sub:'Morning moisturizer'},
+  {name:'Broad-spectrum sunscreen SPF 30–50', sub:'Every morning'},
+  {name:'Anua Azelaic Acid 10% Serum', sub:'Night — 2–3 drops'},
+  {name:'Anua Ceramide 3 + Panthenol Barrier Cream', sub:'Night moisturizer'}
+];
+const MILESTONES_ANUSHA = [];
+
+function currentMilestones(){ return activeProfile==='Anusha' ? MILESTONES_ANUSHA : MILESTONES_BHARGAV; }
+
+/* =====================================================================
+   PRODUCT CABINET — ported from the local prototype: each routine step
+   is tagged with a product id, and checking it off deducts an estimated
+   "application" from that product's remaining stock (unchecking restores
+   it). Capacities are estimates from typical package sizes — editable
+   per product via "Full container holds…" so they can be corrected to
+   match reality. Names match the Shopping tab's catalog 1:1.
+===================================================================== */
+const SKIN_PRODUCTS_BHARGAV = [
+  {id:'cleanser', name:'Vanicream Gentle Facial Cleanser', capacity:120},
+  {id:'moisturizer', name:'Vanicream Daily Facial Moisturizer', capacity:100},
+  {id:'spf', name:'La Roche-Posay Anthelios Melt-In Milk SPF 60', capacity:50},
+  {id:'nizoral', name:'Nizoral A-D Anti-Dandruff Shampoo 1%', capacity:25},
+  {id:'eucerin', name:'Eucerin Advanced Repair Lotion', capacity:30},
+  {id:'differin', name:'Differin Gel 0.1% (adapalene)', capacity:90},
+  {id:'azelaic', name:'The Ordinary Azelaic Acid Suspension 10%', capacity:90},
+  {id:'sa', name:'CeraVe SA Lotion', capacity:35},
+  {id:'bha', name:'Paula’s Choice Skin Perfecting 2% BHA Liquid Exfoliant', capacity:120}
+];
+const SKIN_PRODUCTS_ANUSHA = [
+  {id:'cleanser', name:'INKEY List Salicylic Acid Cleanser', capacity:90},
+  {id:'toner', name:'Anua Heartleaf 77 + Hyaluron Soothing Toner', capacity:90},
+  {id:'vitc', name:'INKEY List 15% Vitamin C + EGF Serum', capacity:60},
+  {id:'essence', name:'Atomy Hydra Brightening Capsule Essence', capacity:60},
+  {id:'amCream', name:'Atomy Hydra Brightening Cream', capacity:60},
+  {id:'spf', name:'Broad-spectrum sunscreen SPF 30–50', capacity:50},
+  {id:'azelaicSerum', name:'Anua Azelaic Acid 10% Serum', capacity:60},
+  {id:'pmCream', name:'Anua Ceramide 3 + Panthenol Barrier Cream', capacity:60}
+];
+function currentProducts(){ return activeProfile==='Anusha' ? SKIN_PRODUCTS_ANUSHA : SKIN_PRODUCTS_BHARGAV; }
+function findProduct(id){ return currentProducts().find(function(p){ return p.id===id; }); }
+
+/* =====================================================================
+   STATE (all persisted to Firestore)
+===================================================================== */
+let stepLog = {};      // { 'date:section:stepIndex': true }
+let shoppingLog = {};  // { itemName: 'YYYY-MM-DD' } — last date sent to Grocery
+let milestoneLog = {}; // { 'date:text': true }
+let checkins = { weight:[], waist:[], photos:[], pimples:[] }; // Anusha only, going forward
+let trackingLog = {};  // Bhargav's nightly tracking — { 'YYYY-MM-DD': {fields..., overall, observation, reactions[], savedAt} }
+let productState = {}; // { productId: {capacity, remaining, refills} } — Product Cabinet stock
+let usageLedger = {};  // { stepKey: {productId, weight} } — so unchecking a step restores exactly what it deducted
+let monthReviews = {}; // Bhargav — { monthKey: {results:{field:'Better'|'Same'|'Worse'}, score, note} }
+let weeklyReviews = {}; // { weekStartDate: 'free text' }
+let activeTab = 'today';
+// Which day the Today view is showing — lets you flip forward/back
+// instead of always being pinned to the actual today (same pattern as
+// schedule.html's day-nav).
+let selectedDay = todayStr();
+function dateNavHtml(dateStr){
+  const isActualToday = dateStr === todayStr();
+  return '<div class="control-bar"><div class="cb-nav">'+
+      '<button type="button" id="day-prev" aria-label="Previous day">‹</button>'+
+      '<input id="day-picker" type="date" value="'+dateStr+'" aria-label="Selected date">'+
+      '<button type="button" id="day-next" aria-label="Next day">›</button>'+
+    '</div>'+
+    (isActualToday ? '' : '<button type="button" class="cb-pill" id="day-today">Today</button>')+
+  '</div>';
+}
+function wireDateNav(el){
+  const prev = el.querySelector('#day-prev'); if(prev) prev.onclick = function(){ selectedDay = addDays(selectedDay,-1); renderToday(); };
+  const next = el.querySelector('#day-next'); if(next) next.onclick = function(){ selectedDay = addDays(selectedDay,1); renderToday(); };
+  const picker = el.querySelector('#day-picker'); if(picker) picker.onchange = function(e){ if(e.target.value){ selectedDay = e.target.value; renderToday(); } };
+  const todayBtn = el.querySelector('#day-today'); if(todayBtn) todayBtn.onclick = function(){ selectedDay = todayStr(); renderToday(); };
+}
+
+async function loadAll(){
+  const [stepRes, shopRes, milestoneRes, checkinRes, trackingRes, blockLinksRes, productRes, ledgerRes, monthReviewRes, weeklyReviewRes, startRes] = await Promise.all([
+    skinDoc('stepLog').get().catch(function(){ return null; }),
+    skinDoc('shoppingLog').get().catch(function(){ return null; }),
+    skinDoc('milestoneLog').get().catch(function(){ return null; }),
+    skinDoc('checkins').get().catch(function(){ return null; }),
+    skinDoc('trackingLog').get().catch(function(){ return null; }),
+    skinDoc('blockLinks').get().catch(function(){ return null; }),
+    skinDoc('productState').get().catch(function(){ return null; }),
+    skinDoc('usageLedger').get().catch(function(){ return null; }),
+    skinDoc('monthReviews').get().catch(function(){ return null; }),
+    skinDoc('weeklyReviews').get().catch(function(){ return null; }),
+    skinDoc('programStart').get().catch(function(){ return null; })
+  ]);
+  try{ stepLog = (stepRes && stepRes.exists && stepRes.data().json) ? JSON.parse(stepRes.data().json) : {}; }catch(e){ stepLog = {}; }
+  try{ shoppingLog = (shopRes && shopRes.exists && shopRes.data().json) ? JSON.parse(shopRes.data().json) : {}; }catch(e){ shoppingLog = {}; }
+  try{ milestoneLog = (milestoneRes && milestoneRes.exists && milestoneRes.data().json) ? JSON.parse(milestoneRes.data().json) : {}; }catch(e){ milestoneLog = {}; }
+  try{ checkins = (checkinRes && checkinRes.exists && checkinRes.data().json) ? JSON.parse(checkinRes.data().json) : {weight:[],waist:[],photos:[],pimples:[]}; }catch(e){ checkins = {weight:[],waist:[],photos:[],pimples:[]}; }
+  try{ trackingLog = (trackingRes && trackingRes.exists && trackingRes.data().json) ? JSON.parse(trackingRes.data().json) : {}; }catch(e){ trackingLog = {}; }
+  try{ skinBlockLinks = (blockLinksRes && blockLinksRes.exists && blockLinksRes.data().json) ? JSON.parse(blockLinksRes.data().json) : {}; }catch(e){ skinBlockLinks = {}; }
+  try{ productState = (productRes && productRes.exists && productRes.data().json) ? JSON.parse(productRes.data().json) : {}; }catch(e){ productState = {}; }
+  try{ usageLedger = (ledgerRes && ledgerRes.exists && ledgerRes.data().json) ? JSON.parse(ledgerRes.data().json) : {}; }catch(e){ usageLedger = {}; }
+  try{ monthReviews = (monthReviewRes && monthReviewRes.exists && monthReviewRes.data().json) ? JSON.parse(monthReviewRes.data().json) : {}; }catch(e){ monthReviews = {}; }
+  try{ weeklyReviews = (weeklyReviewRes && weeklyReviewRes.exists && weeklyReviewRes.data().json) ? JSON.parse(weeklyReviewRes.data().json) : {}; }catch(e){ weeklyReviews = {}; }
+  try{ programStartDate = (startRes && startRes.exists && startRes.data().startDate) ? startRes.data().startDate : SKIN_TEMPLATE_START; }catch(e){ programStartDate = SKIN_TEMPLATE_START; }
+  rebuildProgramCalendar();
+  ensureProductStateSeeded();
+}
+async function saveProgramStartDate(){ try{ await skinDoc('programStart').set({startDate: programStartDate}); }catch(e){} }
+async function saveStepLog(){ try{ await skinDoc('stepLog').set({json: JSON.stringify(stepLog)}); }catch(e){} }
+async function saveShoppingLog(){ try{ await skinDoc('shoppingLog').set({json: JSON.stringify(shoppingLog)}); }catch(e){} }
+async function saveMilestoneLog(){ try{ await skinDoc('milestoneLog').set({json: JSON.stringify(milestoneLog)}); }catch(e){} }
+async function saveCheckins(){ try{ await skinDoc('checkins').set({json: JSON.stringify(checkins)}); }catch(e){} }
+async function saveTrackingLog(){ try{ await skinDoc('trackingLog').set({json: JSON.stringify(trackingLog)}); }catch(e){} }
+async function saveProductState(){ try{ await Promise.all([skinDoc('productState').set({json: JSON.stringify(productState)}), skinDoc('usageLedger').set({json: JSON.stringify(usageLedger)})]); }catch(e){} }
+async function saveMonthReviews(){ try{ await skinDoc('monthReviews').set({json: JSON.stringify(monthReviews)}); }catch(e){} }
+async function saveWeeklyReviews(){ try{ await skinDoc('weeklyReviews').set({json: JSON.stringify(weeklyReviews)}); }catch(e){} }
+
+/* =====================================================================
+   PRODUCT CABINET — logic
+===================================================================== */
+function ensureProductStateSeeded(){
+  currentProducts().forEach(function(p){
+    if(!productState[p.id]){ productState[p.id] = {capacity:p.capacity, remaining:p.capacity, refills:0}; }
+    else{
+      productState[p.id].capacity = Number(productState[p.id].capacity) || p.capacity;
+      productState[p.id].remaining = Math.max(0, Number(productState[p.id].remaining) || 0);
+      productState[p.id].refills = Number(productState[p.id].refills) || 0;
+    }
+  });
+}
+function roundDose(n){ return Math.round(Number(n||0)*10)/10; }
+function productPercent(id){ const ps = productState[id]; return (ps && ps.capacity) ? Math.max(0, Math.min(100, Math.round(ps.remaining/ps.capacity*100))) : 0; }
+function productStatusLabel(pct){ return pct<=15 ? 'Buy soon' : pct<=30 ? 'Running low' : 'Healthy'; }
+function recordProductUse(stepKeyStr, productId, weight){
+  const ps = productState[productId];
+  if(!ps || usageLedger[stepKeyStr]) return;
+  ps.remaining = Math.max(0, ps.remaining - weight);
+  usageLedger[stepKeyStr] = {productId: productId, weight: weight};
+}
+function restoreProductUse(stepKeyStr){
+  const entry = usageLedger[stepKeyStr];
+  if(!entry) return;
+  const ps = productState[entry.productId];
+  if(ps) ps.remaining = Math.min(ps.capacity, ps.remaining + Number(entry.weight||1));
+  delete usageLedger[stepKeyStr];
+}
+// Looks up a Cabinet product's matching Shopping-tab catalog entry (by
+// name — the two lists are kept in sync 1:1) so a low-stock "Send to
+// Grocery" click carries the same real price/link/retailer the Shopping
+// tab would have sent, not just a bare name.
+function findShoppingItemByName(name){
+  if(activeProfile === 'Anusha') return SHOPPING_LIST_ANUSHA.find(function(it){ return it.name===name; });
+  const all = [].concat(SKIN_SHOPPING_BY_MONTH.m1, SKIN_SHOPPING_BY_MONTH.m2, SKIN_SHOPPING_BY_MONTH.m3, SKIN_SHOPPING_BY_MONTH.m4, SKIN_SHOPPING_BY_MONTH.m5);
+  return all.find(function(it){ return it.name===name; });
+}
+function productCabinetCardHtml(p){
+  const ps = productState[p.id] || {capacity:p.capacity, remaining:p.capacity};
+  const pct = productPercent(p.id);
+  const status = productStatusLabel(pct);
+  const color = pct<=15 ? 'var(--warn)' : pct<=30 ? 'var(--accent)' : '#2f7c5a';
+  const low = pct<=30;
+  const sentDate = shoppingLog[p.name];
+  const sentNote = (low && sentDate) ? '<div class="shop-sent" style="margin-top:5px;">Sent to Grocery '+(daysAgo(sentDate)===0?'today':daysAgo(sentDate)+'d ago')+'</div>' : '';
+  return '<div class="product-cabinet-card'+(low?' low':'')+'"><h4>'+escapeHtml(p.name)+'</h4>'+
+    '<div class="stock-track"><div class="stock-fill" style="width:'+pct+'%;background:'+color+';"></div></div>'+
+    '<div class="stock-row"><span>'+pct+'% · '+roundDose(ps.remaining)+' left</span><input type="number" min="0" step="0.5" value="'+roundDose(ps.remaining)+'" data-remainingfor="'+p.id+'" aria-label="'+escapeHtml(p.name)+' remaining"></div>'+
+    '<div class="stock-row" style="margin-top:2px;"><span>'+status+'</span><span>'+roundDose(ps.capacity)+' per container</span></div>'+
+    '<div class="pc-actions"><button type="button" data-refillfor="'+p.id+'">Refilled</button><button type="button" data-capacityfor="'+p.id+'">Edit size</button></div>'+
+    (low ? '<button type="button" class="send-grocery-btn wide" style="margin-top:8px;" data-sendproductfor="'+p.id+'">'+(sentDate?'Send again':'Send to Grocery')+'</button>'+sentNote : '')+
+  '</div>';
+}
+function attachProductCabinetHandlers(el){
+  el.querySelectorAll('[data-remainingfor]').forEach(function(inp){
+    inp.addEventListener('change', async function(){
+      const id = inp.dataset.remainingfor, ps = productState[id];
+      if(!ps) return;
+      ps.remaining = Math.max(0, Number(inp.value)||0);
+      await saveProductState();
+      renderProductCabinet(document.getElementById('shopping-view'));
+    });
+  });
+  el.querySelectorAll('[data-refillfor]').forEach(function(btn){
+    btn.addEventListener('click', async function(){
+      const id = btn.dataset.refillfor, p = findProduct(id), ps = productState[id];
+      if(!ps || !p) return;
+      if(!confirm('Mark '+p.name+' as a full container?')) return;
+      ps.remaining = ps.capacity;
+      ps.refills = (ps.refills||0) + 1;
+      await saveProductState();
+      renderProductCabinet(document.getElementById('shopping-view'));
+    });
+  });
+  el.querySelectorAll('[data-sendproductfor]').forEach(function(btn){
+    btn.addEventListener('click', async function(){
+      const id = btn.dataset.sendproductfor, p = findProduct(id);
+      if(!p) return;
+      const item = findShoppingItemByName(p.name) || {name:p.name};
+      btn.disabled = true; btn.textContent = 'Sending…';
+      const result = await sendItemToGrocery(item);
+      if(result && result.error){
+        btn.disabled = false; btn.textContent = 'Send to Grocery';
+        alert('Couldn\'t reach Grocery — open the Grocery app once first, then try again.');
+        return;
+      }
+      shoppingLog[p.name] = todayStr();
+      await saveShoppingLog();
+      renderProductCabinet(document.getElementById('shopping-view'));
+    });
+  });
+  el.querySelectorAll('[data-capacityfor]').forEach(function(btn){
+    btn.addEventListener('click', async function(){
+      const id = btn.dataset.capacityfor, ps = productState[id];
+      if(!ps) return;
+      const value = prompt('Estimated number of applications in a full container:', roundDose(ps.capacity));
+      if(value===null) return;
+      const n = Number(value);
+      if(!isFinite(n) || n<=0){ alert('Enter a number greater than zero.'); return; }
+      ps.capacity = n;
+      ps.remaining = Math.min(ps.remaining, n);
+      await saveProductState();
+      renderProductCabinet(document.getElementById('shopping-view'));
+    });
+  });
+}
+
+function escapeHtml(s){
+  return String(s==null?'':s).replace(/[&<>"']/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; });
+}
+
+/* =====================================================================
+   INIT / TABS
+===================================================================== */
+/* Grocery -> Skin: when a product you sent to Grocery shows up there as bought, the Cabinet marks it refilled by itself
+   (once per purchase), so you don't have to buy it in one app and tick "Refilled" in the other. */
+async function syncGroceryRefills(){
+  try{
+    if(!currentUser) return;
+    const doc = await groceryStateDoc().get();
+    if(!doc.exists || !doc.data().json) return;
+    const g = JSON.parse(doc.data().json), log = g.purchaseLog || [];
+    let changed = [];
+    currentProducts().forEach(function(p){
+      const sent = shoppingLog[p.name]; if(!sent) return;
+      const ps = productState[p.id]; if(!ps) return;
+      ps.groceryRefills = ps.groceryRefills || [];
+      log.filter(function(l){ return normName(l.name)===normName(p.name) && l.qty>0 && l.date>=sent; }).forEach(function(l){
+        const k = l.key+'|'+l.qty;
+        if(ps.groceryRefills.indexOf(k)!==-1) return;
+        ps.groceryRefills.push(k); ps.groceryRefills = ps.groceryRefills.slice(-20);
+        ps.remaining = ps.capacity; ps.refills = (ps.refills||0)+1;
+        if(changed.indexOf(p.name)===-1) changed.push(p.name);
+      });
+    });
+    if(changed.length){
+      await saveProductState();
+      const sv = document.getElementById('shopping-view');
+      if(sv && sv.offsetParent && typeof renderShopping==='function') renderShopping();
+      const n = document.getElementById('skin-refill-note');
+      if(n) n.remove();
+      const bar = document.createElement('div'); bar.id='skin-refill-note';
+      bar.style.cssText='position:fixed;left:50%;bottom:20px;transform:translateX(-50%);background:var(--hero,#2E1F06);color:#fff;padding:10px 16px;border-radius:12px;font-size:13px;z-index:9999;max-width:90vw;box-shadow:0 8px 30px rgba(0,0,0,.25)';
+      bar.textContent = 'Marked as refilled — you bought it in Grocery: '+changed.join(', ');
+      document.body.appendChild(bar); setTimeout(function(){ bar.remove(); }, 6000);
+    }
+  }catch(e){ console.error('grocery refill sync failed', e); }
+}
+async function init(){
+  document.querySelectorAll('[data-applink]').forEach(function(a){ a.href = a.dataset.applink+'?profile='+encodeURIComponent(activeProfile||''); });
+  await Promise.all([loadAll(), loadGymLogs()]);
+  syncGroceryRefills();
+  document.addEventListener('visibilitychange', function(){ if(!document.hidden) syncGroceryRefills(); });
+  window.addEventListener('focus', syncGroceryRefills);
+  document.getElementById('tab-today-btn').onclick = function(){ showTab('today'); };
+  document.getElementById('tab-shopping-btn').onclick = function(){ showTab('shopping'); };
+  document.getElementById('tab-milestones-btn').onclick = function(){ showTab('milestones'); };
+  document.getElementById('tab-checkins-btn').onclick = function(){ showTab('checkins'); };
+  document.getElementById('tab-progress-btn').onclick = function(){ showTab('progress'); };
+  document.getElementById('skinLinkCancelBtn').onclick = closeSkinLinkModal;
+  document.getElementById('skinLinkSaveBtn').onclick = saveSkinLinkSelection;
+  document.getElementById('timerStartBtn').onclick = startTimer;
+  document.getElementById('timerResetBtn').onclick = function(){ stopTimer(); timerSeconds = 900; updateTimerDisplay(); };
+  document.getElementById('timerCloseBtn').onclick = function(){ stopTimer(); document.getElementById('timerModal').classList.remove('open'); };
+  document.getElementById('backup-open-btn').onclick = function(){ document.getElementById('backupModal').classList.add('open'); };
+  document.getElementById('backupCloseBtn').onclick = function(){ document.getElementById('backupModal').classList.remove('open'); };
+  document.getElementById('backupExportBtn').onclick = exportBackup;
+  document.getElementById('backupImportBtn').onclick = function(){ document.getElementById('backupImportFile').click(); };
+  document.getElementById('backupImportFile').onchange = function(e){ importBackup(e.target.files[0]); e.target.value=''; };
+  document.getElementById('checkin-fab-btn').onclick = openTrackingModal;
+  document.getElementById('trackingCloseBtn').onclick = closeTrackingModal;
+  document.getElementById('trackingModal').onclick = function(e){ if(e.target.id==='trackingModal') closeTrackingModal(); };
+  renderWeekBanner();
+  showTab('today');
+}
+function showTab(name){
+  activeTab = name;
+  ['today','shopping','milestones','checkins','progress'].forEach(function(t){
+    document.getElementById('tab-'+t+'-btn').classList.toggle('active', t===name);
+    document.getElementById(t+'-view').style.display = t===name ? 'block':'none';
+  });
+  if(name==='today') renderToday();
+  if(name==='shopping') renderShopping();
+  if(name==='milestones') renderMilestones();
+  if(name==='checkins') renderCheckins();
+  if(name==='progress') renderProgress();
+  refreshCheckinFab();
+}
+
+function renderWeekBanner(){
+  const el = document.getElementById('week-banner-wrap');
+  if(activeProfile === 'Anusha'){
+    el.innerHTML = '<div class="week-banner"><div class="wb-top"><span class="wb-week">Daily routine</span><span class="wb-dates">'+fmtHeaderDate(selectedDay)+'</span></div><div class="wb-note">Same routine every day — no phases to track.</div></div>';
+    return;
+  }
+  const today = selectedDay;
+  const month = skinMonthFor(today);
+  const editRow = '<div class="wb-editrow" id="wb-editrow-static"><span>Program start: '+fmtHeaderDate(programStartDate)+'</span><button type="button" id="wb-start-edit">Change</button></div>'+
+    '<div class="wb-editrow" id="wb-editrow-form" style="display:none;"><input type="date" id="wb-start-input" value="'+programStartDate+'"><button type="button" id="wb-start-save">Save</button><button type="button" id="wb-start-cancel">Cancel</button></div>';
+  if(!month){
+    const beforeStart = today < SKIN_MONTHS[0].range[0];
+    el.innerHTML = '<div class="week-banner'+(beforeStart?'':' done')+'"><div class="wb-top"><span class="wb-week">'+(beforeStart?'Program starts '+fmtHeaderDate(SKIN_MONTHS[0].range[0]):'5-month program complete')+'</span></div><div class="wb-note">'+(beforeStart?'Nothing to do yet — the plan begins '+fmtHeaderDate(SKIN_MONTHS[0].range[0])+'.':'Review your '+fmtHeaderDate(SKIN_MONTHS[SKIN_MONTHS.length-1].range[1])+' comparison, then keep this as your long-term maintenance routine.')+'</div>'+editRow+'</div>';
+  }else{
+    el.innerHTML = '<div class="week-banner"><div class="wb-top"><span class="wb-week">'+escapeHtml(month.name)+'</span><span class="wb-dates">'+fmtHeaderDate(month.range[0])+' – '+fmtHeaderDate(month.range[1])+'</span></div><div class="wb-note">'+escapeHtml(month.objective)+'</div>'+editRow+'</div>';
+  }
+  attachWeekBannerHandlers();
+}
+function attachWeekBannerHandlers(){
+  const editBtn = document.getElementById('wb-start-edit');
+  const cancelBtn = document.getElementById('wb-start-cancel');
+  const saveBtn = document.getElementById('wb-start-save');
+  if(!editBtn) return;
+  editBtn.addEventListener('click', function(){
+    document.getElementById('wb-editrow-static').style.display = 'none';
+    document.getElementById('wb-editrow-form').style.display = 'flex';
+  });
+  cancelBtn.addEventListener('click', function(){
+    document.getElementById('wb-editrow-form').style.display = 'none';
+    document.getElementById('wb-editrow-static').style.display = 'flex';
+  });
+  saveBtn.addEventListener('click', async function(){
+    const val = document.getElementById('wb-start-input').value;
+    if(!val) return;
+    if(!confirm('Move the program start to '+fmtHeaderDate(val)+'? The whole 5-month plan — every treatment day, review date and milestone — shifts to match, keeping the same day-to-day pattern. Anything you\'ve already logged stays under its original date.')) return;
+    programStartDate = val;
+    rebuildProgramCalendar();
+    await saveProgramStartDate();
+    const sub = document.getElementById('app-sub');
+    if(sub) sub.textContent = '5-month program — '+fmtHeaderDate(SKIN_MONTHS[0].range[0])+' to '+fmtHeaderDate(SKIN_MONTHS[SKIN_MONTHS.length-1].range[1]);
+    renderWeekBanner();
+    showTab(activeTab);
+  });
+}
+
+/* =====================================================================
+   TODAY
+===================================================================== */
+function stepKey(date, section, idx){ return date+':'+section+':'+idx; }
+// Accepts either a plain string (legacy call sites) or a step object
+// {text, qty, product, weight, optional, timerMinutes}. Tagging a step
+// with `product` ties it into the Product Cabinet's stock tracking;
+// `timerMinutes` adds a wait-timer button.
+function stepRowHtml(date, section, idx, step){
+  if(typeof step === 'string') step = {text: step};
+  const key = stepKey(date, section, idx);
+  const done = !!stepLog[key];
+  const product = step.product || '';
+  const weight = step.weight != null ? step.weight : 1;
+  const timerBtn = step.timerMinutes ? '<button type="button" class="timer-open" data-timerminutes="'+step.timerMinutes+'" data-timerlabel="'+escapeHtml(step.text)+'">Start '+step.timerMinutes+'-min wait timer</button>' : '';
+  // which product to use: shown under the step unless the step text already names it
+  let prodName = '';
+  if(product){
+    const pr = currentProducts().find(function(p){ return p.id === product; });
+    if(pr){
+      const norm = step.text.toLowerCase().replace(/[^a-z0-9 ]/g,' ').replace(/\s+/g,' ');
+      const keys = pr.name.split(/[\s—-]+/).slice(0,2).map(function(w){ return w.replace(/[^A-Za-z0-9]/g,'').toLowerCase(); }).filter(Boolean);
+      if(!keys.length || !keys.every(function(k){ return norm.indexOf(k) !== -1; })) prodName = pr.name;
+    }
+  }
+  return '<div class="step-row"><input type="checkbox" class="step-chk" data-stepkey="'+key+'" data-product="'+escapeHtml(product)+'" data-weight="'+weight+'" '+(done?'checked':'')+'>'+
+    '<div><div class="step-text '+(done?'strike':'')+'">'+escapeHtml(step.text)+(step.optional?'<span class="opt-tag">OPTIONAL</span>':'')+'</div>'+
+    (prodName?'<div class="step-product">🧴 '+escapeHtml(prodName)+'</div>':'')+
+    (step.qty?'<div class="step-note" style="color:var(--text-faint);">'+escapeHtml(step.qty)+'</div>':'')+timerBtn+'</div></div>';
+}
+function attachStepHandlers(el){
+  el.querySelectorAll('.step-chk').forEach(function(cb){
+    cb.addEventListener('change', async function(){
+      const key = cb.dataset.stepkey;
+      const product = cb.dataset.product;
+      const weight = Number(cb.dataset.weight)||1;
+      if(cb.checked){
+        stepLog[key] = true;
+        if(product) recordProductUse(key, product, weight);
+      }else{
+        delete stepLog[key];
+        if(product) restoreProductUse(key);
+      }
+      cb.closest('.step-row').querySelector('.step-text').classList.toggle('strike', cb.checked);
+      await Promise.all([saveStepLog(), product ? saveProductState() : Promise.resolve()]);
+      refreshStatsRow();
+    });
+  });
+  el.querySelectorAll('.timer-open').forEach(function(btn){
+    btn.addEventListener('click', function(){ openTimer(Number(btn.dataset.timerminutes), btn.dataset.timerlabel); });
+  });
+}
+function renderToday(){
+  renderWeekBanner();
+  if(activeProfile === 'Anusha') renderTodayAnusha();
+  else renderTodayBhargav();
+}
+function renderTodayAnusha(){
+  const today = selectedDay;
+  const el = document.getElementById('today-view');
+  el.innerHTML = dateNavHtml(today)+statsRowHtml()+
+    '<div class="routine-card am"><div class="rc-head"><div class="rc-icon">☀️</div><div><div class="rc-title">Morning</div></div>'+rcLinkBtnHtml('am')+'</div>'+
+      ANUSHA_MORNING.map(function(s,i){ return stepRowHtml(today,'am',i,s); }).join('')+
+    '</div>'+
+    '<div class="routine-card pm night"><div class="rc-head"><div class="rc-icon">🌙</div><div><div class="rc-title">Night</div></div>'+rcLinkBtnHtml('pm')+'</div>'+
+      ANUSHA_NIGHT.map(function(s,i){ return stepRowHtml(today,'pm',i,s); }).join('')+
+    '</div>';
+  attachStepHandlers(el);
+  attachRcLinkHandlers(el);
+  wireDateNav(el);
+}
+function renderTodayBhargav(){
+  const today = selectedDay;
+  const entry = SKIN_DATE_PLAN[today];
+  const month = skinMonthFor(today);
+  const el = document.getElementById('today-view');
+  if(!entry || !month){
+    el.innerHTML = dateNavHtml(today)+'<div class="routine-card"><div class="empty-note">No plan defined for '+fmtHeaderDate(today)+' — the 5-month program runs '+fmtHeaderDate(SKIN_MONTHS[0].range[0])+' through '+fmtHeaderDate(SKIN_MONTHS[SKIN_MONTHS.length-1].range[1])+'.</div></div>';
+    wireDateNav(el);
+    return;
+  }
+  const treatment = SKIN_TREATMENTS[entry.face] || SKIN_TREATMENTS.regular;
+  const bodySteps = skinBodyStepsFor(entry);
+
+  let html = dateNavHtml(today) + statsRowHtml();
+  html += '<div class="routine-card am"><div class="rc-head"><div class="rc-icon">☀️</div><div><div class="rc-title">Morning</div><div class="rc-time">7:00 AM</div></div>'+rcLinkBtnHtml('am')+'</div>'+
+    SKIN_AM_ROUTINE.map(function(s,i){ return stepRowHtml(today,'am',i,s); }).join('')+
+  '</div>';
+
+  html += '<div class="routine-card pm body"><div class="rc-head"><div class="rc-icon">🚿</div><div><div class="rc-title">Shower & body</div><div class="rc-time">7:30 PM</div></div>'+rcLinkBtnHtml('body')+'</div>'+
+    bodySteps.map(function(s,i){ return stepRowHtml(today,'body',i,s); }).join('')+
+  '</div>';
+
+  if(entry.nizoral){
+    html += '<div class="routine-card pm night"><div class="rc-head"><div class="rc-icon">🧴</div><div><div class="rc-title">Nizoral — scheduled tonight</div></div>'+rcLinkBtnHtml('nizoral')+'</div>'+
+      [{text:'Wet the scalp completely'},{text:'Apply '+SKIN_QTY.nizoral, product:'nizoral'},{text:'Massage gently for 30 seconds'},{text:'Leave on for the time on the bottle'},{text:'Rinse thoroughly'}].map(function(s,i){ return stepRowHtml(today,'nizoral',i,s); }).join('')+
+    '</div>';
+  }
+
+  html += '<div class="routine-card pm night"><div class="rc-head"><div class="rc-icon">🌙</div><div><div class="rc-title">'+escapeHtml(treatment.label)+'</div><div class="rc-time">9:30 PM</div></div>'+rcLinkBtnHtml('face')+'</div>'+
+    treatment.steps.map(function(s,i){ return stepRowHtml(today,'face',i,s); }).join('')+
+    (entry.note ? '<div class="step-note" style="color:var(--text-faint);">'+escapeHtml(entry.note)+'</div>' : '')+
+  '</div>';
+
+  el.innerHTML = html;
+  attachStepHandlers(el);
+  attachRcLinkHandlers(el);
+  wireDateNav(el);
+  refreshCheckinFab();
+}
+// Reaction options ported from the local prototype — picking a
+// concerning one shows a caution banner (never a diagnosis).
+const SKIN_REACTIONS = ['No reaction','Mild dryness','Redness','Peeling','Burning','Increased bumps','Scalp irritation','Other'];
+const SKIN_CONCERNING_REACTIONS = ['Burning','Redness','Peeling','Other'];
+function renderTrackingCardHtml(date, monthKey){
+  const fields = SKIN_TRACKING_FIELDS[monthKey] || [];
+  const rec = trackingLog[date] || {};
+  const reactions = rec.reactions || [];
+  const rows = fields.map(function(f){
+    if(f.type==='text'){
+      return '<div class="track-field"><label>'+escapeHtml(f.label)+'</label><input type="text" data-trackfield="'+f.key+'" value="'+escapeHtml(rec[f.key]||'')+'" placeholder="none"></div>';
+    }
+    const hasVal = rec[f.key]!=null && rec[f.key]!=='';
+    const val = hasVal ? Number(rec[f.key]) : 5;
+    const pct = Math.round(val/10*100);
+    return '<div class="track-field"><label><span>'+escapeHtml(f.label)+'</span><span class="tf-val" data-tfval="'+f.key+'">'+(hasVal?val:'–')+'</span></label>'+
+      '<input type="range" min="0" max="10" step="1" data-trackfield="'+f.key+'" data-touched="'+(hasVal?'1':'0')+'" value="'+val+'" style="--fillpct:'+pct+'%;"></div>';
+  }).join('');
+  const concerning = reactions.some(function(r){ return SKIN_CONCERNING_REACTIONS.indexOf(r)!==-1; });
+  return '<div class="checkin-card"><h3>🌙 Daily tracking</h3><div class="ci-sub">Fill this in each night.</div>'+
+    '<div>'+rows+'</div>'+
+    '<div class="f" style="margin-top:4px;"><label>Overall today</label><div class="overall-grid" id="overall-grid">'+
+      ['better','same','worse'].map(function(v){ const lbl=v==='better'?'🙂 Better':v==='same'?'😐 Same':'🙁 Worse'; return '<button type="button" class="'+v+(rec.overall===v?' on':'')+'" data-overall="'+v+'">'+lbl+'</button>'; }).join('')+
+    '</div><input type="hidden" data-trackfield="overall" value="'+(rec.overall||'')+'"></div>'+
+    '<div class="f" style="margin-top:12px;"><label>Reaction or discomfort</label><div class="reaction-grid" id="reaction-grid">'+
+      SKIN_REACTIONS.map(function(r){ return '<button type="button" class="'+(reactions.indexOf(r)!==-1?'on':'')+'" data-reaction="'+escapeHtml(r)+'">'+escapeHtml(r)+'</button>'; }).join('')+
+    '</div></div>'+
+    '<div class="reaction-alert" id="reaction-alert" style="'+(concerning?'':'display:none;')+'">You logged a possible reaction. The tracker keeps the planned routine as-is, but this isn’t a diagnosis — consider pausing the affected active and checking with a qualified clinician if it’s significant, persistent, or getting worse.</div>'+
+    '<div class="f" style="margin-top:8px;"><label>One observation</label><textarea data-trackfield="observation" rows="2" style="width:100%;font-size:12.5px;padding:7px 9px;border-radius:8px;border:1px solid var(--border);box-sizing:border-box;">'+escapeHtml(rec.observation||'')+'</textarea></div>'+
+    '<button type="button" id="save-tracking-btn" class="send-grocery-btn" style="margin-top:8px;">'+(rec.savedAt?'Update tonight’s tracking':'Save tonight’s tracking')+'</button>'+
+  '</div>';
+}
+function attachTrackingHandlers(el, date){
+  const btn = document.getElementById('save-tracking-btn');
+  if(!btn) return;
+  el.querySelectorAll('input[type=range][data-trackfield]').forEach(function(range){
+    range.addEventListener('input', function(){
+      range.dataset.touched = '1';
+      const key = range.dataset.trackfield;
+      const badge = el.querySelector('[data-tfval="'+key+'"]');
+      if(badge) badge.textContent = range.value;
+      range.style.setProperty('--fillpct', Math.round(Number(range.value)/10*100)+'%');
+    });
+  });
+  el.querySelectorAll('[data-overall]').forEach(function(obtn){
+    obtn.addEventListener('click', function(){
+      const grid = document.getElementById('overall-grid');
+      grid.querySelectorAll('button').forEach(function(x){ x.classList.remove('on'); });
+      obtn.classList.add('on');
+      const hidden = el.querySelector('[data-trackfield="overall"]');
+      if(hidden) hidden.value = obtn.dataset.overall;
+    });
+  });
+  el.querySelectorAll('[data-reaction]').forEach(function(rbtn){
+    rbtn.addEventListener('click', function(){
+      if(rbtn.dataset.reaction==='No reaction'){
+        el.querySelectorAll('[data-reaction]').forEach(function(x){ x.classList.remove('on'); });
+        rbtn.classList.add('on');
+      }else{
+        const noneBtn = el.querySelector('[data-reaction="No reaction"]');
+        if(noneBtn) noneBtn.classList.remove('on');
+        rbtn.classList.toggle('on');
+      }
+      const picked = [...el.querySelectorAll('[data-reaction].on')].map(function(x){ return x.dataset.reaction; });
+      const alertBox = document.getElementById('reaction-alert');
+      alertBox.style.display = picked.some(function(r){ return SKIN_CONCERNING_REACTIONS.indexOf(r)!==-1; }) ? 'block' : 'none';
+    });
+  });
+  btn.addEventListener('click', async function(){
+    const rec = trackingLog[date] || {};
+    el.querySelectorAll('[data-trackfield]').forEach(function(input){
+      if(input.type==='range' && input.dataset.touched!=='1') return; // leave un-dragged sliders unanswered
+      rec[input.dataset.trackfield] = input.value;
+    });
+    rec.reactions = [...el.querySelectorAll('[data-reaction].on')].map(function(x){ return x.dataset.reaction; });
+    rec.savedAt = new Date().toISOString();
+    trackingLog[date] = rec;
+    await saveTrackingLog();
+    btn.textContent = 'Saved ✓';
+    refreshStatsRow();
+    refreshCheckinFab();
+    setTimeout(function(){
+      btn.textContent = 'Update tonight’s tracking';
+      closeTrackingModal();
+    }, 900);
+  });
+}
+function openTrackingModal(){
+  renderTrackingModalBody();
+  document.getElementById('trackingModal').classList.add('open');
+}
+function closeTrackingModal(){
+  document.getElementById('trackingModal').classList.remove('open');
+}
+function renderTrackingModalBody(){
+  const body = document.getElementById('tracking-modal-body');
+  const month = skinMonthFor(selectedDay);
+  if(!month){
+    body.innerHTML = '<div class="empty-note">No tracking fields defined for '+fmtHeaderDate(selectedDay)+' — it\'s outside the 5-month program.</div>';
+    return;
+  }
+  body.innerHTML = renderTrackingCardHtml(selectedDay, month.key);
+  attachTrackingHandlers(body, selectedDay);
+}
+// Small floating corner button that opens tonight's check-in as an
+// overlay on top of whatever tab you're on — same "always-reachable"
+// pattern the local prototype used, instead of a card buried in the
+// Today tab. Bhargav-only: Anusha has her own, simpler Check-ins tab.
+function refreshCheckinFab(){
+  const fab = document.getElementById('checkin-fab-btn');
+  if(!fab) return;
+  if(activeProfile !== 'Bhargav' || !skinMonthFor(selectedDay)){
+    fab.style.display = 'none';
+    return;
+  }
+  fab.style.display = 'flex';
+  const rec = trackingLog[selectedDay];
+  fab.classList.toggle('done', !!(rec && rec.savedAt));
+}
+
+/* =====================================================================
+   WAIT TIMER — for "let it dry" / "wait before moisturizer" steps
+===================================================================== */
+let timerSeconds = 900, timerHandle = null;
+function timerPad(n){ return String(n).padStart(2,'0'); }
+function updateTimerDisplay(){ const m=Math.floor(timerSeconds/60), s=timerSeconds%60; document.getElementById('timerDisplay').textContent = timerPad(m)+':'+timerPad(s); }
+function openTimer(minutes, label){
+  timerSeconds = minutes*60;
+  updateTimerDisplay();
+  document.getElementById('timerCopy').textContent = (label?escapeHtml(label)+' — keep':'Keep')+' this page open while the timer runs.';
+  document.getElementById('timerModal').classList.add('open');
+}
+function startTimer(){
+  if(timerHandle) return;
+  timerHandle = setInterval(function(){
+    timerSeconds--;
+    updateTimerDisplay();
+    if(timerSeconds<=0){ clearInterval(timerHandle); timerHandle=null; }
+  }, 1000);
+}
+function stopTimer(){ clearInterval(timerHandle); timerHandle = null; }
+
+/* =====================================================================
+   STATS / STREAK — how many of today's required (non-optional) steps
+   are complete, how many days in a row have been fully completed, and
+   how many nightly tracking entries exist. Ported from the local
+   prototype's hero stats row.
+===================================================================== */
+function bhargavRequiredStepKeysFor(date){
+  const entry = SKIN_DATE_PLAN[date];
+  if(!entry) return null;
+  const treatment = SKIN_TREATMENTS[entry.face] || SKIN_TREATMENTS.regular;
+  const bodySteps = skinBodyStepsFor(entry);
+  const keys = [];
+  SKIN_AM_ROUTINE.forEach(function(s,i){ if(!s.optional) keys.push(stepKey(date,'am',i)); });
+  bodySteps.forEach(function(s,i){ keys.push(stepKey(date,'body',i)); });
+  if(entry.nizoral){ for(let i=0;i<5;i++) keys.push(stepKey(date,'nizoral',i)); }
+  treatment.steps.forEach(function(s,i){ keys.push(stepKey(date,'face',i)); });
+  return keys;
+}
+function anushaRequiredStepKeysFor(date){
+  const keys = [];
+  ANUSHA_MORNING.forEach(function(s,i){ keys.push(stepKey(date,'am',i)); });
+  ANUSHA_NIGHT.forEach(function(s,i){ keys.push(stepKey(date,'pm',i)); });
+  return keys;
+}
+function requiredStepKeysFor(date){ return activeProfile==='Anusha' ? anushaRequiredStepKeysFor(date) : bhargavRequiredStepKeysFor(date); }
+function routineCompletion(date){
+  const keys = requiredStepKeysFor(date);
+  if(!keys || !keys.length) return {done:0,total:0,pct:0};
+  const done = keys.filter(function(k){ return !!stepLog[k]; }).length;
+  return {done:done, total:keys.length, pct:Math.round(done/keys.length*100)};
+}
+function calculateStreak(){
+  let n = 0, d = todayStr();
+  for(let i=0;i<365;i++){
+    const c = routineCompletion(d);
+    if(c.total>0 && c.pct===100){ n++; d = addDays(d,-1); } else break;
+  }
+  return n;
+}
+// Bounded date range to scan for all-time stats — the program's own
+// span for Bhargav, or a rolling 90 days back from today for Anusha
+// (she has no fixed start date).
+function statsScanRange(){
+  if(activeProfile==='Anusha') return [addDays(todayStr(),-90), todayStr()];
+  return [SKIN_MONTHS[0].range[0], todayStr() < SKIN_MONTHS[SKIN_MONTHS.length-1].range[1] ? todayStr() : SKIN_MONTHS[SKIN_MONTHS.length-1].range[1]];
+}
+function completedDaysCount(){
+  const [start,end] = statsScanRange();
+  if(end < start) return 0;
+  let n = 0, d = start;
+  while(d <= end){ const c = routineCompletion(d); if(c.total>0 && c.pct===100) n++; d = addDays(d,1); }
+  return n;
+}
+function trackingCheckinsCount(){ return Object.keys(trackingLog).filter(function(d){ return trackingLog[d] && trackingLog[d].savedAt; }).length; }
+function statsRowHtml(){
+  const streak = calculateStreak(), completedDays = completedDaysCount(), checkins = trackingCheckinsCount();
+  const today = routineCompletion(todayStr());
+  return '<div class="stats-row" id="stats-row">'+
+    '<div class="stat-tile"><label>Today</label><b>'+today.pct+'<small>%</small></b></div>'+
+    '<div class="stat-tile"><label>Streak</label><b>'+streak+'<small>day'+(streak===1?'':'s')+'</small></b></div>'+
+    '<div class="stat-tile"><label>Days complete</label><b>'+completedDays+'</b></div>'+
+    '<div class="stat-tile"><label>Check-ins</label><b>'+checkins+'</b></div>'+
+  '</div>';
+}
+function refreshStatsRow(){
+  const row = document.getElementById('stats-row');
+  if(!row) return;
+  row.outerHTML = statsRowHtml();
+}
+
+/* =====================================================================
+   SHOPPING
+===================================================================== */
+function daysAgo(dateStr){ return Math.round((new Date(todayStr()+'T00:00:00') - new Date(dateStr+'T00:00:00'))/86400000); }
+function shopRowHtml(it){
+  const sentDate = shoppingLog[it.name];
+  const statusHtml = sentDate
+    ? '<span class="shop-sent">Sent to Grocery '+(daysAgo(sentDate)===0?'today':daysAgo(sentDate)+'d ago')+'</span>'
+    : '';
+  const buyHtml = it.url
+    ? '<div class="shop-buy"><a href="'+escapeHtml(it.url)+'" target="_blank" rel="noopener">Buy at '+escapeHtml(it.retailer)+'</a> — '+escapeHtml(it.price)+(it.size?' · '+escapeHtml(it.size):'')+'</div>'
+    : '';
+  return '<div class="shop-row"><div style="flex:1;"><div class="shop-text">'+escapeHtml(it.name)+(it.optional?' <span class="opt-badge">optional</span>':'')+'</div>'+
+    '<div class="shop-sub">'+escapeHtml(it.sub)+'</div>'+buyHtml+statusHtml+'</div>'+
+    '<button class="send-grocery-btn" data-senditem="'+escapeHtml(it.name)+'">'+(sentDate?'Send again':'Send to Grocery')+'</button></div>';
+}
+function wireShoppingRowHandlers(el, items){
+  el.querySelectorAll('[data-senditem]').forEach(function(btn){
+    btn.addEventListener('click', async function(){
+      const name = btn.dataset.senditem;
+      const item = items.find(function(it){ return it.name === name; }) || { name: name };
+      btn.disabled = true; btn.textContent = 'Sending…';
+      const result = await sendItemToGrocery(item);
+      if(result && result.error){
+        btn.disabled = false; btn.textContent = 'Send to Grocery';
+        alert('Couldn\'t reach Grocery — open the Grocery app once first, then try again.');
+        return;
+      }
+      shoppingLog[name] = todayStr();
+      await saveShoppingLog();
+      renderShopping();
+    });
+  });
+  const sendAllBtn = document.getElementById('send-all-btn');
+  if(sendAllBtn) sendAllBtn.addEventListener('click', async function(){
+    sendAllBtn.disabled = true; sendAllBtn.textContent = 'Sending…';
+    const unsent = items.filter(function(it){ return !shoppingLog[it.name]; });
+    let failed = false;
+    for(const it of unsent){
+      const result = await sendItemToGrocery(it);
+      if(result && result.error){ failed = true; break; }
+      shoppingLog[it.name] = todayStr();
+    }
+    await saveShoppingLog();
+    if(failed) alert('Couldn\'t reach Grocery — open the Grocery app once first, then try again.');
+    renderShopping();
+  });
+}
+// Which month's buy list opens by default — whatever real month we're
+// actually in right now (not tied to the routine's date-changer).
+function skinShoppingDefaultMonthKey(){
+  const m = skinMonthFor(todayStr());
+  if(m) return m.key;
+  return todayStr() < SKIN_MONTHS[0].range[0] ? 'm1' : 'm5';
+}
+let shoppingMonthView = null;
+// Shopping tab now has two sub-views: the buy list (what to purchase,
+// by month) and the Cabinet (how much you have left of what you already
+// own, ported from the local prototype's product-inventory tracking).
+let shoppingSubTab = 'buy';
+function renderShopping(){
+  const el = document.getElementById('shopping-view');
+  el.innerHTML = '<div class="subtabs2">'+
+      '<button type="button" data-shopsub="buy" class="'+(shoppingSubTab==='buy'?'active':'')+'">Buy list</button>'+
+      '<button type="button" data-shopsub="cabinet" class="'+(shoppingSubTab==='cabinet'?'active':'')+'">Cabinet</button>'+
+    '</div><div id="shopping-sub"></div>';
+  el.querySelectorAll('[data-shopsub]').forEach(function(btn){
+    btn.addEventListener('click', function(){ shoppingSubTab = btn.dataset.shopsub; renderShopping(); });
+  });
+  const sub = document.getElementById('shopping-sub');
+  if(shoppingSubTab === 'cabinet'){ renderProductCabinet(sub); return; }
+  if(activeProfile === 'Anusha'){ renderShoppingAnusha(sub); return; }
+  renderShoppingBhargav(sub);
+}
+function renderShoppingBhargav(el){
+  if(!shoppingMonthView) shoppingMonthView = skinShoppingDefaultMonthKey();
+  const items = SKIN_SHOPPING_BY_MONTH[shoppingMonthView] || [];
+  const monthMeta = SKIN_MONTHS.find(function(m){ return m.key===shoppingMonthView; });
+  el.innerHTML =
+    '<div class="month-tabs">'+SKIN_MONTHS.map(function(m){
+      return '<button type="button" data-shopmonth="'+m.key+'" class="'+(shoppingMonthView===m.key?'active':'')+'">M'+m.key.slice(1)+' · '+fmtHeaderDate(m.range[0])+'</button>';
+    }).join('')+'</div>'+
+    '<div class="routine-card"><div class="rc-head"><div><div class="rc-title">'+escapeHtml(monthMeta?monthMeta.name:'')+'</div><div class="rc-time">Bought before '+(monthMeta?fmtHeaderDate(monthMeta.range[0]):'')+' — not all five months at once. Skip scrubs, brushes, bleach, pore vacuums, strong peels, extra acids/serums.</div></div></div>'+
+    (items.length
+      ? items.map(shopRowHtml).join('')+'<div style="margin-top:10px;"><button class="send-grocery-btn wide" id="send-all-btn">Send everything not yet sent</button></div>'
+      : '<div class="empty-note">Nothing new to buy this month — keep using what you already have.</div>')+
+  '</div>';
+
+  el.querySelectorAll('[data-shopmonth]').forEach(function(btn){
+    btn.addEventListener('click', function(){ shoppingMonthView = btn.dataset.shopmonth; renderShopping(); });
+  });
+  wireShoppingRowHandlers(el, items);
+}
+function renderShoppingAnusha(el){
+  el.innerHTML = '<div class="routine-card"><div class="rc-head"><div><div class="rc-title">Products</div><div class="rc-time">Skip scrubs, brushes, bleach, pore vacuums, strong peels, extra acids/serums. Send anything you\'re low on straight into Grocery\'s list — safe to send again whenever you run out.</div></div></div>'+
+    SHOPPING_LIST_ANUSHA.map(shopRowHtml).join('')+
+    '<div style="margin-top:10px;"><button class="send-grocery-btn wide" id="send-all-btn">Send everything not yet sent</button></div>'+
+  '</div>';
+  wireShoppingRowHandlers(el, SHOPPING_LIST_ANUSHA);
+}
+function renderProductCabinet(el){
+  const products = currentProducts();
+  el.innerHTML = '<div class="empty-note" style="padding:0 2px 10px;font-style:normal;">Checking off a routine step deducts an estimated application from that product below (unchecking restores it). Container sizes are estimates — correct them with "Edit size" to match what you actually have.</div>'+
+    '<div class="product-grid">'+products.map(productCabinetCardHtml).join('')+'</div>';
+  attachProductCabinetHandlers(el);
+}
+
+/* =====================================================================
+   MILESTONES
+===================================================================== */
+function renderMilestones(){
+  const el = document.getElementById('milestones-view');
+  const today = todayStr();
+  const list = currentMilestones();
+  if(!list.length){
+    el.innerHTML = '<div class="routine-card"><div class="empty-note">No dated milestones for this routine — it\'s a steady daily plan rather than a phased one.</div></div>';
+    return;
+  }
+  el.innerHTML = '<div class="routine-card">'+
+    list.map(function(m){
+      const key = m.date+':'+m.text;
+      const done = !!milestoneLog[key];
+      const status = done ? '' : (m.date<today ? 'overdue' : (m.date===today ? 'today' : ''));
+      const badge = !done && status==='overdue' ? '<span class="badge">overdue</span>' : (!done && status==='today' ? '<span class="badge today">today</span>' : '');
+      return '<div class="milestone-row '+status+'"><div class="milestone-date">'+fmtHeaderDate(m.date)+'</div>'+
+        '<div class="milestone-text '+(done?'strike':'')+'">'+escapeHtml(m.text)+' '+badge+'</div>'+
+        '<input type="checkbox" class="step-chk" data-mskey="'+escapeHtml(key)+'" '+(done?'checked':'')+'></div>';
+    }).join('')+
+  '</div>';
+  el.querySelectorAll('[data-mskey]').forEach(function(cb){
+    cb.addEventListener('change', async function(){
+      const key = cb.dataset.mskey;
+      if(cb.checked) milestoneLog[key] = true; else delete milestoneLog[key];
+      await saveMilestoneLog();
+      renderMilestones();
+    });
+  });
+}
+
+/* =====================================================================
+   CHECK-INS
+===================================================================== */
+function lastEntry(arr){ return arr.length ? arr[arr.length-1] : null; }
+function daysSince(dateStr){ return Math.round((new Date(todayStr()+'T00:00:00') - new Date(dateStr+'T00:00:00'))/86400000); }
+function dueNote(arr, intervalDays, label){
+  const last = lastEntry(arr);
+  if(!last) return 'Not logged yet — log your first '+label+'.';
+  const since = daysSince(last.date);
+  if(since >= intervalDays) return 'Due now — last logged '+since+' days ago.';
+  return 'Logged '+since+' day'+(since===1?'':'s')+' ago. Next due in '+(intervalDays-since)+' day'+((intervalDays-since)===1?'':'s')+'.';
+}
+function renderCheckins(){
+  if(activeProfile !== 'Anusha'){ renderMonthReviewBhargav(); return; }
+  const el = document.getElementById('checkins-view');
+  el.innerHTML =
+    gymSyncedCardHtml('Weight', 'Weekly, same conditions', 'kg', 7, gymWeightEntries)+
+    gymSyncedCardHtml('Waist', 'Every 2 weeks', 'cm', 14, gymWaistEntries)+
+    checkinCardHtml('pimples','Active pimple count','Every 2 weeks','count',14)+
+    photosCardHtml();
+
+  const btn = document.getElementById('log-pimples-btn');
+  btn.addEventListener('click', async function(){
+    const input = document.getElementById('log-pimples-input');
+    const val = parseFloat(input.value);
+    if(isNaN(val)) return;
+    checkins.pimples.push({date: todayStr(), value: val});
+    await saveCheckins();
+    input.value = '';
+    renderCheckins();
+  });
+  const photoBtn = document.getElementById('log-photos-btn');
+  photoBtn.addEventListener('click', async function(){
+    checkins.photos.push({date: todayStr()});
+    await saveCheckins();
+    renderCheckins();
+  });
+}
+function gymSyncedCardHtml(label, freq, unit, intervalDays, arr){
+  const recent = arr.slice(-5).reverse();
+  return '<div class="checkin-card"><h3>'+label+' <span class="gym-sync-tag">synced from Gym</span></h3><div class="ci-sub">'+freq+'</div>'+
+    '<div class="ci-due">'+dueNote(arr, intervalDays, label.toLowerCase())+'</div>'+
+    '<div class="ci-form"><a class="gym-log-link" href="../gym/index.html">Log today\'s '+label.toLowerCase()+' in Gym app →</a></div>'+
+    (recent.length ? '<div class="ci-log">'+recent.map(function(e){ return '<div class="ci-log-row"><span>'+fmtHeaderDate(e.date)+'</span><span>'+e.value+' '+unit+'</span></div>'; }).join('')+'</div>' : '<div class="ci-log"><div class="ci-log-row"><span>No weigh-ins logged in Gym yet.</span></div></div>')+
+  '</div>';
+}
+function checkinCardHtml(kind, label, freq, unit, intervalDays){
+  const arr = checkins[kind] || [];
+  const recent = arr.slice(-5).reverse();
+  return '<div class="checkin-card"><h3>'+label+'</h3><div class="ci-sub">'+freq+'</div>'+
+    '<div class="ci-due">'+dueNote(arr, intervalDays, label.toLowerCase())+'</div>'+
+    '<div class="ci-form"><div class="f"><label>'+unit+'</label><input type="number" step="0.1" id="log-'+kind+'-input"></div><button id="log-'+kind+'-btn">Log today</button></div>'+
+    (recent.length ? '<div class="ci-log">'+recent.map(function(e){ return '<div class="ci-log-row"><span>'+fmtHeaderDate(e.date)+'</span><span>'+e.value+' '+unit+'</span></div>'; }).join('')+'</div>' : '')+
+  '</div>';
+}
+function photosCardHtml(){
+  const arr = checkins.photos || [];
+  const recent = arr.slice(-4).reverse();
+  return '<div class="checkin-card"><h3>Face photos</h3><div class="ci-sub">Every 4 weeks — same daylight, no filter, same camera, neutral expression: front, both 45°, both profiles, forehead/nose close-up, both cheeks, under-eye.</div>'+
+    '<div class="ci-due">'+dueNote(arr, 28, 'photo set')+'</div>'+
+    '<div class="ci-form"><button id="log-photos-btn">Mark photos taken today</button></div>'+
+    (recent.length ? '<div class="ci-log">'+recent.map(function(e){ return '<div class="ci-log-row"><span>'+fmtHeaderDate(e.date)+'</span><span>✓ taken</span></div>'; }).join('')+'</div>' : '')+
+  '</div>';
+}
+
+/* =====================================================================
+   MONTH REVIEW (Bhargav) — how many nights each month's tracking form
+   has actually been filled in, out of the days elapsed so far.
+===================================================================== */
+function renderMonthReviewBhargav(){
+  const el = document.getElementById('checkins-view');
+  const today = todayStr();
+  el.innerHTML = SKIN_MONTHS.map(function(m){
+    const start = m.range[0], end = m.range[1];
+    let status = 'Starts '+fmtHeaderDate(start);
+    let bodyHtml = '';
+    if(today >= start){
+      const elapsedEnd = today > end ? end : today;
+      let loggedDays = 0, elapsedDays = 0, d = start;
+      while(d <= elapsedEnd){
+        elapsedDays++;
+        if(trackingLog[d] && trackingLog[d].savedAt) loggedDays++;
+        d = addDays(d, 1);
+      }
+      status = today > end ? 'Complete' : 'In progress';
+      bodyHtml = '<div class="ci-due">Tracking logged '+loggedDays+' of '+elapsedDays+' day'+(elapsedDays===1?'':'s')+' so far.</div>';
+    }
+    return '<div class="checkin-card"><h3>'+escapeHtml(m.name)+'</h3><div class="ci-sub">'+fmtHeaderDate(start)+' – '+fmtHeaderDate(end)+' · '+status+'</div>'+bodyHtml+'</div>';
+  }).join('');
+}
+
+/* =====================================================================
+   PROGRESS — symptom trend chart, adherence heatmap, insights, weekly
+   free-text review and month-end structured reviews. All ported from
+   the local prototype's Progress page.
+===================================================================== */
+function allTrackingMetrics(){
+  const seen = {}, list = [];
+  Object.values(SKIN_TRACKING_FIELDS).forEach(function(fields){
+    fields.forEach(function(f){ if(f.type==='scale' && !seen[f.key]){ seen[f.key]=true; list.push([f.key,f.label]); } });
+  });
+  return list;
+}
+function weekStartFor(dateStr){ return addDays(dateStr, -weekdayOf(dateStr)); }
+function renderProgress(){
+  if(activeProfile === 'Anusha'){ renderProgressAnusha(); return; }
+  const el = document.getElementById('progress-view');
+  const streak = calculateStreak(), completedDays = completedDaysCount(), checkins = trackingCheckinsCount();
+  const betterDays = Object.keys(trackingLog).filter(function(d){ return trackingLog[d].overall==='better'; }).length;
+  const worseDays = Object.keys(trackingLog).filter(function(d){ return trackingLog[d].overall==='worse'; }).length;
+  const metrics = allTrackingMetrics();
+  const ws = weekStartFor(todayStr()), we = addDays(ws,6);
+  el.innerHTML =
+    '<div class="stats-row">'+
+      '<div class="stat-tile"><label>Streak</label><b>'+streak+'<small>day'+(streak===1?'':'s')+'</small></b></div>'+
+      '<div class="stat-tile"><label>Days complete</label><b>'+completedDays+'</b></div>'+
+      '<div class="stat-tile"><label>Check-ins</label><b>'+checkins+'</b></div>'+
+      '<div class="stat-tile"><label>Better days</label><b>'+betterDays+'</b></div>'+
+    '</div>'+
+    '<div class="chart-card"><div class="ch-head"><h3>Symptom trend</h3>'+(metrics.length?'<select id="chart-metric">'+metrics.map(function(m){ return '<option value="'+m[0]+'">'+escapeHtml(m[1])+'</option>'; }).join('')+'</select>':'')+'</div><div id="chart-wrap"></div></div>'+
+    '<div class="heat-card"><div class="ch-head"><h3>Adherence</h3><span class="subtle" style="font-size:10px;color:var(--text-faint);">Most recent 56 days</span></div><div class="heatmap" id="heatmap"></div></div>'+
+    '<div class="checkin-card"><h3>What the data can tell you</h3><div class="insight-list" id="insights"></div></div>'+
+    '<div class="checkin-card"><h3>Weekly review</h3><div class="ci-sub">'+fmtHeaderDate(ws)+' – '+fmtHeaderDate(we)+' · '+routineCompletion(todayStr()).pct+'% today</div>'+
+      '<div class="review-form"><textarea id="weekly-review-text" rows="3" placeholder="What improved or got uncomfortable this week?">'+escapeHtml(weeklyReviews[ws]||'')+'</textarea>'+
+      '<button type="button" class="modal-btn" id="save-weekly-review" style="margin-top:8px;">Save weekly review</button></div>'+
+    '</div>'+
+    '<h3 style="font-size:13px;margin:18px 2px 8px;color:var(--text-soft);font-family:Manrope,sans-serif;">Month-end reviews</h3>'+
+    SKIN_MONTHS.map(monthReviewCardHtml).join('');
+
+  if(metrics.length){
+    document.getElementById('chart-metric').onchange = function(e){ renderChart(e.target.value); };
+    renderChart(metrics[0][0]);
+  }else{
+    document.getElementById('chart-wrap').innerHTML = '<div class="chart-empty">No tracked metrics yet.</div>';
+  }
+  renderHeatmap();
+  renderInsights(checkins, betterDays, worseDays);
+  document.getElementById('save-weekly-review').onclick = async function(){
+    weeklyReviews[ws] = document.getElementById('weekly-review-text').value.trim();
+    await saveWeeklyReviews();
+    const btn = document.getElementById('save-weekly-review');
+    btn.textContent = 'Saved ✓';
+    setTimeout(function(){ btn.textContent = 'Save weekly review'; }, 1500);
+  };
+  wireMonthReviews(el);
+}
+function renderProgressAnusha(){
+  const el = document.getElementById('progress-view');
+  const streak = calculateStreak(), completedDays = completedDaysCount();
+  el.innerHTML =
+    '<div class="stats-row" style="grid-template-columns:repeat(2,1fr);">'+
+      '<div class="stat-tile"><label>Streak</label><b>'+streak+'<small>day'+(streak===1?'':'s')+'</small></b></div>'+
+      '<div class="stat-tile"><label>Days complete (last 90)</label><b>'+completedDays+'</b></div>'+
+    '</div>'+
+    '<div class="heat-card"><div class="ch-head"><h3>Adherence</h3><span style="font-size:10px;color:var(--text-faint);">Most recent 56 days</span></div><div class="heatmap" id="heatmap"></div></div>'+
+    '<div class="empty-note">Symptom charts and month-end reviews are part of Bhargav’s 5-month program. Your weight, waist, pimple count, and photo check-ins are on the Check-ins tab.</div>';
+  renderHeatmap();
+}
+function renderChart(metric){
+  const wrap = document.getElementById('chart-wrap');
+  if(!metric){ wrap.innerHTML = '<div class="chart-empty">No tracked metrics yet.</div>'; return; }
+  const pts = Object.keys(trackingLog).sort().filter(function(d){ return trackingLog[d][metric]!=null && trackingLog[d][metric]!==''; }).map(function(d){ return {d:d, v:Number(trackingLog[d][metric])}; });
+  if(!pts.length){ wrap.innerHTML = '<div class="chart-empty">Complete nightly check-ins with this metric to build a trend.</div>'; return; }
+  const w=680, h=180, p=22;
+  const coords = pts.map(function(x,i){ return Object.assign({x:p+(pts.length===1?(w-2*p)/2:i*(w-2*p)/(pts.length-1)), y:h-p-x.v*(h-2*p)/10}, x); });
+  const poly = coords.map(function(c){ return c.x+','+c.y; }).join(' ');
+  wrap.innerHTML = '<svg class="skin-chart" viewBox="0 0 '+w+' '+h+'" preserveAspectRatio="none">'+
+    '<line x1="'+p+'" y1="'+(h-p)+'" x2="'+(w-p)+'" y2="'+(h-p)+'" stroke="var(--border)"/>'+
+    '<line x1="'+p+'" y1="'+p+'" x2="'+p+'" y2="'+(h-p)+'" stroke="var(--border)"/>'+
+    '<polyline points="'+poly+'" fill="none" stroke="var(--accent)" stroke-width="2.5" vector-effect="non-scaling-stroke"/>'+
+    coords.map(function(c){ return '<circle cx="'+c.x+'" cy="'+c.y+'" r="3.5" fill="#fff" stroke="var(--accent)" stroke-width="2"><title>'+c.d+': '+c.v+'</title></circle>'; }).join('')+
+    '<text x="3" y="'+(p+3)+'" font-size="9" fill="var(--text-faint)">10</text><text x="6" y="'+(h-p+3)+'" font-size="9" fill="var(--text-faint)">0</text>'+
+  '</svg>';
+}
+function renderHeatmap(){
+  const box = document.getElementById('heatmap');
+  const end = todayStr(), start = addDays(end,-55);
+  let html = '', d = start;
+  while(d <= end){
+    const c = routineCompletion(d);
+    const cls = c.total===0 ? '' : c.pct>=90 ? 'high' : c.pct>=40 ? 'mid' : c.pct>0 ? 'low' : '';
+    html += '<div class="heat '+cls+'" title="'+d+(c.total?' · '+c.pct+'%':' · no plan yet')+'"></div>';
+    d = addDays(d,1);
+  }
+  box.innerHTML = html;
+}
+function renderInsights(checkins, betterDays, worseDays){
+  const list = [];
+  if(!checkins){ list.push(['Start with tonight','Your first check-in creates the baseline for every later comparison.']); }
+  else{
+    list.push(['Tracking established', checkins+' check-in'+(checkins===1?'':'s')+' recorded so far.']);
+    list.push(['Daily direction', betterDays+' better day'+(betterDays===1?'':'s')+' and '+worseDays+' worse day'+(worseDays===1?'':'s')+' logged.']);
+  }
+  const [start,end] = statsScanRange();
+  let totalPct = 0, n = 0, d = start;
+  while(d <= end){ const c = routineCompletion(d); if(c.total>0){ totalPct += c.pct; n++; } d = addDays(d,1); }
+  const adherence = n ? Math.round(totalPct/n) : 0;
+  list.push(['Routine consistency', adherence+'% average daily completion so far.']);
+  document.getElementById('insights').innerHTML = list.map(function(x){ return '<div class="insight"><i>↗</i><div><b>'+escapeHtml(x[0])+'</b><p>'+escapeHtml(x[1])+'</p></div></div>'; }).join('');
+}
+function monthReviewFieldsFor(monthKey){
+  return (SKIN_TRACKING_FIELDS[monthKey]||[]).filter(function(f){ return f.type==='scale'; }).map(function(f){ return f.label; });
+}
+function monthReviewCardHtml(m){
+  const mr = monthReviews[m.key] || {results:{}, score:5, note:''};
+  const fields = monthReviewFieldsFor(m.key);
+  const today = todayStr();
+  const status = today < m.range[0] ? 'Not started' : today > m.range[1] ? 'Complete' : 'In progress';
+  return '<details class="month-review-card" data-monthreview="'+m.key+'" '+(status==='In progress'?'open':'')+'>'+
+    '<summary><span>'+escapeHtml(m.name)+'</span><span class="mr-status">'+status+'</span></summary>'+
+    '<div class="month-review-body">'+
+      '<div class="mr-field-grid">'+fields.map(function(f){ return '<div><label>'+escapeHtml(f)+'</label><select data-mrresult="'+escapeHtml(f)+'"><option value="">Choose…</option><option '+(mr.results[f]==='Better'?'selected':'')+'>Better</option><option '+(mr.results[f]==='Same'?'selected':'')+'>Same</option><option '+(mr.results[f]==='Worse'?'selected':'')+'>Worse</option></select></div>'; }).join('')+'</div>'+
+      '<div class="f"><label>Overall comfort / glow · <output id="mr-score-out-'+m.key+'">'+mr.score+'</output>/10</label><input type="range" min="0" max="10" data-mrscore value="'+mr.score+'" oninput="document.getElementById(\'mr-score-out-'+m.key+'\').textContent=this.value"></div>'+
+      '<div class="f" style="margin-top:8px;"><label>Monthly conclusion</label><textarea data-mrnote rows="3" placeholder="What changed, what stayed difficult, what to discuss before the next phase?">'+escapeHtml(mr.note||'')+'</textarea></div>'+
+      '<button type="button" class="modal-btn" data-mrsave="'+m.key+'" style="margin-top:8px;">Save month review</button>'+
+    '</div>'+
+  '</details>';
+}
+function wireMonthReviews(el){
+  el.querySelectorAll('[data-mrsave]').forEach(function(btn){
+    btn.addEventListener('click', async function(){
+      const key = btn.dataset.mrsave;
+      const card = btn.closest('[data-monthreview]');
+      const results = {};
+      card.querySelectorAll('[data-mrresult]').forEach(function(sel){ if(sel.value) results[sel.dataset.mrresult] = sel.value; });
+      const score = Number(card.querySelector('[data-mrscore]').value);
+      const note = card.querySelector('[data-mrnote]').value.trim();
+      monthReviews[key] = {results:results, score:score, note:note};
+      await saveMonthReviews();
+      btn.textContent = 'Saved ✓';
+      setTimeout(function(){ btn.textContent = 'Save month review'; }, 1500);
+    });
+  });
+}
+
+/* =====================================================================
+   LOCAL BACKUP — an extra downloadable copy of this profile's skin
+   data, on top of the automatic cloud sync. Ported from the local
+   prototype's export/import/reset.
+===================================================================== */
+function backupSnapshot(){
+  return {stepLog:stepLog, shoppingLog:shoppingLog, milestoneLog:milestoneLog, checkins:checkins, trackingLog:trackingLog, skinBlockLinks:skinBlockLinks, productState:productState, usageLedger:usageLedger, monthReviews:monthReviews, weeklyReviews:weeklyReviews, programStartDate:programStartDate};
+}
+function exportBackup(){
+  const blob = new Blob([JSON.stringify({app:'IronLog Skin', profile:activeProfile, exportedAt:new Date().toISOString(), data:backupSnapshot()}, null, 2)], {type:'application/json'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = 'ironlog-skin-'+activeProfile.toLowerCase()+'-backup-'+todayStr()+'.json';
+  a.click();
+  setTimeout(function(){ URL.revokeObjectURL(url); }, 1000);
+}
+async function importBackup(file){
+  if(!file) return;
+  const reader = new FileReader();
+  reader.onload = async function(){
+    try{
+      const parsed = JSON.parse(reader.result);
+      const data = parsed.data || parsed; // tolerate a bare snapshot too
+      if(!data || typeof data !== 'object') throw new Error('bad file');
+      stepLog = data.stepLog || {};
+      shoppingLog = data.shoppingLog || {};
+      milestoneLog = data.milestoneLog || {};
+      checkins = data.checkins || {weight:[],waist:[],photos:[],pimples:[]};
+      trackingLog = data.trackingLog || {};
+      skinBlockLinks = data.skinBlockLinks || {};
+      productState = data.productState || {};
+      usageLedger = data.usageLedger || {};
+      monthReviews = data.monthReviews || {};
+      weeklyReviews = data.weeklyReviews || {};
+      programStartDate = data.programStartDate || SKIN_TEMPLATE_START;
+      rebuildProgramCalendar();
+      ensureProductStateSeeded();
+      await Promise.all([saveStepLog(), saveShoppingLog(), saveMilestoneLog(), saveCheckins(), saveTrackingLog(), saveSkinBlockLinks(), saveProductState(), saveMonthReviews(), saveWeeklyReviews(), saveProgramStartDate()]);
+      document.getElementById('backupModal').classList.remove('open');
+      showTab(activeTab);
+      alert('Backup restored.');
+    }catch(e){ alert('This doesn’t look like a valid IronLog Skin backup file.'); }
+  };
+  reader.readAsText(file);
+}
+</script>
+</body>
+</html>

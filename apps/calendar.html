@@ -1,0 +1,2167 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Calendar</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script src="../assets/firebase-config.js"></script>
+<script src="../assets/theme.js"></script>
+<link rel="stylesheet" href="../assets/motion.css">
+<script src="../assets/motion.js" defer></script>
+<script src="../assets/schedcats.js"></script>
+<style>
+  /* These match the Hub shell's own tokens exactly (assets/app.css's
+     :root), same as the Todo restyle — Calendar was previously running an
+     unrelated blue/indigo palette (#5B5CE8 etc.) that didn't match the
+     rest of the suite at all. The per-source event colors (todo/gym/
+     chores/schedule/skin) stay distinct on purpose, so events on the grid
+     are still easy to tell apart at a glance; only the page chrome
+     (background/surface/border/text/accent/shadow/radius) changes. */
+  :root{
+    --bg:#F4F4F0; --surface:#FFFFFF; --surface-alt:#F2F0E9;
+    --border:#E3E3DC; --border-soft:#ECECE6;
+    --text:#20211E; --text-soft:#74766F; --text-faint:#9C9E97;
+    --accent:#AD7B20; --accent-soft:#F7EFD9; --accent-deep:#6F4A08;
+    --danger:#B8493F; --danger-soft:#FAECEA;
+    --today-ring:#6F4A08;
+    --amavasya:#3A3D52; --amavasya-soft:#E7E7ED;
+    --purnima:#F5B942; --purnima-soft:#FDF1D6;
+    --todo:#5B8DEF; --todo-soft:#E4ECFC;
+    --gym:#E8502F; --gym-soft:#FDE4DC;
+    --chores:#16A37A; --chores-soft:#DDF4EC;
+    --schedule:#A855F7; --schedule-soft:#F2E4FE;
+    --skin:#EC3B87; --skin-soft:#FDE7F1;
+    --radius-lg:16px; --radius-md:11px; --radius-sm:8px;
+    --shadow:0 18px 50px rgba(37,38,32,.08);
+  }
+  /* Same accent swap the Hub shell itself uses for Anusha's profile. This
+     affects the page's own chrome (accent buttons, "today" ring) — the
+     per-source event colors are unaffected since they're keyed to which
+     app an event came from, not who's viewing. */
+  body[data-profile="anusha"]{--accent:#B25C78;--accent-soft:#FAEAF0;--accent-deep:#813B53;--today-ring:#813B53;}
+  *{box-sizing:border-box;}
+  body{margin:0;font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;padding:16px 12px 70px;-webkit-font-smoothing:antialiased;}
+  .wrap{max-width:min(95vw,1760px);margin:0 auto;}
+  h1,h2,h3{font-family:'Manrope',sans-serif;}
+  button,input,select{font-family:inherit;}
+  button{transition:transform .08s ease-out;cursor:pointer;}
+  button:active{transform:scale(.98);}
+
+  .loading-gate{position:fixed;inset:0;z-index:200;background:var(--bg);display:flex;align-items:center;justify-content:center;color:var(--text-soft);}
+
+  .topbar{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;}
+  .topbar a{font-size:12.5px;color:var(--text-soft);text-decoration:none;}
+  /* This app's own "All apps" link navigates the WHOLE page — fine when
+     opened standalone, but when the Hub has this open inside its app
+     viewer, that navigation loads a second full copy of the Hub inside
+     the iframe (the nested-Home-Hub-inside-Home-Hub bug). The Hub's own
+     "Back to Hub" button in the viewer chrome already does this safely,
+     so this in-page link is hidden whenever we detect we're embedded. */
+  body.embedded .topbar .back{display:none}
+  /* Hidden entirely when embedded in the Hub's app viewer — the Hub's own
+     top bar already shows "Calendar" as the title there (see
+     app-frame-title in index.html), so repeating "Calendar / Everything,
+     in one place…" here would just be the same heading twice. Standalone
+     (opened in its own tab, no Hub bar around it) it's the only copy, so
+     it stays — same pattern already applied to Todo and Schedule. */
+  body.embedded header.app-head{display:none}
+  header.app-head{text-align:center;margin-bottom:14px;}
+  header.app-head h1{font-size:22px;font-weight:800;margin:0 0 2px;letter-spacing:-0.02em;background:linear-gradient(135deg,var(--accent-deep),var(--purnima));-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;}
+  header.app-head p{margin:0;color:var(--text-soft);font-size:12.5px;}
+  header.app-head .who-badge{display:inline-flex;align-items:center;gap:6px;background:var(--surface);border:1px solid var(--border);border-radius:20px;padding:3px 12px 3px 4px;margin-bottom:6px;cursor:pointer;font-family:inherit;}
+  header.app-head .who-badge:hover{background:var(--accent-soft);}
+  header.app-head .who-avatar{width:20px;height:20px;border-radius:6px;font-size:12.5px;font-weight:800;color:#fff;display:flex;align-items:center;justify-content:center;font-family:'Manrope',sans-serif;}
+  header.app-head .who-avatar.av-b{background:#AD7B20;}
+  header.app-head .who-avatar.av-a{background:#B25C78;}
+  header.app-head .who-name{font-size:14px;font-weight:700;}
+
+  .segmented{max-width:420px;margin:0 auto 14px;background:var(--surface-alt);border-radius:999px;padding:4px;display:flex;gap:2px;}
+  .segmented button{flex:1;border:none;background:transparent;border-radius:999px;padding:8px 4px;font-size:12.5px;font-weight:700;color:var(--text-soft);}
+  .segmented button.active{background:var(--surface);color:var(--text);box-shadow:var(--shadow);}
+
+  .date-nav{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;gap:10px;}
+  .date-nav .nav-btns{display:flex;gap:6px;}
+  .date-nav button.nav-arrow{background:var(--surface);border:1px solid var(--border);border-radius:50%;width:32px;height:32px;font-size:14px;box-shadow:var(--shadow);}
+  .date-nav .nav-today{background:var(--accent-soft);color:var(--accent-deep);border:none;border-radius:999px;padding:7px 14px;font-size:12px;font-weight:700;}
+  .date-nav .date-title{font-family:'Manrope',sans-serif;font-weight:800;font-size:16px;}
+
+  .legend{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:12px;justify-content:center;}
+  .legend{display:flex;flex-wrap:wrap;gap:10px;margin-bottom:14px;justify-content:center;align-items:center;}
+  .filter-toggle{display:flex;flex-direction:column;align-items:center;gap:4px;background:none;border:none;padding:0;}
+  .filter-toggle .ft-circle{width:34px;height:34px;border-radius:50%;border:2.5px solid var(--border);background:var(--surface);display:flex;align-items:center;justify-content:center;font-size:14px;transition:all .18s cubic-bezier(.2,0,0,1);}
+  .filter-toggle.active .ft-circle{border-color:transparent;box-shadow:0 3px 10px -3px rgba(20,20,50,0.35);}
+  .filter-toggle .ft-label{font-size:9px;color:var(--text-faint);font-weight:700;}
+  .filter-toggle.active .ft-label{color:var(--text);}
+  .filter-selectall{font-size:11px;font-weight:700;color:var(--text-soft);background:var(--surface-alt);border:none;border-radius:999px;padding:6px 12px;align-self:center;}
+
+  .bday-overlay{position:fixed;inset:0;z-index:190;background:rgba(20,20,40,0.4);display:flex;align-items:center;justify-content:center;padding:20px;}
+  .bday-modal{background:var(--surface);border-radius:20px;padding:20px 18px;width:100%;max-width:400px;max-height:80vh;overflow-y:auto;box-shadow:0 20px 50px rgba(0,0,0,0.25);}
+  .bday-modal h3{margin:0 0 14px;font-size:16px;}
+  .bday-add-row{display:flex;gap:6px;margin-bottom:14px;}
+  .bday-add-row input[type=text]{flex:2;font-size:13px;padding:9px 10px;border-radius:9px;border:1px solid var(--border);}
+  .bday-add-row input[type=number]{flex:1;font-size:13px;padding:9px 8px;border-radius:9px;border:1px solid var(--border);width:0;}
+  .bday-add-row button{background:linear-gradient(135deg,var(--accent),var(--accent-deep));color:#fff;border:none;border-radius:9px;padding:0 14px;font-size:13px;font-weight:700;}
+  .bday-row{display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-top:1px solid var(--border-soft);}
+
+  #birthday-banner{background:linear-gradient(135deg,#FFD3E0,#FFB8CE);border-radius:14px;padding:12px 16px;margin-bottom:14px;text-align:center;font-weight:800;font-size:14px;color:#8A2E4A;box-shadow:0 6px 18px -8px rgba(224,86,126,0.5);animation:bday-pop .4s ease;}
+  @keyframes bday-pop{0%{transform:scale(0.92);opacity:0;}100%{transform:scale(1);opacity:1;}}
+  .bday-row:first-of-type{border-top:none;}
+  .bday-row .bd-name{font-size:13.5px;font-weight:600;}
+  .bday-add-row input[type=number]{width:58px;flex:none;}
+  .bd-circ{display:inline-block;min-width:18px;height:18px;line-height:18px;text-align:center;border-radius:5px;font-size:10.5px;font-weight:800;margin-right:4px;vertical-align:1px;}
+  .bd-circ.c{background:#E0567E;color:#fff;}
+  .bd-circ.o{background:var(--surface-alt);color:var(--text-soft);}
+  .bday-row .bd-date{font-size:11.5px;color:var(--text-faint);}
+  .bday-row button{background:var(--danger-soft,#FCE1E5);color:var(--danger,#F0596B);border:none;border-radius:8px;width:26px;height:26px;font-size:12px;}
+  .bday-close-btn{width:100%;margin-top:14px;padding:10px;background:var(--surface-alt);border:none;border-radius:10px;font-size:13px;font-weight:700;color:var(--text-soft);}
+
+  /* MONTH VIEW */
+  .month-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:5px;}
+  .month-weekday{text-align:center;font-size:10px;font-weight:700;color:var(--text-faint);text-transform:uppercase;letter-spacing:0.04em;padding-bottom:4px;}
+  .month-cell{background:var(--surface);border:1px solid var(--border-soft);border-radius:var(--radius-sm);min-height:78px;padding:5px 5px 4px;cursor:pointer;position:relative;overflow:hidden;transition:box-shadow .15s ease;}
+  .month-cell:hover{box-shadow:var(--shadow);}
+  .month-cell.other-month{opacity:0.35;}
+  .month-cell.is-today{border:2px solid var(--today-ring);}
+  .month-cell .cell-date{font-size:12px;font-weight:700;}
+  .tithi-badge{display:inline-block;width:6px;height:6px;border-radius:50%;margin-left:3px;vertical-align:middle;}
+  .sun-badge{display:inline-block;font-size:8px;margin-left:2px;vertical-align:middle;}
+  .tithi-badge.amavasya{background:var(--amavasya);}
+  .tithi-badge.purnima{background:var(--purnima);}
+  .cell-festival{font-size:9.5px;color:#8A6200;background:var(--purnima-soft);border-radius:4px;padding:1px 3px;font-weight:800;line-height:1.2;margin-top:2px;display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .cell-fest-more{opacity:0.7;font-weight:700;}
+  .cell-events{margin-top:2px;display:flex;flex-direction:column;gap:1px;}
+  .cell-pill{font-size:8px;padding:1px 4px;border-radius:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-weight:600;}
+  .cell-more{font-size:8px;color:var(--text-faint);}
+
+  /* WEEK VIEW */
+  .week-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:6px;}
+  .week-col{background:var(--surface);border:1px solid var(--border-soft);border-radius:var(--radius-md);padding:8px 6px;min-height:220px;}
+  .week-col.is-today{border:2px solid var(--today-ring);}
+  .week-col-head{text-align:center;margin-bottom:6px;}
+  .week-col-head .wd{font-size:9.5px;color:var(--text-faint);font-weight:700;text-transform:uppercase;}
+  .week-col-head .dn{font-size:15px;font-weight:800;}
+  .week-tithi{text-align:center;font-size:8px;color:var(--text-faint);margin-bottom:4px;}
+  .week-event{font-size:9.5px;padding:3px 5px;border-radius:6px;margin-bottom:3px;font-weight:600;line-height:1.25;}
+
+  /* DAY / AGENDA VIEW */
+  .day-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:16px 18px;margin-bottom:12px;box-shadow:var(--shadow);}
+  .day-card h3{font-size:14px;margin:0 0 8px;}
+  .panchang-box{background:var(--amavasya-soft);border-radius:var(--radius-md);padding:10px 13px;font-size:12px;color:var(--text-soft);margin-bottom:12px;}
+  .panchang-prominent{background:linear-gradient(135deg,var(--purnima-soft),var(--amavasya-soft));border:1px solid var(--purnima);padding:14px 16px;}
+  .panchang-sun{background:linear-gradient(135deg,#FFF4DC,#FFE8B8);border:1px solid #F5A623;padding:12px 16px;}
+  .panchang-sun-label{font-size:14.5px;font-weight:800;color:#8A5D00;}
+  .panchang-tithi{font-size:15px;font-weight:800;color:var(--text);font-family:'Manrope',sans-serif;}
+  .panchang-anchor{font-size:12px;color:var(--text-soft);margin-top:2px;}
+  .panchang-fest-list{margin:8px 0 0;padding-left:20px;list-style:disc;}
+  .panchang-fest-list li{font-size:13.5px;font-weight:600;color:#7A5A00;line-height:1.65;margin-bottom:3px;}
+  .panchang-box b{color:var(--text);}
+  .agenda-row{display:flex;gap:10px;align-items:flex-start;padding:9px 0;border-top:1px solid var(--border-soft);}
+  .agenda-row:first-child{border-top:none;}
+  .agenda-dot{width:9px;height:9px;border-radius:50%;margin-top:4px;flex:none;}
+  .agenda-title{font-size:13.5px;font-weight:600;}
+  .agenda-meta{font-size:11px;color:var(--text-faint);}
+  .empty-note{color:var(--text-faint);font-style:italic;font-size:13px;padding:16px;text-align:center;}
+
+  .agenda-daygroup{font-family:'Manrope',sans-serif;font-weight:800;font-size:13px;margin:16px 0 6px;color:var(--text-soft);}
+  .agenda-daygroup:first-child{margin-top:0;}
+
+  /* ---- MEETING SCHEDULING — a real "schedule a meeting" flow, on top of
+     the exact same event data Schedule's own Events panel manages
+     (schedule-profiles/<profile>/data/events). Creating, editing or
+     deleting here updates Schedule too, and vice versa. ---- */
+  .toolbar-row{display:flex;justify-content:center;gap:8px;margin:-6px 0 14px;flex-wrap:wrap;}
+  .new-event-btn{background:linear-gradient(135deg,var(--accent),var(--accent-deep));color:#fff;border:none;border-radius:999px;padding:8px 16px;font-size:13px;font-weight:700;box-shadow:var(--shadow);}
+  .cell-pill[data-editnative],.week-event[data-editnative]{cursor:pointer;}
+  .agenda-row[data-editnative]{cursor:pointer;}
+
+  .evt-overlay{position:fixed;inset:0;z-index:190;background:rgba(20,20,40,0.4);display:flex;align-items:center;justify-content:center;padding:20px;overflow-y:auto;}
+  .evt-modal{background:var(--surface);border-radius:20px;padding:20px 18px;width:100%;max-width:440px;max-height:88vh;overflow-y:auto;box-shadow:0 20px 50px rgba(0,0,0,0.25);margin:auto;}
+  .evt-modal h3{margin:0 0 14px;font-size:16px;}
+  .evt-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;}
+  .evt-grid .f{display:flex;flex-direction:column;gap:3px;}
+  .evt-grid .f.full{grid-column:1/-1;}
+  .evt-grid label{font-size:11px;color:var(--text-faint);font-weight:700;text-transform:uppercase;letter-spacing:0.02em;}
+  .evt-grid input[type=text],.evt-grid input[type=date],.evt-grid input[type=time],.evt-grid input[type=number],.evt-grid select{font-size:14px;padding:8px 9px;border-radius:9px;border:1px solid var(--border);}
+  .evt-check{grid-column:1/-1;display:flex;align-items:center;gap:7px;font-size:13.5px;color:var(--text-soft);}
+  .evt-owner-toggle{grid-column:1/-1;display:flex;gap:6px;}
+  .evt-owner-toggle button{flex:1;border:1px solid var(--border);background:var(--surface-alt);border-radius:9px;padding:7px;font-size:12.5px;font-weight:700;color:var(--text-soft);}
+  .evt-owner-toggle button.on{background:var(--accent-soft);color:var(--accent-deep);border-color:var(--accent);}
+  .evt-colors{grid-column:1/-1;display:flex;gap:7px;flex-wrap:wrap;}
+  .evt-color-swatch{width:26px;height:26px;border-radius:50%;border:2.5px solid transparent;cursor:pointer;}
+  .evt-color-swatch.on{border-color:var(--text);}
+  .evt-conflict{grid-column:1/-1;background:var(--accent-soft);color:var(--accent-deep);border-radius:9px;padding:8px 10px;font-size:12px;display:none;}
+  .evt-actions{grid-column:1/-1;display:flex;gap:6px;margin-top:2px;}
+  .btn-mini{font-size:12.5px;font-weight:700;border:none;border-radius:9px;padding:8px 12px;cursor:pointer;}
+  .btn-mini.primary{background:var(--accent);color:#fff;}
+  .btn-mini.ghost{background:var(--surface-alt);color:var(--text-soft);}
+  .btn-mini.danger{background:var(--danger-soft);color:var(--danger);}
+
+  /* Week "Grid" mode — an hour-by-hour timeline (same drag-to-create
+     pattern as Schedule's own week grid), shown only for meetings since
+     that's what has real clock times; List mode (unchanged, existing
+     behavior) still shows every source (Todo/Chores/Schedule/Panchang). */
+  .cal-mode-toggle{display:flex;gap:4px;background:var(--surface-alt);border-radius:999px;padding:3px;width:fit-content;margin:0 auto 12px;}
+  .cal-mode-toggle button{border:none;background:transparent;color:var(--text-soft);font-size:12.5px;font-weight:700;padding:6px 14px;border-radius:999px;cursor:pointer;}
+  .cal-mode-toggle button.active{background:var(--surface);color:var(--text);box-shadow:var(--shadow);}
+  .cal-wrap{overflow-x:auto;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-md);box-shadow:var(--shadow);}
+  .cal-grid{display:grid;grid-template-columns:58px repeat(7,minmax(84px,1fr));min-width:700px;}
+  .cal-daylabel{font-size:12px;font-weight:700;color:var(--text-soft);text-align:center;padding:6px 2px;border-bottom:1px solid var(--border);position:sticky;top:0;background:var(--surface);display:flex;flex-direction:column;gap:1px;}
+  .cal-daylabel.today{color:var(--accent-deep);}
+  .cal-daylabel-sub{font-size:9px;font-weight:600;color:var(--text-faint);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .cal-timecol{position:relative;border-right:1px solid var(--border-soft);}
+  .cal-timelabel{position:absolute;right:6px;font-size:10.5px;color:var(--text-faint);transform:translateY(-50%);white-space:nowrap;line-height:1;}
+  .cal-daycol{position:relative;border-right:1px solid var(--border-soft);background-image:repeating-linear-gradient(to bottom, var(--border-soft) 0, var(--border-soft) 1px, transparent 1px, transparent 56px);}
+  .cal-daycol.today{background-color:rgba(173,123,32,0.04);}
+  .cal-block{position:absolute;left:2px;right:2px;border-radius:5px;border-left:3px solid;padding:2px 5px;overflow:hidden;font-size:11.5px;line-height:1.25;cursor:pointer;box-shadow:0 0 0 1px var(--surface);}
+  /* Too short to hold a legible label (see tooLowToLabel above) — just a
+     solid colored tick, no text, no inner padding eating into its few
+     pixels of height. Full title is a native tooltip via the title attr. */
+  .cal-block-tiny{padding:0;border-radius:3px;}
+  .cal-block .cb-title{font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .cal-block-native{cursor:grab;user-select:none;}
+  .cal-block-native:active{cursor:grabbing;}
+  .cal-resize-handle{position:absolute;left:0;right:0;height:7px;cursor:ns-resize;}
+  .cal-resize-handle.top{top:0;}
+  .cal-resize-handle.bottom{bottom:0;}
+  .cal-block-native:hover .cal-resize-handle{background:rgba(255,255,255,.4);}
+  .cal-dragsel{position:absolute;left:2px;right:2px;background:var(--accent);opacity:0.25;border-radius:5px;pointer-events:none;}
+  .cal-block-link{position:absolute;top:1px;right:1px;font-size:10.5px;text-decoration:none;line-height:1;background:rgba(255,255,255,.65);border-radius:3px;padding:0 2px;}
+  .cal-block-task{right:14px;}
+  .cal-now-line{position:absolute;left:0;right:0;height:0;border-top:2px solid #E0567E;z-index:6;pointer-events:none;}
+  .cal-now-line::before{content:'';position:absolute;left:-4px;top:-4px;width:8px;height:8px;border-radius:50%;background:#E0567E;}
+
+  /* Grid mode's left sidebar — date nav, a mini month picker, and the
+     source checklist all live here instead of stacked above the grid,
+     loosely in the spirit of Google Calendar's own sidebar (mini picker
+     + "my calendars" list) but built from this app's own controls. */
+  .grid-shell{display:flex;gap:16px;align-items:flex-start;}
+  .grid-sidebar{width:228px;flex:none;display:flex;flex-direction:column;gap:12px;}
+  .grid-main{flex:1;min-width:0;}
+  .grid-topnav{margin-bottom:12px;}
+  .sidebar-create-btn{background:linear-gradient(135deg,var(--accent),var(--accent-deep));color:#fff;border:none;border-radius:999px;padding:10px 14px;font-size:13px;font-weight:700;box-shadow:var(--shadow);cursor:pointer;}
+  .grid-sidebar-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-md);padding:10px;box-shadow:var(--shadow);}
+  .grid-daytoggle{display:flex;gap:4px;background:var(--surface-alt);border-radius:999px;padding:3px;margin-bottom:10px;width:fit-content;}
+  .grid-daytoggle button{border:none;background:transparent;color:var(--text-soft);font-size:11.5px;font-weight:700;padding:5px 12px;border-radius:999px;cursor:pointer;}
+  .grid-daytoggle button.active{background:var(--surface);color:var(--text);box-shadow:var(--shadow);}
+  .grid-sidebar-card .date-nav{margin-bottom:0;}
+  .mini-cal{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-md);padding:10px;box-shadow:var(--shadow);}
+  .mini-cal-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;}
+  .mini-cal-head button{background:var(--surface-alt);border:1px solid var(--border);border-radius:50%;width:22px;height:22px;font-size:11px;cursor:pointer;}
+  .mini-cal-title{font-size:12px;font-weight:800;font-family:'Manrope',sans-serif;}
+  .mini-cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:2px;text-align:center;}
+  .mini-wd{font-size:9.5px;color:var(--text-faint);font-weight:700;padding-bottom:2px;}
+  .mini-day{font-size:11px;padding:4px 0;border-radius:50%;cursor:pointer;color:var(--text-soft);}
+  .mini-day:hover{background:var(--surface-alt);}
+  .mini-day.empty{cursor:default;}
+  .mini-day.empty:hover{background:none;}
+  .mini-day.is-today{color:var(--accent-deep);font-weight:800;}
+  .mini-day.is-selected{background:var(--accent);color:#fff;font-weight:800;}
+  .sidebar-section-label{font-size:11px;font-weight:800;color:var(--text-faint);text-transform:uppercase;letter-spacing:.03em;margin-bottom:8px;}
+  .sidebar-filter-list{display:flex;flex-direction:column;gap:7px;}
+  .filter-check-row{display:flex;align-items:center;gap:7px;font-size:12.5px;color:var(--text-soft);cursor:pointer;}
+  .filter-check-row input{accent-color:var(--accent);}
+  .filter-swatch{width:9px;height:9px;border-radius:3px;flex:none;}
+  .grid-manage-link{background:none;border:none;color:var(--text-faint);font-size:11.5px;text-decoration:underline;cursor:pointer;text-align:left;padding:0 2px;}
+  @media(max-width:860px){
+    .grid-shell{flex-direction:column;align-items:stretch;}
+    .grid-sidebar{width:100%;}
+  }
+
+  /* Meeting modal, grouped into labeled sections instead of one flat
+     grid of ten fields, so it reads as a few clear steps rather than a
+     wall of inputs. */
+  .evt-section{margin-bottom:12px;}
+  .evt-section + .evt-section{border-top:1px solid var(--border-soft);padding-top:12px;}
+  .evt-section-title{font-size:10.5px;font-weight:800;color:var(--text-faint);text-transform:uppercase;letter-spacing:.03em;margin-bottom:7px;}
+</style>
+<style id="no-zoom">/* iOS zooms the page when a field under 16px gets focus and never zooms back out. Phones only; PC sizes untouched. */
+@media (max-width:700px){input:not([type=checkbox]):not([type=radio]):not([type=range]):not([type=color]):not([type=file]):not([type=hidden]):not(#_z),select:not(#_z),textarea:not(#_z){font-size:16px!important}
+html,body,button,a,input,select,textarea,label{touch-action:manipulation}}</style>
+</head>
+<body>
+<script>try{ if(window.self !== window.top) document.body.classList.add('embedded'); }catch(e){ document.body.classList.add('embedded'); }</script>
+
+<div id="loading-gate" class="loading-gate">Loading…</div>
+
+<div class="wrap" id="app-wrap" style="display:none;">
+  <div class="topbar"><a class="back" href="../index.html">← All apps</a></div>
+  <header class="app-head">
+    <button type="button" class="who-badge" id="who-badge" title="Switch profile"></button>
+    <h1>Calendar</h1>
+    <p>Everything, in one place — plus the Hindu Panchang</p>
+  </header>
+
+  <div id="birthday-banner" style="display:none;"></div>
+
+  <div class="cal-mode-toggle" id="cal-mode-toggle">
+    <button type="button" id="mode-grid-btn">🗓 Grid</button>
+    <button type="button" id="mode-classic-btn">Classic</button>
+  </div>
+
+  <div class="segmented" id="classic-view-tabs" style="display:none;">
+    <button id="view-month-btn" class="active">Month</button>
+    <button id="view-week-btn">Week</button>
+    <button id="view-day-btn">Day</button>
+    <button id="view-agenda-btn">Agenda</button>
+  </div>
+
+  <div id="classic-top-controls">
+    <div class="date-nav">
+      <button class="nav-arrow" id="nav-prev">‹</button>
+      <div class="date-title" id="date-title"></div>
+      <div class="nav-btns"><button class="nav-today" id="nav-today-btn">Today</button><button class="nav-arrow" id="nav-next">›</button></div>
+    </div>
+
+    <div class="legend" id="filter-toggles"></div>
+    <div id="cat-filter-bar" style="margin:-4px 0 12px;"></div>
+    <div class="toolbar-row">
+      <button type="button" class="new-event-btn" id="new-event-btn">+ Schedule a meeting</button>
+    </div>
+    <div style="text-align:center;margin:-6px 0 14px;"><button type="button" id="manage-birthdays-btn" style="background:none;border:none;color:var(--text-faint);font-size:11.5px;text-decoration:underline;">🔔 Manage reminders</button></div>
+  </div>
+
+  <div class="grid-shell" id="grid-shell">
+    <aside class="grid-sidebar" id="grid-sidebar"></aside>
+    <div class="grid-main">
+      <!-- Always-visible date nav for Grid mode. The sidebar has its own
+           compact prev/next/Today too, but that's easy to miss (or, on a
+           squeezed layout, scroll past) — this one sits right above the
+           grid itself so day-by-day/week-by-week stepping never depends on
+           the sidebar being visible or on clicking a date in the mini
+           calendar. -->
+      <div class="date-nav grid-topnav" id="grid-topnav">
+        <button class="nav-arrow" id="gtn-prev" aria-label="Previous">‹</button>
+        <div class="date-title" id="grid-top-date-title"></div>
+        <div class="nav-btns"><button class="nav-today" id="gtn-today">Today</button><button class="nav-arrow" id="gtn-next" aria-label="Next">›</button></div>
+      </div>
+      <div id="view-mount"></div>
+    </div>
+  </div>
+</div>
+
+<div id="modal-mount"></div>
+
+<script>
+window.addEventListener('error', function(e){
+  const gate = document.getElementById('loading-gate');
+  if(gate && gate.style.display !== 'none') gate.textContent = 'Something went wrong: ' + (e.message||'unknown error') + '. Try a hard refresh.';
+});
+if(typeof firebase === 'undefined'){
+  document.getElementById('loading-gate').textContent = "Couldn't load — check your internet connection and refresh.";
+} else {
+
+const FIREBASE_CONFIG = window.IRONLOG_FIREBASE;
+firebase.initializeApp(FIREBASE_CONFIG);
+const auth = firebase.auth();
+const db = firebase.firestore();
+// See clock.html for why this is skipped when embedded in the Hub's app
+// viewer — its iframe-reuse reload pattern can leave a stale multi-tab
+// persistence lock that hangs the next load.
+if(window.self === window.top){
+  try{ db.enablePersistence({synchronizeTabs:true}).catch(function(){}); }catch(e){}
+}
+let currentUser = null;
+// Which profile's PERSONAL data (specifically Schedule, which is inherently
+// one person's routine) should show — read from the hub link, same pattern
+// as every other app, so viewing Calendar as Bhargav shows Bhargav's
+// schedule, not both schedules merged together.
+let activeCalendarProfile = 'Bhargav';
+function detectActiveProfile(){
+  const params = new URLSearchParams(window.location.search);
+  const fromUrl = params.get('profile');
+  if(fromUrl === 'Bhargav' || fromUrl === 'Anusha'){ activeCalendarProfile = fromUrl; }
+  else{
+    try{ const fromHub = localStorage.getItem('hub-active-profile'); if(fromHub==='Bhargav'||fromHub==='Anusha') activeCalendarProfile = fromHub; }catch(e){}
+  }
+  // Just a cosmetic accent swap (same gold/rose the rest of the Hub uses
+  // per-profile) — Calendar itself still shows both profiles' events
+  // together, this only tints the page's own buttons/today-ring.
+  document.body.dataset.profile = activeCalendarProfile.toLowerCase();
+  if(window.HubTheme) HubTheme.applyHubTheme(activeCalendarProfile, {base:'--accent',deep:'--accent-deep',soft:'--accent-soft'}).catch(()=>{});
+}
+
+function pad2(n){ return String(n).padStart(2,'0'); }
+function todayStr(){ const d = new Date(); return d.getFullYear()+'-'+pad2(d.getMonth()+1)+'-'+pad2(d.getDate()); }
+function addDays(dateStr, n){ const d = new Date(dateStr+'T00:00:00'); d.setDate(d.getDate()+n); return d.getFullYear()+'-'+pad2(d.getMonth()+1)+'-'+pad2(d.getDate()); }
+function ymd(y,m,d){ return y+'-'+pad2(m)+'-'+pad2(d); }
+function daysBetween(a,b){ return Math.round((new Date(b+'T00:00:00') - new Date(a+'T00:00:00')) / 86400000); }
+function escapeHtml(s){ return String(s==null?'':s).replace(/[&<>"']/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); }
+const WEEKDAY_NAMES = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+const MONTH_NAMES = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+
+/* =====================================================================
+   PANCHANG (tithi) ENGINE
+   2026 anchor dates (Amavasya/Purnima) are read directly from the
+   user's own Kalnirnay 2026 calendar — the authoritative source
+   wherever it differs from generic web panchang estimates.
+   2027 anchor dates are cross-verified across multiple independent
+   panchang sources (drikpanchang, shrimahalaxmicalendar, panchangbodh)
+   since no Kalnirnay 2027 copy was available.
+   Between anchors, tithi is computed by standard linear interpolation
+   (the same method real panchang tools use for day-to-day display) —
+   accurate for "which tithi is today," not a substitute for a local
+   panchang when exact-to-the-minute timing matters (e.g. muhurat).
+===================================================================== */
+// tithi: 0 = Amavasya (new moon), 15 = Purnima (full moon)
+const TITHI_ANCHORS_2026 = [
+  {date:'2026-01-03', tithi:15, name:'Paush Purnima'},
+  {date:'2026-01-18', tithi:0, name:'Magha Amavasya (Mauni Amavasya)'},
+  {date:'2026-02-01', tithi:15, name:'Magha Purnima'},
+  {date:'2026-02-17', tithi:0, name:'Phalguna Amavasya'},
+  {date:'2026-03-03', tithi:15, name:'Phalguna Purnima (Holi)'},
+  {date:'2026-03-18', tithi:0, name:'Chaitra Amavasya'},
+  {date:'2026-04-02', tithi:15, name:'Chaitra Purnima (Hanuman Jayanti)'},
+  {date:'2026-04-17', tithi:0, name:'Vaishakha Amavasya'},
+  {date:'2026-05-01', tithi:15, name:'Vaishakha Purnima (Buddha Purnima)'},
+  {date:'2026-05-16', tithi:0, name:'Jyeshtha Amavasya'},
+  {date:'2026-05-31', tithi:15, name:'Adhik Jyeshtha Purnima'},
+  {date:'2026-06-14', tithi:0, name:'Adhik Jyeshtha Amavasya'},
+  {date:'2026-06-29', tithi:15, name:'Jyeshtha Purnima (Vat Purnima)'},
+  {date:'2026-07-13', tithi:0, name:'Ashadha Amavasya'},
+  {date:'2026-07-29', tithi:15, name:'Ashadha Purnima (Guru Purnima)'},
+  {date:'2026-08-12', tithi:0, name:'Shravana Amavasya'},
+  {date:'2026-08-27', tithi:15, name:'Shravana Purnima (Raksha Bandhan)'},
+  {date:'2026-09-10', tithi:0, name:'Bhadrapada Amavasya (Pithori)'},
+  {date:'2026-09-25', tithi:15, name:'Bhadrapada Purnima'},
+  {date:'2026-10-10', tithi:0, name:'Ashwina Amavasya'},
+  {date:'2026-10-25', tithi:15, name:'Ashwina Purnima (Kojagari/Sharad Purnima)'},
+  {date:'2026-11-09', tithi:0, name:'Kartika Amavasya (Diwali Lakshmi Pujan Nov 8)'},
+  {date:'2026-11-24', tithi:15, name:'Kartika Purnima (Guru Nanak Jayanti)'},
+  {date:'2026-12-07', tithi:0, name:'Margashirsha Amavasya'},
+  {date:'2026-12-23', tithi:15, name:'Margashirsha Purnima'},
+  {date:'2027-01-07', tithi:0, name:'Pausha Amavasya'}
+];
+const TITHI_ANCHORS_2027 = [
+  {date:'2027-01-07', tithi:0, name:'Pausha Amavasya'},
+  {date:'2027-01-22', tithi:15, name:'Pausha Purnima'},
+  {date:'2027-02-06', tithi:0, name:'Magha Amavasya'},
+  {date:'2027-02-20', tithi:15, name:'Magha Purnima'},
+  {date:'2027-03-08', tithi:0, name:'Phalguna Amavasya'},
+  {date:'2027-03-22', tithi:15, name:'Phalguna Purnima (Holi)'},
+  {date:'2027-04-06', tithi:0, name:'Chaitra Amavasya'},
+  {date:'2027-04-20', tithi:15, name:'Chaitra Purnima'},
+  {date:'2027-05-06', tithi:0, name:'Vaishakha Amavasya'},
+  {date:'2027-05-20', tithi:15, name:'Vaishakha Purnima (Buddha Purnima)'},
+  {date:'2027-06-04', tithi:0, name:'Jyeshtha Amavasya'},
+  {date:'2027-06-18', tithi:15, name:'Jyeshtha Purnima (Vat Purnima)'},
+  {date:'2027-07-04', tithi:0, name:'Ashadha Amavasya'},
+  {date:'2027-07-18', tithi:15, name:'Ashadha Purnima (Guru Purnima)'},
+  {date:'2027-08-02', tithi:0, name:'Shravana Amavasya'},
+  {date:'2027-08-17', tithi:15, name:'Shravana Purnima (Raksha Bandhan)'},
+  {date:'2027-08-31', tithi:0, name:'Bhadrapada Amavasya'},
+  {date:'2027-09-15', tithi:15, name:'Bhadrapada Purnima'},
+  {date:'2027-09-30', tithi:0, name:'Ashwina Amavasya'},
+  {date:'2027-10-15', tithi:15, name:'Ashwina Purnima (Sharad Purnima)'},
+  {date:'2027-10-29', tithi:0, name:'Kartika Amavasya (Diwali)'},
+  {date:'2027-11-14', tithi:15, name:'Kartika Purnima'},
+  {date:'2027-11-28', tithi:0, name:'Margashirsha Amavasya'},
+  {date:'2027-12-13', tithi:15, name:'Margashirsha Purnima'},
+  {date:'2027-12-27', tithi:0, name:'Pausha Amavasya'}
+];
+const ALL_ANCHORS = TITHI_ANCHORS_2026.concat(TITHI_ANCHORS_2027.slice(1)); // avoid duplicate Jan 7 2027 anchor
+const TITHI_NAMES_SHUKLA = ['Pratipada','Dwitiya','Tritiya','Chaturthi','Panchami','Shashthi','Saptami','Ashtami','Navami','Dashami','Ekadashi','Dwadashi','Trayodashi','Chaturdashi','Purnima'];
+const TITHI_NAMES_KRISHNA = ['Pratipada','Dwitiya','Tritiya','Chaturthi','Panchami','Shashthi','Saptami','Ashtami','Navami','Dashami','Ekadashi','Dwadashi','Trayodashi','Chaturdashi','Amavasya'];
+
+// Interpolates the tithi (1-15 within its paksha) for any date between
+// two verified anchors. Returns null outside the 2026-2027 range.
+function getTithiInfo(dateStr){
+  let before = null, after = null;
+  for(let i=0;i<ALL_ANCHORS.length-1;i++){
+    if(ALL_ANCHORS[i].date<=dateStr && ALL_ANCHORS[i+1].date>=dateStr){ before = ALL_ANCHORS[i]; after = ALL_ANCHORS[i+1]; break; }
+  }
+  if(!before || !after) return null;
+  if(dateStr===before.date) return { paksha: before.tithi===0?'Krishna':'Shukla', tithiNum: 15, name: before.tithi===0?'Amavasya':'Purnima', isAnchor:true, anchorName: before.name };
+  const span = daysBetween(before.date, after.date) || 1;
+  const pos = daysBetween(before.date, dateStr);
+  const frac = pos/span; // 0..1 across the half-lunar-month
+  const tithiNum = Math.min(15, Math.max(1, Math.round(frac*15)+ (before.tithi===0?0:0) ));
+  const paksha = before.tithi===0 ? 'Shukla' : 'Krishna'; // after Amavasya = waxing(Shukla); after Purnima = waning(Krishna)
+  const names = paksha==='Shukla' ? TITHI_NAMES_SHUKLA : TITHI_NAMES_KRISHNA;
+  const isAnchorDay = tithiNum===15 && dateStr===after.date;
+  return { paksha: paksha, tithiNum: tithiNum, name: names[tithiNum-1], isAnchor:isAnchorDay, anchorName: isAnchorDay?after.name:null };
+}
+
+// Major named festivals (from the Kalnirnay 2026 pages read directly, and
+// cross-referenced sources for 2027) — not exhaustive, the headline ones.
+// Detailed daily observances for 2026, read directly from the user's
+// Kalnirnay 2026 PDF (all 12 months) — not just headline festivals, but
+// every specifically-named vrat/tithi observance Kalnirnay marks (Ekadashi,
+// Sankashti Chaturthi, Pradosh, jayanti/punyatithi days, etc.). Days with
+// no specific named observance are Kalnirnay's generic "shubh divas" —
+// ordinary good days with no restriction, not shown individually since
+// that's most days and isn't itself a distinct event.
+// 2027 has only headline festivals since no Kalnirnay 2027 copy was available.
+const FESTIVALS = {
+  '2026-01-01':['Pradosh','New Year 2026 begins'],
+  '2026-01-03':['Paush Purnima','Savitribai Phule Jayanti','Mahila Mukti Din'],
+  '2026-01-06':['Angarak Sankashti Chaturthi'],
+  '2026-01-09':['Swami Vivekananda Jayanti (tithi)'],
+  '2026-01-10':['National Youth Day','Siddheshwar Yatra begins (Solapur)'],
+  '2026-01-12':['Bhogi'],
+  '2026-01-13':['Shattila Ekadashi'],
+  '2026-01-14':['Makar Sankranti'],
+  '2026-01-18':['Amavasya (Magha)','Mauni Amavasya (Jain)'],
+  '2026-01-26':['Republic Day'],
+  '2026-02-01':['Magha Purnima','Guru Ravidas Jayanti'],
+  '2026-02-02':['Guru Pratipada','Gangapur Yatra'],
+  '2026-02-05':['Sankashti Chaturthi'],
+  '2026-02-09':['Kalashtami'],
+  '2026-02-10':['Shri Ramdas Navami'],
+  '2026-02-12':['Vijaya Ekadashi'],
+  '2026-02-14':['Shani Pradosh'],
+  '2026-02-15':['Maha Shivratri'],
+  '2026-02-16':['Somvati Amavasya begins'],
+  '2026-02-17':['Amavasya (Magha)'],
+  '2026-02-19':['Chhatrapati Shivaji Maharaj Jayanti (by tithi)'],
+  '2026-02-24':['Durgashtami'],
+  '2026-02-26':['Swatantryaveer Savarkar Punyatithi'],
+  '2026-02-27':['Amalki Ekadashi','Marathi Bhasha Gaurav Din'],
+  '2026-03-02':['Holika Dahan'],
+  '2026-03-03':['Phalguna Purnima','Holi'],
+  '2026-03-04':['Rangapanchami','Shri Eknath Shashthi'],
+  '2026-03-05':['Kalashtami'],
+  '2026-03-06':['Papmochani Ekadashi'],
+  '2026-03-07':['Shivratri (monthly)'],
+  '2026-03-08':['Sant Tukaram Beej'],
+  '2026-03-10':['Sankashti Chaturthi','Chhatrapati Shivaji Maharaj Jayanti (by tithi)'],
+  '2026-03-11':['Somapradosh'],
+  '2026-03-17':['Chhatrapati Shivaji Maharaj Jayanti (by date)'],
+  '2026-03-18':['Amavasya (Chaitra)'],
+  '2026-03-19':['Gudi Padwa','Chaitra Navratri begins','Dr. Hedgewar Jayanti'],
+  '2026-03-21':['Durgashtami','Shri Ramdas Swami Jayanti','Ram Navami'],
+  '2026-03-22':['Vinayak Chaturthi'],
+  '2026-03-23':['Swaminarayan Jayanti','Chaitra Navratri Samapti'],
+  '2026-03-24':['Ramzan Eid','Gauri Tritiya (Teej)'],
+  '2026-03-26':['Kamda Ekadashi'],
+  '2026-03-28':['Damanaka Chaturdashi','Bhagwan Mahavir Janma Kalyanak'],
+  '2026-04-01':['Sankashti Chaturthi','Easter Sunday'],
+  '2026-04-02':['Chaitra Purnima','Hanuman Jayanti'],
+  '2026-04-03':['Chhatrapati Shivaji Maharaj Punyatithi (by date)'],
+  '2026-04-07':['Kalashtami'],
+  '2026-04-08':['Gangasaptami','Gangapujan'],
+  '2026-04-12':['Dr. Babasaheb Ambedkar Jayanti'],
+  '2026-04-13':['Pradosh','Shivratri'],
+  '2026-04-14':['Mahatma Jotiba Phule Jayanti'],
+  '2026-04-17':['Amavasya (Chaitra)'],
+  '2026-04-18':['Durgashtami'],
+  '2026-04-19':['Varuthini Ekadashi'],
+  '2026-04-20':['Vinayak Chaturthi'],
+  '2026-04-21':['Akshaya Tritiya','Shri Parashuram Jayanti'],
+  '2026-04-22':['Shri Adi Shankaracharya Jayanti','Vaishakh month begins'],
+  '2026-04-23':['Shri Nrusinha Jayanti'],
+  '2026-04-26':['Sita Navami'],
+  '2026-04-27':['Mohini Ekadashi'],
+  '2026-05-01':['Vaishakh Purnima','Buddha Purnima','Maharashtra Din'],
+  '2026-05-04':['Sankashti Chaturthi (Angarak yoga)'],
+  '2026-05-06':['Gangadashara Prarambh'],
+  '2026-05-07':['Pradosh','Dharmveer Chhatrapati Sambhaji Maharaj Jayanti (by date)'],
+  '2026-05-09':['Kalashtami'],
+  '2026-05-11':['Apara Ekadashi'],
+  '2026-05-13':['Maharana Pratap Jayanti'],
+  '2026-05-14':['Shivratri'],
+  '2026-05-16':['Amavasya (Vaishakh)','Shanishwar Jayanti'],
+  '2026-05-18':['Ganga Dussehra'],
+  '2026-05-20':['Vinayak Chaturthi (Angarak yoga)'],
+  '2026-05-23':['Kamla Ekadashi'],
+  '2026-05-24':['Bakri Eid'],
+  '2026-05-27':['Pradosh','Swatantryaveer Savarkar Jayanti'],
+  '2026-05-31':['Adhik Jyeshtha Purnima','Ahilyabai Holkar Jayanti (by date)'],
+  '2026-06-03':['Sankashti Chaturthi'],
+  '2026-06-04':['Kamla Ekadashi'],
+  '2026-06-05':['World Environment Day'],
+  '2026-06-06':['Shivaji Rajyabhishek Sohala — Fort Raigad'],
+  '2026-06-07':['Kalashtami'],
+  '2026-06-10':['Maharana Pratap Jayanti (by tithi)'],
+  '2026-06-11':['Pradosh'],
+  '2026-06-12':['Shivratri'],
+  '2026-06-14':['Amavasya (Adhik Jyeshtha)'],
+  '2026-06-21':['International Yoga Day'],
+  '2026-06-24':['Guru Arjundev Shahid Din'],
+  '2026-06-25':['Nirjala Ekadashi'],
+  '2026-06-26':['Pradosh','Shivratri'],
+  '2026-06-28':['Chhatrapati Shahu Maharaj Jayanti','Moharram (Tajiya)'],
+  '2026-06-29':['Nija Jyeshtha Purnima','Vat Purnima','Kabir Jayanti'],
+  '2026-07-01':['Vasantrao Naik Jayanti'],
+  '2026-07-02':['Rajmata Jijausaheb Bhosle Punyatithi (by tithi)'],
+  '2026-07-03':['Sankashti Chaturthi'],
+  '2026-07-04':['Bhagavat Ekadashi'],
+  '2026-07-05':['Pradosh','Shivratri'],
+  '2026-07-07':['Kalashtami'],
+  '2026-07-09':['Rathyatra'],
+  '2026-07-10':['Yogini Smart Ekadashi','Sant Nivruttinath Yatra — Trimbakeshwar'],
+  '2026-07-11':['Kumar Shashthi'],
+  '2026-07-12':['Pradosh'],
+  '2026-07-13':['Amavasya (Nij Jyeshtha)'],
+  '2026-07-16':['Vinayak Chaturthi'],
+  '2026-07-18':['Devshayani Ashadhi Ekadashi (Pandharpur Yatra)','Chaturmas begins'],
+  '2026-07-25':['Saibaba Utsav Samapti — Shirdi'],
+  '2026-07-26':['Vamanpujan','Pradosh'],
+  '2026-07-27':['Maharashtra Bendur'],
+  '2026-07-29':['Ashadha Purnima','Guru Purnima','Vyasapuja'],
+  '2026-08-01':['Sankashti Chaturthi'],
+  '2026-08-02':['Lokmanya Bal Gangadhar Tilak Punyatithi'],
+  '2026-08-04':['Kamika Ekadashi'],
+  '2026-08-06':['Kalashtami'],
+  '2026-08-08':['Somapradosh'],
+  '2026-08-09':['Vinayak Chaturthi','Nag Chaturthi','Jyeshthagauri Avahan'],
+  '2026-08-10':['Shivratri','Sant Savata Mali Punyatithi'],
+  '2026-08-11':['Karnika Ekadashi','World Adivasi Din'],
+  '2026-08-12':['Amavasya (Shravan)'],
+  '2026-08-15':['Independence Day','Parsi Farvardin Nutan Varsh'],
+  '2026-08-17':['Nagpanchami'],
+  '2026-08-18':['Durgashtami'],
+  '2026-08-21':['Bhaumpradosh','Mangalagauri Pujan'],
+  '2026-08-27':['Shravan Purnima','Raksha Bandhan'],
+  '2027-01-26':['Republic Day'], '2027-03-22':['Holi'],
+  '2027-08-15':['Independence Day'], '2027-10-29':['Diwali'], '2027-12-25':['Christmas'],
+  '2026-09-01':["Mangala Gauri worship"],
+  '2026-09-04':["Kalashtami","Jara-Jivantika worship","fasting for Shri Krishna Jayanti","Pant Maharaj Balekundri Janmashtami","Shri Dnyaneshwar Maharaj Jayanti at Apegaon"],
+  '2026-09-05':["Gopalkala","Akshar Bharati worship","Teachers Day"],
+  '2026-09-07':["Aja Ekadashi (auspicious after 06:40)","beginning of Jain Paryushan","Shravan Monday Shiva worship","Umaji Naik Jayanti"],
+  '2026-09-08':["Bhauma Pradosh (auspicious until 14:43)","Jain Paryushan begins (Panchami Paksha)","Sant Sena Maharaj death anniversary","Mangala Gauri worship"],
+  '2026-09-09':["monthly Shivratri"],
+  '2026-09-10':["Darsha Amavasya","Pithori Amavasya","Pola","Matru Din","Ahilyabai Holkar death anniversary"],
+  '2026-09-11':["Jara-Jivantika worship","Shravan Amavasya ends"],
+  '2026-09-12':["Bhadrapada begins","first sighting of the waxing Moon","Jewish Rosh Hashanah"],
+  '2026-09-13':["Varaha Jayanti","Islamic month Rabi al-Awwal begins"],
+  '2026-09-14':["Hartalika Tritiya","Shri Ganesh Chaturthi"],
+  '2026-09-15':["Rishi Panchami","Gajanan Maharaj death anniversary at Shegaon","Jain Samvatsari"],
+  '2026-09-16':["Beginning of Digambar Jain Paryushan (auspicious after 17:29)"],
+  '2026-09-17':["Surya Shashthi (auspicious until 19:52)","Jyeshtha Gauri invocation"],
+  '2026-09-18':["Jyeshtha Gauri worship"],
+  '2026-09-19':["Durgashtami","Jyeshtha Gauri immersion"],
+  '2026-09-20':["Aduhkha Navami","beginning of Bhagavata Saptah"],
+  '2026-09-21':["Jewish Yom Kippur"],
+  '2026-09-22':["Parivartini Ekadashi (auspicious until 08:45)"],
+  '2026-09-23':["Vamana Jayanti","equinox day"],
+  '2026-09-24':["Pradosh"],
+  '2026-09-25':["Anant Chaturdashi","conclusion of Digambar Jain Paryushan"],
+  '2026-09-26':["Proshthapadi Purnima","conclusion of Bhagavata Saptah","Jewish Sukkot"],
+  '2026-09-27':["Beginning of Mahalaya/Pitru Paksha","Pratipada Shraddha"],
+  '2026-09-28':["Dwitiya Shraddha"],
+  '2026-09-29':["Angarak Sankashti Chaturthi"],
+  '2026-09-30':["Chaturthi Shraddha and Panchami Shraddha"],
+  '2026-10-01':["Shashthi Shraddha"],
+  '2026-10-02':["Mahatma Gandhi Jayanti","Lal Bahadur Shastri Jayanti"],
+  '2026-10-03':["Marathi Classical Language Pride Day","Kalashtami"],
+  '2026-10-04':["Avidhava Navami","Jewish Simchat Torah"],
+  '2026-10-05':["Dashami Shraddha (auspicious until 14:55)"],
+  '2026-10-06':["Indira Ekadashi"],
+  '2026-10-07':["Mahalaya for ascetics","Magha Nakshatra Shraddha"],
+  '2026-10-08':["Pradosh","monthly Shivratri"],
+  '2026-10-09':["Shraddha for ancestors who died by weapons"],
+  '2026-10-10':["Sarvapitri Amavasya","Gajachhaya Yoga"],
+  '2026-10-11':["Ghatasthapana","Sharadiya Navratri begins","Maharaja Agrasen Jayanti"],
+  '2026-10-12':["First sighting of the waxing Moon"],
+  '2026-10-13':["Islamic month Jumada al-Awwal begins"],
+  '2026-10-14':["Vinayak Chaturthi (auspicious until 12:16)"],
+  '2026-10-15':["Lalita Panchami","World Blind Awareness Day"],
+  '2026-10-16':["Saraswati invocation"],
+  '2026-10-17':["Saraswati worship"],
+  '2026-10-18':["Bhanu Saptami","Mahalakshmi worship","Jain Ayambil Oli begins"],
+  '2026-10-19':["Durgashtami","Mahashtami fast","Saraswati immersion"],
+  '2026-10-20':["Mahanavami","Dussehra/Vijayadashami","Ayudha Puja","Saibaba festival at Shirdi"],
+  '2026-10-21':["Pant Maharaj Balekundri festival begins"],
+  '2026-10-22':["Pashankusha Ekadashi (auspicious after 14:47)"],
+  '2026-10-23':["Pradosh","Shri Gorakshanath manifestation day"],
+  '2026-10-24':["Sun enters Swati Nakshatra"],
+  '2026-10-25':["Kojagiri Purnima (auspicious until 11:56)","Sharad Purnima"],
+  '2026-10-26':["Maharshi Valmiki Jayanti","Kartik ritual bathing begins","Jain Ayambil Oli ends"],
+  '2026-10-29':["Sankashti Chaturthi"],
+  '2026-10-30':["Rashtrasant Tukdoji Maharaj death anniversary"],
+  '2026-10-31':["Sardar Vallabhbhai Patel Jayanti"],
+  '2026-11-01':["Bhanu Saptami","Kalashtami","Karashtami"],
+  '2026-11-02':["Industrial Safety Day"],
+  '2026-11-04':["Vasudev Balwant Phadke birth anniversary"],
+  '2026-11-05':["Rama Ekadashi","Govatsa Dwadashi","Vasubaras"],
+  '2026-11-06':["Pradosh","Dhantrayodashi/Dhanteras","Dhanvantari Jayanti"],
+  '2026-11-07':["Monthly Shivratri"],
+  '2026-11-08':["Narak Chaturdashi","Darsha Amavasya","Lakshmi Puja 18:00-20:33","Jain Mahavir Nirvana"],
+  '2026-11-09':["Somvati Amavasya"],
+  '2026-11-10':["Balipratipada","Diwali Padwa","Vikram Samvat 2083 begins","Govardhan Puja"],
+  '2026-11-11':["Islamic month Jumada al-Akhirah begins"],
+  '2026-11-12':["Bhau Beej","Yama Dwitiya"],
+  '2026-11-13':["Vinayak Chaturthi"],
+  '2026-11-14':["Pandav Panchami","Jawaharlal Nehru Jayanti","Children's Day"],
+  '2026-11-15':["Birsa Munda Jayanti"],
+  '2026-11-16':["Jalaram Jayanti"],
+  '2026-11-17':["Durgashtami (auspicious after 17:16)","Gopashtami","Lala Lajpat Rai death anniversary"],
+  '2026-11-18':["Kushmanda Navami"],
+  '2026-11-20':["Prabodhini Smarta Ekadashi","Sant Namdev Maharaj Jayanti"],
+  '2026-11-21':["Bhagavata Ekadashi","Tulsi Vivah begins","Pandharpur Yatra","Chaturmas ends"],
+  '2026-11-22':["Pradosh","Vaikuntha Chaturdashi fast"],
+  '2026-11-23':["Vaikuntha Chaturdashi"],
+  '2026-11-24':["Guru Nanak Jayanti","Tripurari Purnima","Guru Tegh Bahadur Martyrdom Day"],
+  '2026-11-26':["Constitution Day of India"],
+  '2026-11-27':["Sankashti Chaturthi"],
+  '2026-11-28':["Mahatma Jyotirao Phule death anniversary"],
+  '2026-12-01':["Kalashtami","Kalabhairav Jayanti"],
+  '2026-12-03':["International Day of Persons with Disabilities (auspicious until 10:43)"],
+  '2026-12-04':["Utpatti Ekadashi","Alandi Yatra"],
+  '2026-12-05':["Jewish Hanukkah"],
+  '2026-12-06':["Dr. B. R. Ambedkar Mahaparinirvan Day","Dnyaneshwar Maharaj Samadhi festival at Alandi","Pradosh"],
+  '2026-12-07':["Monthly Shivratri"],
+  '2026-12-08':["Darsha Amavasya","Santaji Maharaj Jagnade Jayanti"],
+  '2026-12-09':["Margashirsha begins","Martand Bhairav Ghatasthapana","Dev Deepavali"],
+  '2026-12-10':["First sighting of the waxing Moon"],
+  '2026-12-11':["Islamic month Rajab begins"],
+  '2026-12-13':["Vinayak Chaturthi (auspicious after 16:47)"],
+  '2026-12-15':["Champa Shashthi","Skanda Shashthi"],
+  '2026-12-17':["Durgashtami","Dhanurmas begins"],
+  '2026-12-20':["Mokshada Ekadashi","Bhagavad Gita Jayanti","Sant Gadge Maharaj death anniversary"],
+  '2026-12-21':["Soma Pradosh","Uttarayan transition"],
+  '2026-12-22':["Indian Paush period begins (auspicious until 10:05)"],
+  '2026-12-23':["Shri Datta Jayanti","Hazrat Ali birthday"],
+  '2026-12-24':["Sane Guruji Jayanti","National Consumer Day"],
+  '2026-12-25':["Christmas"],
+  '2026-12-26':["Sankashti Chaturthi"],
+  '2026-12-29':["Morya Gosavi Sanjeevan Samadhi at Chinchwad, Pune"],
+  '2026-12-31':["Kalashtami"]
+};
+
+// Days genuinely marked auspicious by Kalnirnay's own "Shubh Divas" column
+// — either 'All day' or a specific until/after window. Separate from the
+// festival list, used for the sun-symbol badge and its own filter.
+const AUSPICIOUS_TIMING = {
+  '2026-09-04':'All day',
+  '2026-09-05':'All day',
+  '2026-09-07':'After 06:40',
+  '2026-09-08':'Until 14:43',
+  '2026-09-12':'All day',
+  '2026-09-13':'All day',
+  '2026-09-16':'After 17:29',
+  '2026-09-17':'Until 19:52',
+  '2026-09-21':'All day',
+  '2026-09-22':'Until 08:45',
+  '2026-09-23':'All day',
+  '2026-09-24':'All day',
+  '2026-09-25':'All day',
+  '2026-09-26':'All day',
+  '2026-09-28':'All day',
+  '2026-10-01':'All day',
+  '2026-10-04':'All day',
+  '2026-10-05':'Until 14:55',
+  '2026-10-10':'All day',
+  '2026-10-11':'All day',
+  '2026-10-12':'All day',
+  '2026-10-14':'Until 12:16',
+  '2026-10-19':'All day',
+  '2026-10-20':'All day',
+  '2026-10-22':'After 14:47',
+  '2026-10-24':'All day',
+  '2026-10-25':'Until 11:56',
+  '2026-10-26':'All day',
+  '2026-10-28':'All day',
+  '2026-10-29':'All day',
+  '2026-10-30':'All day',
+  '2026-11-01':'All day',
+  '2026-11-15':'All day',
+  '2026-11-16':'All day',
+  '2026-11-17':'After 17:16',
+  '2026-11-19':'All day',
+  '2026-11-21':'All day',
+  '2026-11-25':'All day',
+  '2026-11-26':'All day',
+  '2026-11-29':'All day',
+  '2026-12-03':'Until 10:43',
+  '2026-12-04':'All day',
+  '2026-12-05':'All day',
+  '2026-12-11':'All day',
+  '2026-12-12':'All day',
+  '2026-12-13':'After 16:47',
+  '2026-12-14':'All day',
+  '2026-12-15':'All day',
+  '2026-12-16':'All day',
+  '2026-12-18':'After 12:18',
+  '2026-12-19':'All day',
+  '2026-12-22':'Until 10:05',
+  '2026-12-24':'All day',
+  '2026-12-25':'All day',
+  '2026-12-29':'All day',
+  '2026-12-30':'All day',
+  '2026-12-31':'All day'
+};
+
+/* =====================================================================
+   FILTER TOGGLES — one circular toggle per source, persisted, applied
+   uniformly across Month/Week/Day/Agenda. Panchang and Birthdays are
+   their own toggleable categories alongside the five apps.
+===================================================================== */
+const FILTER_KEY = 'calendar-active-filters';
+const FILTER_DEFS = [
+  {key:'meetings', label:'Meetings', icon:'📅', color:'var(--schedule)'},
+  {key:'todo', label:'Todo', icon:'✓', color:'var(--todo)'},
+  {key:'chores', label:'Chores', icon:'🧹', color:'var(--chores)'},
+  {key:'schedule', label:'Schedule', icon:'📋', color:'var(--schedule)'},
+  {key:'hindu', label:'Panchang', icon:'🌙', color:'var(--purnima)'},
+  {key:'auspicious', label:'Auspicious', icon:'☀️', color:'#F5A623'},
+  {key:'birthdays', label:'Reminders', icon:'🔔', color:'#E0567E'}
+];
+let activeFilters = new Set(FILTER_DEFS.map(function(f){ return f.key; }));
+function loadFilters(){
+  try{
+    const saved = JSON.parse(localStorage.getItem(FILTER_KEY));
+    if(saved && Array.isArray(saved)) activeFilters = new Set(saved);
+  }catch(e){}
+}
+function saveFilters(){ try{ localStorage.setItem(FILTER_KEY, JSON.stringify([...activeFilters])); }catch(e){} }
+function renderCatBars(){
+  const keys = SchedCats.list().map(function(c){ return c.key; });
+  const html = '<div class="cat-bar-label" style="font-size:11px;font-weight:700;color:var(--text-faint);margin:0 0 5px;text-align:center;">Schedule categories</div><div data-scpresent="'+keys.join(',')+'" style="display:flex;justify-content:center;">'+SchedCats.chipsHtml(keys)+'</div>';
+  const bar = document.getElementById('cat-filter-bar');
+  if(bar) bar.innerHTML = activeFilters.has('schedule') ? html : '';
+  const sb = document.getElementById('sb-cat-mount');
+  if(sb) sb.innerHTML = '<div data-scpresent="'+keys.join(',')+'">'+SchedCats.chipsHtml(keys)+'</div>';
+  const sbCard = document.getElementById('sb-cat-card');
+  if(sbCard) sbCard.style.display = activeFilters.has('schedule') ? '' : 'none';
+}
+function renderFilterToggles(){
+  const mount = document.getElementById('filter-toggles');
+  const allOn = activeFilters.size === FILTER_DEFS.length;
+  mount.innerHTML = FILTER_DEFS.map(function(f){
+    const isActive = activeFilters.has(f.key);
+    return '<button type="button" class="filter-toggle '+(isActive?'active':'')+'" data-filtertoggle="'+f.key+'">'+
+      '<div class="ft-circle" style="'+(isActive?'background:'+f.color+';color:#fff;':'color:var(--text-faint);')+'">'+f.icon+'</div>'+
+      '<div class="ft-label">'+f.label+'</div></button>';
+  }).join('') + '<button type="button" class="filter-selectall" id="filter-selectall-btn">'+(allOn?'Clear all':'Show all')+'</button>';
+  mount.querySelectorAll('[data-filtertoggle]').forEach(function(btn){
+    btn.addEventListener('click', function(){
+      const key = btn.dataset.filtertoggle;
+      if(activeFilters.has(key)) activeFilters.delete(key); else activeFilters.add(key);
+      saveFilters(); renderFilterToggles(); render();
+    });
+  });
+  document.getElementById('filter-selectall-btn').addEventListener('click', function(){
+    if(activeFilters.size===FILTER_DEFS.length) activeFilters.clear();
+    else FILTER_DEFS.forEach(function(f){ activeFilters.add(f.key); });
+    saveFilters(); renderFilterToggles(); render();
+  });
+  renderCatBars();
+}
+
+/* =====================================================================
+   CROSS-APP EVENT AGGREGATION — reads directly from each app's own
+   Firestore data (read-only from here), same account, no duplication.
+===================================================================== */
+let eventsByDate = {}; // 'YYYY-MM-DD' -> [{title, source, color, person, time}]
+function addEvent(dateStr, title, source, color, person, time, link){
+  if(!dateStr) return;
+  if(!eventsByDate[dateStr]) eventsByDate[dateStr] = [];
+  // time here is already raw 24h "HH:MM" (from Todo's due time) or empty —
+  // used directly as the chronological sort key, before any display
+  // formatting happens.
+  eventsByDate[dateStr].push({title:title, source:source, color:color, person:person||'', time:time||'', sortKey:time||'', link:link||null});
+}
+function jdoc(path){ return db.doc(path); }
+
+// Raw task arrays, kept alongside the flattened addEvent() calls below so
+// eventsForRecurringWeekday() can cross-reference a Schedule block's
+// weekday+activity against any task's task.scheduleBlock link (see
+// todo.html's "Attach to schedule block" picker for the write side).
+window.todoTasksCache = { Bhargav: [], Anusha: [], Shared: [] };
+async function loadTodoEvents(){
+  const profiles = ['Bhargav','Anusha'];
+  for(const p of profiles){
+    try{
+      const doc = await jdoc('users/'+currentUser.uid+'/todo-profiles/'+p+'/data/tasks').get();
+      const tasks = (doc.exists && doc.data().json) ? JSON.parse(doc.data().json) : [];
+      window.todoTasksCache[p] = tasks;
+      tasks.forEach(function(t){ if(!t.done && t.due) addEvent(t.due, t.title, 'Todo', 'var(--todo)', p, t.dueTime, 'todo.html?task='+encodeURIComponent(t.id)+'&profile='+encodeURIComponent(p)); });
+    }catch(e){}
+  }
+  try{
+    const doc = await jdoc('users/'+currentUser.uid+'/todo-shared/tasks').get();
+    const tasks = (doc.exists && doc.data().json) ? JSON.parse(doc.data().json) : [];
+    window.todoTasksCache.Shared = tasks;
+    tasks.forEach(function(t){ if(!t.done && t.due) addEvent(t.due, t.title, 'Todo', 'var(--todo)', 'Shared', t.dueTime, 'todo.html?task='+encodeURIComponent(t.id)+'&profile=Bhargav'); });
+  }catch(e){}
+}
+// All not-yet-done tasks (any profile + shared) linked to a given
+// Schedule weekday+activity, matched the same way schedule.html's
+// linkedTasksForBlock() does.
+function todoTasksLinkedToBlock(weekday, activity){
+  const all = [].concat(window.todoTasksCache.Bhargav||[], window.todoTasksCache.Anusha||[], window.todoTasksCache.Shared||[]);
+  return all.filter(function(t){ return !t.done && t.scheduleBlock && t.scheduleBlock.weekday===weekday && t.scheduleBlock.label===activity; });
+}
+
+async function loadChoresEvents(){
+  try{
+    const doc = await jdoc('users/'+currentUser.uid+'/apps/chores/data/chores').get();
+    const chores = (doc.exists && doc.data().json) ? JSON.parse(doc.data().json) : [];
+    const today = todayStr();
+    chores.forEach(function(c){
+      if(c.freqType==='asNeeded') return;
+      let due = null;
+      if(!c.lastCompleted && c.dueOverride) due = c.dueOverride;
+      else if(c.freqType==='daily') due = c.lastCompleted ? addDays(c.lastCompleted,1) : today;
+      else if(c.freqType==='everyNDays') due = c.lastCompleted ? addDays(c.lastCompleted, c.freqDays) : today;
+      else if(c.freqType==='specificDays'){
+        const start = c.lastCompleted ? addDays(c.lastCompleted,1) : today;
+        for(let i=0;i<14;i++){ const dd = addDays(start,i); if(c.days && c.days.indexOf(WEEKDAY_NAMES[new Date(dd+'T00:00:00').getDay()])!==-1){ due = dd; break; } }
+      }
+      if(due) addEvent(due, c.name, 'Chores', 'var(--chores)', '', '', 'chores.html?chore='+encodeURIComponent(c.id));
+    });
+  }catch(e){}
+}
+
+async function loadScheduleEvents(){
+  // Schedule is a weekly recurring template, not fixed calendar dates —
+  // shown by mapping each weekday's items onto every matching date in the
+  // visible range at render time (see eventsForRecurringWeekday below).
+  const profiles = ['Bhargav','Anusha'];
+  window.scheduleTemplates = {};
+  for(const p of profiles){
+    try{
+      const doc = await jdoc('users/'+currentUser.uid+'/schedule-profiles/'+p+'/data/dayTemplates').get();
+      window.scheduleTemplates[p] = (doc.exists && doc.data().json) ? JSON.parse(doc.data().json) : {};
+    }catch(e){ window.scheduleTemplates[p] = {}; }
+  }
+  try{
+    const cdoc = await jdoc('users/'+currentUser.uid+'/schedule-profiles/'+activeCalendarProfile+'/data/categories').get();
+    SchedCats.hydrate(cdoc.exists && cdoc.data().json ? JSON.parse(cdoc.data().json) : null);
+  }catch(e){ SchedCats.hydrate(null); }
+}
+function fmtScheduleTime(t){
+  if(!t) return '';
+  const parts = t.split(':');
+  let h = parseInt(parts[0],10), m = parts[1]||'00';
+  const ampm = h>=12 ? 'PM' : 'AM';
+  h = h%12; if(h===0) h=12;
+  return h+':'+m+' '+ampm;
+}
+function eventsForRecurringWeekday(dateStr){
+  const out = [];
+  const wd = WEEKDAY_NAMES[new Date(dateStr+'T00:00:00').getDay()];
+  // Schedule is inherently personal — only the active profile's routine
+  // shows, not both people's schedules merged into one list. Every block
+  // for the day shows, sorted chronologically by its actual start time,
+  // so the whole day reads in order — gym, then class, then whatever's next.
+  const dayItems = ((window.scheduleTemplates||{})[activeCalendarProfile]||{})[wd];
+  if(Array.isArray(dayItems)){
+    const sorted = dayItems.slice().sort(function(a,b){ return (a.start||'').localeCompare(b.start||''); });
+    sorted.forEach(function(item){
+      const label = item.activity || item.title || item.name || item.label || (typeof item==='string'?item:null);
+      if(!label) return;
+      const timeRange = item.start ? fmtScheduleTime(item.start)+(item.end?' – '+fmtScheduleTime(item.end):'') : '';
+      // time/endTime stay raw 24h ("HH:MM") so the Grid view can do real
+      // minute math on them; displayTime carries the pretty "4:00 AM –
+      // 4:15 AM" range the Classic list views show instead. Passing the
+      // pretty string as `time` used to break the Grid (toMinutes() on
+      // "4:00 AM – 4:15 AM" is NaN), which is why every routine block
+      // used to pile up at the same spot.
+      const linkedTasks = todoTasksLinkedToBlock(wd, label);
+      const catKey = SchedCats.categorize(label);
+      if(!SchedCats.isVisible(catKey)) return;
+      const catMeta = SchedCats.meta(catKey);
+      out.push({title:label, source:'Schedule', category:catKey, categoryLabel:catMeta.label, color:catMeta.color, person:activeCalendarProfile, time:item.start||'', endTime:item.end||'', displayTime:timeRange, sortKey:item.start||'', linkedTasks:linkedTasks});
+    });
+  }
+  return out;
+}
+
+/* =====================================================================
+   MEETING SCHEDULING — writes straight into Schedule's own event data
+   (schedule-profiles/<profile>/data/events, same docs and same schema
+   Schedule's own Events panel/conflict-detection use), so scheduling a
+   meeting here shows up in Schedule immediately and vice versa. Unlike
+   the read-only Todo/Chores/Schedule-routine aggregation above, these
+   are editable and deletable directly from Calendar.
+===================================================================== */
+function scheduleEventsDoc(profile){ return db.collection('users').doc(currentUser.uid).collection('schedule-profiles').doc(profile).collection('data').doc('events'); }
+let nativeEvents = { Bhargav: [], Anusha: [] };
+async function loadNativeMeetingEvents(){
+  for(const p of ['Bhargav','Anusha']){
+    try{ const doc = await scheduleEventsDoc(p).get(); nativeEvents[p] = (doc.exists && doc.data().json) ? JSON.parse(doc.data().json) : []; }
+    catch(e){ nativeEvents[p] = []; }
+  }
+}
+async function saveNativeMeetingEvents(profile){
+  try{ await scheduleEventsDoc(profile).set({json: JSON.stringify(nativeEvents[profile])}); }
+  catch(e){ console.error('meeting save failed', e); }
+}
+// A shared meeting is mirrored into the partner's own events array too —
+// the exact same mirroring convention Schedule's mirrorToPartner uses, so
+// either app sees one consistent, non-duplicated result either way.
+async function mirrorMeetingToPartner(owner, item, deleted){
+  if(!item.shared) return;
+  const partner = owner==='Bhargav' ? 'Anusha' : 'Bhargav';
+  try{
+    const doc = await scheduleEventsDoc(partner).get();
+    let list = (doc.exists && doc.data().json) ? JSON.parse(doc.data().json) : [];
+    list = list.filter(function(e){ return e.id !== item.id; });
+    if(!deleted) list.push(Object.assign({}, item, {mirrored:true, ownerProfile:owner}));
+    await scheduleEventsDoc(partner).set({json: JSON.stringify(list)});
+    nativeEvents[partner] = list;
+  }catch(e){ console.error('meeting mirror failed', e); }
+}
+function findNativeEvent(id){
+  for(const p of ['Bhargav','Anusha']){
+    const ev = (nativeEvents[p]||[]).find(function(e){ return e.id===id; });
+    if(ev) return {owner:p, ev:ev};
+  }
+  return null;
+}
+function weekdayOf(dateStr){ return new Date(dateStr+'T00:00:00').getDay(); }
+function toMinutes(hhmm){ const parts=hhmm.split(':').map(Number); return parts[0]*60+parts[1]; }
+function minutesToTime(mins){ mins=Math.max(0,Math.min(1439,mins)); return String(Math.floor(mins/60)).padStart(2,'0')+':'+String(mins%60).padStart(2,'0'); }
+// Same generalized recurrence rule as Schedule's own eventOccursOn (kept
+// in sync deliberately — same event objects, same meaning).
+function eventOccursOn(ev, dateStr){
+  if(ev.kind==='task') return false;
+  if(!ev.recurring) return ev.date === dateStr;
+  if(!ev.startDate || dateStr < ev.startDate) return false;
+  const repeat = ev.repeat || {type:'weekly', until:null};
+  if(repeat.until && dateStr > repeat.until) return false;
+  if(repeat.type==='daily') return true;
+  // Monthly/yearly on the 29th–31st land on the last day of shorter months (Feb 29 → Feb 28 in non-leap years) instead of silently skipping them.
+  const dimOf = d => new Date(d.getFullYear(), d.getMonth()+1, 0).getDate();
+  if(repeat.type==='monthly'){ const d=new Date(dateStr+'T00:00:00'); return d.getDate() === Math.min(new Date(ev.startDate+'T00:00:00').getDate(), dimOf(d)); }
+  if(repeat.type==='yearly'){
+    const d=new Date(dateStr+'T00:00:00'), s=new Date(ev.startDate+'T00:00:00');
+    return d.getMonth()===s.getMonth() && d.getDate()===Math.min(s.getDate(), dimOf(d));
+  }
+  return weekdayOf(dateStr) === (ev.weekday!=null ? ev.weekday : weekdayOf(ev.startDate));
+}
+function nativeEventsForDate(dateStr){
+  const out = [];
+  ['Bhargav','Anusha'].forEach(function(owner){
+    (nativeEvents[owner]||[]).forEach(function(ev){
+      if(ev.mirrored) return; // the owner's own copy already represents it; skip the partner's mirrored duplicate
+      if(!eventOccursOn(ev, dateStr)) return;
+      out.push({
+        title: ev.title, source:'Meetings', color: ev.color || 'var(--schedule)',
+        person: owner, time: ev.time||'', sortKey: ev.time||'', link:null,
+        nativeId: ev.id, ownerProfile: owner, endTime: ev.endTime||'', notes: ev.notes||'',
+        location: ev.location||'', meetingLink: ev.link||''
+      });
+    });
+  });
+  return out;
+}
+function findScheduleConflicts(owner, dateStr, startTime, endTime, excludeId){
+  if(!startTime) return [];
+  const start=toMinutes(startTime), end = endTime && toMinutes(endTime)>start ? toMinutes(endTime) : start+45;
+  const conflicts = [];
+  (nativeEvents[owner]||[]).forEach(function(item){
+    if(item.id===excludeId || !eventOccursOn(item, dateStr) || !item.time) return;
+    const a=toMinutes(item.time), b=item.endTime&&toMinutes(item.endTime)>a?toMinutes(item.endTime):a+45;
+    if(start<b && end>a) conflicts.push(item.title);
+  });
+  const wd = WEEKDAY_NAMES[weekdayOf(dateStr)];
+  (((window.scheduleTemplates||{})[owner]||{})[wd]||[]).forEach(function(block){
+    if(!block.start || !block.end) return;
+    const a=toMinutes(block.start), b=toMinutes(block.end);
+    if(start<b && end>a) conflicts.push(block.activity||block.title||block.name);
+  });
+  return [...new Set(conflicts)];
+}
+
+async function loadAllEvents(){
+  eventsByDate = {};
+  await Promise.all([loadTodoEvents(), loadChoresEvents(), loadScheduleEvents(), loadNativeMeetingEvents()]);
+}
+
+/* =====================================================================
+   MEETING CREATE / EDIT MODAL — writes straight into Schedule's own
+   events collection (schedule-profiles/<profile>/data/events), so a
+   meeting scheduled here shows up in Schedule and vice versa.
+===================================================================== */
+const EVT_COLORS = ['var(--schedule)','#4A7CF6','#E0574E','#2FA86B','#B8493F','#8A5CF6','#F0A93B'];
+function openEventModal(existing, defaultDate, defaultTime){
+  const mount = document.getElementById('modal-mount') || (function(){ const m = document.createElement('div'); m.id='modal-mount'; document.body.appendChild(m); return m; })();
+  const ev = existing ? existing.ev : null;
+  const owner0 = existing ? existing.owner : activeCalendarProfile;
+
+  function draw(owner){
+    const dateVal = ev ? (ev.startDate || ev.date || defaultDate || todayStr()) : (defaultDate || todayStr());
+    const startVal = ev ? (ev.time||'') : (defaultTime||'');
+    const endVal = ev ? (ev.endTime||'') : '';
+    const repeatVal = ev ? (ev.repeat ? ev.repeat.type : (ev.recurring ? 'weekly' : 'none')) : 'none';
+    const untilVal = ev && ev.repeat ? (ev.repeat.until||'') : '';
+    const color = ev ? (ev.color || EVT_COLORS[0]) : EVT_COLORS[0];
+    const shared = ev ? !!ev.shared : false;
+    const notes = ev ? (ev.notes||'') : '';
+    const location = ev ? (ev.location||'') : '';
+    const link = ev ? (ev.link||'') : '';
+    const reminderMin = ev && ev.reminderMinutes!=null ? String(ev.reminderMinutes) : '';
+
+    mount.innerHTML = '<div class="evt-overlay" id="evt-overlay"><div class="evt-modal">'+
+      '<h3>'+(ev?'Edit meeting':'Schedule a meeting')+'</h3>'+
+      '<div class="evt-owner-toggle">'+
+        ['Bhargav','Anusha'].map(function(p){ return '<button type="button" data-owner="'+p+'" class="'+(p===owner?'on':'')+'">'+p+'</button>'; }).join('')+
+      '</div>'+
+      '<div class="evt-section">'+
+        '<div class="evt-grid">'+
+          '<div class="f full"><label>Title</label><input type="text" id="evt-title" value="'+escapeHtml(ev?ev.title:'')+'" placeholder="e.g. Dentist, Team sync"></div>'+
+        '</div>'+
+      '</div>'+
+      '<div class="evt-section">'+
+        '<div class="evt-section-title">When</div>'+
+        '<div class="evt-grid">'+
+          '<div class="f"><label>Date</label><input type="date" id="evt-date" value="'+dateVal+'"></div>'+
+          '<div class="f"><label>Repeat</label><select id="evt-repeat">'+
+            ['none','daily','weekly','monthly','yearly'].map(function(r){ return '<option value="'+r+'" '+(r===repeatVal?'selected':'')+'>'+(r==='none'?'Just once':r.charAt(0).toUpperCase()+r.slice(1))+'</option>'; }).join('')+
+          '</select></div>'+
+          '<div class="f"><label>Start time</label><input type="time" id="evt-start" value="'+startVal+'"></div>'+
+          '<div class="f"><label>End time</label><input type="time" id="evt-end" value="'+endVal+'"></div>'+
+          '<div class="f full" id="evt-until-wrap" style="'+(repeatVal==='none'?'display:none;':'')+'"><label>Repeat until (optional)</label><input type="date" id="evt-until" value="'+untilVal+'"></div>'+
+        '</div>'+
+      '</div>'+
+      '<div class="evt-section">'+
+        '<div class="evt-section-title">Where &amp; links</div>'+
+        '<div class="evt-grid">'+
+          '<div class="f"><label>Location</label><input type="text" id="evt-location" value="'+escapeHtml(location)+'" placeholder="e.g. Conference room, address"></div>'+
+          '<div class="f"><label>Link</label><input type="url" id="evt-link" value="'+escapeHtml(link)+'" placeholder="Video call / doc URL"></div>'+
+        '</div>'+
+      '</div>'+
+      '<div class="evt-section">'+
+        '<div class="evt-section-title">Options</div>'+
+        '<div class="evt-grid">'+
+          '<div class="f full"><label>Color</label><div class="evt-colors">'+EVT_COLORS.map(function(c){ return '<button type="button" class="evt-color-swatch '+(c===color?'on':'')+'" data-color="'+c+'" style="background:'+c+';"></button>'; }).join('')+'</div></div>'+
+          '<div class="f full"><label style="display:flex;align-items:center;gap:8px;font-weight:600;"><input type="checkbox" class="evt-check" id="evt-shared" '+(shared?'checked':'')+'> Share with partner</label></div>'+
+          '<div class="f full"><label>Reminder</label><select id="evt-reminder"><option value="">No reminder</option>'+
+            [0,5,10,15,30,60,1440].map(function(m){ return '<option value="'+m+'" '+(String(m)===reminderMin?'selected':'')+'>'+(m===0?'At time of event':m<60?m+' minutes before':m===1440?'1 day before':(m/60)+' hour before')+'</option>'; }).join('')+
+          '</select></div>'+
+        '</div>'+
+      '</div>'+
+      '<div class="evt-section">'+
+        '<div class="evt-section-title">Notes</div>'+
+        '<div class="evt-grid">'+
+          '<div class="f full"><textarea id="evt-notes" rows="2" placeholder="Agenda, extra details...">'+escapeHtml(notes)+'</textarea></div>'+
+        '</div>'+
+      '</div>'+
+      '<div class="evt-conflict" id="evt-conflict" style="display:none;"></div>'+
+      '<div class="evt-actions">'+
+        (ev ? '<button type="button" class="btn-mini danger" id="evt-delete-btn">Delete</button>' : '')+
+        '<button type="button" class="btn-mini ghost" id="evt-cancel-btn">Cancel</button>'+
+        '<button type="button" class="btn-mini primary" id="evt-save-btn">Save</button>'+
+      '</div>'+
+    '</div></div>';
+
+    mount.querySelectorAll('[data-owner]').forEach(function(btn){
+      btn.addEventListener('click', function(){ draw(btn.dataset.owner); });
+    });
+    mount.querySelectorAll('[data-color]').forEach(function(btn){
+      btn.addEventListener('click', function(){ mount.querySelectorAll('[data-color]').forEach(function(b){ b.classList.toggle('on', b===btn); }); });
+    });
+    document.getElementById('evt-repeat').addEventListener('change', function(){
+      document.getElementById('evt-until-wrap').style.display = this.value==='none' ? 'none' : '';
+    });
+
+    function checkConflictsNow(){
+      const d2 = document.getElementById('evt-date').value;
+      const s2 = document.getElementById('evt-start').value;
+      const e2 = document.getElementById('evt-end').value;
+      const box = document.getElementById('evt-conflict');
+      if(!d2 || !s2){ box.style.display='none'; return; }
+      const conflicts = findScheduleConflicts(owner, d2, s2, e2, ev?ev.id:null);
+      if(conflicts.length){ box.style.display='block'; box.textContent = '⚠️ Conflicts with: '+conflicts.join(', '); }
+      else box.style.display='none';
+    }
+    ['evt-date','evt-start','evt-end'].forEach(function(id){ document.getElementById(id).addEventListener('input', checkConflictsNow); });
+    checkConflictsNow();
+
+    document.getElementById('evt-cancel-btn').addEventListener('click', function(){ mount.innerHTML=''; });
+    document.getElementById('evt-overlay').addEventListener('click', function(e){ if(e.target.id==='evt-overlay') mount.innerHTML=''; });
+
+    if(ev){
+      document.getElementById('evt-delete-btn').addEventListener('click', async function(){
+        if(!window.confirm('Delete "'+ev.title+'"?')) return;
+        nativeEvents[owner] = (nativeEvents[owner]||[]).filter(function(x){ return x.id!==ev.id; });
+        await saveNativeMeetingEvents(owner);
+        if(ev.shared) await mirrorMeetingToPartner(owner, ev, true);
+        mount.innerHTML='';
+        await loadAllEvents(); render();
+      });
+    }
+
+    document.getElementById('evt-save-btn').addEventListener('click', async function(){
+      const title2 = document.getElementById('evt-title').value.trim();
+      const date2 = document.getElementById('evt-date').value;
+      if(!title2){ document.getElementById('evt-title').style.outline='2px solid var(--danger,#F0596B)'; return; }
+      if(!date2) return;
+      const start2 = document.getElementById('evt-start').value;
+      const end2 = document.getElementById('evt-end').value;
+      const repeatType = document.getElementById('evt-repeat').value;
+      const until2 = document.getElementById('evt-until').value;
+      if(repeatType !== 'none' && until2 && until2 < date2){
+        const uEl = document.getElementById('evt-until');
+        uEl.style.outline='2px solid var(--danger,#F0596B)';
+        uEl.setCustomValidity('"Repeat until" is before the first date, so the event would never show.');
+        uEl.reportValidity();
+        uEl.addEventListener('input', function(){ uEl.setCustomValidity(''); uEl.style.outline=''; }, {once:true});
+        return;
+      }
+      const colorBtn = mount.querySelector('[data-color].on');
+      const color2 = colorBtn ? colorBtn.dataset.color : EVT_COLORS[0];
+      const shared2 = document.getElementById('evt-shared').checked;
+      const reminderVal = document.getElementById('evt-reminder').value;
+      const notes2 = document.getElementById('evt-notes').value.trim();
+      const location2 = document.getElementById('evt-location').value.trim();
+      const link2 = document.getElementById('evt-link').value.trim();
+      const isRecurring = repeatType !== 'none';
+      const wasShared = ev ? !!ev.shared : false;
+      const id = ev ? ev.id : 'meet-'+Date.now()+'-'+Math.floor(Math.random()*1000);
+      const item = {
+        id: id, kind:'event', title: title2,
+        date: isRecurring ? null : date2,
+        startDate: isRecurring ? date2 : null,
+        recurring: isRecurring,
+        weekday: isRecurring ? weekdayOf(date2) : undefined,
+        repeat: isRecurring ? {type: repeatType, until: until2 || null} : null,
+        time: start2 || null, endTime: end2 || null,
+        color: color2, shared: shared2, notes: notes2 || null,
+        location: location2 || null, link: link2 || null,
+        reminderMinutes: reminderVal === '' ? null : parseInt(reminderVal,10)
+      };
+      // Meeting moved to a different owner — pull it out of the old
+      // owner's list (and un-mirror from whoever had the old copy) first.
+      if(ev && owner0 !== owner){
+        nativeEvents[owner0] = (nativeEvents[owner0]||[]).filter(function(x){ return x.id!==ev.id; });
+        await saveNativeMeetingEvents(owner0);
+        if(wasShared) await mirrorMeetingToPartner(owner0, ev, true);
+      }
+      const arr = nativeEvents[owner] = nativeEvents[owner] || [];
+      const idx = arr.findIndex(function(x){ return x.id===id; });
+      if(idx>=0) arr[idx] = item; else arr.push(item);
+      await saveNativeMeetingEvents(owner);
+      if(shared2) await mirrorMeetingToPartner(owner, item, false);
+      else if(wasShared) await mirrorMeetingToPartner(owner, item, true);
+      mount.innerHTML='';
+      await loadAllEvents(); render();
+    });
+  }
+  draw(owner0);
+}
+
+/* =====================================================================
+   GRID CALENDAR — a real Google-Calendar-style hour-by-hour week grid:
+   drag existing meetings to move them (including across days), drag
+   their top/bottom edge to resize, and drag on empty space to create a
+   new one. Only native meetings (this app's own, linked to Schedule)
+   are draggable — everything else (Todo/Chores/routine/Panchang/
+   birthdays) is shown for context but stays read-only, since it isn't
+   this app's data to move.
+===================================================================== */
+const GRID_START_HOUR = 4;
+const GRID_END_HOUR = 23;
+const GRID_HOUR_PX = 56;
+const GRID_SNAP_PX = GRID_HOUR_PX/4; // 15-minute snap
+async function applyNativeMove(id, newDate, newStartTime){
+  const found = findNativeEvent(id);
+  if(!found) return;
+  const ev = found.ev, owner = found.owner;
+  const durMin = ev.endTime && toMinutes(ev.endTime)>toMinutes(ev.time||'00:00') ? toMinutes(ev.endTime)-toMinutes(ev.time) : 45;
+  const newStartMin = toMinutes(newStartTime);
+  ev.time = newStartTime;
+  ev.endTime = minutesToTime(Math.min(newStartMin+durMin,1439));
+  if(ev.recurring){ ev.startDate = newDate; ev.weekday = weekdayOf(newDate); }
+  else { ev.date = newDate; }
+  await saveNativeMeetingEvents(owner);
+  if(ev.shared) await mirrorMeetingToPartner(owner, ev, false);
+  await loadAllEvents();
+  render();
+}
+async function applyNativeResize(id, newStart, newEnd){
+  const found = findNativeEvent(id);
+  if(!found) return;
+  const ev = found.ev, owner = found.owner;
+  ev.time = newStart; ev.endTime = newEnd;
+  await saveNativeMeetingEvents(owner);
+  if(ev.shared) await mirrorMeetingToPartner(owner, ev, false);
+  await loadAllEvents();
+  render();
+}
+function renderGridCalendarView(mountEl, rangeStart, dayCount){
+  dayCount = dayCount || 7;
+  const totalHours = GRID_END_HOUR - GRID_START_HOUR;
+  const gridHeight = totalHours * GRID_HOUR_PX;
+  const today = todayStr();
+
+  // Compact on-the-hour label ("4 AM" not "4:00 AM") — the grid's time
+  // column only ever shows whole hours, so the ":00" was just noise that
+  // made the label wrap onto two lines in a narrow column.
+  function gridHourLabel(h){
+    let hh = h%12; if(hh===0) hh=12;
+    return hh+' '+(h>=12?'PM':'AM');
+  }
+  let timeLabels = '';
+  for(let h=GRID_START_HOUR; h<GRID_END_HOUR; h++){
+    timeLabels += '<div class="cal-timelabel" style="top:'+((h-GRID_START_HOUR)*GRID_HOUR_PX)+'px;">'+gridHourLabel(h)+'</div>';
+  }
+
+  let headHtml = '<div class="cal-daylabel"></div>';
+  let colsHtml = '';
+  for(let i=0;i<dayCount;i++){
+    const d = addDays(rangeStart, i);
+    const dd = new Date(d+'T00:00:00');
+    const isToday = d === today;
+    // A one-line Panchang/Auspicious summary under the date, instead of
+    // separate checklist toggles that don't do much in a grid of timed
+    // blocks (neither has a real clock time to place on the timeline).
+    const tithi = getTithiInfo(d);
+    const festList = festivalList(d);
+    const ausp = auspiciousInfo(d);
+    let subBits = [];
+    if(festList.length) subBits.push(festList[0]);
+    else if(tithi) subBits.push(tithi.name);
+    if(ausp) subBits.push('☀️');
+    const subLine = subBits.length ? '<div class="cal-daylabel-sub" title="'+escapeHtml(subBits.join(' · '))+'">'+escapeHtml(subBits.join(' · '))+'</div>' : '';
+    headHtml += '<div class="cal-daylabel '+(isToday?'today':'')+'"><div>'+WEEKDAY_NAMES[dd.getDay()].slice(0,3)+' '+dd.getDate()+'</div>'+subLine+'</div>';
+
+    // Only keep events with a real, parseable start time — anything
+    // else can't be placed on a timeline and, left in, used to collapse
+    // to the same top:0 spot and pile up unreadably.
+    const dayEvents = eventsFor(d).filter(function(e){ return e.time && !isNaN(toMinutes(e.time)); });
+
+    // Lay overlapping blocks out side-by-side in lanes (Google-Calendar
+    // style) instead of stacking every block full-width on top of each
+    // other, which is what made a packed day look like a single garbled
+    // blob. Blocks that don't overlap anything else still get the full
+    // column width.
+    const items = dayEvents.map(function(e){
+      const s = toMinutes(e.time);
+      const dur = e.endTime && toMinutes(e.endTime)>s ? toMinutes(e.endTime)-s : 45;
+      return {e:e, start:s, end:s+dur};
+    }).sort(function(a,b){ return a.start-b.start || a.end-b.end; });
+    const groups = [];
+    items.forEach(function(item){
+      const g = groups.find(function(gr){ return gr.some(function(o){ return o.start < item.end && item.start < o.end; }); });
+      if(g) g.push(item); else groups.push([item]);
+    });
+    let mergedAny = true;
+    while(mergedAny){
+      mergedAny = false;
+      for(let gi=0; gi<groups.length && !mergedAny; gi++){
+        for(let gj=gi+1; gj<groups.length; gj++){
+          const overlaps = groups[gi].some(function(a){ return groups[gj].some(function(b){ return a.start<b.end && b.start<a.end; }); });
+          if(overlaps){ groups[gi] = groups[gi].concat(groups[gj]); groups.splice(gj,1); mergedAny = true; break; }
+        }
+      }
+    }
+    groups.forEach(function(group){
+      const laneEnds = [];
+      group.forEach(function(item){
+        let lane = 0;
+        while(laneEnds[lane]!==undefined && laneEnds[lane] > item.start) lane++;
+        laneEnds[lane] = item.end;
+        item.lane = lane;
+      });
+      const laneCount = laneEnds.length;
+      group.forEach(function(item){ item.laneCount = laneCount; });
+    });
+
+    // Every block gets a readable 20px-ish minimum height even if its real
+    // duration is only a few minutes — but that floor must never push a
+    // block's bottom edge past where the NEXT full-width block starts, or
+    // two short back-to-back blocks (five-minute "quick review", say,
+    // followed immediately by the next one) end up overlapping and their
+    // text reads as one garbled line, which is exactly the bug reported.
+    // Full-width (laneCount===1) items are the ones that actually share a
+    // column with whatever comes right after them, so walk them backwards
+    // and remember each one's cap: the pixel top of the next full-width
+    // item after it.
+    items.forEach(function(item){
+      const startMin = item.start - GRID_START_HOUR*60;
+      item.top = Math.max(0,(startMin/60))*GRID_HOUR_PX;
+    });
+    let nextFullWidthTop = null;
+    for(let idx=items.length-1; idx>=0; idx--){
+      const it = items[idx];
+      it.capBottom = (it.laneCount||1)===1 ? nextFullWidthTop : null;
+      if((it.laneCount||1)===1) nextFullWidthTop = it.top;
+    }
+
+    let blocksHtml = '';
+    items.forEach(function(item){
+      const e = item.e;
+      const startMin = item.start - GRID_START_HOUR*60;
+      const durMin = item.end - item.start;
+      if(startMin+durMin < 0 || startMin > totalHours*60) return;
+      const top = item.top;
+      const desired = Math.max(20, (durMin/60)*GRID_HOUR_PX);
+      // Nudge 1px down from the true top and leave a 1px seam before
+      // whatever's capping this block, so back-to-back blocks always show
+      // a visible gap instead of touching edge-to-edge.
+      const available = item.capBottom!=null ? Math.max(0, item.capBottom - top) : desired;
+      const height = Math.max(3, Math.min(desired, available) - 2);
+      const laneCount = item.laneCount||1;
+      const laneWidth = 100/laneCount;
+      const posStyle = laneCount>1
+        ? 'top:'+(top+1)+'px;left:calc('+(item.lane*laneWidth)+'% + 2px);width:calc('+laneWidth+'% - 4px);'
+        : 'top:'+(top+1)+'px;left:2px;right:2px;';
+      const isNative = !!e.nativeId;
+      const editAttr = isNative ? ' data-editnative="'+e.nativeId+'"' : '';
+      const handles = isNative ? '<div class="cal-resize-handle top" data-resize="top"></div><div class="cal-resize-handle bottom" data-resize="bottom"></div>' : '';
+      const linkIcon = e.meetingLink ? '<a class="cal-block-link" href="'+escapeHtml(e.meetingLink)+'" target="_blank" rel="noopener" onclick="event.stopPropagation()" title="Open link">🔗</a>' : '';
+      const taskTitles = (e.linkedTasks||[]).map(function(lt){ return lt.title; }).join(', ');
+      // Multiple tasks can link to the same block, but there's only room
+      // for one small icon here — it opens the first; the full list is
+      // still in the tooltip, and every one of them is a separate link in
+      // the agenda/list view below.
+      const firstLinkedTask = (e.linkedTasks&&e.linkedTasks.length) ? e.linkedTasks[0] : null;
+      const taskIcon = firstLinkedTask ? '<a class="cal-block-link cal-block-task" href="todo.html?task='+encodeURIComponent(firstLinkedTask.id)+'&profile='+encodeURIComponent(activeCalendarProfile)+'" onclick="event.stopPropagation()" title="Linked task: '+escapeHtml(taskTitles)+'">📋</a>' : '';
+      // This grid is often packed with genuinely tiny blocks (a 5-minute
+      // "Travel home" wedged between two other things) — no amount of
+      // squeezing lets 11.5px text render inside a 3-6px-tall box, and
+      // trying to anyway is exactly what was showing up as illegible grey
+      // smudge fighting with the block below it. Below ~15px, skip the
+      // label entirely: just a thin colored tick, full title on hover.
+      const tooLowToLabel = height < 15;
+      const titleHtml = tooLowToLabel ? '' : '<div class="cb-title">'+escapeHtml(e.title)+'</div>';
+      const tinyAttr = tooLowToLabel ? ' title="'+escapeHtml(e.title)+'"' : '';
+      blocksHtml += '<div class="cal-block'+(isNative?' cal-block-native':'')+(tooLowToLabel?' cal-block-tiny':'')+'" style="height:'+height+'px;'+posStyle+'border-left-color:'+e.color+';background:'+e.color+(tooLowToLabel?'55':'22')+';color:'+e.color+';"'+editAttr+tinyAttr+'>'+titleHtml+(tooLowToLabel?'':linkIcon+taskIcon)+handles+'</div>';
+    });
+    if(isToday){
+      const now = new Date();
+      const nowMin = now.getHours()*60+now.getMinutes();
+      if(nowMin >= GRID_START_HOUR*60 && nowMin <= GRID_END_HOUR*60){
+        const nowTop = ((nowMin-GRID_START_HOUR*60)/60)*GRID_HOUR_PX;
+        blocksHtml += '<div class="cal-now-line" style="top:'+nowTop+'px;"></div>';
+      }
+    }
+    colsHtml += '<div class="cal-daycol '+(isToday?'today':'')+'" style="height:'+gridHeight+'px;" data-daycol="'+d+'">'+blocksHtml+'</div>';
+  }
+
+  const colTemplate = dayCount===1 ? '58px minmax(280px,1fr)' : '58px repeat('+dayCount+',minmax(84px,1fr))';
+  const minWidth = dayCount===1 ? '0' : '680px';
+  mountEl.innerHTML = '<div class="cal-wrap"><div class="cal-grid" style="grid-template-columns:'+colTemplate+';min-width:'+minWidth+';">'+
+    headHtml+
+    '<div class="cal-timecol" style="height:'+gridHeight+'px;">'+timeLabels+'</div>'+
+    colsHtml+
+    '</div></div>';
+
+  const cols = Array.prototype.slice.call(mountEl.querySelectorAll('.cal-daycol'));
+  function colForClientX(clientX){
+    let best = cols[0], bestDist = Infinity;
+    cols.forEach(function(c){
+      const r = c.getBoundingClientRect();
+      if(clientX >= r.left && clientX < r.right){ best = c; bestDist = -1; }
+      else{ const dist = Math.abs(clientX - (r.left+r.width/2)); if(dist < bestDist){ best = c; bestDist = dist; } }
+    });
+    return best;
+  }
+
+  // Click an existing meeting to edit it — suppressed right after a drag
+  // or resize so releasing the mouse doesn't also pop the edit modal.
+  mountEl.querySelectorAll('[data-editnative]').forEach(function(block){
+    block.addEventListener('click', function(e){
+      if(block.dataset.suppressClick){ delete block.dataset.suppressClick; return; }
+      e.stopPropagation();
+      const found = findNativeEvent(block.dataset.editnative);
+      if(found) openEventModal(found);
+    });
+  });
+
+  // Drag an existing meeting to move it — across times and across days.
+  mountEl.querySelectorAll('.cal-block-native').forEach(function(block){
+    block.addEventListener('mousedown', function(e){
+      if(e.target.closest('.cal-resize-handle')) return;
+      e.preventDefault();
+      const startCol = block.closest('.cal-daycol');
+      const startRect = startCol.getBoundingClientRect();
+      const blockStartTop = parseFloat(block.style.top);
+      const grabOffsetY = e.clientY - startRect.top - blockStartTop;
+      const startX = e.clientX, startPageY = e.clientY;
+      let dragging = false, currentCol = startCol;
+      const onMove = function(me){
+        if(!dragging && (Math.abs(me.clientX-startX)>4 || Math.abs(me.clientY-startPageY)>4)){
+          dragging = true; block.style.zIndex = 20; block.style.opacity = '0.85';
+        }
+        if(!dragging) return;
+        currentCol = colForClientX(me.clientX);
+        const rect = currentCol.getBoundingClientRect();
+        let newTop = me.clientY - rect.top - grabOffsetY;
+        newTop = Math.round(newTop/GRID_SNAP_PX)*GRID_SNAP_PX;
+        newTop = Math.max(0, Math.min(newTop, gridHeight - parseFloat(block.style.height)));
+        if(currentCol !== block.parentElement) currentCol.appendChild(block);
+        block.style.top = newTop+'px';
+      };
+      const onUp = function(){
+        document.removeEventListener('mousemove', onMove);
+        document.removeEventListener('mouseup', onUp);
+        block.style.zIndex = ''; block.style.opacity = '';
+        if(!dragging) return;
+        block.dataset.suppressClick = '1';
+        const newDate = currentCol.dataset.daycol;
+        const startMinutes = GRID_START_HOUR*60 + Math.round(parseFloat(block.style.top)/GRID_HOUR_PX*60);
+        applyNativeMove(block.dataset.editnative, newDate, minutesToTime(startMinutes));
+      };
+      document.addEventListener('mousemove', onMove);
+      document.addEventListener('mouseup', onUp);
+    });
+  });
+
+  // Drag the top/bottom edge of a meeting to resize it (change start or
+  // end time) — literal Google-Calendar-style gridline adjustment.
+  mountEl.querySelectorAll('.cal-resize-handle').forEach(function(handle){
+    handle.addEventListener('mousedown', function(e){
+      e.preventDefault(); e.stopPropagation();
+      const block = handle.closest('.cal-block');
+      const col = block.closest('.cal-daycol');
+      const rect = col.getBoundingClientRect();
+      const edge = handle.dataset.resize;
+      const startTop = parseFloat(block.style.top);
+      const startHeight = parseFloat(block.style.height);
+      const onMove = function(me){
+        const y = Math.max(0, Math.min(gridHeight, me.clientY - rect.top));
+        if(edge==='bottom'){
+          let newHeight = Math.round((y-startTop)/GRID_SNAP_PX)*GRID_SNAP_PX;
+          newHeight = Math.max(GRID_SNAP_PX, newHeight);
+          block.style.height = newHeight+'px';
+        } else {
+          let newTop = Math.round(y/GRID_SNAP_PX)*GRID_SNAP_PX;
+          newTop = Math.min(newTop, startTop+startHeight-GRID_SNAP_PX);
+          block.style.top = newTop+'px';
+          block.style.height = (startTop+startHeight-newTop)+'px';
+        }
+      };
+      const onUp = function(){
+        document.removeEventListener('mousemove', onMove);
+        document.removeEventListener('mouseup', onUp);
+        block.dataset.suppressClick = '1';
+        const newTop = parseFloat(block.style.top);
+        const newHeight = parseFloat(block.style.height);
+        const startMinutes = GRID_START_HOUR*60 + Math.round(newTop/GRID_HOUR_PX*60);
+        const endMinutes = Math.min(1439, startMinutes + Math.round(newHeight/GRID_HOUR_PX*60));
+        applyNativeResize(block.dataset.editnative, minutesToTime(startMinutes), minutesToTime(endMinutes));
+      };
+      document.addEventListener('mousemove', onMove);
+      document.addEventListener('mouseup', onUp);
+    });
+  });
+
+  // Drag-to-create on empty grid space.
+  cols.forEach(function(col){
+    let dragEl = null, startY = 0;
+    col.addEventListener('mousedown', function(e){
+      if(e.target.closest('.cal-block')) return;
+      const rect = col.getBoundingClientRect();
+      startY = e.clientY - rect.top;
+      dragEl = document.createElement('div');
+      dragEl.className = 'cal-dragsel';
+      dragEl.style.top = startY+'px';
+      dragEl.style.height = '2px';
+      col.appendChild(dragEl);
+      const onMove = function(me){
+        const y = Math.max(0, me.clientY - rect.top);
+        const top = Math.min(startY, y), h = Math.abs(y-startY);
+        dragEl.style.top = top+'px';
+        dragEl.style.height = h+'px';
+      };
+      const onUp = function(me){
+        document.removeEventListener('mousemove', onMove);
+        document.removeEventListener('mouseup', onUp);
+        const rect2 = col.getBoundingClientRect();
+        const endY = Math.max(0, me.clientY - rect2.top);
+        const top = Math.min(startY, endY);
+        if(dragEl) dragEl.remove();
+        const startMinutes = GRID_START_HOUR*60 + Math.round(top/GRID_HOUR_PX*60/15)*15;
+        openEventModal(null, col.dataset.daycol, minutesToTime(startMinutes));
+      };
+      document.addEventListener('mousemove', onMove);
+      document.addEventListener('mouseup', onUp);
+    });
+  });
+}
+
+/* =====================================================================
+   INIT / NAV
+===================================================================== */
+let activeView = 'month';
+let activeDate = todayStr();
+// Grid (a real drag/resize Google-Calendar-style week view) is the
+// default; Classic (the original Month/Week/Day/Agenda tabs, plus the
+// Panchang-aware aggregation) stays one click away via the toggle.
+let calendarMode = 'grid';
+try{ const v = localStorage.getItem('cal-mode'); if(v==='classic'||v==='grid') calendarMode = v; }catch(e){}
+// Within Grid mode, a Week/Day sub-toggle — Week (default) shows the
+// usual 7-day timeline; Day narrows it to just activeDate, for days
+// that need room to arrange things without six other columns crowding it.
+let gridDayMode = false;
+try{ gridDayMode = localStorage.getItem('cal-grid-daymode')==='1'; }catch(e){}
+function setGridDayMode(v){
+  gridDayMode = v;
+  try{ localStorage.setItem('cal-grid-daymode', v?'1':'0'); }catch(e){}
+  render();
+}
+function applyModeUI(){
+  document.getElementById('mode-grid-btn').classList.toggle('active', calendarMode==='grid');
+  document.getElementById('mode-classic-btn').classList.toggle('active', calendarMode==='classic');
+  document.getElementById('classic-view-tabs').style.display = calendarMode==='classic' ? '' : 'none';
+  document.getElementById('classic-top-controls').style.display = calendarMode==='classic' ? '' : 'none';
+  document.getElementById('grid-sidebar').style.display = calendarMode==='grid' ? '' : 'none';
+  document.getElementById('grid-topnav').style.display = calendarMode==='grid' ? '' : 'none';
+}
+function setCalendarMode(mode){
+  calendarMode = mode;
+  try{ localStorage.setItem('cal-mode', mode); }catch(e){}
+  applyModeUI();
+  render();
+}
+function setWhoBadge(){
+  const badge = document.getElementById('who-badge');
+  badge.innerHTML = '<span class="who-avatar av-'+(activeCalendarProfile==='Bhargav'?'b':'a')+'">'+activeCalendarProfile[0]+'</span><span class="who-name">'+activeCalendarProfile+'</span>';
+}
+// Jump straight to today's date (and, once the grid renders, straight to
+// the current ongoing time slot too — see scrollGridToNow()).
+function jumpToToday(){
+  activeDate = todayStr();
+  miniCalYM = null;
+  render();
+}
+function setDateTitle(text){
+  const a = document.getElementById('date-title'); if(a) a.textContent = text;
+  const b = document.getElementById('grid-date-title'); if(b) b.textContent = text;
+  const c = document.getElementById('grid-top-date-title'); if(c) c.textContent = text;
+}
+function scrollGridToNow(){
+  requestAnimationFrame(function(){
+    const wrap = document.querySelector('.cal-wrap');
+    if(!wrap) return;
+    const now = new Date();
+    const nowMin = now.getHours()*60+now.getMinutes();
+    const offsetMin = Math.max(0, nowMin - GRID_START_HOUR*60);
+    const top = Math.max(0, (offsetMin/60)*GRID_HOUR_PX - wrap.clientHeight/3);
+    wrap.scrollTop = top;
+  });
+}
+
+/* ---- Grid mode's left sidebar: +Schedule a meeting, a mini month
+   picker to jump dates, the Week/Day sub-toggle + prev/Today/next nav,
+   and the source checklist ("My calendars"-style) all in one place so
+   the grid itself isn't crowded with controls above it. ---- */
+let miniCalYM = null; // {y,m} being browsed; null = follow activeDate's month
+function currentMiniYM(){
+  if(miniCalYM) return miniCalYM;
+  const d = new Date(activeDate+'T00:00:00');
+  return {y:d.getFullYear(), m:d.getMonth()};
+}
+function renderMiniMonthHtml(){
+  const ym = currentMiniYM(), y = ym.y, m = ym.m;
+  const first = new Date(y,m,1);
+  const startOffset = first.getDay();
+  const daysInMonth = new Date(y,m+1,0).getDate();
+  const today = todayStr();
+  let cells = ['S','M','T','W','T','F','S'].map(function(w){ return '<div class="mini-wd">'+w+'</div>'; }).join('');
+  for(let i=0;i<startOffset;i++) cells += '<div class="mini-day empty"></div>';
+  for(let d=1; d<=daysInMonth; d++){
+    const dateStr = ymd(y, m+1, d);
+    const cls = ['mini-day'];
+    if(dateStr===today) cls.push('is-today');
+    if(dateStr===activeDate) cls.push('is-selected');
+    cells += '<div class="'+cls.join(' ')+'" data-miniday="'+dateStr+'">'+d+'</div>';
+  }
+  return '<div class="mini-cal"><div class="mini-cal-head"><button type="button" id="mini-prev">‹</button><div class="mini-cal-title">'+MONTH_NAMES[m]+' '+y+'</div><button type="button" id="mini-next">›</button></div><div class="mini-cal-grid">'+cells+'</div></div>';
+}
+function renderSidebarFilterListHtml(){
+  // Panchang and Auspicious never have a real clock time, so they never
+  // showed up as grid blocks anyway — they get their own compact line
+  // under each day's date instead (see renderGridCalendarView) rather
+  // than a checkbox here that didn't do anything.
+  return FILTER_DEFS.filter(function(f){ return f.key!=='hindu' && f.key!=='auspicious'; }).map(function(f){
+    const on = activeFilters.has(f.key);
+    return '<label class="filter-check-row"><input type="checkbox" data-sbfilter="'+f.key+'" '+(on?'checked':'')+'><span class="filter-swatch" style="background:'+f.color+';"></span><span>'+f.icon+' '+f.label+'</span></label>';
+  }).join('');
+}
+function renderGridSidebar(){
+  const sidebar = document.getElementById('grid-sidebar');
+  if(!sidebar) return;
+  sidebar.innerHTML =
+    '<button type="button" class="sidebar-create-btn" id="sb-new-event-btn">+ Schedule a meeting</button>'+
+    renderMiniMonthHtml()+
+    '<div class="grid-sidebar-card">'+
+      '<div class="grid-daytoggle" id="grid-daytoggle"><button type="button" id="gdt-week" class="'+(gridDayMode?'':'active')+'">Week</button><button type="button" id="gdt-day" class="'+(gridDayMode?'active':'')+'">Day</button></div>'+
+      '<div class="date-nav">'+
+        '<button class="nav-arrow" id="grid-nav-prev">‹</button>'+
+        '<div class="date-title" id="grid-date-title" style="font-size:12.5px;"></div>'+
+        '<div class="nav-btns"><button class="nav-today" id="grid-nav-today-btn">Today</button><button class="nav-arrow" id="grid-nav-next">›</button></div>'+
+      '</div>'+
+    '</div>'+
+    '<div class="grid-sidebar-card">'+
+      '<div class="sidebar-section-label">My calendars</div>'+
+      '<div class="sidebar-filter-list">'+renderSidebarFilterListHtml()+'</div>'+
+    '</div>'+
+    '<div class="grid-sidebar-card" id="sb-cat-card"><div class="sidebar-section-label">Schedule categories</div><div id="sb-cat-mount"></div></div>'+
+    '<button type="button" class="grid-manage-link" id="sb-manage-birthdays-btn">🔔 Manage reminders</button>';
+
+  renderCatBars();
+  sidebar.querySelector('#sb-new-event-btn').onclick = function(){ openEventModal(null, activeDate); };
+  sidebar.querySelector('#sb-manage-birthdays-btn').onclick = openBirthdaysPanel;
+  sidebar.querySelector('#mini-prev').onclick = function(){ const ym = currentMiniYM(); let m=ym.m-1,y=ym.y; if(m<0){m=11;y--;} miniCalYM={y:y,m:m}; renderGridSidebar(); };
+  sidebar.querySelector('#mini-next').onclick = function(){ const ym = currentMiniYM(); let m=ym.m+1,y=ym.y; if(m>11){m=0;y++;} miniCalYM={y:y,m:m}; renderGridSidebar(); };
+  sidebar.querySelectorAll('[data-miniday]').forEach(function(cell){
+    cell.addEventListener('click', function(){ activeDate = cell.dataset.miniday; miniCalYM = null; render(); });
+  });
+  sidebar.querySelectorAll('[data-sbfilter]').forEach(function(cb){
+    cb.addEventListener('change', function(){
+      const key = cb.dataset.sbfilter;
+      if(activeFilters.has(key)) activeFilters.delete(key); else activeFilters.add(key);
+      saveFilters(); renderFilterToggles(); render();
+    });
+  });
+  sidebar.querySelector('#grid-nav-prev').onclick = function(){ navigate(-1); };
+  sidebar.querySelector('#grid-nav-next').onclick = function(){ navigate(1); };
+  sidebar.querySelector('#grid-nav-today-btn').onclick = jumpToToday;
+  sidebar.querySelector('#gdt-week').onclick = function(){ setGridDayMode(false); };
+  sidebar.querySelector('#gdt-day').onclick = function(){ setGridDayMode(true); };
+}
+
+auth.onAuthStateChanged(async function(user){
+  currentUser = user;
+  if(!user){ if(window.self!==window.top) return; window.location.href = '../index.html'; return; }
+  detectActiveProfile();
+  loadFilters();
+  SchedCats.init({
+    filterKey:'cal-cat-hidden',
+    save:function(obj){ return jdoc('users/'+currentUser.uid+'/schedule-profiles/'+activeCalendarProfile+'/data/categories').set({json: JSON.stringify(obj)}); },
+    getActivities:function(){ const d=((window.scheduleTemplates||{})[activeCalendarProfile])||{}; const out=[]; Object.keys(d).forEach(function(k){ (d[k]||[]).forEach(function(b){ const l=b&&(b.activity||b.title||b.name||b.label); if(l) out.push(l); }); }); return out; },
+    onChange:function(){ renderCatBars(); render(); }
+  });
+  await loadAllEvents();
+  await loadReminders();
+  renderBirthdayBanner();
+  document.getElementById('loading-gate').style.display = 'none';
+  document.getElementById('app-wrap').style.display = 'block';
+  renderFilterToggles();
+  document.getElementById('view-month-btn').onclick = function(){ showView('month'); };
+  document.getElementById('view-week-btn').onclick = function(){ showView('week'); };
+  document.getElementById('view-day-btn').onclick = function(){ showView('day'); };
+  document.getElementById('view-agenda-btn').onclick = function(){ showView('agenda'); };
+  document.getElementById('nav-prev').onclick = function(){ navigate(-1); };
+  document.getElementById('nav-next').onclick = function(){ navigate(1); };
+  document.getElementById('nav-today-btn').onclick = jumpToToday;
+  document.getElementById('gtn-prev').onclick = function(){ navigate(-1); };
+  document.getElementById('gtn-next').onclick = function(){ navigate(1); };
+  document.getElementById('gtn-today').onclick = jumpToToday;
+  document.getElementById('manage-birthdays-btn').onclick = openBirthdaysPanel;
+  document.getElementById('new-event-btn').onclick = function(){ openEventModal(null, activeDate); };
+  document.getElementById('mode-grid-btn').onclick = function(){ setCalendarMode('grid'); };
+  document.getElementById('mode-classic-btn').onclick = function(){ setCalendarMode('classic'); };
+  setWhoBadge();
+  document.getElementById('who-badge').onclick = function(){
+    activeCalendarProfile = activeCalendarProfile==='Bhargav' ? 'Anusha' : 'Bhargav';
+    try{ localStorage.setItem('hub-active-profile', activeCalendarProfile); }catch(e){}
+    setWhoBadge();
+    document.body.dataset.profile = activeCalendarProfile.toLowerCase();
+  if(window.HubTheme) HubTheme.applyHubTheme(activeCalendarProfile, {base:'--accent',deep:'--accent-deep',soft:'--accent-soft'}).catch(()=>{});
+    render();
+  };
+  applyModeUI();
+  render();
+});
+function showView(v){ activeView = v; ['month','week','day','agenda'].forEach(function(x){ document.getElementById('view-'+x+'-btn').classList.toggle('active', x===v); }); render(); }
+function navigate(dir){
+  if(calendarMode==='grid'){ activeDate = addDays(activeDate, gridDayMode ? dir : dir*7); render(); return; }
+  if(activeView==='month'){ const d = new Date(activeDate+'T00:00:00'); d.setMonth(d.getMonth()+dir); activeDate = ymd(d.getFullYear(), d.getMonth()+1, 1); }
+  else if(activeView==='week'){ activeDate = addDays(activeDate, dir*7); }
+  else { activeDate = addDays(activeDate, dir); }
+  render();
+}
+function render(){
+  const mount = document.getElementById('view-mount');
+  if(calendarMode==='grid'){
+    renderGridSidebar();
+    mount.innerHTML = '';
+    if(gridDayMode){
+      setDateTitle(fmtLong(activeDate));
+      renderGridCalendarView(mount, activeDate, 1);
+    } else {
+      const weekStart = addDays(activeDate, -weekdayOf(activeDate));
+      const weekEnd = addDays(weekStart, 6);
+      setDateTitle(fmtShort(weekStart)+' – '+fmtShort(weekEnd));
+      renderGridCalendarView(mount, weekStart, 7);
+    }
+    scrollGridToNow();
+    return;
+  }
+  const d = new Date(activeDate+'T00:00:00');
+  if(activeView==='month'){
+    setDateTitle(MONTH_NAMES[d.getMonth()]+' '+d.getFullYear());
+    mount.innerHTML = ''; mount.appendChild(renderMonthView(d.getFullYear(), d.getMonth()));
+  } else if(activeView==='week'){
+    const weekStart = addDays(activeDate, -d.getDay());
+    const weekEnd = addDays(weekStart, 6);
+    setDateTitle(fmtShort(weekStart)+' – '+fmtShort(weekEnd));
+    mount.innerHTML = '';
+    mount.appendChild(renderWeekView(weekStart));
+  } else if(activeView==='day'){
+    setDateTitle(fmtLong(activeDate));
+    mount.innerHTML = renderDayView(activeDate);
+  } else {
+    setDateTitle('Next 30 days');
+    mount.innerHTML = renderAgendaView();
+  }
+  mount.querySelectorAll('[data-editnative]').forEach(function(pill){
+    pill.addEventListener('click', function(e){
+      e.stopPropagation();
+      const found = findNativeEvent(pill.dataset.editnative);
+      if(found) openEventModal(found);
+    });
+  });
+}
+function fmtShort(dateStr){ const d = new Date(dateStr+'T00:00:00'); return MONTH_NAMES[d.getMonth()].slice(0,3)+' '+d.getDate(); }
+function fmtLong(dateStr){ const d = new Date(dateStr+'T00:00:00'); return WEEKDAY_NAMES[d.getDay()]+', '+MONTH_NAMES[d.getMonth()]+' '+d.getDate()+', '+d.getFullYear(); }
+
+function auspiciousInfo(dateStr){
+  const t = AUSPICIOUS_TIMING[dateStr];
+  if(!t) return null;
+  return { raw:t, label: t==='All day' ? 'Auspicious all day' : 'Auspicious '+t.toLowerCase() };
+}
+function festivalList(dateStr){
+  const f = FESTIVALS[dateStr];
+  if(!f) return [];
+  return Array.isArray(f) ? f : [f];
+}
+// Reminders — birthdays, anniversaries, or anything else recurring
+// yearly, grouped into categories you can create or remove yourself.
+// Existing birthdays get migrated into a "Birthday" category automatically
+// the first time this loads, so nothing already saved gets lost.
+const DEFAULT_REMINDER_CATEGORIES = [
+  { id:'cat-birthday', name:'Birthday' },
+  { id:'cat-anniversary', name:'Anniversary' }
+];
+let reminderCategories = [];
+let reminders = [];
+function remindersDoc(key){ return db.collection('users').doc(currentUser.uid).collection('apps').doc('calendar').collection('data').doc(key); }
+async function loadReminders(){
+  try{
+    const catDoc = await remindersDoc('reminderCategories').get();
+    const remDoc = await remindersDoc('reminders').get();
+    const hasNewData = catDoc.exists || remDoc.exists;
+    reminderCategories = (catDoc.exists && catDoc.data().json) ? JSON.parse(catDoc.data().json) : [];
+    reminders = (remDoc.exists && remDoc.data().json) ? JSON.parse(remDoc.data().json) : [];
+    if(!hasNewData){
+      // First time on the new system — pull in whatever was saved under
+      // the old birthdays-only storage, if anything, tagged as Birthday.
+      const oldDoc = await remindersDoc('birthdays').get();
+      const oldBirthdays = (oldDoc.exists && oldDoc.data().json) ? JSON.parse(oldDoc.data().json) : [];
+      reminderCategories = JSON.parse(JSON.stringify(DEFAULT_REMINDER_CATEGORIES));
+      reminders = oldBirthdays.map(function(b){ return { id:b.id, name:b.name, month:b.month, day:b.day, categoryId:'cat-birthday' }; });
+      await saveReminderCategories();
+      await saveReminders();
+    } else if(!reminderCategories.length){
+      reminderCategories = JSON.parse(JSON.stringify(DEFAULT_REMINDER_CATEGORIES));
+      await saveReminderCategories();
+    }
+  }catch(e){ reminderCategories = JSON.parse(JSON.stringify(DEFAULT_REMINDER_CATEGORIES)); reminders = []; }
+}
+async function saveReminders(){ try{ await remindersDoc('reminders').set({json: JSON.stringify(reminders)}); }catch(e){} }
+async function saveReminderCategories(){ try{ await remindersDoc('reminderCategories').set({json: JSON.stringify(reminderCategories)}); }catch(e){} }
+function categoryName(id){ const c = reminderCategories.find(function(x){ return x.id===id; }); return c ? c.name : 'Reminder'; }
+function categoryIcon(id){ const n = categoryName(id).toLowerCase(); if(n==='birthday') return '🎂'; if(n==='anniversary') return '💍'; return '🔔'; }
+// A Feb 29 birthday/anniversary is celebrated on Feb 28 in years that have no Feb 29, instead of vanishing for three years out of four.
+function reminderHitsDate(r, dateStr){
+  const mm = dateStr.slice(5,7), dd = dateStr.slice(8,10);
+  if(r.month===mm && r.day===dd) return true;
+  if(r.month==='02' && r.day==='29' && mm==='02' && dd==='28'){
+    const y = Number(dateStr.slice(0,4));
+    return !((y%4===0 && y%100!==0) || y%400===0);
+  }
+  return false;
+}
+function reminderEventsFor(dateStr){
+  return reminders.filter(function(r){ return reminderHitsDate(r, dateStr); })
+    .map(function(r){ return { title: r.name+(categoryName(r.categoryId)==='Birthday'?"'s Birthday":' — '+categoryName(r.categoryId))+' '+categoryIcon(r.categoryId), source:'Birthdays', color:'#E0567E', person:'', time:'' }; });
+}
+// All-day banner — shown regardless of which view/date you're looking at,
+// for as long as today matches a reminder.
+function renderBirthdayBanner(){
+  const el = document.getElementById('birthday-banner');
+  const todays = reminders.filter(function(r){ return reminderHitsDate(r, todayStr()); });
+  if(!todays.length){ el.style.display = 'none'; el.innerHTML=''; return; }
+  const lines = todays.map(function(r){
+    const cat = categoryName(r.categoryId);
+    if(cat==='Birthday') return '🎉 Happy Birthday, '+escapeHtml(r.name)+'! 🎂';
+    if(cat==='Anniversary') return '💍 Happy Anniversary, '+escapeHtml(r.name)+'!';
+    return '🔔 '+escapeHtml(r.name)+' — '+escapeHtml(cat)+' today';
+  });
+  el.innerHTML = lines.join(' · ');
+  el.style.display = 'block';
+}
+// Days in a month for yearly reminders (Feb counts 29 — leap-day birthdays are allowed).
+function reminderDaysInMonth(m){ return [31,29,31,30,31,30,31,31,30,31,30,31][m-1]||31; }
+let editingReminderId = null;
+function openBirthdaysPanel(){
+  const mount = document.getElementById('modal-mount') || (function(){ const m = document.createElement('div'); m.id='modal-mount'; document.body.appendChild(m); return m; })();
+  function categoryOptionsHtml(selectedId){
+    return reminderCategories.map(function(c){ return '<option value="'+c.id+'" '+(c.id===selectedId?'selected':'')+'>'+escapeHtml(c.name)+'</option>'; }).join('');
+  }
+  function draw(){
+    // Ascending date order — soonest month/day first, regardless of when
+    // each reminder was added.
+    const sorted = reminders.slice().sort(function(a,b){ return (a.month+a.day)<(b.month+b.day)?-1:1; });
+    mount.innerHTML = '<div class="bday-overlay" id="bday-overlay"><div class="bday-modal">'+
+      '<h3>🔔 Reminders</h3>'+
+      '<div style="margin-bottom:12px;"><div style="font-size:11px;font-weight:700;color:var(--text-faint);text-transform:uppercase;letter-spacing:0.03em;margin-bottom:6px;">Categories</div>'+
+      '<div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px;">'+reminderCategories.map(function(c){
+        return '<span style="display:inline-flex;align-items:center;gap:5px;background:var(--surface-alt);border-radius:999px;padding:4px 6px 4px 10px;font-size:12px;font-weight:600;">'+escapeHtml(c.name)+
+          '<button type="button" data-delcat="'+c.id+'" style="background:var(--danger-soft,#FCE1E5);color:var(--danger,#F0596B);border:none;border-radius:50%;width:18px;height:18px;font-size:10px;line-height:1;">✕</button></span>';
+      }).join('')+'</div>'+
+      '<div style="display:flex;gap:6px;"><input type="text" id="newcat-input" placeholder="New category (e.g. Work deadline)" style="flex:1;font-size:12.5px;padding:7px 9px;border-radius:8px;border:1px solid var(--border);"><button type="button" id="newcat-add-btn" style="background:var(--surface-alt);color:var(--text-soft);border:none;border-radius:8px;padding:0 12px;font-size:12px;font-weight:700;">Add</button></div>'+
+      '</div>'+
+      '<div class="bday-add-row" style="flex-wrap:wrap;">'+
+        '<input type="text" id="bday-name-input" placeholder="Name / title" style="flex:1 1 100%;margin-bottom:6px;">'+
+        '<input type="number" id="bday-month-input" placeholder="MM" min="1" max="12">'+
+        '<input type="number" id="bday-day-input" placeholder="DD" min="1" max="31">'+
+        '<select id="bday-cat-select" style="flex:1;font-size:12.5px;padding:8px;border-radius:9px;border:1px solid var(--border);">'+categoryOptionsHtml(reminderCategories[0]?reminderCategories[0].id:'')+'</select>'+
+        '<select id="bday-circle-select" title="C = close person (gift reminder a week ahead + wish). O = outside person (night-before reminder + wish)." style="font-size:12.5px;padding:8px;border-radius:9px;border:1px solid var(--border);"><option value="O">O · Outside</option><option value="C">C · Close</option></select>'+
+        '<button type="button" id="bday-add-btn">Add</button>'+
+      '</div>'+
+      (sorted.length ? sorted.map(function(r){ return reminderRowHtml(r, categoryOptionsHtml); }).join('') : '<p style="color:var(--text-faint);font-size:12.5px;text-align:center;">No reminders added yet.</p>')+
+      '<button type="button" class="bday-close-btn" id="bday-close-btn">Done</button>'+
+    '</div></div>';
+
+    document.getElementById('newcat-add-btn').addEventListener('click', async function(){
+      const name = document.getElementById('newcat-input').value.trim();
+      if(!name) return;
+      reminderCategories.push({ id:'cat-'+Date.now(), name:name });
+      await saveReminderCategories();
+      draw();
+    });
+    mount.querySelectorAll('[data-delcat]').forEach(function(btn){
+      btn.addEventListener('click', async function(){
+        const catId = btn.dataset.delcat;
+        const affected = reminders.filter(function(r){ return r.categoryId===catId; }).length;
+        if(affected && !confirm('Delete this category? '+affected+' reminder'+(affected===1?'':'s')+' using it will move to "'+reminderCategories[0].name+'".')) return;
+        reminderCategories = reminderCategories.filter(function(c){ return c.id!==catId; });
+        if(!reminderCategories.length) reminderCategories = JSON.parse(JSON.stringify(DEFAULT_REMINDER_CATEGORIES));
+        reminders.forEach(function(r){ if(r.categoryId===catId) r.categoryId = reminderCategories[0].id; });
+        await saveReminderCategories(); await saveReminders();
+        draw(); render(); renderBirthdayBanner();
+      });
+    });
+    document.getElementById('bday-add-btn').addEventListener('click', async function(){
+      const name = document.getElementById('bday-name-input').value.trim();
+      const month = parseInt(document.getElementById('bday-month-input').value,10);
+      const day = parseInt(document.getElementById('bday-day-input').value,10);
+      const categoryId = document.getElementById('bday-cat-select').value;
+      if(!name || !month || !day || month<1 || month>12 || day<1 || day>31) return;
+      if(day>reminderDaysInMonth(month)){ alert('Month '+month+' only has '+reminderDaysInMonth(month)+' days.'); return; }
+      reminders.push({ id:'rem-'+Date.now(), name:name, month:String(month).padStart(2,'0'), day:String(day).padStart(2,'0'), categoryId:categoryId, circle:(document.getElementById('bday-circle-select').value==='C'?'C':'O') });
+      await saveReminders();
+      draw(); render(); renderBirthdayBanner();
+    });
+    mount.querySelectorAll('[data-delbday]').forEach(function(btn){
+      btn.addEventListener('click', async function(){
+        reminders = reminders.filter(function(r){ return r.id!==btn.dataset.delbday; });
+        await saveReminders();
+        draw(); render(); renderBirthdayBanner();
+      });
+    });
+    mount.querySelectorAll('[data-editbday]').forEach(function(btn){
+      btn.addEventListener('click', function(){
+        editingReminderId = editingReminderId===btn.dataset.editbday ? null : btn.dataset.editbday;
+        draw();
+      });
+    });
+    mount.querySelectorAll('[data-savebday]').forEach(function(btn){
+      btn.addEventListener('click', async function(){
+        const r = reminders.find(function(x){ return x.id===btn.dataset.savebday; });
+        const row = mount.querySelector('[data-bdayeditrow="'+r.id+'"]');
+        const name = row.querySelector('.be-name').value.trim();
+        const month = parseInt(row.querySelector('.be-month').value,10);
+        const day = parseInt(row.querySelector('.be-day').value,10);
+        const categoryId = row.querySelector('.be-cat').value;
+        if(!name || !month || !day || month<1 || month>12 || day<1 || day>31) return;
+      if(day>reminderDaysInMonth(month)){ alert('Month '+month+' only has '+reminderDaysInMonth(month)+' days.'); return; }
+        r.name = name; r.month = String(month).padStart(2,'0'); r.day = String(day).padStart(2,'0'); r.categoryId = categoryId; r.circle = (row.querySelector('.be-circle').value==='C'?'C':'O');
+        editingReminderId = null;
+        await saveReminders();
+        draw(); render(); renderBirthdayBanner();
+      });
+    });
+    document.getElementById('bday-close-btn').addEventListener('click', function(){ mount.innerHTML=''; editingReminderId=null; });
+    document.getElementById('bday-overlay').addEventListener('click', function(e){ if(e.target.id==='bday-overlay'){ mount.innerHTML=''; editingReminderId=null; } });
+  }
+  draw();
+}
+function reminderRowHtml(r, categoryOptionsHtml){
+  if(editingReminderId===r.id){
+    return '<div class="bday-row" data-bdayeditrow="'+r.id+'" style="flex-direction:column;align-items:stretch;gap:6px;">'+
+      '<div style="display:flex;gap:6px;"><input type="text" class="be-name" value="'+escapeHtml(r.name)+'" style="flex:2;font-size:12.5px;padding:6px 8px;border-radius:7px;border:1px solid var(--border);">'+
+      '<input type="number" class="be-month" value="'+parseInt(r.month,10)+'" min="1" max="12" style="flex:1;font-size:12.5px;padding:6px 6px;border-radius:7px;border:1px solid var(--border);">'+
+      '<input type="number" class="be-day" value="'+parseInt(r.day,10)+'" min="1" max="31" style="flex:1;font-size:12.5px;padding:6px 6px;border-radius:7px;border:1px solid var(--border);"></div>'+
+      '<div style="display:flex;gap:6px;"><select class="be-cat" style="flex:1;font-size:12.5px;padding:6px;border-radius:7px;border:1px solid var(--border);">'+categoryOptionsHtml(r.categoryId)+'</select>'+
+      '<select class="be-circle" style="font-size:12.5px;padding:6px;border-radius:7px;border:1px solid var(--border);"><option value="O"'+(r.circle==='C'?'':' selected')+'>O · Outside</option><option value="C"'+(r.circle==='C'?' selected':'')+'>C · Close</option></select></div>'+
+      '<div style="display:flex;gap:6px;"><button type="button" class="btn-mini primary" style="flex:1;" data-savebday="'+r.id+'">Save</button><button type="button" class="btn-mini ghost" style="flex:1;" data-editbday="'+r.id+'">Cancel</button></div>'+
+    '</div>';
+  }
+  return '<div class="bday-row"><div><div class="bd-name"><span class="bd-circ '+(r.circle==='C'?'c':'o')+'" title="'+(r.circle==='C'?'Close':'Outside')+'">'+(r.circle==='C'?'C':'O')+'</span> '+categoryIcon(r.categoryId)+' '+escapeHtml(r.name)+'</div><div class="bd-date">'+parseInt(r.month,10)+'/'+parseInt(r.day,10)+' every year · '+escapeHtml(categoryName(r.categoryId))+'</div></div>'+
+    '<div style="display:flex;gap:5px;"><button type="button" data-editbday="'+r.id+'" style="background:var(--surface-alt);color:var(--text-soft);">✎</button><button type="button" data-delbday="'+r.id+'">✕</button></div></div>';
+}
+// Every event source, filtered down to whichever circles are currently on.
+function eventsFor(dateStr){
+  let out = (eventsByDate[dateStr]||[]).filter(function(e){ return activeFilters.has((e.source||'').toLowerCase()); });
+  if(activeFilters.has('schedule')) out = out.concat(eventsForRecurringWeekday(dateStr));
+  if(activeFilters.has('birthdays')) out = out.concat(reminderEventsFor(dateStr));
+  if(activeFilters.has('meetings')) out = out.concat(nativeEventsForDate(dateStr));
+  // Chronological order — anything with a real time sorts by that time;
+  // untimed items (most chores, undated todos) stay grouped at the end,
+  // in their original order, so the day reads like an actual timeline.
+  const timed = out.filter(function(e){ return e.sortKey; }).sort(function(a,b){ return a.sortKey.localeCompare(b.sortKey); });
+  const untimed = out.filter(function(e){ return !e.sortKey; });
+  return timed.concat(untimed);
+}
+
+/* ---- MONTH VIEW ---- */
+function renderMonthView(year, month){
+  const el = document.createElement('div');
+  const first = new Date(year, month, 1);
+  const startOffset = first.getDay();
+  const daysInMonth = new Date(year, month+1, 0).getDate();
+  const prevDaysInMonth = new Date(year, month, 0).getDate();
+  const today = todayStr();
+
+  let cellsHtml = WEEKDAY_NAMES.map(function(w){ return '<div class="month-weekday">'+w.slice(0,3)+'</div>'; }).join('');
+  for(let i=0;i<startOffset;i++){
+    const dnum = prevDaysInMonth-startOffset+i+1;
+    const pm = month===0?11:month-1, py = month===0?year-1:year;
+    cellsHtml += monthCellHtml(ymd(py,pm+1,dnum), dnum, true, today);
+  }
+  for(let dnum=1;dnum<=daysInMonth;dnum++){
+    cellsHtml += monthCellHtml(ymd(year,month+1,dnum), dnum, false, today);
+  }
+  const totalCells = startOffset+daysInMonth;
+  const trailing = (7 - (totalCells % 7)) % 7;
+  for(let i=1;i<=trailing;i++){
+    const nm = month===11?0:month+1, ny = month===11?year+1:year;
+    cellsHtml += monthCellHtml(ymd(ny,nm+1,i), i, true, today);
+  }
+  el.innerHTML = '<div class="month-grid">'+cellsHtml+'</div>';
+  el.querySelectorAll('[data-daycell]').forEach(function(cell){
+    cell.addEventListener('click', function(){ activeDate = cell.dataset.daycell; showView('day'); });
+  });
+  return el;
+}
+function monthCellHtml(dateStr, dnum, otherMonth, today){
+  const showHindu = activeFilters.has('hindu');
+  const showAuspicious = activeFilters.has('auspicious');
+  const tithi = showHindu ? getTithiInfo(dateStr) : null;
+  const festList = showHindu ? festivalList(dateStr) : [];
+  const ausp = showAuspicious ? auspiciousInfo(dateStr) : null;
+  const evs = eventsFor(dateStr);
+  const badge = tithi && tithi.isAnchor ? '<span class="tithi-badge '+(tithi.name==='Amavasya'?'amavasya':'purnima')+'"></span>' : '';
+  const sunBadge = ausp ? '<span class="sun-badge" title="'+escapeHtml(ausp.label)+'">☀️</span>' : '';
+  const pills = evs.slice(0,3).map(function(e){
+    const tag = e.link ? 'a' : 'div';
+    const attrs = e.link ? ' href="'+escapeHtml(e.link)+'" target="_blank" rel="noopener" onclick="event.stopPropagation()"' : (e.nativeId ? ' onclick="event.stopPropagation()"' : '');
+    const editAttr = e.nativeId ? ' data-editnative="'+e.nativeId+'"' : '';
+    return '<'+tag+' class="cell-pill" style="background:'+e.color+'22;color:'+e.color+';display:block;text-decoration:none;"'+attrs+editAttr+'>'+escapeHtml(e.title)+'</'+tag+'>';
+  }).join('');
+  const more = evs.length>3 ? '<div class="cell-more">+'+(evs.length-3)+' more</div>' : '';
+  const festHtml = festList.length ? '<div class="cell-festival">'+escapeHtml(festList[0])+(festList.length>1?' <span class="cell-fest-more">+'+(festList.length-1)+'</span>':'')+'</div>' : '';
+  return '<div class="month-cell '+(otherMonth?'other-month':'')+' '+(dateStr===today?'is-today':'')+'" data-daycell="'+dateStr+'">'+
+    '<div class="cell-date">'+dnum+badge+sunBadge+'</div>'+
+    festHtml+
+    '<div class="cell-events">'+pills+more+'</div>'+
+  '</div>';
+}
+
+/* ---- WEEK VIEW ---- */
+function renderWeekView(weekStart){
+  const el = document.createElement('div');
+  const today = todayStr();
+  let html = '<div class="week-grid">';
+  for(let i=0;i<7;i++){
+    const dateStr = addDays(weekStart, i);
+    const d = new Date(dateStr+'T00:00:00');
+    const tithi = activeFilters.has('hindu') ? getTithiInfo(dateStr) : null;
+    const evs = eventsFor(dateStr);
+    html += '<div class="week-col '+(dateStr===today?'is-today':'')+'" data-daycell="'+dateStr+'">'+
+      '<div class="week-col-head"><div class="wd">'+WEEKDAY_NAMES[d.getDay()].slice(0,3)+'</div><div class="dn">'+d.getDate()+'</div></div>'+
+      (tithi ? '<div class="week-tithi">'+(tithi.isAnchor?tithi.name:tithi.paksha.slice(0,1)+' '+tithi.tithiNum)+'</div>' : '')+
+      evs.map(function(e){
+        const tag = e.link ? 'a' : 'div';
+        const attrs = e.link ? ' href="'+escapeHtml(e.link)+'" target="_blank" rel="noopener" onclick="event.stopPropagation()"' : (e.nativeId ? ' onclick="event.stopPropagation()"' : '');
+        const editAttr = e.nativeId ? ' data-editnative="'+e.nativeId+'"' : '';
+        return '<'+tag+' class="week-event" style="background:'+e.color+'22;color:'+e.color+';display:block;text-decoration:none;"'+attrs+editAttr+'>'+escapeHtml(e.title)+'</'+tag+'>';
+      }).join('')+
+    '</div>';
+  }
+  html += '</div>';
+  el.innerHTML = html;
+  el.querySelectorAll('[data-daycell]').forEach(function(cell){
+    cell.addEventListener('click', function(){ activeDate = cell.dataset.daycell; showView('day'); });
+  });
+  return el;
+}
+
+function displayTime(t){
+  // Raw 24h "HH:MM" (e.g. from Todo's due time) gets formatted for display;
+  // anything else (like Schedule's already-formatted "2:30 PM – 3:00 PM"
+  // range) is shown as-is.
+  if(t && /^\d{1,2}:\d{2}$/.test(t)) return fmtScheduleTime(t);
+  return t;
+}
+function agendaRowHtml(e){
+  const tag = e.link ? 'a' : 'div';
+  const attrs = e.link ? ' href="'+escapeHtml(e.link)+'" target="_blank" rel="noopener"' : '';
+  const editAttr = e.nativeId ? ' data-editnative="'+e.nativeId+'"' : '';
+  const shownTime = e.displayTime || displayTime(e.time);
+  const linkHtml = e.meetingLink ? ' · <a href="'+escapeHtml(e.meetingLink)+'" target="_blank" rel="noopener" onclick="event.stopPropagation()">🔗 open link</a>' : '';
+  const taskHtml = (e.linkedTasks&&e.linkedTasks.length) ? ' · 📋 '+e.linkedTasks.map(function(lt){ return '<a href="todo.html?task='+encodeURIComponent(lt.id)+'&profile='+encodeURIComponent(activeCalendarProfile)+'" onclick="event.stopPropagation()">'+escapeHtml(lt.title)+'</a>'; }).join(', ') : '';
+  const extraMeta = (e.location?' · 📍'+escapeHtml(e.location):'')+linkHtml+taskHtml;
+  return '<'+tag+' class="agenda-row" style="text-decoration:none;color:inherit;"'+attrs+editAttr+'><div class="agenda-dot" style="background:'+e.color+';"></div>'+
+    '<div><div class="agenda-title">'+escapeHtml(e.title)+(e.link?' ↗':'')+'</div><div class="agenda-meta">'+e.source+(e.person?' · '+e.person:'')+(shownTime?' · '+shownTime:'')+extraMeta+'</div></div></'+tag+'>';
+}
+/* ---- DAY VIEW ---- */
+function renderDayView(dateStr){
+  const tithi = getTithiInfo(dateStr);
+  const festList = festivalList(dateStr);
+  const ausp = activeFilters.has('auspicious') ? auspiciousInfo(dateStr) : null;
+  const evs = eventsFor(dateStr);
+  let panchangHtml = '';
+  if(ausp){
+    panchangHtml += '<div class="panchang-box panchang-sun"><div class="panchang-sun-label">☀️ '+escapeHtml(ausp.label)+'</div></div>';
+  }
+  if(activeFilters.has('hindu') && (tithi || festList.length)){
+    panchangHtml += '<div class="panchang-box panchang-prominent">';
+    if(tithi){
+      panchangHtml += '<div class="panchang-tithi">🌙 '+tithi.paksha+' Paksha — '+tithi.name+'</div>'+(tithi.anchorName?'<div class="panchang-anchor">'+escapeHtml(tithi.anchorName)+'</div>':'');
+    }
+    if(festList.length){
+      panchangHtml += '<ul class="panchang-fest-list">'+festList.map(function(f){ return '<li>'+escapeHtml(f)+'</li>'; }).join('')+'</ul>';
+    }
+    panchangHtml += '</div>';
+  }
+
+  const evsHtml = evs.length ? evs.map(agendaRowHtml).join('') : '<div class="empty-note">Nothing scheduled — or everything\'s filtered out above.</div>';
+
+  return '<div class="day-card">'+panchangHtml+evsHtml+'</div>';
+}
+
+/* ---- AGENDA VIEW ---- */
+function renderAgendaView(){
+  let html = '';
+  let anyEvents = false;
+  const showHindu = activeFilters.has('hindu');
+  const showAuspicious = activeFilters.has('auspicious');
+  for(let i=0;i<30;i++){
+    const dateStr = addDays(todayStr(), i);
+    const evs = eventsFor(dateStr);
+    const tithi = showHindu ? getTithiInfo(dateStr) : null;
+    const festList = showHindu ? festivalList(dateStr) : [];
+    const ausp = showAuspicious ? auspiciousInfo(dateStr) : null;
+    if(!evs.length && !festList.length && !(tithi && tithi.isAnchor) && !ausp) continue;
+    anyEvents = true;
+    html += '<div class="agenda-daygroup">'+fmtLong(dateStr)+'</div>';
+    if(ausp) html += '<div class="agenda-row"><div class="agenda-dot" style="background:#F5A623;"></div><div><div class="agenda-title">☀️ '+escapeHtml(ausp.label)+'</div><div class="agenda-meta">Auspicious</div></div></div>';
+    festList.forEach(function(f){
+      html += '<div class="agenda-row"><div class="agenda-dot" style="background:var(--purnima);"></div><div><div class="agenda-title">'+escapeHtml(f)+'</div><div class="agenda-meta">Panchang</div></div></div>';
+    });
+    if(tithi && tithi.isAnchor) html += '<div class="agenda-row"><div class="agenda-dot" style="background:var(--amavasya);"></div><div><div class="agenda-title">'+escapeHtml(tithi.anchorName||tithi.name)+'</div><div class="agenda-meta">Panchang</div></div></div>';
+    evs.forEach(function(e){ html += agendaRowHtml(e); });
+  }
+  return anyEvents ? html : '<div class="empty-note">Nothing in the next 30 days.</div>';
+}
+
+} // end firebase-available guard
+</script>
+</body>
+</html>
