@@ -177,7 +177,10 @@ function applyTheme(){
   // mode is (to inherit the right structural rules, e.g. color-scheme and
   // the Insights dark palette), and its actual hues are layered on top as
   // inline custom properties, which win over the CSS block by specificity.
-  const pal=(t.mode&&t.mode.indexOf('palette-')===0)?THEME_PALETTES.find(p=>p.id===t.mode):null;
+  let pal=(t.mode&&t.mode.indexOf('palette-')===0)?THEME_PALETTES.find(p=>p.id===t.mode):null;
+  // The laptop's new look is always dark glass, so a light palette's dark text would vanish on it:
+  // there, use the same colour's Night version (same tint, light text). Phones keep the light one.
+  if(pal&&pal.mode==='light'&&document.documentElement.classList.contains('lap-look')){const dk=THEME_PALETTES.find(p=>p.id===pal.id.replace(/-light$/,'-dark'));if(dk)pal=dk}
   const SURFACE_PROPS=['--bg','--surface','--surface-soft','--line','--text','--muted','--faint','--ink','--shadow'];
   if(pal){
     document.documentElement.dataset.theme=pal.mode==='dark'?'dark':'light';
@@ -3017,7 +3020,7 @@ function pckModel(){
   const people=Object.keys(S.profiles).map(pid=>{
     const ms=S.meals.filter(m=>m.profileId===pid&&m.slot===sl),recs=[];
     ms.forEach(m=>(m.recipeIds||[]).forEach(id=>{const r=(S.recipes||[]).find(x=>x.id===id);if(r)recs.push(r)}));
-    let kc=0,pr=0;recs.forEach(r=>{try{const n=C.recipeServingN(S,r);kc+=n.calories;pr+=n.protein}catch(e){}});
+    let kc=0,pr=0;recs.forEach(r=>{try{const n=C.recipeServingN(S,r,pid);kc+=n.calories;pr+=n.protein}catch(e){}});
     return{pid,name:S.profiles[pid].name||pid,time:ms[0]&&ms[0].time,recs,kc,pr,has:ms.length>0};
   });
   return{S,C,slots,sl,people};
@@ -3030,6 +3033,7 @@ function pckPaint(el){
   const tabs='<div class="pck-tabs">'+m.slots.map(x=>'<button type="button" data-pslot="'+esc(x)+'" class="'+(x===m.sl?'on':'')+'">'+esc(x)+'</button>').join('')+'</div>';
   const cols=m.people.map(p=>{
     const recs=p.recs.map(r=>{
+      if(m.C.isPot&&m.C.isPot(r)){const g=Math.round(m.C.potPlateG(m.S,r,p.pid));return'<div class="pck-rec"><h5>'+esc(r.name)+' <span class="pck-pot-tag">From the pot</span></h5>'+(g?'<div class="pck-pot"><small>Serve</small><b>'+g+' g</b><small>cooked</small></div>':'<p class="muted-note">Big pot: add the cooked weight in Diet to see how much to serve.</p>')+'</div>'}
       const per=r.servings||1;
       const ing=(r.items||[]).map((it,i)=>{const f=m.C.food(m.S,it.foodId),k=p.pid+'|'+r.id+'|'+i;
         return'<button type="button" class="pck-ing'+(PCK.done[k]?' done':'')+'" data-ptick="'+esc(k)+'"><i></i><span>'+esc(f?f.name:it.foodId)+'</span><b>'+q(it.qty/per)+' '+esc(it.unit||'')+'</b></button>'}).join('');

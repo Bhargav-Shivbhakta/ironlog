@@ -276,8 +276,9 @@ body.gv2 .live-name small{color:#8A90A0;font-size:12.5px}
 body.gv2 .live-btn{background:#23262D;color:#fff;font-size:14px;padding:11px 13px;border-radius:12px}
 body.gv2 .live-btn.primary{background:var(--tint,#C6F24E);color:#0B0C0F}
 body:has(.live-session).gv2 .gv-rest{bottom:calc(86px + env(safe-area-inset-bottom))}
-body.gv2 .save-bar{bottom:96px}
-body.gv2 #view-train{padding-bottom:190px}
+body.gv2 .save-bar{bottom:0;padding:12px 0 calc(10px + env(safe-area-inset-bottom));background:linear-gradient(0deg,var(--bg) 78%,transparent)}
+body.gv2.live-on .save-bar,body.gv2:has(.live-session) .save-bar{bottom:calc(78px + env(safe-area-inset-bottom));padding-bottom:8px}
+body.gv2 #view-train{padding-bottom:24px}
 
 /* ===== Laptop layout (wider than 700px): one rail only - Training tabs run across the top ===== */
 .gv-sess{display:none}

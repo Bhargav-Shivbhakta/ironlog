@@ -37,9 +37,17 @@
   C.sum=function(S,items){return (items||[]).reduce(function(a,x){var n=C.nutrients(S,x);NUM.forEach(function(k){a[k]+=n[k]});return a},C.zero())};
   C.scaled=function(n,f){var o={};Object.keys(n||{}).forEach(function(k){o[k]=n[k]*f});return o};
   C.add=function(list){return list.reduce(function(a,n){NUM.forEach(function(k){a[k]+=(n&&n[k])||0});return a},C.zero())};
-  C.recipeServingN=function(S,r){return C.scaled(C.sum(S,r.items),1/(r.servings||1))};
+  /* pot recipes: cooked once in a big pot, then each person gets a share of it */
+  C.isPot=function(r){return !!(r&&r.batch&&r.batch.on)};
+  C.potShare=function(S,r,pid){var b=(r&&r.batch)||{},ids=Object.keys((S&&S.profiles)||{});if(!pid||ids.indexOf(pid)<0)return 0;
+    if(b.split&&b.split[pid]!=null&&!isNaN(+b.split[pid]))return Math.max(0,Math.min(100,+b.split[pid]))/100;
+    var cal=function(p){var g=((S.profiles[p]||{}).goals||{});return +g.calories||2000},tot=ids.reduce(function(a,p){return a+cal(p)},0);return tot?cal(pid)/tot:1/ids.length};
+  C.potMeals=function(r){var b=(r&&r.batch)||{};return Math.max(1,(+b.days||1)*(+b.perDay||1))};
+  C.servingsFor=function(S,r,pid){if(C.isPot(r)&&pid){var sh=C.potShare(S,r,pid);return sh>0?C.potMeals(r)/sh:Infinity}return r.servings||1};
+  C.potPlateG=function(S,r,pid){if(!C.isPot(r))return 0;return (+r.batch.cookedG||0)*C.potShare(S,r,pid)/C.potMeals(r)};
+  C.recipeServingN=function(S,r,pid){return C.scaled(C.sum(S,r.items),1/C.servingsFor(S,r,pid))};
   C.recipesForMeal=function(S,m){var seen={};return (m.recipeIds||[]).map(function(id){return (S.recipes||[]).find(function(r){return r.id===id})}).filter(Boolean).filter(function(r){if(!r.group)return true;if(seen[r.group])return false;seen[r.group]=true;return true})};
-  C.mealNutrition=function(S,m){return C.add(C.recipesForMeal(S,m).map(function(r){return C.recipeServingN(S,r)}))};
+  C.mealNutrition=function(S,m){return C.add(C.recipesForMeal(S,m).map(function(r){return C.recipeServingN(S,r,m.profileId)}))};
   C.hasChoice=function(S,m){var c={};(m.recipeIds||[]).forEach(function(id){var r=(S.recipes||[]).find(function(x){return x.id===id});if(r&&r.group)c[r.group]=(c[r.group]||0)+1});return Object.keys(c).some(function(k){return c[k]>=2})};
   /* the fixed recipes of a choice meal and, per group, the options you can pick from */
   C.choices=function(S,m){
@@ -53,7 +61,7 @@
     return Object.keys(map).map(function(k){return{foodId:k,qty:map[k]}});
   };
   C.mergeConsumption=function(groups){var m={};groups.reduce(function(a,b){return a.concat(b)},[]).forEach(function(x){m[x.foodId]=(m[x.foodId]||0)+x.qty});return Object.keys(m).map(function(k){return{foodId:k,qty:m[k]}})};
-  C.consumptionOfRecipes=function(S,rs){return C.mergeConsumption(rs.map(function(r){return C.consumptionFor(S,r.items,1/(r.servings||1))}))};
+  C.consumptionOfRecipes=function(S,rs,pid){return C.mergeConsumption(rs.map(function(r){return C.consumptionFor(S,r.items,1/C.servingsFor(S,r,pid))}))};
   C.applyConsumption=function(S,list,dir){(list||[]).forEach(function(c){var f=C.food(S,c.foodId);if(f&&f.groceryProductId)return;var p=(S.pantry||[]).find(function(x){return x.foodId===c.foodId});if(p)p.qty=Math.max(0,p.qty+dir*c.qty)})};
 
   /* ---- plan for a day (same rule as Diet's seedPlanForDate) ---- */
@@ -64,7 +72,7 @@
     var names={};S.diary.filter(function(x){return x.date===date&&x.profileId===pid}).forEach(function(x){names[x.name]=1});
     S.meals.filter(function(m){return m.profileId===pid&&!names[m.name]}).forEach(function(m,i){
       var rs=C.recipesForMeal(S,m);if(!rs.length)return;
-      S.diary.push({id:'d-plan-'+Date.now()+'-'+i+'-'+Math.random().toString(36).slice(2,6),date:date,profileId:pid,mealId:m.id,name:m.name,detail:rs.map(function(r){return r.name}).join(' + '),icon:m.icon,servings:1,recipeServings:1,nutrition:C.mealNutrition(S,m),status:'planned',note:'',consumption:C.consumptionOfRecipes(S,rs),quick:true});
+      S.diary.push({id:'d-plan-'+Date.now()+'-'+i+'-'+Math.random().toString(36).slice(2,6),date:date,profileId:pid,mealId:m.id,name:m.name,detail:rs.map(function(r){return r.name}).join(' + '),icon:m.icon,servings:1,recipeServings:1,nutrition:C.mealNutrition(S,m),status:'planned',note:'',consumption:C.consumptionOfRecipes(S,rs,pid),quick:true});
     });
     return true;
   };
@@ -115,11 +123,11 @@
   C.logMealWith=function(S,pid,date,mealId,recipes){
     var m=(S.meals||[]).find(function(x){return x.id===mealId});if(!m||!recipes.length)return{jobs:[],changed:false};
     C.seedPlan(S,pid,date);
-    var n=C.add(recipes.map(function(r){return C.recipeServingN(S,r)})),c=C.consumptionOfRecipes(S,recipes);
+    var n=C.add(recipes.map(function(r){return C.recipeServingN(S,r,pid)})),c=C.consumptionOfRecipes(S,recipes,pid);
     C.applyConsumption(S,c,-1);
     (S.diary||[]).filter(function(x){return x.date===date&&x.profileId===pid&&x.name===m.name&&x.status==='planned'&&!x.replaced}).forEach(function(x){x.replaced=true});
     var id='d-'+Date.now()+'-'+Math.random().toString(36).slice(2,5);
-    S.diary.push({id:id,date:date,profileId:pid,mealId:m.id,name:m.name,detail:recipes.map(function(r){return r.name}).join(' + '),icon:m.icon,servings:1,recipeServings:1,nutrition:n,status:'eaten',note:'',consumption:c});
+    S.diary.push({id:id,date:date,profileId:pid,mealId:m.id,name:m.name,detail:recipes.map(function(r){return C.isPot(r)?r.name+' ('+Math.round(C.potPlateG(S,r,pid))+' g)':r.name}).join(' + '),icon:m.icon,servings:1,recipeServings:1,nutrition:n,status:'eaten',note:'',consumption:c});
     return{jobs:recipes.map(function(r){return{items:r.items}}),changed:true,id:id};
   };
   C.undoLogMealWith=function(S,pid,date,mealId,id){

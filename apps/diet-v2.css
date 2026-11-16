@@ -225,3 +225,67 @@ th{font-size:12.5px!important}
 .command-icon{color:transparent}
 .result-box{color:var(--ink)!important;border:1px solid var(--line)}
 .result-box b{color:var(--green)!important}
+
+/* ===== v6: readable pop-ups ===== */
+.timeline-status.planned{background:#FCE8D5!important;color:#8A4A12!important}
+.modal .section-head{display:flex!important;flex-direction:row!important;align-items:flex-start!important;justify-content:space-between;gap:12px;flex-wrap:nowrap!important}
+.modal .section-head>div:first-child{flex:1 1 auto;min-width:0}
+.modal .section-head>.icon-btn,.modal .section-head>button:last-child{flex:none;width:40px;height:40px;border-radius:50%;background:var(--surface-alt)!important;display:grid;place-items:center;font-size:20px;margin:0}
+.ulog-tabs{display:flex!important}
+.ulog-tab{flex:1 1 auto;text-align:center}
+.navbar-wrap{box-sizing:border-box;max-width:100%!important}
+.navbar-wrap .nav{max-width:100%;box-sizing:border-box}
+#progress .card canvas{max-width:100%}
+#progress .history-table{display:block;overflow-x:auto;-webkit-overflow-scrolling:touch;white-space:nowrap}
+@media(max-width:900px){#progress .grid-2{grid-template-columns:1fr!important}}
+@media(max-width:700px){
+ .modal-backdrop{z-index:95!important;padding:10px!important}
+ .modal{max-height:calc(100dvh - 20px)!important;padding:18px!important}
+ .ulog-context{grid-template-columns:1fr!important}
+ .modal-grid>.field:has(select),.modal-grid>.field:has(input:not([type=number])),.modal-grid>.field:has(textarea){grid-column:1/-1}
+ .ulog-tab{padding:10px 6px!important;font-size:14.5px}
+ .ulog-tabs{padding:12px 4px 0!important;gap:2px!important}
+ .status-toggle{display:flex!important;width:100%;box-sizing:border-box}
+ .status-toggle button{flex:1;padding:9px 4px!important;min-width:0}
+}
+@media(max-width:380px){
+ .card{padding:16px!important}
+}
+/* big screens: let everything grow with the screen */
+@media(min-width:1600px){body.dv2{zoom:1.1}}
+@media(min-width:2100px){body.dv2{zoom:1.22}}
+
+/* ===== v7: big-pot recipes ===== */
+.dv-pot-tag{display:inline-block;background:var(--green2);color:var(--green);font:800 11.5px Inter,sans-serif;letter-spacing:.04em;text-transform:uppercase;border-radius:99px;padding:3px 9px;margin-left:6px;vertical-align:middle;white-space:nowrap}
+.dv-serve{background:var(--bg);border-radius:16px;padding:14px 16px;margin:10px 0 6px}
+.dv-serve .t{font-size:12.5px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+.dv-serve .big{font:800 36px Manrope,sans-serif;color:var(--ink);line-height:1.1;margin:3px 0}
+.dv-serve .big small{font-size:17px;color:var(--muted);font-weight:700}
+.dv-serve .m{font-size:14px;color:var(--muted);line-height:1.4}
+.dv-serve.none b{font-size:16px;color:var(--ink)}.dv-serve.none .btn{margin-top:10px}
+.dv-pot-in{margin-top:6px}.dv-pot-in summary{cursor:pointer;font-size:14px;color:var(--muted);font-weight:600;padding:6px 0}
+.dv-pot-in>div{font-size:14.5px;color:var(--muted);line-height:1.6}.dv-pot-in b{color:var(--ink)}
+.dv-potnote{margin-top:8px;font-size:14.5px}
+.dv-potbox{border:1px solid var(--line);border-radius:18px;padding:16px;margin-top:16px;background:#fff}
+.dv-potbox h3{font:800 17px Manrope,sans-serif;margin:0 0 4px;color:var(--ink)}
+.dv-potbox>.subtle{margin:0 0 12px}
+.dv-opt{display:flex;gap:12px;align-items:flex-start;border:1.5px solid var(--line);border-radius:15px;padding:12px 14px;margin-bottom:10px;cursor:pointer}
+.dv-opt input{position:absolute;opacity:0;pointer-events:none}
+.dv-opt .rd{width:20px;height:20px;border-radius:50%;border:2px solid #B9A99A;flex:none;margin-top:2px;box-sizing:border-box}
+.dv-opt.sel{border-color:var(--green);background:var(--green2)}.dv-opt.sel .rd{border:6px solid var(--green)}
+.dv-opt input:focus-visible+.rd{outline:2px solid var(--green);outline-offset:2px}
+.dv-opt b{display:block;font-size:15.5px;color:var(--ink)}.dv-opt span span{font-size:14px;color:var(--muted);line-height:1.4}
+.dv-potf{display:none;gap:12px;margin-top:6px}.dv-potbox.on .dv-potf{display:grid}
+.dv-unit{display:flex;align-items:center;gap:8px}.dv-unit .input{flex:1;min-width:0}.dv-unit b{color:var(--ink);font-size:15px}
+.dv-two{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.dv-splitbar{display:flex;gap:3px;height:12px;border-radius:9px;overflow:hidden;background:var(--surface-alt);margin:4px 0 6px}
+.dv-splitbar i{display:block;border-radius:9px}#dvSb1{background:#BE3C1E}#dvSb2{background:#A33A5E}
+#dvSplit{width:100%;accent-color:#BE3C1E;margin:2px 0}
+.dv-sl{display:flex;justify-content:space-between;font-size:14.5px;color:var(--ink)}
+.dv-sl .d{display:inline-block;width:10px;height:10px;border-radius:50%;margin:0 6px}.dv-sl .d.b{background:#BE3C1E}.dv-sl .d.a{background:#A33A5E}
+.dv-hint{font-size:13.5px;color:var(--muted);margin-top:4px}
+.dv-link{border:0;background:none;color:var(--green);font-weight:700;font-size:13.5px;padding:0 0 0 4px;cursor:pointer;text-decoration:underline}
+.dv-prev{background:var(--green2);border-radius:12px;padding:11px 13px;font-size:15px;color:var(--ink)}
+#recipeFormCard.dv-isPot .recipe-title-row .field:has(#servings){display:none}
+textarea.input{font-family:Inter,system-ui,sans-serif!important}
+.tag{font-size:12.5px!important}.eyebrow{font-size:12px!important}.macro-box span{font-size:12.5px!important}

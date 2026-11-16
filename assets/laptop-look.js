@@ -4,7 +4,7 @@
   var KEY='hub-lap-look',d=document.documentElement;
   function get(){try{return localStorage.getItem(KEY)||'new'}catch(e){return 'new'}}
   function set(v){try{localStorage.setItem(KEY,v)}catch(e){}}
-  function apply(){var wide=Math.min(window.innerWidth||9999,screen.width||9999)>700;d.classList.toggle('lap-look',wide&&get()==='new');paint()}
+  function apply(){var wide=Math.min(window.innerWidth||9999,screen.width||9999)>700,was=d.classList.contains('lap-look');d.classList.toggle('lap-look',wide&&get()==='new');paint();if(was!==d.classList.contains('lap-look')&&typeof window.applyTheme==='function'){try{window.applyTheme()}catch(e){}}}
   function paint(){var m=get();document.querySelectorAll('#lap-look-toggle button').forEach(function(b){b.classList.toggle('on',b.dataset.look===m)})}
   window.addEventListener('resize',apply);
   document.addEventListener('click',function(e){

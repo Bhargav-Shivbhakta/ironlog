@@ -316,3 +316,9 @@ html.lap-look body::before{content:"";position:fixed;z-index:-1;inset:0;backgrou
 
 /* the floating "+" add button in the title bar is removed on every screen (Ctrl+Shift+N still works) */
 .lap-titlebar .lt-add{display:none!important}
+/* Readability on the dark glass: secondary text a little brighter, coloured headings lighter */
+.lap-look #app-shell{--muted:color-mix(in srgb,var(--text) 80%,transparent);--faint:color-mix(in srgb,var(--text) 66%,transparent)}
+.lap-look .pck-rec h5{color:#FFB46B}
+.lap-look .pck-tabs button.on{color:#1A1206}
+.lap-look .ih-stat-label{color:rgba(255,255,255,.74)!important}
+.lap-look #hub-clock-date{color:rgba(255,255,255,.72)!important}
