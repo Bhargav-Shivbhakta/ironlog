@@ -1,0 +1,227 @@
+/* Diet: light cream + tomato. Every original control stays; only colours, type and placement change. */
+body{--bg:#FAF6F0;--panel:#FFFFFF;--ink:#221A16;--muted:#6B5D53;--line:#E9DDCC;--green:#BE3C1E;--green2:#FDEAE4;--lime:#FF8A6B;--orange:#E8731F;--red:#B3261E;--surface-alt:#F3ECE2;--shadow:0 10px 30px rgba(60,35,20,.07)}
+body[data-profile="anusha"]{--green:#A33A5E;--green2:#FBE9EF;--lime:#E58AA8}
+body{background:var(--bg)!important;color:var(--ink);font-size:15px}
+h1,h2,h3,h4,.brand,.stat b,.kcal,.big-cal,.ring-center b,.daynum,.score b,.plan-name,.meal-name,.food-name{color:var(--ink);font-family:Manrope,Inter,system-ui,sans-serif}
+.card,.day-card,.pantry-exact-row,.loading-card{background:var(--panel)!important;border:1px solid var(--line)!important;box-shadow:var(--shadow)!important;color:var(--ink)}
+.subtle,.muted,small,.tip,label{color:var(--muted)}
+.input,select,textarea,input:not([type=checkbox]):not([type=radio]):not([type=range]){background:#fff!important;color:var(--ink)!important;border:1px solid var(--line)!important;border-radius:12px;font-size:16px}
+input::placeholder,textarea::placeholder{color:#9A8B7F}
+.btn{background:var(--green)!important;color:#fff!important;border:0!important;font-weight:700;border-radius:13px}
+.btn.secondary,.btn.ghost,button.secondary{background:var(--green2)!important;color:var(--green)!important;border:0!important}
+.btn.danger,button.danger{background:#FCE7E5!important;color:var(--red)!important}
+.eyebrow{color:var(--green)}
+table,th,td{border-color:var(--line)}
+.ring{background:conic-gradient(var(--green) 0deg,var(--green) var(--angle),#EFE5D7 var(--angle))}
+.ring:after{background:#fff}
+.meal-icon{background:var(--surface-alt)}
+.topbar-wrap{display:none}
+@media(max-width:700px){
+body{padding-bottom:0}
+.main{padding:14px 14px 110px;margin:0 auto}
+.navbar-wrap{display:none}
+}
+/* bottom bar */
+#dv-nav{position:fixed;left:0;right:0;bottom:0;z-index:80;display:flex;justify-content:space-around;background:rgba(255,255,255,.96);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);border-top:1px solid var(--line);padding:8px 4px calc(10px + env(safe-area-inset-bottom,0px))}
+#dv-nav button{background:none;border:0;color:#7A6B60;display:flex;flex-direction:column;align-items:center;gap:3px;font:600 12px Inter,sans-serif;min-width:60px;padding:2px 0}
+#dv-nav button svg{width:25px;height:25px}
+#dv-nav button.on{color:var(--green)}
+#dv-sheet{position:fixed;inset:0;z-index:90;background:rgba(34,26,22,.45);display:none;align-items:flex-end}
+#dv-sheet.on{display:flex}
+#dv-sheet .in{width:100%;background:var(--bg);border-radius:24px 24px 0 0;padding:14px 16px calc(24px + env(safe-area-inset-bottom,0px));max-height:84vh;overflow:auto}
+#dv-sheet .gr{width:40px;height:4px;border-radius:9px;background:#D9CBB8;margin:0 auto 12px}
+#dv-sheet h3{margin:8px 2px 8px;font:700 12px Inter,sans-serif;letter-spacing:.09em;text-transform:uppercase;color:var(--muted)}
+#dv-sheet .row{display:flex;align-items:center;gap:12px;width:100%;background:#fff;border:1px solid var(--line);color:var(--ink);border-radius:14px;padding:14px;margin-bottom:8px;font:600 16px Inter,sans-serif;text-decoration:none;text-align:left}
+#dv-sheet .row svg{width:22px;height:22px;color:var(--green);flex:none}
+#dv-sheet .seg{display:flex;gap:6px;background:#fff;border:1px solid var(--line);border-radius:14px;padding:4px;margin-bottom:8px}
+#dv-sheet .seg button{flex:1;border:0;border-radius:10px;padding:11px;font:600 15px Inter,sans-serif;background:none;color:var(--muted)}
+#dv-sheet .seg button.on{background:var(--green);color:#fff}
+@media(min-width:701px){#dv-nav{display:none}}
+/* Habits page */
+#habits .hb-wk{display:grid;grid-template-columns:repeat(7,1fr);gap:6px;margin:4px 0 12px}
+#habits .hb-wk div{background:var(--surface-alt);border-radius:12px;padding:8px 0;text-align:center;font:600 12px Inter,sans-serif;color:var(--muted)}
+#habits .hb-wk div b{display:block;font:700 19px Manrope,sans-serif;color:var(--ink)}
+#habits .hb-wk div.t{outline:2px solid var(--green)}
+#habits .hb-row{display:flex;align-items:center;gap:12px;padding:12px 0;border-top:1px solid var(--line)}
+#habits .hb-row:first-child{border-top:0}
+#habits .hb-ck{width:30px;height:30px;border-radius:50%;border:2px solid #BFAF9F;background:none;flex:none;display:grid;place-items:center;color:#fff;padding:0}
+#habits .hb-ck.on{background:var(--green);border-color:var(--green)}
+#habits .hb-ck.on::after{content:"";width:7px;height:13px;border:solid #fff;border-width:0 3px 3px 0;transform:rotate(45deg) translate(-1px,-1px)}
+#habits .hb-tx{flex:1;min-width:0}
+#habits .hb-tx b{display:block;font-size:16px}
+#habits .hb-tx span{font-size:13px;color:var(--muted)}
+#habits .hb-dots{display:flex;gap:4px;margin-top:5px}
+#habits .hb-dots i{width:11px;height:11px;border-radius:4px;background:#EADFD0}
+#habits .hb-dots i.on{background:var(--green)}
+#habits .hb-streak{font:700 18px Manrope,sans-serif;color:var(--green);white-space:nowrap}
+#habits .hb-add{display:flex;gap:8px;margin-top:12px}
+#habits .hb-add input{flex:1}
+#habits .hb-x{background:none;border:0;color:var(--muted);font-size:20px;padding:4px 8px}
+#habits .hb-empty{color:var(--muted);padding:6px 0 2px}
+
+/* hero card: light tomato tint instead of dark */
+body{--hero:#FFF0E8;--hero-2:#FFE2D5;--hero-line:#F2C5B3;--hero-text:#221A16;--hero-muted:#6B5D53}
+.diet-command{box-shadow:var(--shadow)!important;color:var(--ink)!important}
+.diet-command .command-label{font-size:12px;color:var(--green)}
+.diet-command .command-title{color:var(--ink)}
+.headline-stat b,.diet-command .ring-center b,.pair-row b{color:var(--ink)!important}
+.headline-stat span,.pair-row span,.diet-command .ring-center span{color:var(--muted)!important;font-size:12px}
+.diet-command .ring:after{background:#fff}
+.diet-command .ring{box-shadow:none}
+.diet-command .btn.ghost{color:var(--green)!important;background:#fff!important;border:1px solid var(--hero-line)!important}
+.diet-command .dash-toggle{background:#fff;border-color:var(--hero-line)}
+.diet-command .dash-toggle button{color:var(--muted)}
+.diet-command .dash-toggle button.active{background:var(--green);color:#fff}
+.diet-command .tip{background:#fff;color:var(--muted)}
+.dash-toggle,.subtabs,.status-toggle{background:var(--surface-alt)!important;border:0!important}
+.dash-toggle button.active,.subtabs button.active,.status-toggle button.active{background:var(--green)!important;color:#fff!important}
+.dash-toggle button,.subtabs button,.status-toggle button{color:var(--muted)!important}
+
+/* ===== Today: meal cards ===== */
+.card h2,.section-head h2{font-size:22px;letter-spacing:-.3px}
+.section-head .subtle,.card>.subtle{font-size:14px}
+.timeline-meal{grid-template-columns:50px 1fr!important;gap:12px 14px!important;padding:16px!important;border-radius:20px!important;border:1px solid var(--line)!important;background:#fff!important;box-shadow:none}
+.timeline-icon{width:50px!important;height:50px!important;border-radius:15px!important;background:var(--green2)!important;font-size:23px!important}
+.timeline-name,.timeline-name-link{font-size:17px!important;font-weight:800;text-decoration:none!important;text-align:left;color:var(--ink)}
+.timeline-meta{font-size:14px!important;color:var(--muted)!important;margin-top:2px}
+.entry-contents summary,.entry-amounts summary{font-size:14px!important;color:var(--muted)!important;padding:3px 0}
+.entry-contents-body,.amt-list{font-size:14px!important}
+.timeline-status{display:inline-block;font-size:12.5px!important;padding:4px 11px!important;border-radius:99px!important;margin-top:8px;font-weight:700;background:var(--green2);color:var(--green)}
+.timeline-status.eaten{background:#E8F3EA;color:#2F6B45}
+.timeline-status.skipped{background:#FCE7E5;color:var(--red)}
+.timeline-status.replaced{background:#E8EEF8;color:#2A5FA8}
+.entry-edit summary{font-size:13.5px!important;padding:7px 14px!important;background:var(--surface-alt)!important;color:var(--ink)!important}
+.timeline-actions{grid-column:1/-1;display:flex!important;flex-wrap:nowrap!important;width:100%;gap:8px!important;align-items:stretch;justify-self:stretch!important}
+.timeline-actions .btn,.timeline-actions button:not(.icon-btn){flex:1;min-width:0;padding:13px 10px!important;font-size:15px!important;border-radius:13px!important;font-weight:700;white-space:nowrap}
+.timeline-actions .btn.ghost,.timeline-actions .btn.secondary{background:var(--green2)!important;color:var(--green)!important}
+.timeline-actions .icon-btn,.timeline-actions button[title*="tar"],.timeline-actions button[onclick*="toggleQuick"]{flex:none!important;width:48px;background:var(--surface-alt)!important;color:var(--muted)!important;border:0!important;border-radius:13px!important;font-size:19px!important;padding:0!important}
+/* ===== macros ===== */
+#macrosCard .stat.pair-stat{border:1px solid var(--line)!important;border-top:1px solid var(--line)!important;background:#fff;border-radius:16px!important}
+#macrosCard .pair-row span{font-size:12.5px!important;color:var(--muted)!important}
+#macrosCard .pair-row b{font-size:20px!important;color:var(--ink)!important}
+#macrosCard .pair-row b small{font-size:12.5px!important}
+#macrosCard .pair-row .bar{background:#F0E6D8!important;height:8px!important;border-radius:9px}
+#macrosCard .pair-row .bar i{background:var(--green)!important;border-radius:9px}
+#macrosCard .stat.pair-stat:nth-child(2) .pair-row .bar i{background:#E9A23B!important}
+#macrosCard .stat.pair-stat:nth-child(3) .pair-row .bar i{background:#9A6B4B!important}
+#macrosCard .micro-head{font-size:13px!important;color:var(--muted)!important}
+#macrosCard .micro-strip .pair-row .bar i{background:#D98A6C!important}
+.rescue-card{background:var(--green2)!important;border:1px solid #F3C9B9!important;color:var(--ink)}
+.rescue-card span{font-size:14px!important;color:var(--muted)!important}
+.mode-toggle-row .subtle{font-size:13.5px!important}
+.dash-toggle button,.subtabs button,.status-toggle button{font-size:14px!important;padding:9px 16px!important}
+.date-pill{font-size:16px!important}
+.timeline-icon{align-self:start}
+.timeline-actions{flex-wrap:wrap!important}
+.timeline-actions>button:first-child,.timeline-actions>.btn:first-child{flex:1 1 100%!important;background:var(--green)!important;color:#fff!important;font-size:16px!important;padding:14px!important}
+.timeline-actions>button:nth-child(2){flex:1 1 0!important}
+.timeline-actions>button:nth-child(2):nth-last-child(3){flex:1 1 0!important}
+.command-icon{font-size:0!important;width:26px;height:26px;display:inline-block;background:var(--green);-webkit-mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M12 3c1 3 5 5 5 10a5 5 0 0 1-10 0c0-2 1-3 2-4 0 2 1 3 2 3 0-3-1-6 1-9z'/%3E%3C/svg%3E") center/contain no-repeat;mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M12 3c1 3 5 5 5 10a5 5 0 0 1-10 0c0-2 1-3 2-4 0 2 1 3 2 3 0-3-1-6 1-9z'/%3E%3C/svg%3E") center/contain no-repeat}
+@media(max-width:700px){
+.diet-command{padding:18px!important}
+.command-body{flex-direction:row!important;flex-wrap:nowrap!important;align-items:center!important;gap:16px!important}
+.diet-command .ring{width:128px!important;height:128px!important}
+.diet-command .ring:after{inset:12px!important}
+.diet-command .ring-center b{font-size:28px!important}
+.diet-command .ring-center span{font-size:11.5px!important}
+.command-headline{flex-direction:column!important;align-items:stretch!important;gap:8px!important;min-width:0!important;flex:1;width:auto!important}
+.headline-stat{flex-direction:row-reverse!important;justify-content:space-between;align-items:baseline;background:#fff;border-radius:12px;padding:8px 12px}
+.headline-stat b{font-size:20px!important}
+.headline-divider{display:none!important}
+.command-top{flex-direction:column!important;align-items:flex-start!important}
+}
+
+/* ===== all pages: type, links, tabs, tables ===== */
+a{color:var(--green)}
+.page .subtle,.subtle{font-size:14px}
+.section-head{flex-wrap:wrap;gap:10px}
+.integration-banner{background:var(--green2)!important;border:1px solid #F3C9B9!important;color:var(--ink)!important}
+.integration-banner *{font-size:14px}
+.integration-banner b{font-size:16px}
+.empty,.empty b{color:var(--ink)}
+.empty{font-size:15px}
+.stat{background:#fff}
+.btn.small{font-size:14px!important;padding:10px 14px!important}
+.icon-btn{color:var(--muted);font-size:20px}
+.saved-recipe h4{font-size:17px}
+.saved-recipe .method{font-size:14px}
+.method{background:var(--surface-alt);color:var(--ink)}
+@media(max-width:700px){
+.subtabs{display:flex!important;flex-wrap:nowrap!important;overflow-x:auto;width:100%;border-radius:16px!important;padding:4px!important;gap:4px;scrollbar-width:none;margin-bottom:14px}
+.subtabs::-webkit-scrollbar{display:none}
+.subtabs button{white-space:nowrap;flex:none}
+.saved-recipe{display:flex!important;flex-direction:column;align-items:stretch!important;gap:10px}
+.saved-recipe .library-tools{display:flex;gap:8px;width:100%}
+.saved-recipe .library-tools .btn{flex:1}
+.saved-recipe .library-tools .icon-btn{flex:none;width:46px;background:var(--surface-alt);border-radius:12px}
+.food-table thead{display:none}
+.food-table,.food-table tbody{display:block;width:100%}
+.food-table tr{display:grid!important;grid-template-columns:repeat(3,1fr);gap:8px 10px;background:#fff;border:1px solid var(--line);border-radius:16px;padding:14px;margin-bottom:10px}
+.food-table td{display:block;border:0!important;padding:0!important;text-align:left!important;font-size:16px;font-weight:700}
+.food-table td:nth-child(1){grid-column:1/-1;font-size:17px}
+.food-table td:nth-child(2){grid-column:1/-1;font-size:14px;font-weight:500;color:var(--muted)}
+.food-table td:nth-child(n+3):nth-child(-n+7)::before{display:block;font-size:11.5px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+.food-table td:nth-child(3)::before{content:"Calories"}
+.food-table td:nth-child(4)::before{content:"Protein"}
+.food-table td:nth-child(5)::before{content:"Carbs"}
+.food-table td:nth-child(6)::before{content:"Fat"}
+.food-table td:nth-child(7)::before{content:"Fiber"}
+.food-table td:nth-child(8){grid-column:1/-1}
+.table-scroll{overflow:visible}
+.card{padding:18px!important}
+.two-col{display:grid;grid-template-columns:1fr!important;gap:14px}
+}
+@media(max-width:700px){.food-table{min-width:0!important;width:100%!important;table-layout:auto}.food-table tr{width:100%;box-sizing:border-box}.table-scroll{overflow-x:hidden}}
+
+/* ===== Laptop (>=701px) ===== */
+.dv-ic{display:inline-flex}.dv-ic svg{width:18px;height:18px}
+@media(min-width:701px){
+.main{max-width:1320px;margin:0 auto;padding:26px 36px 56px!important}
+.navbar-wrap{position:static!important;background:none!important;border:0!important;box-shadow:none!important;padding:0 36px!important;max-width:1320px;margin:22px auto 0!important}
+.navbar-wrap .nav,.nav{display:inline-flex!important;flex-wrap:nowrap;gap:3px;background:#fff!important;border:1px solid var(--line)!important;padding:4px!important;border-radius:16px!important;box-shadow:none!important;overflow-x:auto}
+.nav button{border:0!important;background:none!important;border-radius:12px!important;padding:10px 16px!important;font-size:15px!important;font-weight:600;color:var(--muted)!important;display:inline-flex;align-items:center;gap:8px;white-space:nowrap}
+.nav button:hover{background:var(--surface-alt)!important;color:var(--ink)!important}
+.nav button.active{background:var(--green)!important;color:#fff!important}
+.diet-command{padding:26px 30px!important}
+.diet-command .ring{width:150px!important;height:150px!important}
+.diet-command .ring:after{inset:13px!important}
+.diet-command .ring-center b{font-size:34px!important}
+.command-title{font-size:22px!important}
+.headline-stat b{font-size:34px!important}
+.headline-stat span{font-size:13px!important}
+#dashDay{display:grid;grid-template-columns:minmax(0,1.5fr) minmax(0,1fr);gap:20px;align-items:start}
+#dashDay>.card{margin:0!important}
+.timeline-meal{grid-template-columns:56px minmax(0,1fr) auto!important;align-items:center}
+.timeline-actions{grid-column:auto!important;width:auto!important;flex-wrap:nowrap!important;justify-self:end!important}
+.timeline-actions>button:first-child,.timeline-actions>.btn:first-child{flex:none!important;padding:13px 20px!important;font-size:15px!important}
+.timeline-actions>button:nth-child(2){flex:none!important;padding:13px 20px!important}
+.cook-cols{gap:20px}
+.card{padding:24px!important}
+.two-col{gap:20px}
+}
+@media(min-width:701px){
+.timeline-meal{grid-template-columns:56px minmax(0,1fr)!important;align-items:start}
+.timeline-actions{grid-column:2!important;justify-self:start!important}
+.timeline-actions>button:first-child,.timeline-actions>.btn:first-child{padding:12px 22px!important}
+.timeline-actions>button:nth-child(2){padding:12px 22px!important}
+}
+.stat span,.stat small,.stat .label,.per-line span{font-size:14px}
+label{font-size:13.5px}
+th{font-size:12.5px!important}
+.food-table td{font-size:15px}
+.cook-ing{font-size:16px!important}.cook-both{font-size:15px!important;line-height:1.55;background:var(--surface-alt);border-radius:14px;padding:12px 14px}.cook-rec header b{font-size:16px!important}.cook-sum{font-size:14px!important}.cook-col h3{font-size:19px!important}.cook-method{font-size:15px!important}
+.amt-list div,.entry-contents-body{font-size:14px}
+.plan-card,.meal-modal{font-size:15px}
+
+/* contrast fixes (v4) */
+.totals{color:var(--ink)!important}
+.totals .eyebrow{color:var(--green)!important}
+.totals .big-cal,.totals .big-cal *,.totals b,.totals .per-serving *{color:var(--ink)!important}
+.totals .subtle{color:var(--muted)!important}
+.macro-box{background:var(--surface-alt)!important;border:1px solid var(--line)!important}
+.macro-box span{color:var(--muted)!important}
+.per-serving{border-top:1px solid var(--line)!important}
+.diet-command .command-label{color:var(--green)!important}
+.command-icon{color:transparent}
+.result-box{color:var(--ink)!important;border:1px solid var(--line)}
+.result-box b{color:var(--green)!important}

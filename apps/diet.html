@@ -128,6 +128,8 @@
 <style id="no-zoom">/* iOS zooms the page when a field under 16px gets focus and never zooms back out. Phones only; PC sizes untouched. */
 @media (max-width:700px){input:not([type=checkbox]):not([type=radio]):not([type=range]):not([type=color]):not([type=file]):not([type=hidden]):not(#_z),select:not(#_z),textarea:not(#_z){font-size:16px!important}
 html,body,button,a,input,select,textarea,label{touch-action:manipulation}}</style>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600;700&family=Barlow+Condensed:wght@500;600;700&display=swap">
+<link rel="stylesheet" href="diet-v2.css?v=5">
 </head>
 <body>
 <script>try{ if(window.self !== window.top) document.body.classList.add('embedded'); }catch(e){ document.body.classList.add('embedded'); }</script>
@@ -1682,5 +1684,8 @@ async function saveAmounts(){
   setTimeout(loadAiKey,1500);
 })();
 </script>
+<script src="diet-habits.js?v=1"></script>
+<script src="diet-v2.js?v=3"></script>
+<script src="../assets/ink.js?v=1" data-var="--green"></script>
 </body>
 </html>
